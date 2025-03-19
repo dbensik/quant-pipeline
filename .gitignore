@@ -1,0 +1,21 @@
+# Ignore data files
+/data/*.csv
+/data/*.parquet
+
+# Ignore OS junk
+.DS_Store
+
+# Ignore environment files
+.env
+__pycache__/
+*.pyc
+
+# Ignore virtual env folders if you use pipenv/venv later
+env/
+venv/
+
+# Ignore Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Optional: ignore VSCode settings
+.vscode/
