@@ -1,0 +1,6 @@
+pandas
+yfinance
+matplotlib
+seaborn
+fastapi
+uvicorn

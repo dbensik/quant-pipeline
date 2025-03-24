@@ -22,6 +22,7 @@ class DataPipeline:
         self.data.dropna(inplace=True)
         # Select relevant columns; adjust as needed
         self.data = self.data[['Open', 'High', 'Low', 'Close', 'Volume']]
+        print("Columns after cleaning:", self.data.columns)
         return self.data
 
     def save_data(self, db_path='../quant_pipeline.db', table_name='price_data'):
@@ -30,6 +31,11 @@ class DataPipeline:
         """
         if self.data is None:
             raise ValueError("No data to save. Run fetch_data() and clean_data() first.")
+        
+        # Flatten MultiIndex columns if present
+        if isinstance(self.data.columns, pd.MultiIndex):
+            # Option: use only the first level (e.g., 'Price') for column names
+            self.data.columns = self.data.columns.get_level_values('Price')
         
         # Add Ticker column to support multiple tickers
         self.data['Ticker'] = self.ticker
@@ -41,3 +47,21 @@ class DataPipeline:
         self.data.to_sql(table_name, conn, if_exists='replace', index=False)
         conn.close()
         print(f"Data saved to {db_path} in table '{table_name}'.")
+
+
+    def query_data(self, query, db_path='quant_pipeline.db'):
+        """
+        Executes a SQL query on the database and returns the result as a pandas DataFrame.
+        
+        Parameters:
+          query (str): The SQL query to execute.
+          db_path (str): Path to the SQLite database file.
+        
+        Returns:
+          pd.DataFrame: The query result.
+        """
+        print(f"Running query: {query}")
+        conn = sqlite3.connect(db_path)
+        df = pd.read_sql(query, conn)
+        conn.close()
+        return df
