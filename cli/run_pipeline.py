@@ -15,7 +15,7 @@ def main():
     pipeline.clean_data()
     pipeline.save_data(db_path="../quant_pipeline.db", table_name="price_data")
 
-    .# Run a sample query to get summary statistics (e.g., average closing price)
+    # Run a sample query to get summary statistics (e.g., average closing price)
     query = "SELECT AVG(Close) AS avg_close FROM price_data WHERE Ticker = 'SPY'"
     result = pipeline.query_data(query, db_path="../quant_pipeline.db")
     print("Average closing price:", result.iloc[0]['avg_close'])
