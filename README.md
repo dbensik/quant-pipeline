@@ -2,22 +2,91 @@
 
 ## Overview
 
-**Quant Pipeline** is an end-to-end project designed to fetch, clean, store, and analyze financial data using Python. The project integrates data collection from yfinance, data cleaning with pandas, visualization with matplotlib, and data storage in an SQLite database. An API layer (via FastAPI) and a CLI runner are also included to demonstrate a full-stack quantitative analysis workflow.
+**Quant Pipeline** 
+The project is organized into several key components:
+
+- **Alpha Models (alpha_models/):**  
+  Contains traditional strategy modules. This folder includes:
+  - `index_rebalancing.py`: Placeholder for an Index Rebalancing Strategy.
+  - `pairs_trading.py`: Placeholder for a Pairs Trading Strategy.
+  - `basket_trading.py`: Placeholder for a Basket Trading Strategy.
+
+- **API Layer (api_layer/):**  
+  Contains code to expose the pipeline’s functionality via an API (using FastAPI, for example).
+
+- **Backtesting (backtesting/):**  
+  Contains the backtesting framework (e.g., `backtester.py`) to simulate historical performance of the strategies.
+
+- **CLI (cli/):**  
+  Contains the CLI runner (`run_pipeline.py`) to execute the complete pipeline from the command line.
+
+- **Dashboard App (dashboard_app/):**  
+  Contains code for a dashboard interface to display key metrics and visualizations (e.g., using Dash or Streamlit).
+
+- **Data Pipeline (data_pipeline/):**  
+  Contains the core functionality for fetching and cleaning market data:
+  - `__init__.py`: Package initializer.
+  - `data_pipeline.py`: Defines the `DataPipeline` class for data fetching, cleaning, and saving.
+
+- **Data (data/):**  
+  An optional folder for storing additional data files if needed.
+
+- **Machine Learning Models (ml_models/):**  
+  Contains machine learning components for predictive modeling:
+  - `eda.py`: Updated module to load data from CSV or the database and perform EDA.
+  - `model_training.py`: Contains routines for training and evaluating ML models.
+  - `signal_generation.py`: Converts model outputs into actionable trading signals.
+
+- **Notebooks (notebooks/):**  
+  Contains Jupyter notebooks for interactive work and research:
+  - `01_data_collection_and_cleaning.ipynb`: Notebook for data fetching and cleaning.
+  - `02_alpha_research.ipynb`: Notebook for alpha research and signal generation.
+
+- **Project Setup Files:**
+  - `environment.yml`: Conda environment specification.
+  - `pyproject.toml`: PEP 517 configuration file for modern build systems.
+  - `setup.py`: Setup script for packaging the project.
+  - `.gitignore`: Specifies files and directories to exclude from version control.
+
+- **Database:**
+  - `quant_pipeline.db`: The SQLite database file (created at runtime).
+
+- **Tests (tests/):**  
+  An optional folder for unit tests to ensure your code behaves as expected.
+
 
 ## Folder Structure
 quant-pipeline/
+├── alpha_models/              # Traditional strategy modules
+│   ├── index_rebalancing.py      # New file for Index Rebalancing Strategy
+│   ├── pairs_trading.py          # New file for Pairs Trading Strategy
+│   └── basket_trading.py         # New file for Basket Trading Strategy
+├── api_layer/
+├── backtesting/               # Backtesting framework (optional)
+│   └── backtester.py
 ├── cli/
 │   └── run_pipeline.py         # CLI runner to execute the pipeline
+├── dashboard_app/
 ├── data_pipeline/
 │   ├── init.py             # Package initializer
 │   └── data_pipeline.py        # Contains the DataPipeline class
 ├── data/                       # (Optional) Folder for storing additional data files
+├── environment.yml
+├── ml_models/                 # Machine learning components
+│   ├── eda.py                  # Updated to load data from CSV or DB
+│   ├── model_training.py       # Contains model training routines
+│   └── signal_generation.py    # Converts model outputs to trading signals
 ├── notebooks/
 │   └── 01_data_collection_and_cleaning.ipynb  # Notebook for data fetching and cleaning
-├── tests/                      # (Optional) Unit tests for your project
-├── setup.py                    # Setup script for packaging the project
+|   └── 02_alpha_research.ipynp # Notebook for alpha and signal generation research
 ├── pyproject.toml              # PEP 517 configuration file
-└── README.md                   # This file
+├── quant_pipeline.db
+├── README.md                   # This file
+├── setup.py                    # Setup script for packaging the project
+└── tests/                      # (Optional) Unit tests for your project
+    └── __main__.py
+
+
 
 ## Installation
 
