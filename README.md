@@ -56,6 +56,7 @@ The project is organized into several key components:
 
 
 ## Folder Structure
+```
 quant-pipeline/
 ├── alpha_models/              # Traditional strategy modules
 │   ├── index_rebalancing.py      # New file for Index Rebalancing Strategy
@@ -85,7 +86,7 @@ quant-pipeline/
 ├── setup.py                    # Setup script for packaging the project
 └── tests/                      # (Optional) Unit tests for your project
     └── __main__.py
-
+```
 
 
 ## Installation
