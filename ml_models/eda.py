@@ -24,7 +24,7 @@ class EDA:
         self.data = pd.read_csv(self.filepath, parse_dates=self.parse_dates, index_col=self.index_col)
         return self.data
 
-    def load_data_from_db(self, db_path='quant_pipeline.db', table_name='price_data'):
+    def load_data_from_db(self, db_path='../quant_pipeline.db', table_name='price_data'):
         """
         Load data from an SQLite database.
         

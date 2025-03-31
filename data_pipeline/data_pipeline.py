@@ -39,6 +39,9 @@ class DataPipeline:
         
         # Add Ticker column to support multiple tickers
         self.data['Ticker'] = self.ticker
+
+        # Reset index so that the Date index becomes a regular column
+        self.data = self.data.reset_index()  # 'Date' becomes a column here
         
         print(f"Saving data to database: {db_path} in table: {table_name} ...")
         # Connect to (or create) the SQLite database
@@ -48,8 +51,8 @@ class DataPipeline:
         conn.close()
         print(f"Data saved to {db_path} in table '{table_name}'.")
 
-
-    def query_data(self, query, db_path='quant_pipeline.db'):
+    
+    def query_data(self, query, db_path='../quant_pipeline.db'):
         """
         Executes a SQL query on the database and returns the result as a pandas DataFrame.
         
