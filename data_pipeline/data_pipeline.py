@@ -22,6 +22,7 @@ class DataPipeline:
         self.data.dropna(inplace=True)
         # Select relevant columns; adjust as needed
         self.data = self.data[['Open', 'High', 'Low', 'Close', 'Volume']]
+        self.validate_data();
         print("Columns after cleaning:", self.data.columns)
         return self.data
 
@@ -68,3 +69,12 @@ class DataPipeline:
         df = pd.read_sql(query, conn)
         conn.close()
         return df
+
+def validate_data(self):
+    if self.data is None:
+        raise ValueError("No data to validate.")
+    if self.data.isnull().any().any():
+        raise ValueError("Data contains null values after cleaning.")
+    if not isinstance(self.data.index, pd.DatetimeIndex):
+        raise ValueError("Index is not a DatetimeIndex.")
+    print("Data validation passed.")
