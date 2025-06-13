@@ -1,4 +1,5 @@
 # Quant Pipeline
+Quant Pipeline is an end-to-end modular framework for developing, backtesting, and deploying systematic trading strategies using both traditional and machine learning approaches.
 
 ## Overview
 
