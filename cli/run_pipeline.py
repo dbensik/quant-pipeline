@@ -8,16 +8,13 @@ import pandas as pd
 
 def main():
     # Instantiate the pipeline
-    pipeline = DataPipeline(
+    pipeline = run_data_pipeline(
         ticker="SPY",
         start_date="2018-01-01",
-        end_date="2024-12-31"
+        end_date="2024-12-31",
+        db_path = db_path="../quant_pipeline.db",
+        table_name = "price_data"
     )
-    
-    # Run the pipeline steps
-    pipeline.fetch_data()
-    pipeline.clean_data()
-    pipeline.save_data(db_path="../quant_pipeline.db", table_name="price_data")
 
     # Use the processed data from the pipeline
     data = pipeline.data
@@ -56,6 +53,13 @@ def main():
         plt.show()
     
     print("Pipeline run complete!")
+    
+def run_data_pipeline(ticker, start_date, end_date, db_path, table_name):
+    pipeline = DataPipeline(ticker, start_date, end_date)
+    pipeline.fetch_data()
+    pipeline.clean_data()
+    pipeline.save_data(db_path=db_path, table_name=table_name)
+    return pipeline.data
 
 if __name__ == "__main__":
     main()
