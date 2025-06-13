@@ -17,7 +17,7 @@ def run_data_pipeline(ticker, start_date, end_date, db_path, table_name):
     Includes fetching, cleaning, and saving data to the database.
     """
     try:
-        pipeline = DataPipeline(ticker, start_date, end_date, logger=logger)
+        pipeline = DataPipeline(ticker, start_date, end_date)
         pipeline.fetch_data()
         pipeline.clean_data()
         pipeline.save_data(db_path=db_path, table_name=table_name)
@@ -57,7 +57,8 @@ def main():
             # Query to get average closing price for the ticker
             query = f"SELECT AVG(Close) AS avg_close FROM {table_name} WHERE Ticker = '{ticker}'"
             result = pipeline.query_data(query, db_path=db_path)
-            logger.info(f"{ticker} - Average closing price: {result.iloc[0]['avg_close']}")
+            avg_close = result.iloc[0]['avg_close']
+            logger.info(f"{ticker} - Average closing price: {avg_close:.2f}")
         except Exception as e:
             logger.error(f"Query failed for {ticker}: {e}")
             continue
@@ -66,7 +67,7 @@ def main():
             # Generate trading signals using mean reversion
             strategy = MeanReversionStrategy(window=20, threshold=0.05)
             signals = strategy.generate_signals(data)
-            logger.info("Signals generated.")
+            logger.info(f"{ticker} - Signals generated.")
 
             # Log number of signals
             num_buy = (signals == 1).sum()
