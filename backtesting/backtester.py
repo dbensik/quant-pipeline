@@ -77,6 +77,52 @@ class Backtester:
         print(f"Annualized Return: {annualized_return:.2%}")
         print(f"Maximum Drawdown: {max_drawdown:.2%}")
 
+
+    def get_performance_metrics(self):
+        """
+        Returns key performance metrics as a dictionary:
+          - Cumulative Return
+          - Annualized Return
+          - Volatility (annualized standard deviation)
+          - Sharpe Ratio (assuming risk-free rate is 0)
+          - Sortino Ratio (assuming risk-free rate is 0)
+          - Maximum Drawdown
+        """
+        if self.portfolio is None:
+            raise ValueError("Run the backtest first using run_backtest().")
+        
+        # Cumulative return
+        cumulative_return = self.portfolio.iloc[-1] / self.initial_capital - 1
+        # Annualized return (assuming daily data and 252 trading days)
+        annualized_return = (1 + cumulative_return) ** (252 / len(self.portfolio)) - 1
+        
+        # Calculate daily returns from portfolio value
+        daily_returns = self.portfolio.pct_change().dropna()
+        # Annualized volatility (standard deviation of daily returns multiplied by sqrt(252))
+        volatility = daily_returns.std() * (252 ** 0.5)
+        
+        # Sharpe Ratio: (annualized return / annualized volatility), risk-free rate assumed 0
+        sharpe_ratio = (daily_returns.mean() * 252) / volatility if volatility != 0 else None
+        
+        # Downside volatility for Sortino Ratio: standard deviation of negative returns
+        downside_returns = daily_returns[daily_returns < 0]
+        downside_vol = downside_returns.std() * (252 ** 0.5)
+        sortino_ratio = (daily_returns.mean() * 252) / downside_vol if downside_vol != 0 else None
+        
+        # Maximum Drawdown
+        rolling_max = self.portfolio.cummax()
+        drawdown = (self.portfolio - rolling_max) / rolling_max
+        max_drawdown = drawdown.min()
+        
+        return {
+            "cumulative_return": cumulative_return,
+            "annualized_return": annualized_return,
+            "volatility": volatility,
+            "sharpe_ratio": sharpe_ratio,
+            "sortino_ratio": sortino_ratio,
+            "max_drawdown": max_drawdown
+        }
+
 # Testing code: run when executing backtester.py directly
 if __name__ == "__main__":
     # Generate dummy data for testing
