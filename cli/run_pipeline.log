@@ -342,3 +342,963 @@
 2025-06-20 16:10:58,523 - INFO - Normalizing on 1826 business days: 2018-01-01 00:00:00 → 2024-12-30 00:00:00
 2025-06-20 16:10:58,523 - INFO - ✅ Normalization complete for: ['BTC-USD', 'ETH-USD']
 2025-06-20 16:10:58,523 - INFO - 🎉 Pipeline run complete!
+2025-06-23 15:43:12,746 - INFO - Fetching data for ticker: SPY
+2025-06-23 15:43:13,081 - INFO - Cleaned  0 rows; 1760 remain for SPY
+2025-06-23 15:43:13,084 - ERROR - Failed to process SPY: table price_data has no column named Open
+2025-06-23 15:43:13,084 - INFO - Fetching data for ticker: GME
+2025-06-23 15:43:13,233 - INFO - Cleaned  0 rows; 1760 remain for GME
+2025-06-23 15:43:13,235 - ERROR - Failed to process GME: table price_data has no column named Open
+2025-06-23 15:43:13,235 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 15:43:13,235 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 15:43:13,378 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 15:43:13,538 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 15:43:13,538 - INFO - Validated data for BTC-USD.
+2025-06-23 15:43:13,545 - INFO - Saved BTC-USD: 2556 rows to 'price_data'
+2025-06-23 15:43:13,545 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 15:43:13,653 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 15:43:13,856 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 15:43:13,857 - INFO - Validated data for ETH-USD.
+2025-06-23 15:43:13,860 - INFO - Saved ETH-USD: 2556 rows to 'price_data'
+2025-06-23 15:43:13,860 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 15:43:13,874 - INFO - Normalizing on 1826 business days: 2018-01-01 00:00:00 → 2024-12-30 00:00:00
+2025-06-23 15:43:13,875 - INFO - ✅ Normalization complete for: ['BTC-USD', 'ETH-USD']
+2025-06-23 15:43:13,875 - INFO - 🎉 Pipeline run complete!
+2025-06-23 15:47:27,913 - INFO - Fetching data for ticker: SPY
+2025-06-23 15:47:28,238 - INFO - Cleaned  0 rows; 1760 remain for SPY
+2025-06-23 15:47:28,241 - ERROR - Failed to process SPY: table price_data has no column named Open
+2025-06-23 15:47:28,242 - INFO - Fetching data for ticker: GME
+2025-06-23 15:47:28,431 - INFO - Cleaned  0 rows; 1760 remain for GME
+2025-06-23 15:47:28,434 - ERROR - Failed to process GME: table price_data has no column named Open
+2025-06-23 15:47:28,434 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 15:47:28,434 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 15:47:28,573 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 15:47:28,752 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 15:47:28,752 - INFO - Validated data for BTC-USD.
+2025-06-23 15:47:28,761 - INFO - Saved BTC-USD: 2556 rows to 'price_data'
+2025-06-23 15:47:28,761 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 15:47:28,880 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 15:47:29,201 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 15:47:29,201 - INFO - Validated data for ETH-USD.
+2025-06-23 15:47:29,207 - INFO - Saved ETH-USD: 2556 rows to 'price_data'
+2025-06-23 15:47:29,207 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 15:47:29,214 - INFO - Normalizing: base=2018-01-01 00:00:00, end=2024-12-30 00:00:00
+2025-06-23 15:47:29,215 - WARNING - Skipping SPY due to missing or empty data.
+2025-06-23 15:47:29,215 - WARNING - Skipping GME due to missing or empty data.
+2025-06-23 15:47:29,216 - INFO - ✅ Normalization complete for: ['BTC-USD', 'ETH-USD']
+2025-06-23 15:47:29,216 - INFO - 🎉 Pipeline run complete!
+2025-06-23 15:53:40,208 - INFO - Fetching data for ticker: SPY
+2025-06-23 15:53:40,587 - ERROR - Failed to process SPY: EquityPipeline.clean_data() missing 1 required positional argument: 'ticker'
+2025-06-23 15:53:40,588 - INFO - Fetching data for ticker: GME
+2025-06-23 15:53:40,728 - ERROR - Failed to process GME: EquityPipeline.clean_data() missing 1 required positional argument: 'ticker'
+2025-06-23 15:53:40,729 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 15:53:40,729 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 15:53:40,864 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 15:53:41,049 - ERROR - Failed to process BTC-USD: CryptoPipeline.clean_data() missing 1 required positional argument: 'pair'
+2025-06-23 15:53:41,049 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 15:53:41,180 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 15:53:41,344 - ERROR - Failed to process ETH-USD: CryptoPipeline.clean_data() missing 1 required positional argument: 'pair'
+2025-06-23 15:53:41,345 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 15:53:41,345 - WARNING - Failed to load raw for SPY: Execution failed on sql 'SELECT Date, Close FROM price_data WHERE Ticker='SPY'': no such table: price_data
+2025-06-23 15:53:41,345 - WARNING - Failed to load raw for GME: Execution failed on sql 'SELECT Date, Close FROM price_data WHERE Ticker='GME'': no such table: price_data
+2025-06-23 15:53:41,346 - WARNING - Failed to load raw for BTC-USD: Execution failed on sql 'SELECT Date, Close FROM price_data WHERE Ticker='BTC-USD'': no such table: price_data
+2025-06-23 15:53:41,346 - WARNING - Failed to load raw for ETH-USD: Execution failed on sql 'SELECT Date, Close FROM price_data WHERE Ticker='ETH-USD'': no such table: price_data
+2025-06-23 15:53:41,346 - ERROR - Normalization failed: Input data dictionary is empty.
+2025-06-23 15:54:18,118 - INFO - Fetching data for ticker: SPY
+2025-06-23 15:54:18,464 - ERROR - Failed to process SPY: EquityPipeline.clean_data() missing 1 required positional argument: 'ticker'
+2025-06-23 15:54:18,464 - INFO - Fetching data for ticker: GME
+2025-06-23 15:54:18,665 - ERROR - Failed to process GME: EquityPipeline.clean_data() missing 1 required positional argument: 'ticker'
+2025-06-23 15:54:18,666 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 15:54:18,666 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 15:54:18,788 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 15:54:19,040 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 15:54:19,040 - INFO - Validated data for BTC-USD.
+2025-06-23 15:54:19,047 - INFO - Saved BTC-USD: 2556 rows to 'price_data'
+2025-06-23 15:54:19,047 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 15:54:19,166 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 15:54:19,365 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 15:54:19,365 - INFO - Validated data for ETH-USD.
+2025-06-23 15:54:19,371 - INFO - Saved ETH-USD: 2556 rows to 'price_data'
+2025-06-23 15:54:19,371 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 15:54:19,379 - INFO - Normalizing: base=2018-01-01 00:00:00, end=2024-12-30 00:00:00
+2025-06-23 15:54:19,379 - WARNING - Skipping SPY due to missing or empty data.
+2025-06-23 15:54:19,379 - WARNING - Skipping GME due to missing or empty data.
+2025-06-23 15:54:19,380 - INFO - ✅ Normalization complete for: ['BTC-USD', 'ETH-USD']
+2025-06-23 15:54:19,380 - INFO - 🎉 Pipeline run complete!
+2025-06-23 15:54:48,865 - INFO - Fetching data for ticker: SPY
+2025-06-23 15:54:49,178 - INFO - Cleaned  0 rows; 1760 remain for SPY
+2025-06-23 15:54:49,178 - ERROR - Failed to process SPY: EquityPipeline.save_data() missing 1 required positional argument: 'ticker'
+2025-06-23 15:54:49,178 - INFO - Fetching data for ticker: GME
+2025-06-23 15:54:49,305 - INFO - Cleaned  0 rows; 1760 remain for GME
+2025-06-23 15:54:49,306 - ERROR - Failed to process GME: EquityPipeline.save_data() missing 1 required positional argument: 'ticker'
+2025-06-23 15:54:49,306 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 15:54:49,306 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 15:54:49,414 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 15:54:49,606 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 15:54:49,606 - INFO - Validated data for BTC-USD.
+2025-06-23 15:54:49,616 - INFO - Saved BTC-USD: 2556 rows to 'price_data'
+2025-06-23 15:54:49,616 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 15:54:49,734 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 15:54:49,897 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 15:54:49,897 - INFO - Validated data for ETH-USD.
+2025-06-23 15:54:49,903 - INFO - Saved ETH-USD: 2556 rows to 'price_data'
+2025-06-23 15:54:49,903 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 15:54:49,910 - INFO - Normalizing: base=2018-01-01 00:00:00, end=2024-12-30 00:00:00
+2025-06-23 15:54:49,911 - WARNING - Skipping SPY due to missing or empty data.
+2025-06-23 15:54:49,911 - WARNING - Skipping GME due to missing or empty data.
+2025-06-23 15:54:49,911 - INFO - ✅ Normalization complete for: ['BTC-USD', 'ETH-USD']
+2025-06-23 15:54:49,912 - INFO - 🎉 Pipeline run complete!
+2025-06-23 15:55:35,320 - INFO - Fetching data for ticker: SPY
+2025-06-23 15:55:36,739 - INFO - Cleaned  0 rows; 1760 remain for SPY
+2025-06-23 15:55:36,748 - INFO - Saved SPY data (1760 rows) to table 'price_data'.
+2025-06-23 15:55:36,748 - INFO - Fetching data for ticker: GME
+2025-06-23 15:55:36,945 - INFO - Cleaned  0 rows; 1760 remain for GME
+2025-06-23 15:55:36,947 - ERROR - Failed to process GME: table price_data has no column named ('Open', 'GME')
+2025-06-23 15:55:36,948 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 15:55:36,949 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 15:55:37,241 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 15:55:37,442 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 15:55:37,442 - INFO - Validated data for BTC-USD.
+2025-06-23 15:55:37,446 - INFO - Saved BTC-USD: 2556 rows to 'price_data'
+2025-06-23 15:55:37,446 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 15:55:37,577 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 15:55:37,722 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 15:55:37,722 - INFO - Validated data for ETH-USD.
+2025-06-23 15:55:37,728 - INFO - Saved ETH-USD: 2556 rows to 'price_data'
+2025-06-23 15:55:37,728 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 15:55:37,735 - INFO - Normalizing: base=2018-01-01 00:00:00, end=2024-12-30 00:00:00
+2025-06-23 15:55:37,735 - WARNING - Skipping SPY due to missing or empty data.
+2025-06-23 15:55:37,735 - WARNING - Skipping GME due to missing or empty data.
+2025-06-23 15:55:37,736 - INFO - ✅ Normalization complete for: ['BTC-USD', 'ETH-USD']
+2025-06-23 15:55:37,736 - INFO - 🎉 Pipeline run complete!
+2025-06-23 16:04:13,690 - INFO - Resetting table 'price_data' in ../quant_pipeline.db
+2025-06-23 16:04:13,691 - INFO - Fetching data for ticker: SPY
+2025-06-23 16:04:14,045 - INFO - Cleaned  0 rows; 1760 remain for SPY
+2025-06-23 16:04:14,054 - INFO - Saved SPY data (1760 rows) to table 'price_data'.
+2025-06-23 16:04:14,054 - INFO - Fetching data for ticker: GME
+2025-06-23 16:04:14,232 - INFO - Cleaned  0 rows; 1760 remain for GME
+2025-06-23 16:04:14,240 - INFO - Saved GME data (1760 rows) to table 'price_data'.
+2025-06-23 16:04:14,240 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 16:04:14,242 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 16:04:14,391 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:04:14,568 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:04:14,568 - INFO - Validated data for BTC-USD.
+2025-06-23 16:04:14,574 - INFO - Saved BTC-USD: 2556 rows to 'price_data'
+2025-06-23 16:04:14,574 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 16:04:14,712 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:04:14,930 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:04:14,930 - INFO - Validated data for ETH-USD.
+2025-06-23 16:04:14,936 - INFO - Saved ETH-USD: 2556 rows to 'price_data'
+2025-06-23 16:04:14,936 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 16:04:14,943 - INFO - Normalizing: base=2018-01-01 00:00:00, end=2024-12-30 00:00:00
+2025-06-23 16:04:14,943 - WARNING - Skipping SPY due to missing or empty data.
+2025-06-23 16:04:14,943 - WARNING - Skipping GME due to missing or empty data.
+2025-06-23 16:04:14,944 - INFO - ✅ Normalization complete for: ['BTC-USD', 'ETH-USD']
+2025-06-23 16:04:14,944 - INFO - 🎉 Pipeline run complete!
+2025-06-23 16:10:37,762 - INFO - Resetting table 'price_data' in ../quant_pipeline.db
+2025-06-23 16:10:37,763 - INFO - Fetching data for ticker: SPY
+2025-06-23 16:10:38,056 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 16:10:38,066 - INFO - Saved SPY: 1760 rows to 'price_data'
+2025-06-23 16:10:38,066 - INFO - Fetching data for ticker: GME
+2025-06-23 16:10:38,220 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 16:10:38,226 - INFO - Saved GME: 1760 rows to 'price_data'
+2025-06-23 16:10:38,226 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 16:10:38,227 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 16:10:38,359 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:10:38,583 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:10:38,583 - INFO - Validated data for BTC-USD.
+2025-06-23 16:10:38,590 - INFO - Saved BTC-USD: 2556 rows to 'price_data'
+2025-06-23 16:10:38,590 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 16:10:38,731 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:10:38,911 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:10:38,911 - INFO - Validated data for ETH-USD.
+2025-06-23 16:10:38,917 - INFO - Saved ETH-USD: 2556 rows to 'price_data'
+2025-06-23 16:10:38,917 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 16:10:38,924 - INFO - Normalizing: base=2018-01-01 00:00:00, end=2024-12-30 00:00:00
+2025-06-23 16:10:38,924 - WARNING - Skipping SPY due to missing or empty data.
+2025-06-23 16:10:38,924 - WARNING - Skipping GME due to missing or empty data.
+2025-06-23 16:10:38,925 - INFO - ✅ Normalization complete for: ['BTC-USD', 'ETH-USD']
+2025-06-23 16:10:38,925 - INFO - 🎉 Pipeline run complete!
+2025-06-23 16:15:09,260 - INFO - Resetting table 'price_data' in ../quant_pipeline.db
+2025-06-23 16:15:09,262 - INFO - Fetching data for ticker: SPY
+2025-06-23 16:15:09,625 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 16:15:09,632 - INFO - Saved SPY: 1760 rows to 'price_data'
+2025-06-23 16:15:09,632 - INFO - Fetching data for ticker: GME
+2025-06-23 16:15:09,795 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 16:15:09,801 - INFO - Saved GME: 1760 rows to 'price_data'
+2025-06-23 16:15:09,801 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 16:15:09,803 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 16:15:09,940 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:15:10,133 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:15:10,133 - INFO - Validated data for BTC-USD.
+2025-06-23 16:15:10,139 - INFO - Saved BTC-USD: 2556 rows to 'price_data'
+2025-06-23 16:15:10,140 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 16:15:10,242 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:15:10,415 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:15:10,415 - INFO - Validated data for ETH-USD.
+2025-06-23 16:15:10,422 - INFO - Saved ETH-USD: 2556 rows to 'price_data'
+2025-06-23 16:15:10,422 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 16:15:10,429 - INFO - Normalizing: base=2018-01-01 00:00:00, end=2024-12-30 00:00:00
+2025-06-23 16:15:10,429 - WARNING - Skipping SPY due to missing or empty data.
+2025-06-23 16:15:10,429 - WARNING - Skipping GME due to missing or empty data.
+2025-06-23 16:15:10,430 - INFO - ✅ Normalization complete for: ['BTC-USD', 'ETH-USD']
+2025-06-23 16:15:10,430 - INFO - 🎉 Pipeline run complete!
+2025-06-23 16:17:20,353 - INFO - Resetting table 'price_data' in ../quant_pipeline.db
+2025-06-23 16:17:20,355 - INFO - Fetching data for ticker: SPY
+2025-06-23 16:17:20,734 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 16:17:20,741 - INFO - Saved SPY: 1760 rows to 'price_data'
+2025-06-23 16:17:20,742 - INFO - Fetching data for ticker: GME
+2025-06-23 16:17:20,894 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 16:17:20,898 - INFO - Saved GME: 1760 rows to 'price_data'
+2025-06-23 16:17:20,899 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 16:17:20,900 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 16:17:21,014 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:17:21,191 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:17:21,191 - INFO - Validated data for BTC-USD.
+2025-06-23 16:17:21,200 - INFO - Saved BTC-USD: 2556 rows to 'price_data'
+2025-06-23 16:17:21,200 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 16:17:21,337 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:17:21,514 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:17:21,515 - INFO - Validated data for ETH-USD.
+2025-06-23 16:17:21,521 - INFO - Saved ETH-USD: 2556 rows to 'price_data'
+2025-06-23 16:17:21,521 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 16:17:21,528 - INFO - Normalizing: base=2018-01-01 00:00:00, end=2024-12-30 00:00:00
+2025-06-23 16:17:21,528 - ERROR - Normalization failed: 'dict' object has no attribute 'columns'
+2025-06-23 16:17:38,369 - INFO - Resetting table 'price_data' in ../quant_pipeline.db
+2025-06-23 16:17:38,371 - INFO - Fetching data for ticker: SPY
+2025-06-23 16:17:38,723 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 16:17:38,730 - INFO - Saved SPY: 1760 rows to 'price_data'
+2025-06-23 16:17:38,730 - INFO - Fetching data for ticker: GME
+2025-06-23 16:17:38,884 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 16:17:38,890 - INFO - Saved GME: 1760 rows to 'price_data'
+2025-06-23 16:17:38,890 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 16:17:38,892 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 16:17:39,007 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:17:39,168 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:17:39,168 - INFO - Validated data for BTC-USD.
+2025-06-23 16:17:39,174 - INFO - Saved BTC-USD: 2556 rows to 'price_data'
+2025-06-23 16:17:39,174 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 16:17:39,283 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:17:39,438 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:17:39,438 - INFO - Validated data for ETH-USD.
+2025-06-23 16:17:39,444 - INFO - Saved ETH-USD: 2556 rows to 'price_data'
+2025-06-23 16:17:39,444 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 16:17:39,451 - INFO - Normalizing: base=2018-01-01 00:00:00, end=2024-12-30 00:00:00
+2025-06-23 16:17:39,451 - ERROR - Normalization failed: 'dict' object has no attribute 'columns'
+2025-06-23 16:18:24,876 - INFO - Resetting table 'price_data' in ../quant_pipeline.db
+2025-06-23 16:18:24,877 - INFO - Fetching data for ticker: SPY
+2025-06-23 16:18:25,233 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 16:18:25,242 - INFO - Saved SPY: 1760 rows to 'price_data'
+2025-06-23 16:18:25,242 - INFO - Fetching data for ticker: GME
+2025-06-23 16:18:25,371 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 16:18:25,377 - INFO - Saved GME: 1760 rows to 'price_data'
+2025-06-23 16:18:25,377 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 16:18:25,378 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 16:18:25,487 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:18:25,653 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:18:25,654 - INFO - Validated data for BTC-USD.
+2025-06-23 16:18:25,661 - INFO - Saved BTC-USD: 2556 rows to 'price_data'
+2025-06-23 16:18:25,661 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 16:18:25,778 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:18:25,942 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:18:25,942 - INFO - Validated data for ETH-USD.
+2025-06-23 16:18:25,948 - INFO - Saved ETH-USD: 2556 rows to 'price_data'
+2025-06-23 16:18:25,948 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 16:18:25,955 - INFO - Normalizing: base=2018-01-01 00:00:00, end=2024-12-30 00:00:00
+2025-06-23 16:18:25,956 - INFO - Columns= Index(['Close'], dtype='object')
+2025-06-23 16:18:25,956 - WARNING - Skipping SPY due to missing or empty data.
+2025-06-23 16:18:25,956 - INFO - Columns= Index(['Close'], dtype='object')
+2025-06-23 16:18:25,956 - WARNING - Skipping GME due to missing or empty data.
+2025-06-23 16:18:25,956 - INFO - Columns= Index(['Close'], dtype='object')
+2025-06-23 16:18:25,956 - INFO - Columns= Index(['Close'], dtype='object')
+2025-06-23 16:18:25,957 - INFO - ✅ Normalization complete for: ['BTC-USD', 'ETH-USD']
+2025-06-23 16:18:25,957 - INFO - 🎉 Pipeline run complete!
+2025-06-23 16:27:07,680 - INFO - Resetting table 'price_data' in ../quant_pipeline.db
+2025-06-23 16:27:07,682 - INFO - Fetching data for ticker: SPY
+2025-06-23 16:27:08,011 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 16:27:08,021 - INFO - Saved SPY: 1760 rows to 'price_data'
+2025-06-23 16:27:08,021 - INFO - Fetching data for ticker: GME
+2025-06-23 16:27:08,214 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 16:27:08,220 - INFO - Saved GME: 1760 rows to 'price_data'
+2025-06-23 16:27:08,220 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 16:27:08,222 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 16:27:08,380 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:27:08,569 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:27:08,569 - INFO - Validated data for BTC-USD.
+2025-06-23 16:27:08,578 - INFO - Saved BTC-USD: 2556 rows to 'price_data'
+2025-06-23 16:27:08,579 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 16:27:08,690 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:27:08,890 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:27:08,890 - INFO - Validated data for ETH-USD.
+2025-06-23 16:27:08,897 - INFO - Saved ETH-USD: 2556 rows to 'price_data'
+2025-06-23 16:27:08,897 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 16:27:08,903 - INFO - Normalizing: base=2018-01-01 00:00:00, end=2024-12-30 00:00:00
+2025-06-23 16:27:08,904 - INFO - SPY → columns=['Close'], rows=0
+2025-06-23 16:27:08,904 - WARNING - Skipping SPY due to missing or empty data.
+2025-06-23 16:27:08,904 - INFO - GME → columns=['Close'], rows=0
+2025-06-23 16:27:08,904 - WARNING - Skipping GME due to missing or empty data.
+2025-06-23 16:27:08,904 - INFO - BTC-USD → columns=['Close'], rows=2556
+2025-06-23 16:27:08,904 - INFO - ETH-USD → columns=['Close'], rows=2556
+2025-06-23 16:27:08,905 - INFO - ✅ Normalization complete for: ['BTC-USD', 'ETH-USD']
+2025-06-23 16:27:08,905 - INFO - 🎉 Pipeline run complete!
+2025-06-23 16:37:17,405 - INFO - Resetting table 'price_data' in ../quant_pipeline.db
+2025-06-23 16:37:17,407 - INFO - Fetching data for ticker: SPY
+2025-06-23 16:37:17,715 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 16:37:17,720 - INFO - Saved SPY: 1760 rows to 'price_data'
+2025-06-23 16:37:17,721 - INFO - Fetching data for ticker: GME
+2025-06-23 16:37:17,874 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 16:37:17,880 - INFO - Saved GME: 1760 rows to 'price_data'
+2025-06-23 16:37:17,880 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 16:37:17,881 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 16:37:18,015 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:37:18,181 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:37:18,181 - INFO - Validated data for BTC-USD.
+2025-06-23 16:37:18,187 - INFO - Saved BTC-USD: 2556 rows to 'price_data'
+2025-06-23 16:37:18,188 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 16:37:18,305 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:37:18,521 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:37:18,522 - INFO - Validated data for ETH-USD.
+2025-06-23 16:37:18,528 - INFO - Saved ETH-USD: 2556 rows to 'price_data'
+2025-06-23 16:37:18,528 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 16:37:18,535 - INFO - Normalizing: base=2018-01-01 00:00:00, end=2024-12-30 00:00:00
+2025-06-23 16:37:18,535 - INFO - SPY → columns=['Close'], rows=0
+2025-06-23 16:37:18,535 - WARNING - No rows for SPY; skipping.
+2025-06-23 16:37:18,535 - INFO - GME → columns=['Close'], rows=0
+2025-06-23 16:37:18,535 - WARNING - No rows for GME; skipping.
+2025-06-23 16:37:18,535 - INFO - BTC-USD → columns=['Close'], rows=2556
+2025-06-23 16:37:18,536 - INFO - ETH-USD → columns=['Close'], rows=2556
+2025-06-23 16:37:18,536 - INFO - ✅ Normalization complete for: ['BTC-USD', 'ETH-USD']
+2025-06-23 16:37:18,536 - INFO - 🎉 Pipeline run complete!
+2025-06-23 16:42:39,450 - INFO - Resetting table 'price_data' in ../quant_pipeline.db
+2025-06-23 16:42:39,452 - INFO - Fetching data for ticker: SPY
+2025-06-23 16:42:39,895 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 16:42:39,903 - INFO - Saved SPY: 1760 rows to 'price_data' with columns Index(['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Ticker'], dtype='object', name='Price')
+2025-06-23 16:42:39,903 - INFO - Fetching data for ticker: GME
+2025-06-23 16:42:40,048 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 16:42:40,053 - INFO - Saved GME: 1760 rows to 'price_data' with columns Index(['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Ticker'], dtype='object', name='Price')
+2025-06-23 16:42:40,053 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 16:42:40,055 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 16:42:40,178 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:42:40,359 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:42:40,359 - INFO - Validated data for BTC-USD.
+2025-06-23 16:42:40,367 - INFO - Saved BTC-USD: 2556 rows to 'price_data'
+2025-06-23 16:42:40,367 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 16:42:40,476 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:42:40,659 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:42:40,659 - INFO - Validated data for ETH-USD.
+2025-06-23 16:42:40,666 - INFO - Saved ETH-USD: 2556 rows to 'price_data'
+2025-06-23 16:42:40,666 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 16:42:40,673 - INFO - Normalizing: base=2018-01-01 00:00:00, end=2024-12-30 00:00:00
+2025-06-23 16:42:40,673 - INFO - SPY → columns=['Close'], rows=0
+2025-06-23 16:42:40,673 - WARNING - No rows for SPY; skipping.
+2025-06-23 16:42:40,673 - INFO - GME → columns=['Close'], rows=0
+2025-06-23 16:42:40,673 - WARNING - No rows for GME; skipping.
+2025-06-23 16:42:40,674 - INFO - BTC-USD → columns=['Close'], rows=2556
+2025-06-23 16:42:40,674 - INFO - ETH-USD → columns=['Close'], rows=2556
+2025-06-23 16:42:40,674 - INFO - ✅ Normalization complete for: ['BTC-USD', 'ETH-USD']
+2025-06-23 16:42:40,675 - INFO - 🎉 Pipeline run complete!
+2025-06-23 16:43:19,032 - INFO - Resetting table 'price_data' in ../quant_pipeline.db
+2025-06-23 16:43:19,034 - INFO - Fetching data for ticker: SPY
+2025-06-23 16:43:19,359 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 16:43:19,364 - INFO - Saved SPY: 1760 rows to 'price_data' with columns Index(['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Ticker'], dtype='object', name='Price')
+2025-06-23 16:43:19,364 - INFO - Fetching data for ticker: GME
+2025-06-23 16:43:22,255 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 16:43:22,259 - INFO - Saved GME: 1760 rows to 'price_data' with columns Index(['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Ticker'], dtype='object', name='Price')
+2025-06-23 16:43:22,259 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 16:43:22,260 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 16:43:22,369 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:43:22,539 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:43:22,539 - INFO - Validated data for BTC-USD.
+2025-06-23 16:43:22,543 - INFO - Saved BTC-USD: 2556 rows to 'price_data' with columns Index(['Date', 'Close', 'Ticker'], dtype='object')
+2025-06-23 16:43:22,543 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 16:43:22,653 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:43:22,798 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:43:22,798 - INFO - Validated data for ETH-USD.
+2025-06-23 16:43:22,801 - INFO - Saved ETH-USD: 2556 rows to 'price_data' with columns Index(['Date', 'Close', 'Ticker'], dtype='object')
+2025-06-23 16:43:22,801 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 16:43:22,805 - INFO - Normalizing: base=2018-01-01 00:00:00, end=2024-12-30 00:00:00
+2025-06-23 16:43:22,805 - INFO - SPY → columns=['Close'], rows=0
+2025-06-23 16:43:22,805 - WARNING - No rows for SPY; skipping.
+2025-06-23 16:43:22,805 - INFO - GME → columns=['Close'], rows=0
+2025-06-23 16:43:22,805 - WARNING - No rows for GME; skipping.
+2025-06-23 16:43:22,805 - INFO - BTC-USD → columns=['Close'], rows=2556
+2025-06-23 16:43:22,806 - INFO - ETH-USD → columns=['Close'], rows=2556
+2025-06-23 16:43:22,806 - INFO - ✅ Normalization complete for: ['BTC-USD', 'ETH-USD']
+2025-06-23 16:43:22,806 - INFO - 🎉 Pipeline run complete!
+2025-06-23 16:45:43,881 - INFO - Resetting table 'price_data' in ../quant_pipeline.db
+2025-06-23 16:45:43,882 - INFO - Fetching data for ticker: SPY
+2025-06-23 16:45:44,183 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 16:45:44,190 - INFO - Saved SPY: 1760 rows to 'price_data' with columns Index(['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Ticker'], dtype='object', name='Price')
+2025-06-23 16:45:44,190 - INFO - Fetching data for ticker: GME
+2025-06-23 16:45:44,345 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 16:45:44,350 - INFO - Saved GME: 1760 rows to 'price_data' with columns Index(['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Ticker'], dtype='object', name='Price')
+2025-06-23 16:45:44,350 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 16:45:44,351 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 16:45:44,494 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:45:44,650 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:45:44,650 - INFO - Validated data for BTC-USD.
+2025-06-23 16:45:44,656 - INFO - Saved BTC-USD: 2556 rows to 'price_data' with columns Index(['Date', 'Close', 'Ticker'], dtype='object')
+2025-06-23 16:45:44,657 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 16:45:44,758 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:45:44,907 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:45:44,907 - INFO - Validated data for ETH-USD.
+2025-06-23 16:45:44,914 - INFO - Saved ETH-USD: 2556 rows to 'price_data' with columns Index(['Date', 'Close', 'Ticker'], dtype='object')
+2025-06-23 16:45:44,915 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 16:45:44,921 - INFO - equity_dfs: 2
+2025-06-23 16:45:44,921 - INFO - Normalizing: base=2018-01-01 00:00:00, end=2024-12-30 00:00:00
+2025-06-23 16:45:44,922 - INFO - SPY → columns=['Close'], rows=0
+2025-06-23 16:45:44,922 - WARNING - No rows for SPY; skipping.
+2025-06-23 16:45:44,922 - INFO - GME → columns=['Close'], rows=0
+2025-06-23 16:45:44,922 - WARNING - No rows for GME; skipping.
+2025-06-23 16:45:44,922 - INFO - BTC-USD → columns=['Close'], rows=2556
+2025-06-23 16:45:44,922 - INFO - ETH-USD → columns=['Close'], rows=2556
+2025-06-23 16:45:44,923 - INFO - ✅ Normalization complete for: ['BTC-USD', 'ETH-USD']
+2025-06-23 16:45:44,923 - INFO - 🎉 Pipeline run complete!
+2025-06-23 16:46:10,713 - INFO - Resetting table 'price_data' in ../quant_pipeline.db
+2025-06-23 16:46:10,715 - INFO - Fetching data for ticker: SPY
+2025-06-23 16:46:11,018 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 16:46:11,026 - INFO - Saved SPY: 1760 rows to 'price_data' with columns Index(['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Ticker'], dtype='object', name='Price')
+2025-06-23 16:46:11,026 - INFO - Fetching data for ticker: GME
+2025-06-23 16:46:12,916 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 16:46:12,923 - INFO - Saved GME: 1760 rows to 'price_data' with columns Index(['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Ticker'], dtype='object', name='Price')
+2025-06-23 16:46:12,923 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 16:46:12,924 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 16:46:13,090 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:46:13,256 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:46:13,256 - INFO - Validated data for BTC-USD.
+2025-06-23 16:46:13,263 - INFO - Saved BTC-USD: 2556 rows to 'price_data' with columns Index(['Date', 'Close', 'Ticker'], dtype='object')
+2025-06-23 16:46:13,263 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 16:46:13,365 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:46:13,927 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:46:13,928 - INFO - Validated data for ETH-USD.
+2025-06-23 16:46:13,934 - INFO - Saved ETH-USD: 2556 rows to 'price_data' with columns Index(['Date', 'Close', 'Ticker'], dtype='object')
+2025-06-23 16:46:13,934 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 16:46:13,941 - INFO - equity_dfs: 2 crypto_dfs: 2
+2025-06-23 16:46:13,941 - INFO - Normalizing: base=2018-01-01 00:00:00, end=2024-12-30 00:00:00
+2025-06-23 16:46:13,941 - INFO - SPY → columns=['Close'], rows=0
+2025-06-23 16:46:13,941 - WARNING - No rows for SPY; skipping.
+2025-06-23 16:46:13,941 - INFO - GME → columns=['Close'], rows=0
+2025-06-23 16:46:13,942 - WARNING - No rows for GME; skipping.
+2025-06-23 16:46:13,942 - INFO - BTC-USD → columns=['Close'], rows=2556
+2025-06-23 16:46:13,942 - INFO - ETH-USD → columns=['Close'], rows=2556
+2025-06-23 16:46:13,943 - INFO - ✅ Normalization complete for: ['BTC-USD', 'ETH-USD']
+2025-06-23 16:46:13,943 - INFO - 🎉 Pipeline run complete!
+2025-06-23 16:47:01,272 - INFO - Resetting table 'price_data' in ../quant_pipeline.db
+2025-06-23 16:47:01,273 - INFO - Fetching data for ticker: SPY
+2025-06-23 16:47:01,599 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 16:47:01,607 - INFO - Saved SPY: 1760 rows to 'price_data' with columns Index(['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Ticker'], dtype='object', name='Price')
+2025-06-23 16:47:01,607 - INFO - Fetching data for ticker: GME
+2025-06-23 16:47:01,736 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 16:47:01,741 - INFO - Saved GME: 1760 rows to 'price_data' with columns Index(['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Ticker'], dtype='object', name='Price')
+2025-06-23 16:47:01,741 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 16:47:01,742 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 16:47:01,853 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:47:02,033 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:47:02,033 - INFO - Validated data for BTC-USD.
+2025-06-23 16:47:02,042 - INFO - Saved BTC-USD: 2556 rows to 'price_data' with columns Index(['Date', 'Close', 'Ticker'], dtype='object')
+2025-06-23 16:47:02,042 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 16:47:02,161 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:47:02,315 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:47:02,316 - INFO - Validated data for ETH-USD.
+2025-06-23 16:47:02,321 - INFO - Saved ETH-USD: 2556 rows to 'price_data' with columns Index(['Date', 'Close', 'Ticker'], dtype='object')
+2025-06-23 16:47:02,321 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 16:49:18,040 - INFO - Resetting table 'price_data' in ../quant_pipeline.db
+2025-06-23 16:49:18,042 - INFO - Fetching data for ticker: SPY
+2025-06-23 16:49:18,335 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 16:49:18,342 - INFO - Saved SPY: 1760 rows to 'price_data' with columns Index(['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Ticker'], dtype='object', name='Price')
+2025-06-23 16:49:18,342 - INFO - Fetching data for ticker: GME
+2025-06-23 16:49:18,499 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 16:49:18,509 - INFO - Saved GME: 1760 rows to 'price_data' with columns Index(['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Ticker'], dtype='object', name='Price')
+2025-06-23 16:49:18,509 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 16:49:18,510 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 16:49:18,638 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:49:18,817 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:49:18,818 - INFO - Validated data for BTC-USD.
+2025-06-23 16:49:18,826 - INFO - Saved BTC-USD: 2556 rows to 'price_data' with columns Index(['Date', 'Close', 'Ticker'], dtype='object')
+2025-06-23 16:49:18,826 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 16:49:18,937 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:49:19,122 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:49:19,122 - INFO - Validated data for ETH-USD.
+2025-06-23 16:49:19,128 - INFO - Saved ETH-USD: 2556 rows to 'price_data' with columns Index(['Date', 'Close', 'Ticker'], dtype='object')
+2025-06-23 16:49:19,128 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 16:49:19,135 - INFO - Normalizing: base=2018-01-01 00:00:00, end=2024-12-30 00:00:00
+2025-06-23 16:49:19,135 - INFO - SPY → columns=['Close'], rows=0
+2025-06-23 16:49:19,135 - WARNING - No rows for SPY; skipping.
+2025-06-23 16:49:19,135 - INFO - GME → columns=['Close'], rows=0
+2025-06-23 16:49:19,135 - WARNING - No rows for GME; skipping.
+2025-06-23 16:49:19,135 - INFO - BTC-USD → columns=['Close'], rows=2556
+2025-06-23 16:49:19,136 - INFO - ETH-USD → columns=['Close'], rows=2556
+2025-06-23 16:49:19,136 - INFO - ✅ Normalization complete for: ['BTC-USD', 'ETH-USD']
+2025-06-23 16:49:19,136 - INFO - 🎉 Pipeline run complete!
+2025-06-23 16:50:45,162 - INFO - Resetting table 'price_data' in ../quant_pipeline.db
+2025-06-23 16:50:45,163 - INFO - Fetching data for ticker: SPY
+2025-06-23 16:50:45,527 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 16:50:45,536 - INFO - Saved SPY: 1760 rows to 'price_data' with columns Index(['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Ticker'], dtype='object', name='Price')
+2025-06-23 16:50:45,536 - INFO - Fetching data for ticker: GME
+2025-06-23 16:50:45,691 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 16:50:45,696 - INFO - Saved GME: 1760 rows to 'price_data' with columns Index(['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Ticker'], dtype='object', name='Price')
+2025-06-23 16:50:45,696 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 16:50:45,698 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 16:50:45,800 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:50:45,956 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:50:45,956 - INFO - Validated data for BTC-USD.
+2025-06-23 16:50:45,963 - INFO - Saved BTC-USD: 2556 rows to 'price_data' with columns Index(['Date', 'Close', 'Ticker'], dtype='object')
+2025-06-23 16:50:45,964 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 16:50:46,079 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:50:46,231 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:50:46,231 - INFO - Validated data for ETH-USD.
+2025-06-23 16:50:46,238 - INFO - Saved ETH-USD: 2556 rows to 'price_data' with columns Index(['Date', 'Close', 'Ticker'], dtype='object')
+2025-06-23 16:50:46,238 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 16:50:46,245 - INFO - Normalizing: base=2018-01-01 00:00:00, end=2024-12-30 00:00:00
+2025-06-23 16:50:46,245 - INFO - SPY → columns=['Close'], rows=0
+2025-06-23 16:50:46,245 - WARNING - No rows for SPY; skipping.
+2025-06-23 16:50:46,245 - INFO - GME → columns=['Close'], rows=0
+2025-06-23 16:50:46,245 - WARNING - No rows for GME; skipping.
+2025-06-23 16:50:46,245 - INFO - BTC-USD → columns=['Close'], rows=2556
+2025-06-23 16:50:46,246 - INFO - ETH-USD → columns=['Close'], rows=2556
+2025-06-23 16:50:46,246 - INFO - ✅ Normalization complete for: ['BTC-USD', 'ETH-USD']
+2025-06-23 16:50:46,246 - INFO - 🎉 Pipeline run complete!
+2025-06-23 16:54:36,206 - INFO - Resetting table 'price_data' in ../quant_pipeline.db
+2025-06-23 16:54:36,207 - INFO - Fetching data for ticker: SPY
+2025-06-23 16:54:36,505 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 16:54:36,505 - INFO - Validated data for SPY.
+2025-06-23 16:54:36,510 - INFO - Saved SPY: 1760 rows to 'price_data' with columns Index(['('Date', '')', '('Open', 'SPY')', '('High', 'SPY')', '('Low', 'SPY')',
+       '('Close', 'SPY')', '('Volume', 'SPY')', 'Ticker'],
+      dtype='object')
+2025-06-23 16:54:36,511 - INFO - Fetching data for ticker: GME
+2025-06-23 16:54:36,679 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 16:54:36,679 - INFO - Validated data for GME.
+2025-06-23 16:54:36,682 - ERROR - Failed to process GME: table price_data has no column named ('Open', 'GME')
+2025-06-23 16:54:36,682 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 16:54:36,684 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 16:54:36,836 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:54:36,994 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:54:36,995 - INFO - Validated data for BTC-USD.
+2025-06-23 16:54:37,002 - INFO - Saved BTC-USD: 2556 rows to 'price_data' with columns Index(['Date', 'Close', 'Ticker'], dtype='object')
+2025-06-23 16:54:37,002 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 16:54:37,122 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 16:54:37,288 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 16:54:37,288 - INFO - Validated data for ETH-USD.
+2025-06-23 16:54:37,295 - INFO - Saved ETH-USD: 2556 rows to 'price_data' with columns Index(['Date', 'Close', 'Ticker'], dtype='object')
+2025-06-23 16:54:37,295 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 16:54:37,302 - INFO - Normalizing: base=2018-01-01 00:00:00, end=2024-12-30 00:00:00
+2025-06-23 16:54:37,302 - INFO - SPY → columns=['Close'], rows=0
+2025-06-23 16:54:37,302 - WARNING - No rows for SPY; skipping.
+2025-06-23 16:54:37,302 - INFO - GME → columns=['Close'], rows=0
+2025-06-23 16:54:37,302 - WARNING - No rows for GME; skipping.
+2025-06-23 16:54:37,302 - INFO - BTC-USD → columns=['Close'], rows=2556
+2025-06-23 16:54:37,303 - INFO - ETH-USD → columns=['Close'], rows=2556
+2025-06-23 16:54:37,303 - INFO - ✅ Normalization complete for: ['BTC-USD', 'ETH-USD']
+2025-06-23 16:54:37,303 - INFO - 🎉 Pipeline run complete!
+2025-06-23 21:16:57,494 - INFO - Resetting table 'price_data' in ../quant_pipeline.db
+2025-06-23 21:16:57,496 - INFO - Fetching data for ticker: SPY
+2025-06-23 21:16:57,809 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 21:16:57,809 - INFO - Validated data for SPY.
+2025-06-23 21:16:57,821 - INFO - Saved SPY: 1760 rows to 'price_data' with columns Index(['('Date', '')', '('Open', 'SPY')', '('High', 'SPY')', '('Low', 'SPY')',
+       '('Close', 'SPY')', '('Volume', 'SPY')', 'Ticker'],
+      dtype='object')
+2025-06-23 21:16:57,821 - INFO - Fetching data for ticker: GME
+2025-06-23 21:16:57,958 - INFO - Cleaned 0 rows; 1760 remain for this ticker.
+2025-06-23 21:16:57,959 - INFO - Validated data for GME.
+2025-06-23 21:16:57,961 - ERROR - Failed to process GME: table price_data has no column named ('Open', 'GME')
+2025-06-23 21:16:57,961 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 21:16:57,963 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 21:16:58,094 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 21:16:58,276 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 21:16:58,277 - INFO - Validated data for BTC-USD.
+2025-06-23 21:16:58,286 - INFO - Saved BTC-USD: 2556 rows to 'price_data' with columns Index(['Date', 'Close', 'Ticker'], dtype='object')
+2025-06-23 21:16:58,286 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 21:16:58,407 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 21:16:58,588 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 21:16:58,588 - INFO - Validated data for ETH-USD.
+2025-06-23 21:16:58,595 - INFO - Saved ETH-USD: 2556 rows to 'price_data' with columns Index(['Date', 'Close', 'Ticker'], dtype='object')
+2025-06-23 21:16:58,595 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 21:16:58,602 - INFO - Normalizing: base=2018-01-01 00:00:00, end=2024-12-30 00:00:00
+2025-06-23 21:16:58,602 - INFO - SPY → columns=['Close'], rows=0
+2025-06-23 21:16:58,602 - WARNING - No rows for SPY; skipping.
+2025-06-23 21:16:58,602 - INFO - GME → columns=['Close'], rows=0
+2025-06-23 21:16:58,603 - WARNING - No rows for GME; skipping.
+2025-06-23 21:16:58,603 - INFO - BTC-USD → columns=['Close'], rows=2556
+2025-06-23 21:16:58,603 - INFO - ETH-USD → columns=['Close'], rows=2556
+2025-06-23 21:16:58,604 - INFO - ✅ Normalization complete for: ['BTC-USD', 'ETH-USD']
+2025-06-23 21:16:58,604 - INFO - 🎉 Pipeline run complete!
+2025-06-23 21:25:27,486 - ERROR - Equity batch fetch failed: EquityPipeline.fetch_batch_data() got an unexpected keyword argument 'db_path'
+2025-06-23 21:26:26,425 - INFO - Resetting table 'price_data' in ../quant_pipeline.db
+2025-06-23 21:26:26,425 - INFO - Fetching data for ticker: SPY
+2025-06-23 21:26:26,718 - INFO - Cleaned 0 NaNs/dupes; 1760 remain for this ticker.
+2025-06-23 21:26:26,728 - INFO - Saved SPY: 1760 rows to 'price_data'
+2025-06-23 21:26:26,728 - INFO - Fetching data for ticker: GME
+2025-06-23 21:26:26,932 - INFO - Cleaned 0 NaNs/dupes; 1760 remain for this ticker.
+2025-06-23 21:26:26,938 - INFO - Saved GME: 1760 rows to 'price_data'
+2025-06-23 21:26:26,938 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 21:26:26,938 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 21:26:26,940 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 21:26:27,081 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 21:26:27,264 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 21:26:27,264 - INFO - Validated data for BTC-USD.
+2025-06-23 21:26:27,271 - INFO - Saved BTC-USD: 2556 rows to 'price_data' with columns Index(['Date', 'Close', 'Ticker'], dtype='object')
+2025-06-23 21:26:27,271 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 21:26:27,390 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 21:26:27,568 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 21:26:27,568 - INFO - Validated data for ETH-USD.
+2025-06-23 21:26:27,575 - INFO - Saved ETH-USD: 2556 rows to 'price_data' with columns Index(['Date', 'Close', 'Ticker'], dtype='object')
+2025-06-23 21:26:27,575 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 21:26:27,575 - WARNING - Failed to load raw for SPY: Execution failed on sql 'SELECT * FROM price_data WHERE Ticker = 'SELECT Date, Close FROM price_data WHERE Ticker='SPY''': near "SPY": syntax error
+2025-06-23 21:26:27,575 - WARNING - Failed to load raw for GME: Execution failed on sql 'SELECT * FROM price_data WHERE Ticker = 'SELECT Date, Close FROM price_data WHERE Ticker='GME''': near "GME": syntax error
+2025-06-23 21:26:27,581 - INFO - Normalizing: base=2018-01-01 00:00:00, end=2024-12-30 00:00:00
+2025-06-23 21:26:27,581 - INFO - BTC-USD → columns=['Close'], rows=2556
+2025-06-23 21:26:27,581 - INFO - ETH-USD → columns=['Close'], rows=2556
+2025-06-23 21:26:27,582 - INFO - ✅ Normalization complete for: ['BTC-USD', 'ETH-USD']
+2025-06-23 21:26:27,582 - INFO - 🎉 Pipeline run complete!
+2025-06-23 21:29:58,599 - INFO - Resetting table 'price_data' in ../quant_pipeline.db
+2025-06-23 21:29:58,600 - INFO - Fetching data for ticker: SPY
+2025-06-23 21:29:58,878 - INFO - Cleaned 0 NaNs/dupes; 1760 remain for this ticker.
+2025-06-23 21:29:58,888 - INFO - Saved SPY: 1760 rows to 'price_data'
+2025-06-23 21:29:58,888 - INFO - Fetching data for ticker: GME
+2025-06-23 21:29:59,028 - INFO - Cleaned 0 NaNs/dupes; 1760 remain for this ticker.
+2025-06-23 21:29:59,033 - INFO - Saved GME: 1760 rows to 'price_data'
+2025-06-23 21:29:59,033 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 21:29:59,033 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 21:29:59,034 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 21:29:59,138 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 21:29:59,300 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 21:29:59,300 - INFO - Validated data for BTC-USD.
+2025-06-23 21:29:59,310 - INFO - Saved BTC-USD: 2556 rows to 'price_data' with columns Index(['Date', 'Close', 'Ticker'], dtype='object')
+2025-06-23 21:29:59,310 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 21:29:59,411 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 21:29:59,580 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 21:29:59,581 - INFO - Validated data for ETH-USD.
+2025-06-23 21:29:59,585 - INFO - Saved ETH-USD: 2556 rows to 'price_data' with columns Index(['Date', 'Close', 'Ticker'], dtype='object')
+2025-06-23 21:29:59,585 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 21:29:59,590 - INFO - Normalizing: base=2018-01-01 00:00:00, end=2024-12-30 00:00:00
+2025-06-23 21:29:59,590 - INFO - SPY → columns=['Close', 'Ticker'], rows=0
+2025-06-23 21:29:59,590 - WARNING - No rows for SPY; skipping.
+2025-06-23 21:29:59,590 - INFO - GME → columns=['Close', 'Ticker'], rows=0
+2025-06-23 21:29:59,590 - WARNING - No rows for GME; skipping.
+2025-06-23 21:29:59,590 - INFO - BTC-USD → columns=['Close'], rows=2556
+2025-06-23 21:29:59,590 - INFO - ETH-USD → columns=['Close'], rows=2556
+2025-06-23 21:29:59,591 - INFO - ✅ Normalization complete for: ['BTC-USD', 'ETH-USD']
+2025-06-23 21:29:59,591 - INFO - 🎉 Pipeline run complete!
+2025-06-23 21:34:14,806 - INFO - Resetting table 'price_data' in ../quant_pipeline.db
+2025-06-23 21:34:14,806 - INFO - Fetching data for ticker: SPY
+2025-06-23 21:34:15,152 - INFO - Cleaned 0 NaNs/dupes; 1760 remain for this ticker.
+2025-06-23 21:34:15,161 - INFO - Saved SPY: 1760 rows to 'price_data'
+2025-06-23 21:34:15,161 - INFO - Fetching data for ticker: GME
+2025-06-23 21:34:15,333 - INFO - Cleaned 0 NaNs/dupes; 1760 remain for this ticker.
+2025-06-23 21:34:15,338 - INFO - Saved GME: 1760 rows to 'price_data'
+2025-06-23 21:34:15,338 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 21:34:15,338 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 21:34:15,340 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 21:34:15,462 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 21:34:15,605 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 21:34:15,605 - INFO - Validated data for BTC-USD.
+2025-06-23 21:34:15,614 - INFO - Saved BTC-USD: 2556 rows to 'price_data' with columns Index(['Date', 'Close', 'Ticker'], dtype='object')
+2025-06-23 21:34:15,615 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 21:34:15,713 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 21:34:15,863 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 21:34:15,864 - INFO - Validated data for ETH-USD.
+2025-06-23 21:34:15,870 - INFO - Saved ETH-USD: 2556 rows to 'price_data' with columns Index(['Date', 'Close', 'Ticker'], dtype='object')
+2025-06-23 21:34:15,870 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 21:34:15,877 - INFO - 'SPY': 0 rows, 2 columns
+2025-06-23 21:34:15,877 - INFO - 'GME': 0 rows, 2 columns
+2025-06-23 21:34:15,877 - INFO - 'BTC-USD': 2556 rows, 1 columns
+2025-06-23 21:34:15,877 - INFO - 'ETH-USD': 2556 rows, 1 columns
+2025-06-23 21:34:15,877 - INFO - Normalizing: base=2018-01-01 00:00:00, end=2024-12-30 00:00:00
+2025-06-23 21:34:15,878 - INFO - 'SPY' → columns=['Close', 'Ticker'], rows=0
+2025-06-23 21:34:15,878 - WARNING - No rows for 'SPY'; skipping.
+2025-06-23 21:34:15,878 - INFO - 'GME' → columns=['Close', 'Ticker'], rows=0
+2025-06-23 21:34:15,878 - WARNING - No rows for 'GME'; skipping.
+2025-06-23 21:34:15,878 - INFO - 'BTC-USD' → columns=['Close'], rows=2556
+2025-06-23 21:34:15,878 - INFO - 'ETH-USD' → columns=['Close'], rows=2556
+2025-06-23 21:34:15,879 - INFO - ✅ Normalization complete for: ['BTC-USD', 'ETH-USD']
+2025-06-23 21:34:15,879 - INFO - 🎉 Pipeline run complete!
+2025-06-23 21:37:29,888 - INFO - Resetting table 'price_data' in ../quant_pipeline.db
+2025-06-23 21:37:29,888 - INFO - Fetching data for ticker: SPY
+2025-06-23 21:37:30,174 - INFO - Cleaned 0 NaNs/dupes; 1760 remain for this ticker.
+2025-06-23 21:37:30,183 - INFO - Saved SPY: 1760 rows to 'price_data'
+2025-06-23 21:37:30,183 - INFO - Fetching data for ticker: GME
+2025-06-23 21:37:30,338 - INFO - Cleaned 0 NaNs/dupes; 1760 remain for this ticker.
+2025-06-23 21:37:30,343 - INFO - Saved GME: 1760 rows to 'price_data'
+2025-06-23 21:37:30,343 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 21:37:30,343 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 21:37:30,344 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 21:37:30,478 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 21:37:30,674 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 21:37:30,674 - INFO - Validated data for BTC-USD.
+2025-06-23 21:37:30,682 - INFO - Saved BTC-USD: 2556 rows to 'price_data' with columns Index(['Date', 'Close', 'Ticker'], dtype='object')
+2025-06-23 21:37:30,682 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 21:37:30,802 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 21:37:30,943 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 21:37:30,943 - INFO - Validated data for ETH-USD.
+2025-06-23 21:37:30,950 - INFO - Saved ETH-USD: 2556 rows to 'price_data' with columns Index(['Date', 'Close', 'Ticker'], dtype='object')
+2025-06-23 21:37:30,950 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 21:37:30,956 - INFO - 'SPY': 0 rows, 2 columns
+2025-06-23 21:37:30,956 - INFO - 'GME': 0 rows, 2 columns
+2025-06-23 21:37:30,957 - INFO - 'BTC-USD': 2556 rows, 1 columns
+2025-06-23 21:37:30,957 - INFO - 'ETH-USD': 2556 rows, 1 columns
+2025-06-23 21:37:30,957 - INFO - Normalizing: base=2018-01-01 00:00:00, end=2024-12-30 00:00:00
+2025-06-23 21:37:30,957 - INFO - 'SPY' → columns=['Close', 'Ticker'], rows=0
+2025-06-23 21:37:30,957 - WARNING - No rows for 'SPY'; skipping.
+2025-06-23 21:37:30,957 - INFO - 'GME' → columns=['Close', 'Ticker'], rows=0
+2025-06-23 21:37:30,957 - WARNING - No rows for 'GME'; skipping.
+2025-06-23 21:37:30,957 - INFO - 'BTC-USD' → columns=['Close'], rows=2556
+2025-06-23 21:37:30,958 - INFO - 'ETH-USD' → columns=['Close'], rows=2556
+2025-06-23 21:37:30,958 - INFO - ✅ Normalization complete for: ['BTC-USD', 'ETH-USD']
+2025-06-23 21:37:30,958 - INFO - 🎉 Pipeline run complete!
+2025-06-23 21:49:46,481 - INFO - Resetting table 'price_data' in ../quant_pipeline.db
+2025-06-23 21:49:46,481 - INFO - Fetching data for ticker: SPY
+2025-06-23 21:49:46,783 - INFO - Cleaned 0 NaNs/dupes; 1760 remain for this ticker.
+2025-06-23 21:49:46,792 - INFO - Saved SPY: 1760 rows to 'price_data'
+2025-06-23 21:49:46,792 - INFO - Fetching data for ticker: GME
+2025-06-23 21:49:46,982 - INFO - Cleaned 0 NaNs/dupes; 1760 remain for this ticker.
+2025-06-23 21:49:46,987 - INFO - Saved GME: 1760 rows to 'price_data'
+2025-06-23 21:49:46,987 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 21:49:46,987 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 21:49:46,989 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 21:49:47,120 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 21:49:47,265 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 21:49:47,265 - INFO - Validated data for BTC-USD.
+2025-06-23 21:49:47,274 - INFO - Saved BTC-USD: 2556 rows to 'price_data' with columns Index(['Date', 'Close', 'Ticker'], dtype='object')
+2025-06-23 21:49:47,274 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 21:49:47,390 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 21:49:47,514 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 21:49:47,515 - INFO - Validated data for ETH-USD.
+2025-06-23 21:49:47,521 - INFO - Saved ETH-USD: 2556 rows to 'price_data' with columns Index(['Date', 'Close', 'Ticker'], dtype='object')
+2025-06-23 21:49:47,521 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 21:49:47,528 - INFO - Equity 'SPY': 0 rows, ['Close', 'Ticker']
+2025-06-23 21:49:47,528 - INFO - Equity 'GME': 0 rows, ['Close', 'Ticker']
+2025-06-23 21:49:47,528 - INFO - Crypto 'BTC-USD': 2556 rows, ['Close']
+2025-06-23 21:49:47,528 - INFO - Crypto 'ETH-USD': 2556 rows, ['Close']
+2025-06-23 21:49:47,528 - INFO - 'SPY': 0 rows, 2 columns
+2025-06-23 21:49:47,528 - INFO - 'GME': 0 rows, 2 columns
+2025-06-23 21:49:47,528 - INFO - 'BTC-USD': 2556 rows, 1 columns
+2025-06-23 21:49:47,528 - INFO - 'ETH-USD': 2556 rows, 1 columns
+2025-06-23 21:49:47,528 - INFO - Normalizing: base=2018-01-01 00:00:00, end=2024-12-30 00:00:00
+2025-06-23 21:49:47,528 - INFO - 'SPY' → columns=['Close', 'Ticker'], rows=0
+2025-06-23 21:49:47,528 - WARNING - No rows for 'SPY'; skipping.
+2025-06-23 21:49:47,529 - INFO - 'GME' → columns=['Close', 'Ticker'], rows=0
+2025-06-23 21:49:47,529 - WARNING - No rows for 'GME'; skipping.
+2025-06-23 21:49:47,529 - INFO - 'BTC-USD' → columns=['Close'], rows=2556
+2025-06-23 21:49:47,529 - INFO - 'ETH-USD' → columns=['Close'], rows=2556
+2025-06-23 21:49:47,530 - INFO - ✅ Normalization complete for: ['BTC-USD', 'ETH-USD']
+2025-06-23 21:49:47,530 - INFO - 🎉 Pipeline run complete!
+2025-06-23 22:06:39,002 - INFO - Resetting table 'price_data' in ../quant_pipeline.db
+2025-06-23 22:06:39,002 - INFO - Fetching data for ticker: SPY
+2025-06-23 22:06:39,334 - INFO - Cleaned 0 NaNs/dupes; 1760 remain for this ticker.
+2025-06-23 22:06:39,335 - ERROR - Failed to process SPY: name 'db_path' is not defined
+2025-06-23 22:06:39,335 - INFO - Fetching data for ticker: GME
+2025-06-23 22:06:39,477 - INFO - Cleaned 0 NaNs/dupes; 1760 remain for this ticker.
+2025-06-23 22:06:39,478 - ERROR - Failed to process GME: name 'db_path' is not defined
+2025-06-23 22:06:39,478 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 22:06:39,478 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 22:06:39,478 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 22:06:39,602 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 22:06:39,739 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 22:06:39,739 - ERROR - Failed to process BTC-USD: CryptoPipeline.save_data() takes 3 positional arguments but 5 were given
+2025-06-23 22:06:39,739 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 22:06:39,858 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 22:06:40,035 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 22:06:40,035 - ERROR - Failed to process ETH-USD: CryptoPipeline.save_data() takes 3 positional arguments but 5 were given
+2025-06-23 22:06:40,035 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 22:06:40,035 - WARNING - Failed to load raw for SPY: Execution failed on sql 'SELECT * FROM price_data WHERE Ticker = 'SPY'': no such table: price_data
+2025-06-23 22:06:40,036 - WARNING - Failed to load raw for GME: Execution failed on sql 'SELECT * FROM price_data WHERE Ticker = 'GME'': no such table: price_data
+2025-06-23 22:06:40,036 - WARNING - Failed to load raw for BTC-USD: Execution failed on sql 'SELECT Date, Close FROM price_data WHERE Ticker='BTC-USD'': no such table: price_data
+2025-06-23 22:06:40,036 - WARNING - Failed to load raw for ETH-USD: Execution failed on sql 'SELECT Date, Close FROM price_data WHERE Ticker='ETH-USD'': no such table: price_data
+2025-06-23 22:06:40,036 - ERROR - Normalization failed: Input data dictionary is empty.
+2025-06-23 22:10:02,082 - INFO - Resetting table 'price_data' in ../quant_pipeline.db
+2025-06-23 22:10:02,082 - INFO - Fetching data for ticker: SPY
+2025-06-23 22:10:02,370 - INFO - Cleaned 0 NaNs/dupes; 1760 remain for this ticker.
+2025-06-23 22:10:02,376 - INFO - Saved SPY: 1760 rows to 'price_data'
+2025-06-23 22:10:02,376 - INFO - Fetching data for ticker: GME
+2025-06-23 22:10:02,507 - INFO - Cleaned 0 NaNs/dupes; 1760 remain for this ticker.
+2025-06-23 22:10:02,512 - INFO - Saved GME: 1760 rows to 'price_data'
+2025-06-23 22:10:02,512 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 22:10:02,512 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 22:10:02,515 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 22:10:02,660 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 22:10:02,822 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 22:10:02,822 - ERROR - Failed to process BTC-USD: CryptoPipeline.save_data() takes 3 positional arguments but 5 were given
+2025-06-23 22:10:02,822 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 22:10:02,929 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 22:10:03,095 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 22:10:03,095 - ERROR - Failed to process ETH-USD: CryptoPipeline.save_data() takes 3 positional arguments but 5 were given
+2025-06-23 22:10:03,095 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 22:10:03,096 - WARNING - Failed to load raw for SPY: Execution failed on sql 'SELECT * FROM price_data WHERE Ticker = 'SPY'': no such table: price_data
+2025-06-23 22:10:03,096 - WARNING - Failed to load raw for GME: Execution failed on sql 'SELECT * FROM price_data WHERE Ticker = 'GME'': no such table: price_data
+2025-06-23 22:10:03,096 - WARNING - Failed to load raw for BTC-USD: Execution failed on sql 'SELECT Date, Close FROM price_data WHERE Ticker='BTC-USD'': no such table: price_data
+2025-06-23 22:10:03,096 - WARNING - Failed to load raw for ETH-USD: Execution failed on sql 'SELECT Date, Close FROM price_data WHERE Ticker='ETH-USD'': no such table: price_data
+2025-06-23 22:10:03,096 - ERROR - Normalization failed: Input data dictionary is empty.
+2025-06-23 22:12:04,235 - INFO - Resetting table 'price_data' in ../quant_pipeline.db
+2025-06-23 22:12:04,235 - INFO - Fetching data for ticker: SPY
+2025-06-23 22:12:04,578 - INFO - Cleaned 0 NaNs/dupes; 1760 remain for this ticker.
+2025-06-23 22:12:04,587 - INFO - Saved SPY: 1760 rows to 'price_data'
+2025-06-23 22:12:04,587 - INFO - Fetching data for ticker: GME
+2025-06-23 22:12:04,741 - INFO - Cleaned 0 NaNs/dupes; 1760 remain for this ticker.
+2025-06-23 22:12:04,748 - INFO - Saved GME: 1760 rows to 'price_data'
+2025-06-23 22:12:04,748 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 22:12:04,748 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 22:12:04,750 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 22:12:04,878 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 22:12:05,017 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 22:12:05,018 - ERROR - Failed to process BTC-USD: 'CryptoPipeline' object has no attribute 'db_path'
+2025-06-23 22:12:05,018 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 22:12:05,125 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 22:12:05,303 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 22:12:05,304 - ERROR - Failed to process ETH-USD: 'CryptoPipeline' object has no attribute 'db_path'
+2025-06-23 22:12:05,304 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 22:12:05,305 - WARNING - Failed to load raw for SPY: Execution failed on sql 'SELECT * FROM price_data WHERE Ticker = 'SPY'': no such table: price_data
+2025-06-23 22:12:05,305 - WARNING - Failed to load raw for GME: Execution failed on sql 'SELECT * FROM price_data WHERE Ticker = 'GME'': no such table: price_data
+2025-06-23 22:12:05,305 - WARNING - Failed to load raw for BTC-USD: Execution failed on sql 'SELECT Date, Close FROM price_data WHERE Ticker='BTC-USD'': no such table: price_data
+2025-06-23 22:12:05,305 - WARNING - Failed to load raw for ETH-USD: Execution failed on sql 'SELECT Date, Close FROM price_data WHERE Ticker='ETH-USD'': no such table: price_data
+2025-06-23 22:12:05,305 - ERROR - Normalization failed: Input data dictionary is empty.
+2025-06-23 22:13:54,177 - INFO - Resetting table 'price_data' in ../quant_pipeline.db
+2025-06-23 22:13:54,177 - INFO - Fetching data for ticker: SPY
+2025-06-23 22:13:54,496 - INFO - Cleaned 0 NaNs/dupes; 1760 remain for this ticker.
+2025-06-23 22:13:54,505 - INFO - Saved SPY: 1760 rows to 'price_data'
+2025-06-23 22:13:54,505 - INFO - Fetching data for ticker: GME
+2025-06-23 22:13:54,632 - INFO - Cleaned 0 NaNs/dupes; 1760 remain for this ticker.
+2025-06-23 22:13:54,637 - INFO - Saved GME: 1760 rows to 'price_data'
+2025-06-23 22:13:54,637 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 22:13:54,637 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 22:15:07,021 - INFO - Resetting table 'price_data' in ../quant_pipeline.db
+2025-06-23 22:15:07,021 - INFO - Fetching data for ticker: SPY
+2025-06-23 22:15:07,278 - INFO - Cleaned 0 NaNs/dupes; 1760 remain for this ticker.
+2025-06-23 22:15:07,286 - INFO - Saved SPY: 1760 rows to 'price_data'
+2025-06-23 22:15:07,286 - INFO - Fetching data for ticker: GME
+2025-06-23 22:15:07,415 - INFO - Cleaned 0 NaNs/dupes; 1760 remain for this ticker.
+2025-06-23 22:15:07,420 - INFO - Saved GME: 1760 rows to 'price_data'
+2025-06-23 22:15:07,420 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 22:15:07,420 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 22:15:07,421 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 22:15:07,601 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 22:15:07,732 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 22:15:07,743 - INFO - Saved BTC-USD: 2556 rows to 'price_data'
+2025-06-23 22:15:07,743 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 22:15:07,885 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 22:15:08,028 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 22:15:08,038 - INFO - Saved ETH-USD: 2556 rows to 'price_data'
+2025-06-23 22:15:08,038 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 22:15:08,045 - INFO - Equity 'SPY': 0 rows, ['Ticker', 'Open', 'High', 'Low', 'Close', 'Volume']
+2025-06-23 22:15:08,045 - INFO - Equity 'GME': 0 rows, ['Ticker', 'Open', 'High', 'Low', 'Close', 'Volume']
+2025-06-23 22:15:08,045 - INFO - Crypto 'BTC-USD': 2556 rows, ['Close']
+2025-06-23 22:15:08,045 - INFO - Crypto 'ETH-USD': 2556 rows, ['Close']
+2025-06-23 22:15:08,045 - INFO - 'SPY': 0 rows, 6 columns
+2025-06-23 22:15:08,045 - INFO - 'GME': 0 rows, 6 columns
+2025-06-23 22:15:08,045 - INFO - 'BTC-USD': 2556 rows, 1 columns
+2025-06-23 22:15:08,045 - INFO - 'ETH-USD': 2556 rows, 1 columns
+2025-06-23 22:15:08,045 - INFO - Normalizing: base=2018-01-01 00:00:00, end=2024-12-30 00:00:00
+2025-06-23 22:15:08,045 - INFO - 'SPY' → columns=['Ticker', 'Open', 'High', 'Low', 'Close', 'Volume'], rows=0
+2025-06-23 22:15:08,045 - WARNING - No rows for 'SPY'; skipping.
+2025-06-23 22:15:08,045 - INFO - 'GME' → columns=['Ticker', 'Open', 'High', 'Low', 'Close', 'Volume'], rows=0
+2025-06-23 22:15:08,045 - WARNING - No rows for 'GME'; skipping.
+2025-06-23 22:15:08,045 - INFO - 'BTC-USD' → columns=['Close'], rows=2556
+2025-06-23 22:15:08,046 - INFO - 'ETH-USD' → columns=['Close'], rows=2556
+2025-06-23 22:15:08,046 - INFO - ✅ Normalization complete for: ['BTC-USD', 'ETH-USD']
+2025-06-23 22:15:08,046 - INFO - 🎉 Pipeline run complete!
+2025-06-23 22:29:38,251 - INFO - Resetting table 'price_data' in /Users/dannybensik/Library/CloudStorage/GoogleDrive-dbensik@gmail.com/My Drive/Work/Dev/quant-pipeline/quant_pipeline.db
+2025-06-23 22:29:38,251 - INFO - Fetching data for ticker: SPY
+2025-06-23 22:29:38,642 - INFO - Cleaned 0 NaNs/dupes; 1760 remain for this ticker.
+2025-06-23 22:29:38,650 - INFO - Saved SPY: 1760 rows to 'price_data'
+2025-06-23 22:29:38,650 - INFO - Fetching data for ticker: GME
+2025-06-23 22:29:38,793 - INFO - Cleaned 0 NaNs/dupes; 1760 remain for this ticker.
+2025-06-23 22:29:38,798 - INFO - Saved GME: 1760 rows to 'price_data'
+2025-06-23 22:29:38,798 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 22:29:38,798 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 22:29:38,799 - INFO - Resetting table 'price_data' in /Users/dannybensik/Library/CloudStorage/GoogleDrive-dbensik@gmail.com/My Drive/Work/Dev/quant-pipeline/quant_pipeline.db
+2025-06-23 22:29:38,799 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 22:29:38,935 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 22:29:38,936 - INFO - Fetching BTC-USD from yfinance fallback
+2025-06-23 22:29:39,065 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 22:29:39,065 - INFO - Validated data for BTC-USD.
+2025-06-23 22:29:39,077 - INFO - Saved BTC-USD: 2556 rows to 'price_data'
+2025-06-23 22:29:39,078 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 22:29:39,173 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 22:29:39,173 - INFO - Fetching ETH-USD from yfinance fallback
+2025-06-23 22:29:39,326 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 22:29:39,326 - INFO - Validated data for ETH-USD.
+2025-06-23 22:29:39,335 - INFO - Saved ETH-USD: 2556 rows to 'price_data'
+2025-06-23 22:29:39,335 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 22:29:39,335 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 22:29:39,336 - INFO - Loaded raw equity 'SPY': 0 rows, cols=['Ticker', 'Open', 'High', 'Low', 'Close', 'Volume']
+2025-06-23 22:29:39,337 - INFO - Loaded raw equity 'GME': 0 rows, cols=['Ticker', 'Open', 'High', 'Low', 'Close', 'Volume']
+2025-06-23 22:29:39,342 - INFO - Loaded raw crypto 'BTC-USD': 2556 rows, cols=['Ticker', 'Open', 'High', 'Low', 'Close', 'Volume']
+2025-06-23 22:29:39,345 - INFO - Loaded raw crypto 'ETH-USD': 2556 rows, cols=['Ticker', 'Open', 'High', 'Low', 'Close', 'Volume']
+2025-06-23 22:29:39,345 - INFO - Normalizing: base=2018-01-01 00:00:00, end=2024-12-30 00:00:00
+2025-06-23 22:29:39,345 - INFO - 'SPY' → columns=['Close'], rows=0
+2025-06-23 22:29:39,345 - WARNING - No rows for 'SPY'; skipping.
+2025-06-23 22:29:39,345 - INFO - 'GME' → columns=['Close'], rows=0
+2025-06-23 22:29:39,346 - WARNING - No rows for 'GME'; skipping.
+2025-06-23 22:29:39,346 - INFO - 'BTC-USD' → columns=['Close'], rows=2556
+2025-06-23 22:29:39,346 - INFO - 'ETH-USD' → columns=['Close'], rows=2556
+2025-06-23 22:29:39,347 - INFO - ✅ Normalization complete for: ['BTC-USD', 'ETH-USD']
+2025-06-23 22:29:39,347 - INFO - 🎉 Pipeline run complete!
+2025-06-23 22:32:22,331 - INFO - Resetting table 'price_data' in /Users/dannybensik/Library/CloudStorage/GoogleDrive-dbensik@gmail.com/My Drive/Work/Dev/quant-pipeline/quant_pipeline.db
+2025-06-23 22:32:22,331 - INFO - Fetching data for ticker: SPY
+2025-06-23 22:32:22,599 - INFO - Cleaned 0 NaNs/dupes; 1760 remain for this ticker.
+2025-06-23 22:32:22,604 - INFO - Saved SPY: 1760 rows to 'price_data'
+2025-06-23 22:32:22,604 - INFO - Fetching data for ticker: GME
+2025-06-23 22:32:22,740 - INFO - Cleaned 0 NaNs/dupes; 1760 remain for this ticker.
+2025-06-23 22:32:22,743 - INFO - Saved GME: 1760 rows to 'price_data'
+2025-06-23 22:32:22,743 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 22:32:22,744 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 22:32:22,745 - INFO - Resetting table 'price_data' in /Users/dannybensik/Library/CloudStorage/GoogleDrive-dbensik@gmail.com/My Drive/Work/Dev/quant-pipeline/quant_pipeline.db
+2025-06-23 22:32:22,745 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 22:32:22,854 - WARNING - CoinGecko failed for BTC-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 22:32:22,855 - INFO - Fetching BTC-USD from yfinance fallback
+2025-06-23 22:32:23,017 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 22:32:23,017 - INFO - Validated data for BTC-USD.
+2025-06-23 22:32:23,023 - INFO - Saved BTC-USD: 2556 rows to 'price_data'
+2025-06-23 22:32:23,023 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 22:32:23,136 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 22:32:23,137 - INFO - Fetching ETH-USD from yfinance fallback
+2025-06-23 22:32:23,260 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 22:32:23,260 - INFO - Validated data for ETH-USD.
+2025-06-23 22:32:23,266 - INFO - Saved ETH-USD: 2556 rows to 'price_data'
+2025-06-23 22:32:23,266 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 22:32:23,266 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 22:32:23,267 - INFO - Loaded raw equity 'SPY': 0 rows, cols=['Ticker', 'Open', 'High', 'Low', 'Close', 'Volume']
+2025-06-23 22:32:23,268 - INFO - Loaded raw equity 'GME': 0 rows, cols=['Ticker', 'Open', 'High', 'Low', 'Close', 'Volume']
+2025-06-23 22:32:23,271 - INFO - Loaded raw crypto 'BTC-USD': 2556 rows, cols=['Ticker', 'Open', 'High', 'Low', 'Close', 'Volume']
+2025-06-23 22:32:23,273 - INFO - Loaded raw crypto 'ETH-USD': 2556 rows, cols=['Ticker', 'Open', 'High', 'Low', 'Close', 'Volume']
+2025-06-23 22:32:23,273 - INFO - Normalizing: base=2018-01-01 00:00:00, end=2024-12-30 00:00:00
+2025-06-23 22:32:23,273 - INFO - 'SPY' → columns=['Close'], rows=0
+2025-06-23 22:32:23,273 - WARNING - No rows for 'SPY'; skipping.
+2025-06-23 22:32:23,273 - INFO - 'GME' → columns=['Close'], rows=0
+2025-06-23 22:32:23,273 - WARNING - No rows for 'GME'; skipping.
+2025-06-23 22:32:23,273 - INFO - 'BTC-USD' → columns=['Close'], rows=2556
+2025-06-23 22:32:23,274 - INFO - 'ETH-USD' → columns=['Close'], rows=2556
+2025-06-23 22:32:23,274 - INFO - ✅ Normalization complete for: ['BTC-USD', 'ETH-USD']
+2025-06-23 22:32:23,274 - INFO - 🎉 Pipeline run complete!
+2025-06-23 22:34:33,260 - INFO - Resetting table 'price_data' in /Users/dannybensik/Library/CloudStorage/GoogleDrive-dbensik@gmail.com/My Drive/Work/Dev/quant-pipeline/quant_pipeline.db
+2025-06-23 22:34:33,260 - INFO - Fetching data for ticker: SPY
+2025-06-23 22:34:33,538 - INFO - Cleaned 0 NaNs/dupes; 1760 remain for this ticker.
+2025-06-23 22:34:33,543 - INFO - Saved SPY: 1760 rows to 'price_data'
+2025-06-23 22:34:33,543 - INFO - Fetching data for ticker: GME
+2025-06-23 22:34:33,672 - INFO - Cleaned 0 NaNs/dupes; 1760 remain for this ticker.
+2025-06-23 22:34:33,678 - INFO - Saved GME: 1760 rows to 'price_data'
+2025-06-23 22:34:33,678 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 22:34:33,678 - INFO - ✅ Equity data fetched & saved.
+2025-06-23 22:34:33,678 - INFO - Fetching BTC-USD from CoinGecko (id=bitcoin)
+2025-06-23 22:34:43,714 - WARNING - CoinGecko failed for BTC-USD: HTTPSConnectionPool(host='api.coingecko.com', port=443): Read timed out. (read timeout=10). Falling back to yfinance.
+2025-06-23 22:34:43,715 - INFO - Fetching BTC-USD from yfinance fallback
+2025-06-23 22:34:43,850 - INFO - Cleaned BTC-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 22:34:43,850 - INFO - Validated data for BTC-USD.
+2025-06-23 22:34:43,861 - INFO - Saved BTC-USD: 2556 rows to 'price_data'
+2025-06-23 22:34:43,861 - INFO - Fetching ETH-USD from CoinGecko (id=ethereum)
+2025-06-23 22:34:43,963 - WARNING - CoinGecko failed for ETH-USD: 401 Client Error: Unauthorized for url: https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=max&interval=daily. Falling back to yfinance.
+2025-06-23 22:34:43,964 - INFO - Fetching ETH-USD from yfinance fallback
+2025-06-23 22:34:44,128 - INFO - Cleaned ETH-USD: 2556→2556 rows for 2018-01-01–2024-12-31
+2025-06-23 22:34:44,128 - INFO - Validated data for ETH-USD.
+2025-06-23 22:34:44,140 - INFO - Saved ETH-USD: 2556 rows to 'price_data'
+2025-06-23 22:34:44,140 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 22:34:44,140 - INFO - ✅ Crypto data fetched & saved.
+2025-06-23 22:34:44,144 - INFO - Loaded raw equity 'SPY': 1760 rows, cols=['Open', 'High', 'Low', 'Close', 'Volume', 'Ticker']
+2025-06-23 22:34:44,147 - INFO - Loaded raw equity 'GME': 1760 rows, cols=['Open', 'High', 'Low', 'Close', 'Volume', 'Ticker']
+2025-06-23 22:34:44,150 - INFO - Loaded raw crypto 'BTC-USD': 2556 rows, cols=['Open', 'High', 'Low', 'Close', 'Volume', 'Ticker']
+2025-06-23 22:34:44,154 - INFO - Loaded raw crypto 'ETH-USD': 2556 rows, cols=['Open', 'High', 'Low', 'Close', 'Volume', 'Ticker']
+2025-06-23 22:34:44,154 - INFO - Normalizing: base=2018-01-01 00:00:00, end=2024-12-30 00:00:00
+2025-06-23 22:34:44,154 - INFO - 'SPY' → columns=['Close'], rows=1760
+2025-06-23 22:34:44,155 - INFO - 'GME' → columns=['Close'], rows=1760
+2025-06-23 22:34:44,155 - INFO - 'BTC-USD' → columns=['Close'], rows=2556
+2025-06-23 22:34:44,156 - INFO - 'ETH-USD' → columns=['Close'], rows=2556
+2025-06-23 22:34:44,156 - INFO - ✅ Normalization complete for: ['SPY', 'GME', 'BTC-USD', 'ETH-USD']
+2025-06-23 22:34:44,156 - INFO - 🎉 Pipeline run complete!
