@@ -2,15 +2,12 @@ import logging
 import pandas as pd
 import sqlite3
 import requests
+import warnings
+from scripts.crypto_meta import load_crypto_meta
+from scripts.crypto_meta import _CRYPTO_ID_MAP
 
 logger = logging.getLogger(__name__)
 
-# Map simple symbols to CoinGecko IDs (override as needed)
-_CRYPTO_ID_MAP = {
-    'btc': 'bitcoin',
-    'eth': 'ethereum',
-    # add more mappings here
-}
 
 class CryptoPipeline:
     def __init__(self, pairs, start_date, end_date, session=None,
@@ -30,6 +27,18 @@ class CryptoPipeline:
         self.session = session
         self.db_path = db_path
         self.table_name = table_name
+        import requests
+
+    def get_crypto_market_caps(ids: list[str]) -> dict[str,float]:
+        url = "https://api.coingecko.com/api/v3/coins/markets"
+        resp = requests.get(url, params={
+          "vs_currency":"usd",
+          "ids":",".join(ids),
+          "sparkline":False
+        }, timeout=10)
+        resp.raise_for_status()
+        return {c["id"]: c["market_cap"] for c in resp.json()}
+
 
     def fetch_data(self, pair):
         """
@@ -61,7 +70,8 @@ class CryptoPipeline:
         try:
             import yfinance as yf
             logger.info(f"Fetching {pair} from yfinance fallback")
-            yf_df = yf.download(pair, start=self.start_date, end=self.end_date, progress=False)
+            warnings.filterwarnings("ignore", category=FutureWarning)
+            yf_df = yf.download(pair, start=self.start_date, end=self.end_date, progress=False, auto_adjust=True)
             if yf_df.empty:
                 logger.warning(f"yfinance returned no data for {pair}")
                 return pd.DataFrame()
@@ -149,3 +159,40 @@ class CryptoPipeline:
         if 'Date' in df.columns:
             df.set_index('Date', inplace=True)
         return df
+
+    def write_universe(self, crypto_pairs, crypto_caps):
+        # crypto_meta = load_crypto_meta(self.pairs)
+        rows = []
+        for t in crypto_pairs:
+            rows.append({
+                "Ticker": t,
+                "AssetClass": "Crypto",
+                "Sector": None,
+                "MarketCap": crypto_caps.get(t)
+            })
+        df_crypto = pd.DataFrame(rows)
+        # df_crypto = pd.DataFrame([{
+        #     'Ticker': pair,
+        #     'AssetClass': 'Crypto',
+        #     'Sector': None,
+        #     # 'MarketCap': crypto_meta.get(pair, {}).get('market_cap')
+        #     'MarketCap':.get(t)
+        # } for pair in crypto_pairs])
+
+        # 3) combine and persist
+        # df_assets = pd.concat([df_eq, df_crypto], ignore_index=True)  # if df_eq available here
+
+        conn = sqlite3.connect(self.db_path)
+        # df_assets.to_sql('assets', conn, if_exists='replace', index=False)
+        conn.execute("""
+          CREATE TABLE IF NOT EXISTS assets (
+            Ticker TEXT PRIMARY KEY,
+            AssetClass TEXT NOT NULL,
+            Sector TEXT,
+            MarketCap REAL
+          );
+        """)
+        df_crypto.to_sql("assets", conn, if_exists="append", index=False)
+        conn.close()
+        logger.info("✅ Written crypto universe to DB")
+

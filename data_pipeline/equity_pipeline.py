@@ -2,6 +2,8 @@ import yfinance as yf
 import pandas as pd
 import sqlite3
 import logging
+import warnings
+from scripts.constituents import load_sp500
 
 logger = logging.getLogger(__name__)
 
@@ -23,17 +25,24 @@ class EquityPipeline:
         self.db_path = db_path
         self.table_name = table_name
 
+    @staticmethod
+    def get_equity_market_cap(ticker: str) -> float | None:
+        t = yf.Ticker(ticker)
+        return t.fast_info.get("market_cap") or t.info.get("marketCap")
+
     def fetch_single(self, ticker):
         """
         Download raw OHLCV data for one ticker.
         Returns a DataFrame indexed by Date with columns ['Open','High','Low','Close','Volume'].
         """
         logger.info(f"Fetching data for ticker: {ticker}")
+        warnings.filterwarnings("ignore", category=FutureWarning)
         df = yf.download(tickers=ticker,
                          start=self.start_date,
                          end=self.end_date,
                          session=self.session,
-                         progress=False)
+                         progress=False,
+                         auto_adjust=True)
         if df.empty:
             logger.warning(f"No data returned for {ticker}")
             return pd.DataFrame()
@@ -105,3 +114,31 @@ class EquityPipeline:
         if 'Date' in df.columns:
             df.set_index('Date', inplace=True)
         return df
+
+    def write_universe(self, eq_tickers, eq_sectors):
+        """Load S&P500 constituents, get their sectors+market_caps, write to `assets`."""
+        eq_tickers, eq_sectors = load_sp500()
+        rows = []
+        for t in eq_tickers:
+            rows.append({
+                "Ticker": t,
+                "AssetClass": "Equity",
+                "Sector": eq_sectors.get(t),
+                "MarketCap": self.get_equity_market_cap(t)
+            })
+        df_eq = pd.DataFrame(rows)
+        
+        # persist
+        conn = sqlite3.connect(self.db_path)
+        conn.execute("""
+          CREATE TABLE IF NOT EXISTS assets (
+            Ticker TEXT PRIMARY KEY,
+            AssetClass TEXT NOT NULL,
+            Sector TEXT,
+            MarketCap REAL
+          );
+        """)
+        conn.execute(f"DELETE FROM assets")
+        df_eq.to_sql("assets", conn, if_exists="append", index=False)
+        conn.close()
+        logger.info("✅ Written equity universe to DB")

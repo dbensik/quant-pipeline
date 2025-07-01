@@ -1,30 +1,72 @@
 # scripts/init_db.py
 import sqlite3
+from data_pipeline.watchlist_manager import WatchlistManager
 
 DB_PATH = "../quant_pipeline.db"
-TABLE_NAME = "price_data"
+RAW_TABLE = "price_data"
+NORM_TABLE = "price_data_normalized"
+ASSETS_TABLE = "assets"
 
-def initialize_database(db_path=DB_PATH, table_name=TABLE_NAME):
-    conn = sqlite3.connect(db_path)
+
+def initialize_database():
+    """
+    Create or reset core database tables:
+      1) raw price data
+      2) normalized price data
+      3) asset universe
+      4) watchlist metadata via WatchlistManager
+    """
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    # 1) drop the old table
-    c.execute(f"DROP TABLE IF EXISTS {table_name};")
-    # 2) create the new canonical schema
+
+    # 1) raw price table
+    c.execute(f"DROP TABLE IF EXISTS {RAW_TABLE};")
     c.execute(f"""
-    CREATE TABLE {table_name} (
-      Date    TEXT    NOT NULL,   -- ISO8601 date string
-      Ticker  TEXT    NOT NULL,   -- e.g. "SPY" or "BTC-USD"
-      Open    REAL,
-      High    REAL,
-      Low     REAL,
-      Close   REAL    NOT NULL,
-      Volume  REAL,
+    CREATE TABLE {RAW_TABLE} (
+      Date      TEXT    NOT NULL,
+      Ticker    TEXT    NOT NULL,
+      Open      REAL,
+      High      REAL,
+      Low       REAL,
+      Close     REAL    NOT NULL,
+      Volume    REAL,
       PRIMARY KEY (Date, Ticker)
     );
-    """)
+    """
+    )
+
+    # 2) normalized price table
+    c.execute(f"DROP TABLE IF EXISTS {NORM_TABLE};")
+    c.execute(f"""
+    CREATE TABLE {NORM_TABLE} (
+      Date        TEXT    NOT NULL,
+      Ticker      TEXT    NOT NULL,
+      Normalized  REAL    NOT NULL,
+      PRIMARY KEY (Date, Ticker)
+    );
+    """
+    )
+
+    # 3) assets universe table
+    c.execute(f"DROP TABLE IF EXISTS {ASSETS_TABLE};")
+    c.execute(f"""
+    CREATE TABLE {ASSETS_TABLE} (
+      Ticker      TEXT    PRIMARY KEY,
+      AssetClass  TEXT    NOT NULL,
+      Sector      TEXT,
+      MarketCap   REAL
+    );
+    """
+    )
+
     conn.commit()
     conn.close()
-    print(f"✂ Dropped & ✔ Created table '{table_name}' in {db_path}")
+    print(f"✂ Dropped & ✔ Created tables '{RAW_TABLE}', '{NORM_TABLE}', '{ASSETS_TABLE}' in {DB_PATH}")
+
+    # 4) ensure watchlist tables/schema
+    wm = WatchlistManager(db_path=DB_PATH)
+    # wm.ensure_tables()
+
 
 if __name__ == "__main__":
     initialize_database()
