@@ -1,150 +1,119 @@
-# backtester.py
-import pandas as pd
 import numpy as np
-import sqlite3
+import pandas as pd
+
+from alpha_models.base_model import BaseAlphaModel
+from analysis.performance_analyzer import PerformanceAnalyzer
+from backtesting.events import OrderEvent
+from execution.simulated_handler import SimulatedExecutionHandler
+
 
 class Backtester:
-    def __init__(self, data, signals, initial_capital=100000):
-        """
-        Initialize the backtester.
+    """
+    A realistic backtester that simulates trading based on capital allocation,
+    enforcing whole-share trades and using a robust event-driven loop.
+    Its single responsibility is to generate a portfolio history.
+    """
 
-        Parameters:
-          data (pd.DataFrame): DataFrame containing market data with at least a 'Close' column.
-          signals (pd.Series): Series of trading signals (1 for Buy, -1 for Sell, 0 for Hold).
-          initial_capital (float): Starting capital for the backtest.
+    def __init__(
+        self,
+        initial_capital: float = 100000.0,
+        transaction_cost: float = 0.001,
+        execution_handler: SimulatedExecutionHandler = None,
+    ):
         """
-        self.data = data.copy()
-        self.signals = signals.copy()
+        Initializes the Backtester with portfolio settings.
+        """
         self.initial_capital = initial_capital
-        self.portfolio = None
+        self.transaction_cost = transaction_cost
+        self.results = None
+        self.trade_log = []
+        self.execution_handler = execution_handler or SimulatedExecutionHandler()
 
-    def run_backtest(self):
+    def run(self, price_data: pd.DataFrame, model: BaseAlphaModel) -> pd.DataFrame:
         """
-        Run the backtest simulation.
-
-        This method calculates:
-          - Daily asset returns from the 'Close' price.
-          - The strategy's return by applying the position based on signals.
-          - The cumulative portfolio value over time.
-          
-        Returns:
-          pd.Series: Portfolio value over time.
+        Runs a backtest using a more robust, event-driven loop that delegates
+        execution to a dedicated handler.
         """
-        df = self.data.copy()
-        df['Signal'] = self.signals
-        
-        # For simplicity, we'll assume:
-        # When Signal == 1, we are fully invested (position = 1)
-        # When Signal == -1, we exit to cash (position = 0)
-        # We hold the position until a signal change occurs.
-        # Replace 0 signals with NaN and forward fill.
-        df['Position'] = df['Signal'].replace(0, np.nan).ffill().fillna(0)
-        
-        # Compute daily returns from the Close price
-        df['Asset_Return'] = df['Close'].pct_change()
-        
-        # Strategy returns: use previous day's position
-        df['Strategy_Return'] = df['Position'].shift(1) * df['Asset_Return']
-        
-        # Calculate portfolio value over time
-        df['Portfolio_Value'] = self.initial_capital * (1 + df['Strategy_Return']).cumprod()
-        
-        self.portfolio = df['Portfolio_Value']
-        return self.portfolio
+        # 1. Generate signals from the model
+        signals = model.generate_signals(price_data=price_data)
+        self.trade_log = []
 
-    def print_performance(self):
+        # 2. Prepare the portfolio DataFrame for state tracking
+        portfolio = price_data[["Close"]].copy()
+        portfolio["signal"] = signals["signal"].ffill().fillna(0)
+        portfolio["holdings"] = 0.0
+        portfolio["cash"] = self.initial_capital
+        portfolio["position"] = 0.0  # Number of shares held
+
+        # 3. Use a stateful loop to process trades realistically
+        position = 0.0
+        cash = self.initial_capital
+        symbol = price_data.name if hasattr(price_data, "name") else "Asset"
+
+        for i in range(len(portfolio)):
+            date = portfolio.index[i]
+            price = portfolio["Close"].iloc[i]
+            signal = portfolio["signal"].iloc[i]
+
+            # --- REFACTOR: Trading logic now uses the event-driven system ---
+            if signal == 1 and np.isclose(position, 0):  # Buy signal
+                if price > 0:
+                    # Determine max shares possible based on current cash
+                    shares_to_buy = np.floor(cash / price)
+                    if shares_to_buy > 0:
+                        order = OrderEvent(date, symbol, "MKT", shares_to_buy, "BUY")
+                        fill = self.execution_handler.execute_order(order, price)
+
+                        # Ensure we can afford the filled order
+                        if cash >= fill.total_cost:
+                            position += fill.quantity
+                            cash -= fill.total_cost
+                            self.trade_log.append(fill)
+
+            elif signal == 0 and position > 0:  # Sell signal (liquidate position)
+                order = OrderEvent(date, symbol, "MKT", position, "SELL")
+                fill = self.execution_handler.execute_order(order, price)
+
+                position -= fill.quantity  # Should go to zero
+                cash += fill.total_cost
+                self.trade_log.append(fill)
+
+            # --- Update Portfolio State for the current day ---
+            portfolio.iloc[i, portfolio.columns.get_loc("position")] = position
+            portfolio.iloc[i, portfolio.columns.get_loc("cash")] = cash
+            portfolio.iloc[i, portfolio.columns.get_loc("holdings")] = position * price
+
+        # 4. Calculate final portfolio values
+        portfolio["total"] = portfolio["holdings"] + portfolio["cash"]
+        portfolio["returns"] = portfolio["total"].pct_change().fillna(0)
+
+        self.results = portfolio
+        return portfolio
+
+    def get_trade_log(self) -> pd.DataFrame:
         """
-        Print basic performance metrics of the backtest:
-          - Cumulative Return
-          - Annualized Return (assuming 252 trading days per year)
-          - Maximum Drawdown
+        Returns the log of all trades executed during the backtest as a DataFrame.
         """
-        if self.portfolio is None:
-            print("Run the backtest first using run_backtest().")
-            return
-        
-        # Cumulative return
-        cumulative_return = self.portfolio.iloc[-1] / self.initial_capital - 1
-        # Annualized return
-        annualized_return = (1 + cumulative_return) ** (252 / len(self.portfolio)) - 1
-        
-        # Maximum Drawdown calculation
-        rolling_max = self.portfolio.cummax()
-        drawdown = (self.portfolio - rolling_max) / rolling_max
-        max_drawdown = drawdown.min()
+        if not self.trade_log:
+            return pd.DataFrame()
+        return pd.DataFrame([vars(fill) for fill in self.trade_log])
 
-        print(f"Cumulative Return: {cumulative_return:.2%}")
-        print(f"Annualized Return: {annualized_return:.2%}")
-        print(f"Maximum Drawdown: {max_drawdown:.2%}")
-
-
-    def get_performance_metrics(self):
+    def get_performance_metrics(self) -> dict:
         """
-        Returns key performance metrics as a dictionary:
-          - Cumulative Return
-          - Annualized Return
-          - Volatility (annualized standard deviation)
-          - Sharpe Ratio (assuming risk-free rate is 0)
-          - Sortino Ratio (assuming risk-free rate is 0)
-          - Maximum Drawdown
+        Calculates performance metrics by delegating to the PerformanceAnalyzer.
         """
-        if self.portfolio is None:
-            raise ValueError("Run the backtest first using run_backtest().")
-        
-        # Cumulative return
-        cumulative_return = self.portfolio.iloc[-1] / self.initial_capital - 1
-        # Annualized return (assuming daily data and 252 trading days)
-        annualized_return = (1 + cumulative_return) ** (252 / len(self.portfolio)) - 1
-        
-        # Calculate daily returns from portfolio value
-        daily_returns = self.portfolio.pct_change().dropna()
-        # Annualized volatility (standard deviation of daily returns multiplied by sqrt(252))
-        volatility = daily_returns.std() * (252 ** 0.5)
-        
-        # Sharpe Ratio: (annualized return / annualized volatility), risk-free rate assumed 0
-        sharpe_ratio = (daily_returns.mean() * 252) / volatility if volatility != 0 else None
-        
-        # Downside volatility for Sortino Ratio: standard deviation of negative returns
-        downside_returns = daily_returns[daily_returns < 0]
-        downside_vol = downside_returns.std() * (252 ** 0.5)
-        sortino_ratio = (daily_returns.mean() * 252) / downside_vol if downside_vol != 0 else None
-        
-        # Maximum Drawdown
-        rolling_max = self.portfolio.cummax()
-        drawdown = (self.portfolio - rolling_max) / rolling_max
-        max_drawdown = drawdown.min()
-        
-        return {
-            "cumulative_return": cumulative_return,
-            "annualized_return": annualized_return,
-            "volatility": volatility,
-            "sharpe_ratio": sharpe_ratio,
-            "sortino_ratio": sortino_ratio,
-            "max_drawdown": max_drawdown
-        }
+        if self.results is None or self.results.empty:
+            return {}  # Return empty dict if no results exist
 
-# Testing code: run when executing backtester.py directly
-if __name__ == "__main__":
-    # Generate dummy data for testing
-    dates = pd.date_range("2020-01-01", periods=100)
-    np.random.seed(42)
-    # Simulate a random walk for Close prices
-    prices = 100 + np.cumsum(np.random.randn(100))
-    data = pd.DataFrame({"Close": prices}, index=dates)
-    
-    # Generate dummy signals:
-    # For example, a simple pattern: Buy on the first day of each 20-day block, Sell on the 11th day
-    signals = pd.Series(0, index=dates)
-    signals.iloc[::20] = 1
-    signals.iloc[10::20] = -1
-    signals = signals.replace(0, np.nan).ffill().fillna(0)
-    
-    # Instantiate and run the backtester
-    backtester = Backtester(data, signals)
-    portfolio = backtester.run_backtest()
-    
-    print("Sample Portfolio Values:")
-    print(portfolio.head(10))
-    
-    print("\nPerformance Metrics:")
-    backtester.print_performance()
+        analyzer = PerformanceAnalyzer(self.results, self.initial_capital)
+        return analyzer.calculate_all_metrics()
+
+    def run_and_get_metrics(
+        self, price_data: pd.DataFrame, model: BaseAlphaModel
+    ) -> dict:
+        """
+        A convenience method that runs a backtest and immediately returns the
+        performance metrics. Useful for optimizations.
+        """
+        self.run(price_data=price_data, model=model)
+        return self.get_performance_metrics()

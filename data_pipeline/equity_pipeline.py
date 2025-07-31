@@ -1,144 +1,171 @@
-import yfinance as yf
-import pandas as pd
-import sqlite3
 import logging
-import warnings
-from scripts.constituents import load_sp500
+import sqlite3
+
+import pandas as pd
+import yfinance as yf
+from curl_cffi import requests
+
+from config.settings import DB_PRICE_DATA_COLUMNS
+from .data_enricher import DataEnricher
 
 logger = logging.getLogger(__name__)
 
+
 class EquityPipeline:
-    def __init__(self, tickers, start_date, end_date, session=None, db_path='../quant_pipeline.db', table_name='price_data'):
+    """
+    A pipeline for fetching, enriching, and processing equity data from Yahoo Finance.
+    """
+
+    def __init__(
+        self,
+        tickers: list[str],
+        start_date: str,
+        end_date: str,
+        session: requests.Session,
+    ):
         """
-        Parameters:
-            tickers (list[str]): List of equity tickers to fetch.
-            start_date (str): ISO start date, e.g. '2018-01-01'.
-            end_date (str): ISO end date, e.g. '2024-12-31'.
-            session: optional requests session for yfinance.
-            db_path (str): Path to sqlite database.
-            table_name (str): Table in which to store raw price data.
+        Initializes the EquityPipeline.
+
+        Args:
+            tickers: A list of equity ticker symbols.
+            start_date: The start date for data fetching (YYYY-MM-DD).
+            end_date: The end date for data fetching (YYYY-MM-DD).
+            session: A requests.Session object. Note: yfinance uses its own HTTP client,
+                     so this session is not directly used for fetching but is kept for API consistency.
         """
-        self.tickers = tickers
+        if not isinstance(tickers, list) or not tickers:
+            raise ValueError("A non-empty list of tickers must be provided.")
+
+        # Improvement: Sanitize tickers to match yfinance format (e.g., BRK.B -> BRK-B)
+        self.tickers = [ticker.replace(".", "-") for ticker in tickers]
         self.start_date = start_date
         self.end_date = end_date
         self.session = session
-        self.db_path = db_path
-        self.table_name = table_name
+
+    def fetch_batch_data(self) -> pd.DataFrame:
+        """
+        Fetches historical price data, enriches it with calculated metrics
+        (volatility, beta, etc.), and returns a complete, analysis-ready DataFrame.
+
+        Returns:
+            A pandas DataFrame with enriched historical data for all tickers,
+            formatted and ready for database insertion.
+        """
+        logger.info(f"Starting batch fetch for {len(self.tickers)} equity tickers...")
+
+        # --- 1. Fetch Raw Equity Data ---
+        try:
+            data_wide = yf.download(
+                self.tickers,
+                start=self.start_date,
+                end=self.end_date,
+                progress=False,
+                auto_adjust=True,
+            )
+        except Exception as e:
+            logger.error(f"An error occurred during yfinance download: {e}")
+            return pd.DataFrame()
+
+        if data_wide.empty:
+            logger.warning(
+                "yfinance returned an empty DataFrame for tickers. Check tickers and date range."
+            )
+            return pd.DataFrame()
+
+        # --- 2. Reshape data from wide to long format ---
+        data_long = (
+            data_wide.stack(level=1, future_stack=True)
+            .rename_axis(["Date", "Ticker"])
+            .reset_index()
+        )
+
+        # --- 3. Fetch Benchmark Data for Enrichment ---
+        logger.info("Fetching benchmark data (SPY) for beta calculation...")
+        try:
+            spy_data = yf.download(
+                "SPY", start=self.start_date, end=self.end_date, auto_adjust=True
+            )
+            if spy_data.empty:
+                logger.warning(
+                    "Could not download benchmark SPY data. Beta will not be calculated."
+                )
+                benchmark_returns = None
+            else:
+                # Improvement: Add fill_method=None to silence future warnings
+                benchmark_returns = spy_data["Close"].pct_change(fill_method=None)
+        except Exception as e:
+            logger.error(f"Failed to fetch benchmark SPY data: {e}")
+            benchmark_returns = None
+
+        # --- 4. Enrich Data with Calculated Metrics ---
+        logger.info("Enriching fetched data with calculated metrics...")
+        enricher = DataEnricher(benchmark_returns=benchmark_returns)
+        # The enricher expects a DataFrame indexed by Date with a 'Ticker' column
+        data_to_enrich = data_long.set_index("Date")
+        enriched_df = enricher.enrich_data(data_to_enrich)
+
+        # Final cleanup and column selection
+        final_df = enriched_df.reset_index()
+
+        # Select only the columns that actually exist in the dataframe
+        existing_cols = [
+            col for col in DB_PRICE_DATA_COLUMNS if col in final_df.columns
+        ]
+
+        logger.info(
+            f"✅ Successfully fetched and enriched data for {final_df['Ticker'].nunique()} tickers."
+        )
+
+        return final_df[existing_cols]
 
     @staticmethod
-    def get_equity_market_cap(ticker: str) -> float | None:
-        t = yf.Ticker(ticker)
-        return t.fast_info.get("market_cap") or t.info.get("marketCap")
+    def write_universe(
+        tickers: list[str], sectors: dict, conn: sqlite3.Connection
+    ) -> None:
+        """
+        Writes the equity universe metadata to the database using a robust
+        "upsert" method that is compatible with SQLite.
 
-    def fetch_single(self, ticker):
+        Args:
+            tickers: List of equity tickers.
+            sectors: A dictionary mapping tickers to their sectors.
+            conn: An active sqlite3 database connection.
         """
-        Download raw OHLCV data for one ticker.
-        Returns a DataFrame indexed by Date with columns ['Open','High','Low','Close','Volume'].
-        """
-        logger.info(f"Fetching data for ticker: {ticker}")
-        warnings.filterwarnings("ignore", category=FutureWarning)
-        df = yf.download(tickers=ticker,
-                         start=self.start_date,
-                         end=self.end_date,
-                         session=self.session,
-                         progress=False,
-                         auto_adjust=True)
-        if df.empty:
-            logger.warning(f"No data returned for {ticker}")
-            return pd.DataFrame()
-        # Ensure datetime index
-        df.index = pd.to_datetime(df.index)
-        # Flatten MultiIndex cols if present
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
-        return df[['Open','High','Low','Close','Volume']]
+        logger.info("Preparing to write equity universe metadata...")
+        try:
+            # 1. Prepare the data in a DataFrame
+            universe_df = pd.DataFrame({"Ticker": tickers})
+            universe_df["Sector"] = universe_df["Ticker"].apply(
+                lambda ticker: sectors.get(ticker, "Unknown")
+            )
+            universe_df["AssetType"] = "Equity"
 
-    def fetch_batch_data(self):
-        """
-        Fetch, clean, and save data for all tickers in one run.
-        """
-        # Reset table before writing
-        # conn = sqlite3.connect(self.db_path)
-        # conn.execute(f"DROP TABLE IF EXISTS {self.table_name};")
-        # conn.close()
-        # logger.info(f"Resetting table '{self.table_name}' in {self.db_path}")
+            # Log any tickers for which a sector could not be found. This is crucial for debugging.
+            unknown_sectors = universe_df[universe_df["Sector"] == "Unknown"]
+            if not unknown_sectors.empty:
+                logger.warning(
+                    f"Could not find sector for the following tickers, defaulting to 'Unknown': {unknown_sectors['Ticker'].tolist()}"
+                )
 
-        for ticker in self.tickers:
-            try:
-                df = self.fetch_single(ticker)
-                if df.empty:
-                    continue
-                cleaned = self.clean_data(df)
-                self.save_data(cleaned, ticker)
-            except Exception as e:
-                logger.error(f"Failed to process {ticker}: {e}")
-        logger.info("✅ Equity data fetched & saved.")
+            # 2. Convert the DataFrame to a list of tuples for insertion
+            data_to_insert = list(universe_df.itertuples(index=False, name=None))
 
-    def clean_data(self, df):
-        """
-        Drop NaNs, remove duplicate dates, and ensure valid index.
-        """
-        before = len(df)
-        df = df.dropna()
-        df = df[~df.index.duplicated(keep='first')]
-        after = len(df)
-        logger.info(f"Cleaned {before-after} NaNs/dupes; {after} remain for this ticker.")
-        # Validate index
-        if not isinstance(df.index, pd.DatetimeIndex):
-            raise ValueError("Index is not a DatetimeIndex.")
-        return df
+            # 3. Use a parameterized executemany for a safe and efficient upsert
+            cursor = conn.cursor()
+            cursor.executemany(
+                """
+                               INSERT INTO universe_metadata (Ticker, Sector, AssetType)
+                               VALUES (?, ?, ?)
+                               ON CONFLICT(Ticker) DO UPDATE SET
+                                   Sector = excluded.Sector,
+                                   AssetType = excluded.AssetType;
+                               """,
+                data_to_insert,
+            )
+            conn.commit()
 
-    def save_data(self, df, ticker):
-        """
-        Append cleaned DataFrame to SQLite with a 'Date' column and 'Ticker'.
-        """
-        out = df.copy().reset_index()
-        out.rename(columns={'index': 'Date'}, inplace=True)
-        out['Ticker'] = ticker
-        # Write to SQL
-        conn = sqlite3.connect(self.db_path)
-        out.to_sql(self.table_name, conn, if_exists='append', index=False)
-        conn.close()
-        logger.info(f"Saved {ticker}: {len(out)} rows to '{self.table_name}'")
-
-    def query_data(self, ticker=None):
-        """
-        Query raw data for a ticker or full table. Returns DataFrame indexed by Date.
-        """
-        q = f"SELECT * FROM {self.table_name}"
-        if ticker:
-            q += f" WHERE Ticker = '{ticker}'"
-        conn = sqlite3.connect(self.db_path)
-        df = pd.read_sql(q, conn, parse_dates=['Date'])
-        conn.close()
-        if 'Date' in df.columns:
-            df.set_index('Date', inplace=True)
-        return df
-
-    def write_universe(self, eq_tickers, eq_sectors):
-        """Load S&P500 constituents, get their sectors+market_caps, write to `assets`."""
-        eq_tickers, eq_sectors = load_sp500()
-        rows = []
-        for t in eq_tickers:
-            rows.append({
-                "Ticker": t,
-                "AssetClass": "Equity",
-                "Sector": eq_sectors.get(t),
-                "MarketCap": self.get_equity_market_cap(t)
-            })
-        df_eq = pd.DataFrame(rows)
-        
-        # persist
-        conn = sqlite3.connect(self.db_path)
-        conn.execute("""
-          CREATE TABLE IF NOT EXISTS assets (
-            Ticker TEXT PRIMARY KEY,
-            AssetClass TEXT NOT NULL,
-            Sector TEXT,
-            MarketCap REAL
-          );
-        """)
-        conn.execute(f"DELETE FROM assets")
-        df_eq.to_sql("assets", conn, if_exists="append", index=False)
-        conn.close()
-        logger.info("✅ Written equity universe to DB")
+            logger.info(
+                f"✅ Successfully wrote/updated metadata for {len(universe_df)} equity tickers."
+            )
+        except Exception as e:
+            logger.exception(f"❌ Failed to write equity universe metadata: {e}")

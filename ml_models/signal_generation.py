@@ -1,4 +1,3 @@
-# signal_generation.py
 class SignalGenerator:
     def __init__(self, threshold=0.05):
         """

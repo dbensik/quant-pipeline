@@ -8095,3 +8095,273 @@
 2025-06-24 20:23:23,635 - INFO - 'ETC-USD' → columns=['Close'], rows=2556
 2025-06-24 20:23:23,635 - INFO - ✅ Normalization complete for: ['MMM', 'AOS', 'ABT', 'ABBV', 'ACN', 'ADBE', 'AMD', 'AES', 'AFL', 'A', 'APD', 'ABNB', 'AKAM', 'ALB', 'ARE', 'ALGN', 'ALLE', 'LNT', 'ALL', 'GOOGL', 'GOOG', 'MO', 'AMZN', 'AMCR', 'AEE', 'AEP', 'AXP', 'AIG', 'AMT', 'AWK', 'AMP', 'AME', 'AMGN', 'APH', 'ADI', 'ANSS', 'AON', 'APA', 'APO', 'AAPL', 'AMAT', 'APTV', 'ACGL', 'ADM', 'ANET', 'AJG', 'AIZ', 'T', 'ATO', 'ADSK', 'ADP', 'AZO', 'AVB', 'AVY', 'AXON', 'BKR', 'BALL', 'BAC', 'BAX', 'BDX', 'BBY', 'TECH', 'BIIB', 'BLK', 'BX', 'BK', 'BA', 'BKNG', 'BSX', 'BMY', 'AVGO', 'BR', 'BRO', 'BLDR', 'BG', 'BXP', 'CHRW', 'CDNS', 'CZR', 'CPT', 'CPB', 'COF', 'CAH', 'KMX', 'CCL', 'CARR', 'CAT', 'CBOE', 'CBRE', 'CDW', 'COR', 'CNC', 'CNP', 'CF', 'CRL', 'SCHW', 'CHTR', 'CVX', 'CMG', 'CB', 'CHD', 'CI', 'CINF', 'CTAS', 'CSCO', 'C', 'CFG', 'CLX', 'CME', 'CMS', 'KO', 'CTSH', 'COIN', 'CL', 'CMCSA', 'CAG', 'COP', 'ED', 'STZ', 'CEG', 'COO', 'CPRT', 'GLW', 'CPAY', 'CTVA', 'CSGP', 'COST', 'CTRA', 'CRWD', 'CCI', 'CSX', 'CMI', 'CVS', 'DHR', 'DRI', 'DVA', 'DAY', 'DECK', 'DE', 'DELL', 'DAL', 'DVN', 'DXCM', 'FANG', 'DLR', 'DG', 'DLTR', 'D', 'DPZ', 'DASH', 'DOV', 'DOW', 'DHI', 'DTE', 'DUK', 'DD', 'EMN', 'ETN', 'EBAY', 'ECL', 'EIX', 'EW', 'EA', 'ELV', 'EMR', 'ENPH', 'ETR', 'EOG', 'EPAM', 'EQT', 'EFX', 'EQIX', 'EQR', 'ERIE', 'ESS', 'EL', 'EG', 'EVRG', 'ES', 'EXC', 'EXE', 'EXPE', 'EXPD', 'EXR', 'XOM', 'FFIV', 'FDS', 'FICO', 'FAST', 'FRT', 'FDX', 'FIS', 'FITB', 'FSLR', 'FE', 'FI', 'F', 'FTNT', 'FTV', 'FOXA', 'FOX', 'BEN', 'FCX', 'GRMN', 'IT', 'GE', 'GEHC', 'GEV', 'GEN', 'GNRC', 'GD', 'GIS', 'GM', 'GPC', 'GILD', 'GPN', 'GL', 'GDDY', 'GS', 'HAL', 'HIG', 'HAS', 'HCA', 'DOC', 'HSIC', 'HSY', 'HES', 'HPE', 'HLT', 'HOLX', 'HD', 'HON', 'HRL', 'HST', 'HWM', 'HPQ', 'HUBB', 'HUM', 'HBAN', 'HII', 'IBM', 'IEX', 'IDXX', 'ITW', 'INCY', 'IR', 'PODD', 'INTC', 'ICE', 'IFF', 'IP', 'IPG', 'INTU', 'ISRG', 'IVZ', 'INVH', 'IQV', 'IRM', 'JBHT', 'JBL', 'JKHY', 'J', 'JNJ', 'JCI', 'JPM', 'JNPR', 'K', 'KVUE', 'KDP', 'KEY', 'KEYS', 'KMB', 'KIM', 'KMI', 'KKR', 'KLAC', 'KHC', 'KR', 'LHX', 'LH', 'LRCX', 'LW', 'LVS', 'LDOS', 'LEN', 'LII', 'LLY', 'LIN', 'LYV', 'LKQ', 'LMT', 'L', 'LOW', 'LULU', 'LYB', 'MTB', 'MPC', 'MKTX', 'MAR', 'MMC', 'MLM', 'MAS', 'MA', 'MTCH', 'MKC', 'MCD', 'MCK', 'MDT', 'MRK', 'META', 'MET', 'MTD', 'MGM', 'MCHP', 'MU', 'MSFT', 'MAA', 'MRNA', 'MHK', 'MOH', 'TAP', 'MDLZ', 'MPWR', 'MNST', 'MCO', 'MS', 'MOS', 'MSI', 'MSCI', 'NDAQ', 'NTAP', 'NFLX', 'NEM', 'NWSA', 'NWS', 'NEE', 'NKE', 'NI', 'NDSN', 'NSC', 'NTRS', 'NOC', 'NCLH', 'NRG', 'NUE', 'NVDA', 'NVR', 'NXPI', 'ORLY', 'OXY', 'ODFL', 'OMC', 'ON', 'OKE', 'ORCL', 'OTIS', 'PCAR', 'PKG', 'PLTR', 'PANW', 'PARA', 'PH', 'PAYX', 'PAYC', 'PYPL', 'PNR', 'PEP', 'PFE', 'PCG', 'PM', 'PSX', 'PNW', 'PNC', 'POOL', 'PPG', 'PPL', 'PFG', 'PG', 'PGR', 'PLD', 'PRU', 'PEG', 'PTC', 'PSA', 'PHM', 'PWR', 'QCOM', 'DGX', 'RL', 'RJF', 'RTX', 'O', 'REG', 'REGN', 'RF', 'RSG', 'RMD', 'RVTY', 'ROK', 'ROL', 'ROP', 'ROST', 'RCL', 'SPGI', 'CRM', 'SBAC', 'SLB', 'STX', 'SRE', 'NOW', 'SHW', 'SPG', 'SWKS', 'SJM', 'SW', 'SNA', 'SOLV', 'SO', 'LUV', 'SWK', 'SBUX', 'STT', 'STLD', 'STE', 'SYK', 'SMCI', 'SYF', 'SNPS', 'SYY', 'TMUS', 'TROW', 'TTWO', 'TPR', 'TRGP', 'TGT', 'TEL', 'TDY', 'TER', 'TSLA', 'TXN', 'TPL', 'TXT', 'TMO', 'TJX', 'TKO', 'TSCO', 'TT', 'TDG', 'TRV', 'TRMB', 'TFC', 'TYL', 'TSN', 'USB', 'UBER', 'UDR', 'ULTA', 'UNP', 'UAL', 'UPS', 'URI', 'UNH', 'UHS', 'VLO', 'VTR', 'VLTO', 'VRSN', 'VRSK', 'VZ', 'VRTX', 'VTRS', 'VICI', 'V', 'VST', 'VMC', 'WRB', 'GWW', 'WAB', 'WBA', 'WMT', 'DIS', 'WBD', 'WM', 'WAT', 'WEC', 'WFC', 'WELL', 'WST', 'WDC', 'WY', 'WSM', 'WMB', 'WTW', 'WDAY', 'WYNN', 'XEL', 'XYL', 'YUM', 'ZBRA', 'ZBH', 'ZTS', 'BTC-USD', 'ETH-USD', 'USDT-USD', 'XRP-USD', 'BNB-USD', 'SOL-USD', 'USDC-USD', 'TRX-USD', 'DOGE-USD', 'STETH-USD', 'ADA-USD', 'WBTC-USD', 'HYPE-USD', 'WSTETH-USD', 'SUI-USD', 'LINK-USD', 'BCH-USD', 'LEO-USD', 'XLM-USD', 'AVAX-USD', 'USDS-USD', 'TON-USD', 'WBT-USD', 'SHIB-USD', 'HBAR-USD', 'WETH-USD', 'LTC-USD', 'WEETH-USD', 'XMR-USD', 'USDE-USD', 'DOT-USD', 'BGB-USD', 'CBBTC-USD', 'UNI-USD', 'PEPE-USD', 'PI-USD', 'AAVE-USD', 'DAI-USD', 'SUSDE-USD', 'APT-USD', 'OKB-USD', 'BUIDL-USD', 'NEAR-USD', 'ICP-USD', 'CRO-USD', 'JITOSOL-USD', 'ETC-USD']
 2025-06-24 20:23:23,636 - INFO - 🎉 Pipeline run complete!
+2025-07-01 20:42:44,739 - INFO - __main__ │ Initializing database at /Users/dannybensik/PycharmProjects/quant-pipeline/quant_pipeline.db...
+2025-07-01 20:42:45,786 - INFO - data_pipeline.watchlist_manager │ Watchlist tables ensured in ../quant_pipeline.db
+2025-07-01 20:42:45,787 - INFO - __main__ │ ✅ Database initialized.
+2025-07-01 20:42:45,787 - INFO - scripts.constituents │ Fetching S&P 500 constituents from Wikipedia...
+2025-07-01 20:42:45,996 - INFO - scripts.constituents │ Saved constituents to cache: 'sp500_constituents.json'
+2025-07-01 20:42:45,996 - INFO - scripts.constituents │ ✅ Successfully fetched 503 S&P 500 constituents.
+2025-07-01 20:42:45,996 - INFO - __main__ │ Fetching data for 50 S&P 500 tickers...
+2025-07-01 20:42:45,996 - INFO - data_pipeline.equity_pipeline │ Starting batch fetch for 50 equity tickers...
+2025-07-01 20:42:46,827 - INFO - data_pipeline.equity_pipeline │ ✅ Successfully fetched and reshaped data for 50 tickers.
+2025-07-01 20:42:46,828 - INFO - __main__ │ ✅ Fetched 62612 rows for equities.
+2025-07-01 20:42:46,828 - INFO - scripts.constituents │ Fetching top 25 crypto pairs from CoinGecko...
+2025-07-01 20:42:46,937 - INFO - scripts.constituents │ Saved constituents to cache: 'crypto_top_25_usd.json'
+2025-07-01 20:42:46,937 - INFO - scripts.constituents │ ✅ Successfully fetched 25 crypto pairs.
+2025-07-01 20:42:46,937 - INFO - __main__ │ Fetching data for 25 crypto pairs...
+2025-07-01 20:42:46,937 - INFO - data_pipeline.crypto_pipeline │ Starting fetch for 25 crypto pairs...
+2025-07-01 20:42:46,937 - INFO - data_pipeline.crypto_pipeline │ Fetching (1/25): bitcoin
+2025-07-01 20:42:47,054 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for bitcoin: HTTP Error 401: 
+2025-07-01 20:42:49,560 - INFO - data_pipeline.crypto_pipeline │ Fetching (2/25): ethereum
+2025-07-01 20:42:49,653 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for ethereum: HTTP Error 401: 
+2025-07-01 20:42:52,155 - INFO - data_pipeline.crypto_pipeline │ Fetching (3/25): tether
+2025-07-01 20:42:52,235 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for tether: HTTP Error 401: 
+2025-07-01 20:42:54,740 - INFO - data_pipeline.crypto_pipeline │ Fetching (4/25): ripple
+2025-07-01 20:42:54,826 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for ripple: HTTP Error 401: 
+2025-07-01 20:42:57,330 - INFO - data_pipeline.crypto_pipeline │ Fetching (5/25): binancecoin
+2025-07-01 20:42:57,351 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for binancecoin: HTTP Error 429: 
+2025-07-01 20:42:59,854 - INFO - data_pipeline.crypto_pipeline │ Fetching (6/25): solana
+2025-07-01 20:42:59,881 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for solana: HTTP Error 429: 
+2025-07-01 20:43:02,384 - INFO - data_pipeline.crypto_pipeline │ Fetching (7/25): usd-coin
+2025-07-01 20:43:02,412 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for usd-coin: HTTP Error 429: 
+2025-07-01 20:43:04,918 - INFO - data_pipeline.crypto_pipeline │ Fetching (8/25): tron
+2025-07-01 20:43:04,941 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for tron: HTTP Error 429: 
+2025-07-01 20:43:07,444 - INFO - data_pipeline.crypto_pipeline │ Fetching (9/25): dogecoin
+2025-07-01 20:43:07,472 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for dogecoin: HTTP Error 429: 
+2025-07-01 20:43:09,973 - INFO - data_pipeline.crypto_pipeline │ Fetching (10/25): staked-ether
+2025-07-01 20:43:09,996 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for staked-ether: HTTP Error 429: 
+2025-07-01 20:43:12,498 - INFO - data_pipeline.crypto_pipeline │ Fetching (11/25): cardano
+2025-07-01 20:43:12,522 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for cardano: HTTP Error 429: 
+2025-07-01 20:43:15,023 - INFO - data_pipeline.crypto_pipeline │ Fetching (12/25): wrapped-bitcoin
+2025-07-01 20:43:15,043 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for wrapped-bitcoin: HTTP Error 429: 
+2025-07-01 20:43:17,549 - INFO - data_pipeline.crypto_pipeline │ Fetching (13/25): hyperliquid
+2025-07-01 20:43:17,570 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for hyperliquid: HTTP Error 429: 
+2025-07-01 20:43:20,075 - INFO - data_pipeline.crypto_pipeline │ Fetching (14/25): bitcoin-cash
+2025-07-01 20:43:20,109 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for bitcoin-cash: HTTP Error 429: 
+2025-07-01 20:43:22,615 - INFO - data_pipeline.crypto_pipeline │ Fetching (15/25): wrapped-steth
+2025-07-01 20:43:22,638 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for wrapped-steth: HTTP Error 429: 
+2025-07-01 20:43:25,139 - INFO - data_pipeline.crypto_pipeline │ Fetching (16/25): sui
+2025-07-01 20:43:25,159 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for sui: HTTP Error 429: 
+2025-07-01 20:43:27,662 - INFO - data_pipeline.crypto_pipeline │ Fetching (17/25): chainlink
+2025-07-01 20:43:27,683 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for chainlink: HTTP Error 429: 
+2025-07-01 20:43:30,189 - INFO - data_pipeline.crypto_pipeline │ Fetching (18/25): leo-token
+2025-07-01 20:43:30,383 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for leo-token: HTTP Error 429: 
+2025-07-01 20:43:32,888 - INFO - data_pipeline.crypto_pipeline │ Fetching (19/25): usds
+2025-07-01 20:43:32,911 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for usds: HTTP Error 429: 
+2025-07-01 20:43:35,412 - INFO - data_pipeline.crypto_pipeline │ Fetching (20/25): avalanche-2
+2025-07-01 20:43:35,434 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for avalanche-2: HTTP Error 429: 
+2025-07-01 20:43:37,936 - INFO - data_pipeline.crypto_pipeline │ Fetching (21/25): stellar
+2025-07-01 20:43:37,973 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for stellar: HTTP Error 429: 
+2025-07-01 20:43:40,474 - INFO - data_pipeline.crypto_pipeline │ Fetching (22/25): the-open-network
+2025-07-01 20:43:40,496 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for the-open-network: HTTP Error 429: 
+2025-07-01 20:43:42,997 - INFO - data_pipeline.crypto_pipeline │ Fetching (23/25): shiba-inu
+2025-07-01 20:43:43,016 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for shiba-inu: HTTP Error 429: 
+2025-07-01 20:43:45,517 - INFO - data_pipeline.crypto_pipeline │ Fetching (24/25): weth
+2025-07-01 20:43:45,536 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for weth: HTTP Error 429: 
+2025-07-01 20:43:48,040 - INFO - data_pipeline.crypto_pipeline │ Fetching (25/25): whitebit
+2025-07-01 20:43:48,067 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for whitebit: HTTP Error 429: 
+2025-07-01 20:43:50,572 - WARNING - data_pipeline.crypto_pipeline │ Crypto fetch completed, but no data was gathered.
+2025-07-01 20:43:50,574 - INFO - __main__ │ ✅ Fetched 0 rows for crypto.
+2025-07-01 20:43:50,581 - INFO - __main__ │ Combined data has 62612 total rows.
+2025-07-01 20:43:50,581 - INFO - __main__ │ Writing raw price data to 'price_data' table...
+2025-07-01 20:43:50,682 - INFO - __main__ │ ✅ Raw data saved.
+2025-07-01 20:43:50,682 - INFO - data_pipeline.equity_pipeline │ Preparing to write equity universe metadata...
+2025-07-01 20:43:50,683 - INFO - data_pipeline.equity_pipeline │ ✅ Successfully wrote metadata for 50 equity tickers.
+2025-07-01 20:43:50,683 - INFO - data_pipeline.crypto_pipeline │ Preparing to write crypto universe metadata...
+2025-07-01 20:43:50,683 - ERROR - data_pipeline.crypto_pipeline │ ❌ Failed to write crypto universe metadata: table universe_metadata has no column named MarketCap
+Traceback (most recent call last):
+  File "/Users/dannybensik/PycharmProjects/quant-pipeline/data_pipeline/crypto_pipeline.py", line 132, in write_universe
+    universe_df.to_sql('universe_metadata', conn, if_exists='append', index=False)
+  File "/opt/anaconda3/envs/quant-pipeline-env/lib/python3.11/site-packages/pandas/util/_decorators.py", line 333, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/envs/quant-pipeline-env/lib/python3.11/site-packages/pandas/core/generic.py", line 3087, in to_sql
+    return sql.to_sql(
+           ^^^^^^^^^^^
+  File "/opt/anaconda3/envs/quant-pipeline-env/lib/python3.11/site-packages/pandas/io/sql.py", line 842, in to_sql
+    return pandas_sql.to_sql(
+           ^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/envs/quant-pipeline-env/lib/python3.11/site-packages/pandas/io/sql.py", line 2851, in to_sql
+    return table.insert(chunksize, method)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/envs/quant-pipeline-env/lib/python3.11/site-packages/pandas/io/sql.py", line 1119, in insert
+    num_inserted = exec_insert(conn, keys, chunk_iter)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/envs/quant-pipeline-env/lib/python3.11/site-packages/pandas/io/sql.py", line 2547, in _execute_insert
+    conn.executemany(self.insert_statement(num_rows=1), data_list)
+sqlite3.OperationalError: table universe_metadata has no column named MarketCap
+2025-07-01 20:43:50,687 - INFO - __main__ │ ✅ Universe metadata saved.
+2025-07-01 20:43:50,687 - INFO - __main__ │ Normalizing all data from 'price_data' table...
+2025-07-01 20:43:50,687 - INFO - __main__ │ Starting data normalization...
+2025-07-01 20:43:50,691 - INFO - __main__ │ Normalization complete.
+2025-07-01 20:43:50,692 - INFO - __main__ │ Writing normalized data to 'price_data_normalized' table...
+2025-07-01 20:43:50,753 - INFO - __main__ │ ✅ Normalized data saved.
+2025-07-01 20:43:50,753 - INFO - __main__ │ 🎉 Pipeline run complete!
+2025-07-01 20:55:23,948 - INFO - __main__ │ Initializing database at /Users/dannybensik/PycharmProjects/quant-pipeline/quant_pipeline.db...
+2025-07-01 20:55:23,948 - ERROR - __main__ │ Pipeline failed with an unhandled exception: initialize_database() missing 1 required positional argument: 'db_path'
+Traceback (most recent call last):
+  File "/Users/dannybensik/PycharmProjects/quant-pipeline/cli/run_pipeline.py", line 151, in <module>
+    main(cli_args)
+  File "/Users/dannybensik/PycharmProjects/quant-pipeline/cli/run_pipeline.py", line 64, in main
+    initialize_database()
+TypeError: initialize_database() missing 1 required positional argument: 'db_path'
+2025-07-01 20:57:01,646 - INFO - __main__ │ Initializing database at /Users/dannybensik/PycharmProjects/quant-pipeline/quant_pipeline.db...
+2025-07-01 20:57:01,646 - INFO - scripts.init_db │ Initializing database at /Users/dannybensik/PycharmProjects/quant-pipeline/quant_pipeline.db...
+2025-07-01 20:57:01,646 - INFO - scripts.init_db │ Dropping existing tables...
+2025-07-01 20:57:01,907 - INFO - scripts.init_db │ All existing tables dropped.
+2025-07-01 20:57:01,909 - INFO - scripts.init_db │ ✅ Database schema created successfully.
+2025-07-01 20:57:01,909 - INFO - __main__ │ ✅ Database initialized.
+2025-07-01 20:57:01,909 - INFO - scripts.constituents │ Loading constituents from cache: 'sp500_constituents.json'
+2025-07-01 20:57:01,910 - INFO - __main__ │ Fetching data for 50 S&P 500 tickers...
+2025-07-01 20:57:01,910 - INFO - data_pipeline.equity_pipeline │ Starting batch fetch for 50 equity tickers...
+2025-07-01 20:57:02,709 - INFO - data_pipeline.equity_pipeline │ ✅ Successfully fetched and reshaped data for 50 tickers.
+2025-07-01 20:57:02,710 - INFO - __main__ │ ✅ Fetched 62850 rows for equities.
+2025-07-01 20:57:02,710 - INFO - scripts.constituents │ Loading constituents from cache: 'crypto_top_25_usd.json'
+2025-07-01 20:57:02,710 - INFO - __main__ │ Fetching data for 25 crypto pairs...
+2025-07-01 20:57:02,710 - INFO - data_pipeline.crypto_pipeline │ Starting fetch for 25 crypto pairs...
+2025-07-01 20:57:02,710 - INFO - data_pipeline.crypto_pipeline │ Fetching (1/25): bitcoin
+2025-07-01 20:57:02,832 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for bitcoin: HTTP Error 401: 
+2025-07-01 20:57:05,336 - INFO - data_pipeline.crypto_pipeline │ Fetching (2/25): ethereum
+2025-07-01 20:57:05,429 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for ethereum: HTTP Error 401: 
+2025-07-01 20:57:07,935 - INFO - data_pipeline.crypto_pipeline │ Fetching (3/25): tether
+2025-07-01 20:57:08,030 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for tether: HTTP Error 401: 
+2025-07-01 20:57:10,533 - INFO - data_pipeline.crypto_pipeline │ Fetching (4/25): ripple
+2025-07-01 20:57:10,639 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for ripple: HTTP Error 401: 
+2025-07-01 20:57:13,145 - INFO - data_pipeline.crypto_pipeline │ Fetching (5/25): binancecoin
+2025-07-01 20:57:13,243 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for binancecoin: HTTP Error 401: 
+2025-07-01 20:57:15,746 - INFO - data_pipeline.crypto_pipeline │ Fetching (6/25): solana
+2025-07-01 20:57:15,776 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for solana: HTTP Error 429: 
+2025-07-01 20:57:18,281 - INFO - data_pipeline.crypto_pipeline │ Fetching (7/25): usd-coin
+2025-07-01 20:57:18,302 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for usd-coin: HTTP Error 429: 
+2025-07-01 20:57:20,804 - INFO - data_pipeline.crypto_pipeline │ Fetching (8/25): tron
+2025-07-01 20:57:20,844 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for tron: HTTP Error 429: 
+2025-07-01 20:57:23,347 - INFO - data_pipeline.crypto_pipeline │ Fetching (9/25): dogecoin
+2025-07-01 20:57:23,370 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for dogecoin: HTTP Error 429: 
+2025-07-01 20:57:25,874 - INFO - data_pipeline.crypto_pipeline │ Fetching (10/25): staked-ether
+2025-07-01 20:57:25,899 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for staked-ether: HTTP Error 429: 
+2025-07-01 20:57:28,405 - INFO - data_pipeline.crypto_pipeline │ Fetching (11/25): cardano
+2025-07-01 20:57:28,428 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for cardano: HTTP Error 429: 
+2025-07-01 20:57:30,932 - INFO - data_pipeline.crypto_pipeline │ Fetching (12/25): wrapped-bitcoin
+2025-07-01 20:57:30,957 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for wrapped-bitcoin: HTTP Error 429: 
+2025-07-01 20:57:33,461 - INFO - data_pipeline.crypto_pipeline │ Fetching (13/25): hyperliquid
+2025-07-01 20:57:33,491 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for hyperliquid: HTTP Error 429: 
+2025-07-01 20:57:35,994 - INFO - data_pipeline.crypto_pipeline │ Fetching (14/25): bitcoin-cash
+2025-07-01 20:57:36,030 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for bitcoin-cash: HTTP Error 429: 
+2025-07-01 20:57:38,533 - INFO - data_pipeline.crypto_pipeline │ Fetching (15/25): wrapped-steth
+2025-07-01 20:57:38,555 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for wrapped-steth: HTTP Error 429: 
+2025-07-01 20:57:41,060 - INFO - data_pipeline.crypto_pipeline │ Fetching (16/25): sui
+2025-07-01 20:57:41,089 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for sui: HTTP Error 429: 
+2025-07-01 20:57:43,590 - INFO - data_pipeline.crypto_pipeline │ Fetching (17/25): chainlink
+2025-07-01 20:57:43,616 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for chainlink: HTTP Error 429: 
+2025-07-01 20:57:46,119 - INFO - data_pipeline.crypto_pipeline │ Fetching (18/25): leo-token
+2025-07-01 20:57:46,144 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for leo-token: HTTP Error 429: 
+2025-07-01 20:57:48,648 - INFO - data_pipeline.crypto_pipeline │ Fetching (19/25): usds
+2025-07-01 20:57:48,672 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for usds: HTTP Error 429: 
+2025-07-01 20:57:51,178 - INFO - data_pipeline.crypto_pipeline │ Fetching (20/25): avalanche-2
+2025-07-01 20:57:51,199 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for avalanche-2: HTTP Error 429: 
+2025-07-01 20:57:53,701 - INFO - data_pipeline.crypto_pipeline │ Fetching (21/25): stellar
+2025-07-01 20:57:53,722 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for stellar: HTTP Error 429: 
+2025-07-01 20:57:56,224 - INFO - data_pipeline.crypto_pipeline │ Fetching (22/25): the-open-network
+2025-07-01 20:57:56,245 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for the-open-network: HTTP Error 429: 
+2025-07-01 20:57:58,748 - INFO - data_pipeline.crypto_pipeline │ Fetching (23/25): shiba-inu
+2025-07-01 20:57:58,771 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for shiba-inu: HTTP Error 429: 
+2025-07-01 20:58:01,277 - INFO - data_pipeline.crypto_pipeline │ Fetching (24/25): weth
+2025-07-01 20:58:01,295 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for weth: HTTP Error 429: 
+2025-07-01 20:58:03,801 - INFO - data_pipeline.crypto_pipeline │ Fetching (25/25): whitebit
+2025-07-01 20:58:03,832 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for whitebit: HTTP Error 429: 
+2025-07-01 20:58:06,337 - WARNING - data_pipeline.crypto_pipeline │ Crypto fetch completed, but no data was gathered.
+2025-07-01 20:58:06,338 - INFO - __main__ │ ✅ Fetched 0 rows for crypto.
+2025-07-01 20:58:06,345 - INFO - __main__ │ Combined data has 62850 total rows.
+2025-07-01 20:58:06,345 - INFO - __main__ │ Writing raw price data to 'price_data' table...
+2025-07-01 20:58:06,559 - INFO - __main__ │ ✅ Raw data saved.
+2025-07-01 20:58:06,559 - INFO - data_pipeline.equity_pipeline │ Preparing to write equity universe metadata...
+2025-07-01 20:58:06,560 - INFO - data_pipeline.equity_pipeline │ ✅ Successfully wrote metadata for 50 equity tickers.
+2025-07-01 20:58:06,560 - INFO - data_pipeline.crypto_pipeline │ Preparing to write crypto universe metadata...
+2025-07-01 20:58:06,561 - INFO - data_pipeline.crypto_pipeline │ ✅ Successfully wrote metadata for 25 crypto pairs.
+2025-07-01 20:58:06,561 - INFO - __main__ │ ✅ Universe metadata saved.
+2025-07-01 20:58:06,561 - INFO - __main__ │ Normalizing all data from 'price_data' table...
+2025-07-01 20:58:06,561 - INFO - __main__ │ Starting data normalization...
+2025-07-01 20:58:06,565 - INFO - __main__ │ Normalization complete.
+2025-07-01 20:58:06,567 - INFO - __main__ │ Writing normalized data to 'price_data_normalized' table...
+2025-07-01 20:58:06,670 - INFO - __main__ │ ✅ Normalized data saved.
+2025-07-01 20:58:06,670 - INFO - __main__ │ 🎉 Pipeline run complete!
+2025-07-01 21:44:41,981 - INFO - __main__ │ Initializing database at /Users/dannybensik/PycharmProjects/quant-pipeline/quant_pipeline.db...
+2025-07-01 21:44:41,981 - INFO - scripts.init_db │ Initializing database at /Users/dannybensik/PycharmProjects/quant-pipeline/quant_pipeline.db...
+2025-07-01 21:44:41,981 - INFO - scripts.init_db │ Dropping existing tables...
+2025-07-01 21:44:42,180 - INFO - scripts.init_db │ All existing tables dropped.
+2025-07-01 21:44:42,181 - INFO - scripts.init_db │ ✅ Database schema created successfully.
+2025-07-01 21:44:42,181 - INFO - __main__ │ ✅ Database initialized.
+2025-07-01 21:44:42,181 - INFO - scripts.constituents │ Loading constituents from cache: 'sp500_constituents.json'
+2025-07-01 21:44:42,182 - INFO - __main__ │ Fetching data for 50 S&P 500 tickers...
+2025-07-01 21:44:42,182 - INFO - data_pipeline.equity_pipeline │ Starting batch fetch for 50 equity tickers...
+2025-07-01 21:44:42,966 - INFO - data_pipeline.equity_pipeline │ ✅ Successfully fetched and reshaped data for 50 tickers.
+2025-07-01 21:44:42,967 - INFO - __main__ │ ✅ Fetched 62850 rows for equities.
+2025-07-01 21:44:42,967 - INFO - scripts.constituents │ Loading constituents from cache: 'crypto_top_25_usd.json'
+2025-07-01 21:44:42,967 - INFO - __main__ │ Fetching data for 25 crypto pairs...
+2025-07-01 21:44:42,967 - INFO - data_pipeline.crypto_pipeline │ Starting fetch for 25 crypto pairs...
+2025-07-01 21:44:42,967 - INFO - data_pipeline.crypto_pipeline │ Fetching (1/25): bitcoin
+2025-07-01 21:44:43,075 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for bitcoin: HTTP Error 401: 
+2025-07-01 21:44:45,577 - INFO - data_pipeline.crypto_pipeline │ Fetching (2/25): ethereum
+2025-07-01 21:44:45,651 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for ethereum: HTTP Error 401: 
+2025-07-01 21:44:48,156 - INFO - data_pipeline.crypto_pipeline │ Fetching (3/25): tether
+2025-07-01 21:44:48,238 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for tether: HTTP Error 401: 
+2025-07-01 21:44:50,744 - INFO - data_pipeline.crypto_pipeline │ Fetching (4/25): ripple
+2025-07-01 21:44:50,821 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for ripple: HTTP Error 401: 
+2025-07-01 21:44:53,324 - INFO - data_pipeline.crypto_pipeline │ Fetching (5/25): binancecoin
+2025-07-01 21:44:53,400 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for binancecoin: HTTP Error 401: 
+2025-07-01 21:44:55,906 - INFO - data_pipeline.crypto_pipeline │ Fetching (6/25): solana
+2025-07-01 21:44:55,923 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for solana: HTTP Error 429: 
+2025-07-01 21:44:58,426 - INFO - data_pipeline.crypto_pipeline │ Fetching (7/25): usd-coin
+2025-07-01 21:44:58,447 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for usd-coin: HTTP Error 429: 
+2025-07-01 21:45:00,947 - INFO - data_pipeline.crypto_pipeline │ Fetching (8/25): tron
+2025-07-01 21:45:00,963 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for tron: HTTP Error 429: 
+2025-07-01 21:45:03,469 - INFO - data_pipeline.crypto_pipeline │ Fetching (9/25): dogecoin
+2025-07-01 21:45:03,492 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for dogecoin: HTTP Error 429: 
+2025-07-01 21:45:05,998 - INFO - data_pipeline.crypto_pipeline │ Fetching (10/25): staked-ether
+2025-07-01 21:45:06,026 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for staked-ether: HTTP Error 429: 
+2025-07-01 21:45:08,528 - INFO - data_pipeline.crypto_pipeline │ Fetching (11/25): cardano
+2025-07-01 21:45:08,552 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for cardano: HTTP Error 429: 
+2025-07-01 21:45:11,053 - INFO - data_pipeline.crypto_pipeline │ Fetching (12/25): wrapped-bitcoin
+2025-07-01 21:45:11,076 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for wrapped-bitcoin: HTTP Error 429: 
+2025-07-01 21:45:13,579 - INFO - data_pipeline.crypto_pipeline │ Fetching (13/25): hyperliquid
+2025-07-01 21:45:13,599 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for hyperliquid: HTTP Error 429: 
+2025-07-01 21:45:16,105 - INFO - data_pipeline.crypto_pipeline │ Fetching (14/25): bitcoin-cash
+2025-07-01 21:45:16,130 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for bitcoin-cash: HTTP Error 429: 
+2025-07-01 21:45:18,636 - INFO - data_pipeline.crypto_pipeline │ Fetching (15/25): wrapped-steth
+2025-07-01 21:45:18,656 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for wrapped-steth: HTTP Error 429: 
+2025-07-01 21:45:21,157 - INFO - data_pipeline.crypto_pipeline │ Fetching (16/25): sui
+2025-07-01 21:45:21,191 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for sui: HTTP Error 429: 
+2025-07-01 21:45:23,694 - INFO - data_pipeline.crypto_pipeline │ Fetching (17/25): chainlink
+2025-07-01 21:45:23,722 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for chainlink: HTTP Error 429: 
+2025-07-01 21:45:26,228 - INFO - data_pipeline.crypto_pipeline │ Fetching (18/25): leo-token
+2025-07-01 21:45:26,252 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for leo-token: HTTP Error 429: 
+2025-07-01 21:45:28,758 - INFO - data_pipeline.crypto_pipeline │ Fetching (19/25): usds
+2025-07-01 21:45:28,777 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for usds: HTTP Error 429: 
+2025-07-01 21:45:31,278 - INFO - data_pipeline.crypto_pipeline │ Fetching (20/25): avalanche-2
+2025-07-01 21:45:31,292 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for avalanche-2: HTTP Error 429: 
+2025-07-01 21:45:33,797 - INFO - data_pipeline.crypto_pipeline │ Fetching (21/25): stellar
+2025-07-01 21:45:33,814 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for stellar: HTTP Error 429: 
+2025-07-01 21:45:36,314 - INFO - data_pipeline.crypto_pipeline │ Fetching (22/25): the-open-network
+2025-07-01 21:45:36,330 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for the-open-network: HTTP Error 429: 
+2025-07-01 21:45:38,831 - INFO - data_pipeline.crypto_pipeline │ Fetching (23/25): shiba-inu
+2025-07-01 21:45:38,848 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for shiba-inu: HTTP Error 429: 
+2025-07-01 21:45:41,354 - INFO - data_pipeline.crypto_pipeline │ Fetching (24/25): weth
+2025-07-01 21:45:41,368 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for weth: HTTP Error 429: 
+2025-07-01 21:45:43,872 - INFO - data_pipeline.crypto_pipeline │ Fetching (25/25): whitebit
+2025-07-01 21:45:43,897 - ERROR - data_pipeline.crypto_pipeline │ Failed to fetch data for whitebit: HTTP Error 429: 
+2025-07-01 21:45:46,400 - WARNING - data_pipeline.crypto_pipeline │ Crypto fetch completed, but no data was gathered.
+2025-07-01 21:45:46,401 - INFO - __main__ │ ✅ Fetched 0 rows for crypto.
+2025-07-01 21:45:46,407 - INFO - __main__ │ Combined data has 62850 total rows.
+2025-07-01 21:45:46,407 - INFO - __main__ │ Writing raw price data to 'price_data' table...
+2025-07-01 21:45:46,628 - INFO - __main__ │ ✅ Raw data saved.
+2025-07-01 21:45:46,628 - INFO - data_pipeline.equity_pipeline │ Preparing to write equity universe metadata...
+2025-07-01 21:45:46,629 - INFO - data_pipeline.equity_pipeline │ ✅ Successfully wrote metadata for 50 equity tickers.
+2025-07-01 21:45:46,629 - INFO - data_pipeline.crypto_pipeline │ Preparing to write crypto universe metadata...
+2025-07-01 21:45:46,631 - INFO - data_pipeline.crypto_pipeline │ ✅ Successfully wrote metadata for 25 crypto pairs.
+2025-07-01 21:45:46,631 - INFO - __main__ │ ✅ Universe metadata saved.
+2025-07-01 21:45:46,631 - INFO - __main__ │ Normalizing all data from 'price_data' table...
+2025-07-01 21:45:46,631 - INFO - __main__ │ Starting data normalization...
+2025-07-01 21:45:46,634 - INFO - __main__ │ Normalization complete.
+2025-07-01 21:45:46,635 - INFO - __main__ │ Writing normalized data to 'price_data_normalized' table...
+2025-07-01 21:45:46,741 - INFO - __main__ │ ✅ Normalized data saved.
+2025-07-01 21:45:46,741 - INFO - __main__ │ 🎉 Pipeline run complete!

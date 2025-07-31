@@ -1,109 +1,126 @@
-#!/usr/bin/env python3
+import argparse
 import logging
-import logging.handlers
-import time
-import sys, os
-# add project root to sys.path for local script imports
-sys.path.insert(0, os.path.abspath(os.path.join(__file__, '..', '..')))
-from data_pipeline.equity_pipeline import EquityPipeline
-from data_pipeline.crypto_pipeline import CryptoPipeline
-from data_pipeline.time_series_normalizer import TimeSeriesNormalizer
-from scripts.init_db import initialize_database
-from scripts.constituents import load_sp500, load_top_crypto_pairs
-from scripts.crypto_meta import load_crypto_meta
-from curl_cffi import requests
-import matplotlib.pyplot as plt
-import pandas as pd
 import sqlite3
+from datetime import datetime
 
+# --- Project Imports ---
+from config.settings import DB_PATH, DEFAULT_START_DATE
+from dashboard_app.database_manager import DatabaseManager
+from data_pipeline.crypto_pipeline import CryptoPipeline
+from data_pipeline.equity_pipeline import EquityPipeline
+from data_pipeline.fundamental_pipeline import FundamentalPipeline
 
-
-# Configure logging: console + rotating file
-LOG_FILE = os.path.join(os.path.dirname(__file__), 'run_pipeline.log')
+# Configure logging to show timestamp, level, and message
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.handlers.RotatingFileHandler(LOG_FILE, maxBytes=5_000_000, backupCount=3)
-    ]
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
 
 
+class PipelineOrchestrator:
+    """
+    Orchestrates the entire data pipeline process, from discovering the
+    universe of assets to fetching and storing their data.
+    """
+
+    def __init__(self, conn: sqlite3.Connection):
+        """
+        Initializes the orchestrator with a database connection.
+        """
+        self.conn = conn
+        self.db_manager = DatabaseManager(db_path=None, conn=self.conn)
+        # Ensure all necessary tables exist before running.
+        self._setup_database()
+
+    def _setup_database(self):
+        """
+        Ensures all necessary tables are created by their respective managers.
+        This is a key part of the new design.
+        """
+        logger.info("Ensuring all necessary database tables exist...")
+        self.db_manager.create_tables()  # Handles price_data, universe_metadata, etc.
+        FundamentalPipeline.create_table(self.conn)
+        logger.info("Database schema is ready.")
+
+    def run(self, full_backfill: bool = False):
+        """
+        Executes the full data pipeline workflow in a clear, linear fashion.
+        """
+        logger.info("🚀 Starting main data pipeline run...")
+
+        # 1. Determine the date range for fetching data.
+        if full_backfill:
+            start_date = DEFAULT_START_DATE
+            logger.info(f"Performing FULL BACKFILL from start date: {start_date}.")
+        else:
+            # The DatabaseManager is now responsible for this logic.
+            start_date = self.db_manager.get_latest_date()
+            logger.info(f"Performing INCREMENTAL UPDATE from last date: {start_date}.")
+        end_date = datetime.now().strftime("%Y-%m-%d")
+
+        # 2. Get the list of assets to process directly from the database.
+        equities = self.db_manager.get_tickers_by_asset_type("Equity")
+        cryptos = self.db_manager.get_tickers_by_asset_type("Crypto")
+
+        logger.info(
+            f"Discovered tickers in database: {len(equities)} equities, {len(cryptos)} cryptos."
+        )
+
+        # 3. Run the Equity Price Pipeline.
+        if equities:
+            logger.info("--- Starting Equity Price Pipeline ---")
+            equity_pipeline = EquityPipeline(equities, start_date, end_date, None)
+            equity_data = equity_pipeline.fetch_batch_data()
+            if not equity_data.empty:
+                self.db_manager.write_price_data(equity_data)
+            logger.info("--- Equity Price Pipeline Complete ---")
+
+        # 4. Run the Crypto Price Pipeline.
+        if cryptos:
+            logger.info("--- Starting Crypto Price Pipeline ---")
+            crypto_pipeline = CryptoPipeline(cryptos, start_date, end_date, None)
+            crypto_data = crypto_pipeline.fetch_batch_data()
+            if not crypto_data.empty:
+                self.db_manager.write_price_data(crypto_data)
+            logger.info("--- Crypto Price Pipeline Complete ---")
+
+        # 5. Run the Fundamental Data Pipeline (only for equities).
+        if equities:
+            logger.info("--- Starting Fundamental Data Pipeline ---")
+            FundamentalPipeline.fetch_and_write_fundamentals(
+                tickers=equities, conn=self.conn
+            )
+            logger.info("--- Fundamental Data Pipeline Complete ---")
+
+        logger.info("✅ Main data pipeline run completed successfully!")
+
+
 def main():
-    # --- CONFIGURATION ---
-    # tickers = ["SPY", "GME"]
-    # crypto_pairs = ["BTC-USD", "ETH-USD"]
-    start_date = "2018-01-01"
-    end_date = "2024-12-31"
-    db_path = os.path.abspath(os.path.join(__file__, '..', '..', 'quant_pipeline.db'))
-    raw_table = "price_data"
-
-    # Equities:
-    eq_tickers, eq_sectors = load_sp500()
-
-    # Cryptos:
-    crypto_pairs, crypto_caps = load_top_crypto_pairs(vs_currency="usd", top_n=50)
-
-    # Initialize database schema (drops + recreates tables)
-    initialize_database()
-
-    # --- EQUITY PIPELINE ---
-    equity = EquityPipeline(
-        tickers=eq_tickers,
-        start_date=start_date,
-        end_date=end_date,
-        session=requests.Session(impersonate="chrome"),
-        db_path=db_path,
-        table_name=raw_table
+    """Main entry point for the command-line interface."""
+    parser = argparse.ArgumentParser(description="Data Pipeline Orchestrator")
+    parser.add_argument(
+        "--full-backfill",
+        action="store_true",
+        help="Perform a full backfill of all data from the default start date.",
     )
+    args = parser.parse_args()
+
+    conn = None
     try:
-        equity.fetch_batch_data()
-        # logger.info("✅ Equity data fetched & saved.")
+        # The connection is created once and passed to the orchestrator.
+        conn = sqlite3.connect(DB_PATH)
+        orchestrator = PipelineOrchestrator(conn)
+        orchestrator.run(full_backfill=args.full_backfill)
+    except sqlite3.Error as e:
+        logger.exception(f"A database error occurred: {e}")
     except Exception as e:
-        # logger.error(f"Equity batch fetch failed: {e}")
-        return
-
-    # --- CRYPTO PIPELINE ---
-    crypto = CryptoPipeline(
-        pairs=crypto_pairs,
-        start_date=start_date,
-        end_date=end_date,
-        session=requests.Session(impersonate="chrome"),
-        db_path=db_path,
-        table_name=raw_table
-    )
-    try:
-        crypto.fetch_batch_data()
-        # logger.info("✅ Crypto data fetched & saved.")
-    except Exception as e:
-        # logger.error(f"Crypto batch fetch failed: {e}")
-        return
-
-    equity.write_universe(eq_tickers, eq_sectors)
-    crypto.write_universe(crypto_pairs, crypto_caps)
-
-    # --- LOAD RAW FOR NORMALIZATION ---
-    all_series = {}
-    for symbol in eq_tickers:
-        df = equity.query_data(ticker=symbol)
-        logger.info(f"Loaded raw equity '{symbol}': {df.shape[0]} rows, cols={list(df.columns)}")
-        all_series[symbol] = df[['Close']]
-    for pair in crypto_pairs:
-        df = crypto.query_data(ticker=pair)
-        logger.info(f"Loaded raw crypto '{pair}': {df.shape[0]} rows, cols={list(df.columns)}")
-        all_series[pair] = df[['Close']]
-
-    # --- NORMALIZATION ---
-    try:
-        norm = TimeSeriesNormalizer.normalize_from_cli(all_series)
-        logger.info(f"✅ Normalization complete for: {list(norm.keys())}")
-    except Exception as e:
-        logger.error(f"Normalization failed: {e}")
-        return
-
-    logger.info("🎉 Pipeline run complete!")
+        logger.exception(f"An unexpected error occurred: {e}")
+    finally:
+        if conn:
+            conn.close()
+            logger.info("Database connection closed.")
 
 
 if __name__ == "__main__":

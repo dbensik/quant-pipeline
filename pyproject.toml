@@ -1,3 +1,74 @@
+# This section tells packaging tools like pip how to build your project.
+# It's correct as is and doesn't need changes.
 [build-system]
 requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
+
+# The [project] table contains all the metadata about your package.
+# This is the modern standard defined in PEP 621.
+[project]
+name = "quant-pipeline"
+version = "0.1.0"
+description = "A data pipeline and analysis dashboard for quantitative finance strategies."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" } # Or choose another license like "Apache-2.0"
+authors = [
+    { name = "Your Name", email = "you@example.com" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Framework :: Streamlit",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
+
+# Core runtime dependencies needed for your application to run.
+# These are the packages that will be installed when someone does 'pip install your-package'.
+dependencies = [
+    "pandas",
+    "numpy",
+    "scikit-learn",
+    "matplotlib",
+    "seaborn",
+    "plotly",
+    "requests",
+    "beautifulsoup4",
+    "curl-cffi",
+    "yfinance",
+    "streamlit",
+    "peewee",
+    "fastapi",
+    "uvicorn"
+]
+
+# This section defines "extras", which are optional sets of dependencies.
+# It's a best practice to separate development/testing tools from runtime dependencies.
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "jupyterlab",
+    "ipykernel",
+]
+
+# This creates a command-line script. After installation, you can run
+# 'run-quant-pipeline' from your terminal to execute the main function
+# in 'cli/run_pipeline.py'.
+[project.scripts]
+run-quant-pipeline = "cli.run_pipeline:main"
+
+# This section is for configuring tools. Here, we configure pytest.
+# This replaces the need for a separate pytest.ini file.
+[tool.pytest.ini_options]
+minversion = "6.0"
+testpaths = [
+    "tests",
+]
+addopts = "-ra -q" # Report all test info except passes, and run in quiet mode.
+
+# This tells setuptools to automatically find all the packages in your project
+# (like 'dashboard_app', 'data_pipeline', etc.) without you having to list them manually.
+[tool.setuptools.packages.find]
+where = ["."]
