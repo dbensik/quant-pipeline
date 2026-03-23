@@ -16,28 +16,31 @@ class AssetDeepDiveTab:
     def __init__(self, db_manager: DatabaseManager):
         self.db_manager = db_manager
 
-    def render(self):
-        """Main render method for the tab."""
-        st.header("🔎 Asset Deep Dive")
+    def render(self, ticker: str = None):
+        """
+        Main render method for the tab.
+        
+        Args:
+            ticker: The ticker symbol to analyze. If None, displays a prompt.
+        """
+        col_h, col_b = st.columns([4, 1])
+        col_h.header("🔎 Asset Deep Dive")
+        if col_b.button("← Back to Dashboard"):
+            st.session_state.selections["selected_symbols_chart"] = []
+            st.rerun()
 
-        # Fetch the list of tickers *inside* the render method to ensure it's always fresh.
-        all_db_tickers = self.db_manager.get_universe_tickers()
-
-        selected_ticker = st.selectbox(
-            "Select Ticker for Deep Dive",
-            options=[""] + all_db_tickers,
-            index=0,
-            key="deep_dive_ticker_selector",
-            help="Select an asset to view its profile, financials, and technicals.",
-        )
-
-        if not selected_ticker:
+        if not ticker:
             st.info(
-                "Please select a ticker from the dropdown above to begin your deep dive. "
-                "You can add new tickers to the universe via the 'Data Pipeline & Universe' "
-                "section in the sidebar."
+                "👈 Please select a ticker from the 'Charts' tab in the sidebar to begin."
             )
             return
+            
+        selected_ticker = ticker
+        
+        # Remove internal selectbox logic
+        # all_db_tickers = self.db_manager.get_universe_tickers()
+        # selected_ticker = st.selectbox(...) 
+
 
         # --- Data Fetching and Validation ---
         try:

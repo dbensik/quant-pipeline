@@ -22,9 +22,19 @@ pip-wheel-metadata/
 # --- Runtime Generated Data & Caches ---
 # Ignore the cache directory used by the constituents fetcher
 scripts/.cache/
+.cache/
 # Ignore any data files that might be downloaded or generated
 /data/
 results/
+audit_log.json
+
+# --- User / Portfolio Data ---
+portfolio.json
+portfolios.json
+watchlists.json
+
+# --- Claude Code Workspace ---
+.claude/
 
 # --- Test Artifacts ---
 .pytest_cache/
@@ -63,6 +73,19 @@ Thumbs.db
 .env
 .env.*
 *.env
+
+# --- Frontend ---
+frontend/node_modules/
+package-lock.json
+
+# --- Dependency Lock Files ---
+poetry.lock
+poetry.toml
+
+# --- Debug / Diagnostic Scripts ---
+debug_*.py
+diagnose_*.py
+verify_*.py
 
 # --- Project Specific Ignores ---
 # Ignore personal or non-code project files

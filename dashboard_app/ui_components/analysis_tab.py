@@ -67,7 +67,101 @@ class AnalysisTab:
             st.error(f"No portfolio data available for {symbol}.")
             return
 
+        # 1. Performance Chart (Equity Curve)
         self._render_comparative_chart(portfolio, benchmarks)
+        
+        st.divider()
+
+        # 2. Trade Log & Signals
+        tab_trades, tab_chart = st.tabs(["📜 Trade Log", "📉 Price & Signals"])
+        
+        with tab_trades:
+            trade_log = result.get("trade_log")
+            if trade_log is not None and not trade_log.empty:
+                # Format for display
+                display_log = trade_log.copy()
+                if "timeindex" in display_log.columns:
+                    display_log["Date"] = display_log["timeindex"]
+                    display_log = display_log.set_index("Date")
+                    # drop timeindex if duplicate
+                    display_log = display_log.drop(columns=["timeindex"], errors="ignore")
+                
+                # Reorder nice columns if present
+                cols = [c for c in ["symbol", "direction", "quantity", "price", "total_cost", "commission"] if c in display_log.columns]
+                st.dataframe(
+                    display_log[cols],
+                    use_container_width=True,
+                    column_config={
+                        "price": st.column_config.NumberColumn("Price", format="$%.2f"),
+                        "total_cost": st.column_config.NumberColumn("Total Cost", format="$%.2f"),
+                        "commission": st.column_config.NumberColumn("Commission", format="$%.2f"),
+                        "quantity": st.column_config.NumberColumn("Quantity", format="%.0f"),
+                        "symbol": "Symbol",
+                        "direction": "Action",
+                    }
+                )
+            else:
+                st.info("No trades were executed in this backtest.")
+
+        with tab_chart:
+            # We need the underlying price data to plot signals.
+            # result['portfolio'] has 'Close' column usually?
+            # Backtester.run: portfolio = price_data[["Close"]].copy()
+            # So yes, portfolio['Close'] is the price.
+            # portfolio['signal'] is the signal.
+            
+            if "Close" in portfolio.columns:
+                self._render_signals_chart(portfolio, result.get("trade_log"))
+            else:
+                st.warning("Price data not found in results to plot chart.")
+
+    def _render_signals_chart(self, portfolio: pd.DataFrame, trade_log: pd.DataFrame):
+        """Plots the asset price with trade entry/exit points overlaid."""
+        fig = go.Figure()
+        
+        # 1. Price Line
+        fig.add_trace(go.Scatter(
+            x=portfolio.index,
+            y=portfolio["Close"],
+            mode='lines',
+            name='Price',
+            line=dict(color='gray', width=1)
+        ))
+        
+        # 2. Trade Markers
+        if trade_log is not None and not trade_log.empty:
+            buys = trade_log[trade_log['direction'] == 'BUY']
+            sells = trade_log[trade_log['direction'] == 'SELL']
+            
+            # Make sure to align timeindex
+            if "timeindex" in buys.columns:
+                 # Plot Buys
+                 fig.add_trace(go.Scatter(
+                     x=buys["timeindex"],
+                     y=buys["price"],
+                     mode='markers',
+                     name='Buy',
+                     marker=dict(symbol='triangle-up', size=10, color='green')
+                 ))
+                 # Plot Sells
+                 fig.add_trace(go.Scatter(
+                     x=sells["timeindex"],
+                     y=sells["price"],
+                     mode='markers',
+                     name='Sell',
+                     marker=dict(symbol='triangle-down', size=10, color='red')
+                 ))
+            elif "Date" in buys.columns: # If we renamed it or it comes differently
+                 # Fallback logic if needed, but Backtester uses 'timeindex'
+                 pass
+
+        fig.update_layout(
+            title="Trade Execution Points",
+            xaxis_title="Date",
+            yaxis_title="Price",
+            height=500
+        )
+        st.plotly_chart(fig, use_container_width=True)
 
     def _render_comparative_chart(
         self, portfolio: pd.DataFrame, benchmarks: Dict[str, pd.DataFrame]

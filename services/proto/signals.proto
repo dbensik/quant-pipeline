@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package signals;
+
+service SignalService {
+  rpc GetSignal (SignalRequest) returns (SignedSignal);
+}
+
+message SignalRequest {
+  string symbol = 1;
+  string as_of = 2; // ISO date string
+}
+
+message SignedSignal {
+  double value = 1;
+  double confidence = 2;
+  string features_hash = 3;
+  string signature = 4;
+  string public_key_id = 5;
+  string timestamp = 6;
+  string payload_json = 7; // The exact JSON that was signed
+}

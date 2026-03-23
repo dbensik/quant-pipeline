@@ -29,7 +29,7 @@ class Backtester:
         self.trade_log = []
         self.execution_handler = execution_handler or SimulatedExecutionHandler()
 
-    def run(self, price_data: pd.DataFrame, model: BaseAlphaModel) -> pd.DataFrame:
+    def run(self, price_data: pd.DataFrame, model: BaseAlphaModel, symbol_name: str = None) -> pd.DataFrame:
         """
         Runs a backtest using a more robust, event-driven loop that delegates
         execution to a dedicated handler.
@@ -48,7 +48,7 @@ class Backtester:
         # 3. Use a stateful loop to process trades realistically
         position = 0.0
         cash = self.initial_capital
-        symbol = price_data.name if hasattr(price_data, "name") else "Asset"
+        symbol = symbol_name if symbol_name else (price_data.name if hasattr(price_data, "name") else "Asset")
 
         for i in range(len(portfolio)):
             date = portfolio.index[i]
@@ -96,7 +96,15 @@ class Backtester:
         """
         if not self.trade_log:
             return pd.DataFrame()
-        return pd.DataFrame([vars(fill) for fill in self.trade_log])
+        
+        # Convert FillEvent objects to dicts, explicitly adding the property 'total_cost'
+        log_data = []
+        for fill in self.trade_log:
+            data = vars(fill).copy()
+            data["total_cost"] = fill.total_cost
+            log_data.append(data)
+            
+        return pd.DataFrame(log_data)
 
     def get_performance_metrics(self) -> dict:
         """

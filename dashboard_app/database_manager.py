@@ -129,6 +129,26 @@ class DatabaseManager:
         except pd.io.sql.DatabaseError:
             return []
 
+    def get_sectors(self) -> List[str]:
+        """Fetches a list of unique sectors from the universe metadata."""
+        try:
+            with self._get_connection() as conn:
+                query = "SELECT DISTINCT Sector FROM universe_metadata WHERE Sector IS NOT NULL AND Sector != 'Unknown' ORDER BY Sector ASC"
+                df = pd.read_sql_query(query, conn)
+                return df["Sector"].tolist()
+        except pd.io.sql.DatabaseError:
+            return []
+
+    def get_tickers_by_sector(self, sector: str) -> List[str]:
+        """Fetches tickers filtered by a specific sector."""
+        try:
+            with self._get_connection() as conn:
+                query = "SELECT Ticker FROM universe_metadata WHERE Sector = ? ORDER BY Ticker ASC"
+                df = pd.read_sql_query(query, conn, params=(sector,))
+                return df["Ticker"].tolist()
+        except pd.io.sql.DatabaseError:
+            return []
+
     def get_latest_date(self, granularity: str = "daily") -> str:
         """
         Finds the most recent timestamp in the specified granularity table.

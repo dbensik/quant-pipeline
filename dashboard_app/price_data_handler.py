@@ -20,7 +20,8 @@ class PriceDataHandler:
     def __init__(self, db_path: str = DB_PATH):
         """Initializes the handler with the path to the database."""
         self.db_path = db_path
-        self.table_name = DB_PRICE_TABLE
+        # Schema changed to price_data_daily
+        self.table_name = "price_data_daily"
 
     def get_prices(
         self, tickers: List[str], start_date: str, end_date: str
@@ -37,17 +38,17 @@ class PriceDataHandler:
 
         placeholders = ", ".join("?" for _ in tickers)
         sql = f"""
-        SELECT date, ticker, "Close"
+        SELECT Timestamp, Ticker, "Close"
         FROM {self.table_name}
-        WHERE ticker IN ({placeholders})
-        AND date BETWEEN ? AND ?
-        ORDER BY date ASC;
+        WHERE Ticker IN ({placeholders})
+        AND Timestamp BETWEEN ? AND ?
+        ORDER BY Timestamp ASC;
         """
         try:
             with sqlite3.connect(self.db_path) as conn:
                 params = tickers + [start_date, end_date]
                 df = pd.read_sql_query(
-                    sql, conn, params=params, index_col="date", parse_dates=["date"]
+                    sql, conn, params=params, index_col="Timestamp", parse_dates=["Timestamp"]
                 )
 
             if df.empty:
@@ -56,7 +57,7 @@ class PriceDataHandler:
                 )
                 return pd.DataFrame()
 
-            price_df = df.pivot(columns="ticker", values="Close")
+            price_df = df.pivot(columns="Ticker", values="Close")
             return price_df
         except Exception as e:
             logger.exception(
@@ -78,15 +79,15 @@ class PriceDataHandler:
         sql = f"""
         SELECT *
         FROM {self.table_name}
-        WHERE ticker IN ({placeholders})
-        AND date BETWEEN ? AND ?
-        ORDER BY date ASC;
+        WHERE Ticker IN ({placeholders})
+        AND Timestamp BETWEEN ? AND ?
+        ORDER BY Timestamp ASC;
         """
         try:
             with sqlite3.connect(self.db_path) as conn:
                 params = tickers + [start_date, end_date]
                 df = pd.read_sql_query(
-                    sql, conn, params=params, index_col="date", parse_dates=["date"]
+                    sql, conn, params=params, index_col="Timestamp", parse_dates=["Timestamp"]
                 )
 
             if df.empty:
@@ -97,8 +98,8 @@ class PriceDataHandler:
 
             # Split the single DataFrame into a dictionary of DataFrames, one per ticker
             data_dict = {
-                ticker: group.drop(columns="ticker")
-                for ticker, group in df.groupby("ticker")
+                ticker: group.drop(columns="Ticker")
+                for ticker, group in df.groupby("Ticker")
             }
             return data_dict
         except Exception as e:

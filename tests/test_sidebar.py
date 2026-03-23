@@ -23,6 +23,10 @@ def mock_env():
     mock_portfolio_manager.get_all_portfolios.return_value = {
         "My Portfolio": {"constituents": ["BTC-USD", "ETH-USD"]}
     }
+    mock_portfolio_manager.get_portfolio_state.return_value = {
+        "cash": 100000.0,
+        "positions": {"AAPL": {"quantity": 10, "average_price": 150.0}}
+    }
     all_db_tickers = [
         "AAPL",
         "MSFT",
@@ -36,6 +40,7 @@ def mock_env():
 
     # Before each test, clear Streamlit's session state
     st.session_state.clear()
+    st.session_state["selections"] = {}
 
     sidebar = Sidebar(
         db_manager=mock_db_manager,
@@ -59,15 +64,24 @@ def test_sidebar_initialization(mock_env):
 
 
 @patch("streamlit.sidebar")  # Mock all calls to st.sidebar
-def test_run_backtest_button_click(mock_sidebar, mock_env):
+@patch("streamlit.button")   # Mock generic st.button used inside tabs
+@patch("streamlit.radio")
+def test_run_backtest_button_click(mock_radio, mock_button, mock_sidebar, mock_env):
     """
     Tests if the 'run_analysis_request' flag is set in session_state
     when the user clicks the 'Run Backtest' button.
     """
-    # Simulate the user selecting the "Backtest / Screener" radio button
-    mock_sidebar.radio.return_value = "Backtest / Screener"
+    # Fix: Mock columns to return two items so unpacking doesn't fail
+    mock_sidebar.columns.return_value = [MagicMock(), MagicMock()]
+    # Fix: Mock tabs to return 5 items (Dash, Trade, Charts, Lab, Settings)
+    mock_sidebar.tabs.return_value = [MagicMock(), MagicMock(), MagicMock(), MagicMock(), MagicMock()]
+
+    # Simulate the user selecting "Backtest" in Lab Mode, then "Individual Ticker" in Backtest Mode
+    # "Backtest" (Lab Mode) -> "Individual Ticker" (Backtest Mode) -> "Buy and Hold" (Strategy)
+    mock_radio.side_effect = ["Backtest", "Individual Ticker", "Buy and Hold"]
+    
     # Simulate the user clicking the "Run Backtest" button
-    mock_sidebar.button.return_value = True
+    mock_button.return_value = True
 
     # Run the render method
     mock_env.render()
@@ -78,15 +92,23 @@ def test_run_backtest_button_click(mock_sidebar, mock_env):
 
 
 @patch("streamlit.sidebar")  # Mock all calls to st.sidebar
-def test_run_stat_test_button_click(mock_sidebar, mock_env):
+@patch("streamlit.button")   # Mock generic st.button used inside tabs
+@patch("streamlit.radio")
+def test_run_stat_test_button_click(mock_radio, mock_button, mock_sidebar, mock_env):
     """
     Tests if the 'run_stat_test_request' flag is set when the
     'Run Statistical Test' button is clicked.
     """
-    # Simulate the user selecting the "Statistical Tests" radio button
-    mock_sidebar.radio.return_value = "Statistical Tests"
+    # Fix: Mock columns to return two items so unpacking doesn't fail
+    mock_sidebar.columns.return_value = [MagicMock(), MagicMock()]
+    # Fix: Mock tabs to return 5 items
+    mock_sidebar.tabs.return_value = [MagicMock(), MagicMock(), MagicMock(), MagicMock(), MagicMock()]
+
+    # Simulate selecting "Stats" in Lab mode, then "Augmented Dickey-Fuller Test" in test type
+    mock_radio.side_effect = ["Stats", "Augmented Dickey-Fuller Test"]
+    
     # Simulate the user clicking the button
-    mock_sidebar.button.return_value = True
+    mock_button.return_value = True
 
     mock_env.render()
 
@@ -100,12 +122,19 @@ def test_create_portfolio_form_submission(mock_sidebar, mock_env):
     Tests if a portfolio creation request is correctly handled
     when the user submits the 'create_portfolio_form'.
     """
+    # Fix: Mock columns to return two items so unpacking doesn't fail
+    mock_sidebar.columns.return_value = [MagicMock(), MagicMock()]
+    mock_sidebar.tabs.return_value = [MagicMock(), MagicMock(), MagicMock(), MagicMock(), MagicMock()]
+
     # To test a form, we need to mock the form context manager
     # and the widgets inside it.
-    with patch("streamlit.sidebar.form") as mock_form:
+    with patch("streamlit.sidebar.form") as mock_form, \
+         patch("streamlit.form_submit_button") as mock_submit, \
+         patch("streamlit.text_input") as mock_text_input:
         # Simulate user typing a name and submitting
-        mock_sidebar.text_input.return_value = "My New Portfolio"
-        mock_sidebar.form_submit_button.return_value = True
+        mock_text_input.return_value = "My New Portfolio"
+        # Simulate the submit button being clicked
+        mock_submit.return_value = True
 
         mock_env.render()
 

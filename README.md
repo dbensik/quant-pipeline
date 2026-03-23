@@ -13,7 +13,7 @@ The project is organized into several key components:
   - `basket_trading.py`: Placeholder for a Basket Trading Strategy.
 
 - **API Layer (api_layer/):**  
-  Contains code to expose the pipeline’s functionality via an API (using FastAPI, for example).
+  *Legacy/Deprecated*. Contains serialization helpers (`DataSerializer`). The REST API has been superseded by the `services/graphql_gateway`.
 
 - **Backtesting (backtesting/):**  
   Contains the backtesting framework (e.g., `backtester.py`) to simulate historical performance of the strategies.
@@ -22,10 +22,13 @@ The project is organized into several key components:
   Contains the CLI runner (`run_pipeline.py`) to execute the complete pipeline from the command line.
 
 - **Dashboard App (dashboard_app/):**  
-  Contains code for a dashboard interface to display key metrics and visualizations (e.g., using Dash or Streamlit).
+  Contains the Streamlit dashboard code.
+  - `controllers/`: Contains logic for Analysis, Optimization, and Statistics.
+  - `ui_components/`: Contains UI rendering modules.
+  - `dashboard.py`: Main entry point.
 
 - **Data Pipeline (data_pipeline/):**  
-  Contains the core functionality for fetching and cleaning market data:
+  Contains the core functionality for fetching and cleaning market data.
   - `__init__.py`: Package initializer.
   - `data_pipeline.py`: Defines the `DataPipeline` class for data fetching, cleaning, and saving.
 
@@ -52,6 +55,13 @@ The project is organized into several key components:
 - **Database:**
   - `quant_pipeline.db`: The SQLite database file (created at runtime).
 
+- **Services (services/):**
+  New 3-layer architecture components:
+  - `proto/`: Protobuf definitions for gRPC.
+  - `grpc_service/`: High-performance signal generation service.
+  - `graphql_gateway/`: GraphQL API for flexible querying.
+  - `crypto/`: Cryptographic signing and audit logging.
+
 - **Tests (tests/):**  
   An optional folder for unit tests to ensure your code behaves as expected.
 
@@ -64,12 +74,13 @@ quant-pipeline/
 │   ├── base_model.py                           # Base class for all models
 │   ├── basket_trading.py                       # Basket Trading Strategy
 │   ├── buy_and_hold.py                         # Buy and Hold Strategy
-│   ├── index_rebalancing.py                    # New file for Index Rebalancing Strategy
+│   ├── index_rebalancing.py                    # Index Rebalancing Strategy
 │   ├── mean_reversion.py                       # Mean Reversion Strategy
 │   ├── moving_average_crossover.py             # Moving Average Crossover Strategy
 │   ├── pairs_trading.py                        # New file for Pairs Trading Strategy
 │   └── trend_following.py                      # Trend Following Strategy
-├── api_layer/                                  # API layer (optional)
+├── api_layer/                                  # API Layer
+│   ├── main.py                                 # FastAPI Application
 ├── backtesting/                                # Backtesting framework
 │   ├── __init__.py                             # Package initializer
 │   ├── backtester.py                           # Backtester class
@@ -81,15 +92,18 @@ quant-pipeline/
 │   ├── __init__.py                             # Package initializer
 │   └── settings.py                             # Centralized settings
 ├── dashboard_app/                              # Dashboard interface
-│   ├── ui_components/                          # UI components for the dashboard
+│   ├── controllers/                            # Business Logic Controllers
+│   │    ├── analysis_controller.py
+│   │    ├── optimization_controller.py
+│   │    └── statistics_controller.py
+│   ├── ui_components/                          # UI components
 │   │    ├── __init__.py                        # Package initializer
 │   │    ├── analysis_tab.py                    # Analysis Tab Components
 │   │    ├── optimization_tab.py                # Optimization Tab Components
 │   │    ├── portfolio_tab.py                   # Portfolio Tab Components
 │   │    ├── sidebar.py                         # Sidebar Components
 │   │    └── stats_tab.py                       # Stats Tab Components
-│   ├── __init__.py                             # Package initializer
-│   ├── dashboard_app.py                        # Dashboard Application
+│   ├── dashboard.py                            # Main Dashboard Application
 │   ├── database_manager.py                     # Database Manager
 │   ├── portfolio_manager.py                    # Portfolio Manager
 │   ├── results_manager.py                      # Results Manager
@@ -121,6 +135,11 @@ quant-pipeline/
 │   ├── low_volatility_screener.py              # Low Volatility Screener
 │   ├── momentum_screener.py                    # Momentum Screener
 │   └── screener_pipeline.py                    # Screnner Pipeline
+├── services/                                   # 3-Layer Architecture Services
+│   ├── crypto/                                 # Cryptography & Audit Log
+│   ├── graphql_gateway/                        # GraphQL API Gateway
+│   ├── grpc_service/                           # gRPC Signal Service
+│   └── proto/                                  # Protobuf definitions
 │── tests/                                      # Unit tests for your project
 │   ├── __init__.py                             # Package initializer
 │   ├── __main__.py                             # Entry point for unit tests
@@ -131,6 +150,8 @@ quant-pipeline/
 ├── pyproject.toml                              # PEP 517 configuration file
 ├── quant_pipeline.db                           # SQLite database
 ├── README.md                                   # This file
+├── run_pipeline.sh                             # Main orchestration script
+├── verify_all.py                               # Verification script for 3-Layer Arch
 └── setup.py                                    # Setup script for packaging the project
 ```
 
@@ -138,60 +159,92 @@ quant-pipeline/
 
 ## Getting Started
 
-Follow these instructions to set up and run the project on your local machine.
-
 ### Prerequisites
 
-You must have Miniconda or Anaconda installed to manage the project's environment.
+You must have Miniconda or Anaconda installed.
 
 ## Installation
 
 1. **Clone the repository:**
-
    ```bash
    git clone https://github.com/your-username/quant-pipeline.git
    cd quant-pipeline
    ```
 
-2.	**Create and activate your conda environment:**
+2. **Create and activate your conda environment:**
+   ```bash
+   conda create -n quant-pipeline-env python=3.11
+   conda activate quant-pipeline-env
+   ```
 
-    ```bash
-    conda create -n quant-pipeline-env python=3.11
-    conda activate quant-pipeline-env
-    ```
-
-3.	**Install dependencies in editable mode:**
-
-    ```bash
-    pip install -e .
-    ```
+3. **Install dependencies:**
+   ```bash
+   pip install -e .
+   ```
 
 ## Usage
 
-The typical workflow is to first run the data pipeline to populate the database, and then either launch the interactive dashboard for analysis or use the Jupyter notebooks for research and development.
+### 1. Run Everything (Recommended)
+Start the Dashboard, API, and gRPC service, plus run verification checks in one command:
+```bash
+./run_pipeline.sh all
+```
+*Press `Ctrl+C` to stop all services.*
 
-1. **Run the Data Pipeline (CLI)**
-    
-    ```bash
-    python -m cli.run_pipeline
-    ``` 
+### 2. Manual/Individual Commands
 
-2. **Launch the Interactive Dashboard**
-    
-    ```bash
-    streamlit run dashboard_app/dashboard_app.py
-    ```
+**Run Data Pipeline:**
+```bash
+./run_pipeline.sh
+```
 
-This will start the web server and open the application in your browser.
+**Start API Server:**
+```bash
+./run_pipeline.sh api
+```
+
+**Start Dashboard:**
+```bash
+./run_pipeline.sh dashboard
+```
+
+**Start gRPC Server:**
+```bash
+./run_pipeline.sh grpc
+```
+
+**Run Verification:**
+```bash
+./run_pipeline.sh verify
+```
 
 ### Workflow
 
 1.  **Run the Pipeline**: Ensure your data is up-to-date by running `python -m cli.run_pipeline`.
-2.  **Launch the Dashboard**: Start the app with `streamlit run dashboard_app/dashboard_app.py`.
+2.  **Launch the Dashboard**: Start the app with `streamlit run dashboard_app/dashboard.py`.
 3.  **Select a Strategy**: In the dashboard's sidebar, choose a strategy like "Moving Average Crossover" from the dropdown.
 4.  **Set Parameters**: Adjust the parameters, such as the short and long window for the moving averages, and select the assets to test.
 5.  **Run Backtest**: Click the "Run Backtest" button.
 6.  **Analyze Results**: View the equity curve, performance statistics (Sharpe Ratio, Max Drawdown), and trade logs in the results tabs.
+
+## 3-Layer Architecture (gRPC, GraphQL, Crypto)
+We have integrated a verifiable signal generation architecture:
+
+1.  **Core Services (gRPC)**: 
+    - High-performance, typed service (`SignalService`).
+    - Generates trading signals using strategies (e.g., Mean Reversion).
+2.  **Gateway (GraphQL)**: 
+    - Flexible query interface for clients.
+    - Connects to the gRPC backend.
+3.  **Crypto & Audit**:
+    - **Signing**: All signals are signed using Ed25519.
+    - **Hashing**: Payloads are hashed with SHA256.
+    - **Audit Log**: An append-only log (`audit_log.json`) chains hashes to create a verifiable history of all generated signals.
+
+Verify the integrity of the system at any time by running:
+```bash
+./run_pipeline.sh verify
+```
 
 ## Detailed Workflows
 

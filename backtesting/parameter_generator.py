@@ -39,38 +39,25 @@ class BaseParameterGenerator(ABC):
 class MACrossoverParameterGenerator(BaseParameterGenerator):
     """Generates parameter combinations for the Moving Average Crossover strategy."""
 
-    def generate_combinations(self) -> Iterator[Tuple[Dict, Dict]]:
-        s_range = self.params.get("mac_short_range", [10, 20])
-        s_step = self.params.get("mac_short_step", 2)
-        l_range = self.params.get("mac_long_range", [30, 50])
-        l_step = self.params.get("mac_long_step", 5)
-
-        shorts = range(s_range[0], s_range[1] + 1, s_step)
-        longs = range(l_range[0], l_range[1] + 1, l_step)
-
-        for s, l in itertools.product(shorts, longs):
+    @staticmethod
+    def generate_grid(short_window_range, long_window_range) -> list:
+        """Generates a list of parameter dictionaries for the grid search."""
+        grid = []
+        for s, l in itertools.product(short_window_range, long_window_range):
             if s >= l:
                 continue
-            model_params = {"short_window": s, "long_window": l}
-            display_params = model_params.copy()
-            yield model_params, display_params
+            grid.append({"short_window": s, "long_window": l})
+        return grid
 
 
 class MeanReversionParameterGenerator(BaseParameterGenerator):
     """Generates parameter combinations for the Mean Reversion strategy."""
 
-    def generate_combinations(self) -> Iterator[Tuple[Dict, Dict]]:
-        w_range = self.params.get("mr_window_range", [15, 30])
-        w_step = self.params.get("mr_window_step", 5)
-        t_range = self.params.get("mr_threshold_range", [1.0, 2.0])
-        t_step = self.params.get("mr_threshold_step", 0.5)
 
-        windows = range(w_range[0], w_range[1] + 1, w_step)
-        thresholds = [
-            round(t, 2) for t in np.arange(t_range[0], t_range[1] + t_step, t_step)
-        ]
-
-        for w, t in itertools.product(windows, thresholds):
-            model_params = {"window": w, "threshold": t}
-            display_params = model_params.copy()
-            yield model_params, display_params
+    @staticmethod
+    def generate_grid(window_range, threshold_range) -> list:
+        """Generates a list of parameter dictionaries for the grid search."""
+        grid = []
+        for w, t in itertools.product(window_range, threshold_range):
+            grid.append({"window": w, "threshold": t})
+        return grid

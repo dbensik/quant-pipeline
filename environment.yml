@@ -253,4 +253,8 @@ dependencies:
       - watchdog==6.0.0
       - websockets==15.0.1
       - yfinance==0.2.63
+      - grpcio
+      - grpcio-tools
+      - strawberry-graphql[debug-server]
+      - cryptography
 prefix: /opt/anaconda3/envs/quant-pipeline-env

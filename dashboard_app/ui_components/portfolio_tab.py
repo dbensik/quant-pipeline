@@ -4,7 +4,7 @@ from datetime import datetime
 import pandas as pd
 import streamlit as st
 
-from dashboard_app.portfolio_manager import PortfolioManager
+from services.execution_service.portfolio_manager import PortfolioManager
 from dashboard_app.price_data_handler import PriceDataHandler
 
 
@@ -57,8 +57,12 @@ class PortfolioTab:
         with st.expander("Trade Management", expanded=False):
             self._render_trade_editor(portfolio_name, portfolio_data, trades)
             self._render_add_trade_form(portfolio_name, portfolio_data)
+        
+        # --- 3. Render Rebalancing Tool ---
+        with st.expander("⚖️ Portfolio Rebalancing", expanded=False):
+            self._render_rebalancing_tools(portfolio_name, trades)
 
-        # --- 3. Render the Delete Portfolio Section ---
+        # --- 4. Render the Delete Portfolio Section ---
         self._render_delete_portfolio(portfolio_name)
 
     def _render_portfolio_summary(self, trades: list):
@@ -241,7 +245,106 @@ class PortfolioTab:
         st.subheader("Delete Portfolio")
         st.warning(f"This action is permanent and cannot be undone.")
         if st.button(f"❌ Delete Portfolio '{portfolio_name}'", type="secondary"):
-            self.portfolio_manager.delete(portfolio_name)
+            self.portfolio_manager.delete_portfolio(portfolio_name)
             st.success(f"Portfolio '{portfolio_name}' has been deleted.")
             # We don't rerun here, to allow the user to see the message before the tab disappears.
             # The app will naturally reset on the next interaction.
+
+    def _render_rebalancing_tools(self, portfolio_name: str, trades: list):
+        """Renders the rebalancing interface."""
+        st.info("Define target allocations for your portfolio. The system will calculate orders to match these targets.")
+        
+        # 1. Input Target Weights
+        # For MVP, simple text area parsing: "AAPL: 0.5, MSFT: 0.5"
+        default_text = "AAPL: 0.5\nMSFT: 0.5"
+        
+        # Try to infer current holdings to populate default text if it's empty
+        current_tickers = set([t["ticker"] for t in trades])
+        if current_tickers:
+            equal_weight = round(1.0 / len(current_tickers), 2)
+            default_text = "\n".join([f"{t}: {equal_weight}" for t in current_tickers])
+            
+        target_input = st.text_area("Target Weights (Ticker: Weight)", value=default_text, height=150, help="Format: Ticker: Weight (one per line). Weights should sum to 1.0.")
+        
+        target_weights = {}
+        if target_input:
+            try:
+                lines = target_input.strip().split("\n")
+                for line in lines:
+                    parts = line.split(":")
+                    if len(parts) == 2:
+                        ticker = parts[0].strip().upper()
+                        weight = float(parts[1].strip())
+                        target_weights[ticker] = weight
+            except ValueError:
+                st.error("Invalid format. Please use 'Ticker: Weight'.")
+                return
+
+        if not target_weights:
+            return
+
+        # Check raw sum
+        total_weight = sum(target_weights.values())
+        if not (0.99 <= total_weight <= 1.01):
+            st.warning(f"Total weight is {total_weight:.2f}. It represents {total_weight*100:.0f}% of equity.")
+
+        if st.button("Preview Rebalancing Orders"):
+            # Fetch Prices
+            tickers_needed = list(target_weights.keys())
+            # Add existing holdings to price fetch list (in case we need to sell them)
+            existing_holdings = set([t["ticker"] for t in trades])
+            tickers_needed.extend(list(existing_holdings))
+            tickers_needed = list(set(tickers_needed))
+            
+            end_date = datetime.now()
+            start_date = end_date - pd.Timedelta(days=7)
+            price_df = self.price_handler.get_prices(
+                tickers=tickers_needed,
+                start_date=start_date.strftime("%Y-%m-%d"),
+                end_date=end_date.strftime("%Y-%m-%d"),
+            )
+            
+            if price_df.empty:
+                st.error("Could not fetch prices. Cannot rebalance.")
+                return
+                
+            latest_prices = price_df.ffill().iloc[-1].to_dict()
+            
+            # Generate Orders
+            orders = self.portfolio_manager.generate_rebalancing_orders(portfolio_name, target_weights, latest_prices)
+            
+            if not orders:
+                st.success("Portfolio is already balanced!")
+            else:
+                st.write(f"Generated {len(orders)} orders to rebalance:")
+                st.dataframe(pd.DataFrame(orders))
+                
+                # Execute Button (Store in session state to persist across reruns if needed, 
+                # but for simplicity, we can't nest buttons easily without callbacks or state)
+                # Streamlit pattern: The 'Preview' button resets on rerun. 
+                # To make 'Execute' persistent, we usually need the Preview to be persistent or just show them together.
+                # For this MVP, we'll store orders in session state.
+                st.session_state["rebalance_orders_cache"] = orders
+
+        # Execute Block
+        orders_to_exec = st.session_state.get("rebalance_orders_cache")
+        if orders_to_exec:
+            st.warning("Review the orders above.")
+            if st.button("🚀 Execute Rebalance Orders", type="primary"):
+                results = []
+                for order in orders_to_exec:
+                    msg = self.portfolio_manager.execute_trade(
+                        symbol=order["ticker"],
+                        action=order["action"],
+                        quantity=order["quantity"],
+                        price=order["price"],
+                        portfolio_name=portfolio_name
+                    )
+                    results.append(msg)
+                
+                # Refresh data
+                st.success(f"Executed {len(results)} orders!")
+                st.json(results)
+                # Clear cache
+                del st.session_state["rebalance_orders_cache"]
+                st.rerun()

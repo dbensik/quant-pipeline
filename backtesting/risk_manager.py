@@ -79,3 +79,39 @@ class PortfolioRiskManager:
                 order.quantity = new_quantity
 
         return order
+        return order
+
+    def calculate_volatility_adjusted_size(
+        self,
+        portfolio_equity: float,
+        asset_volatility: float,
+        target_volatility: float = 0.15,
+        asset_price: float = 1.0
+    ) -> int:
+        """
+        Calculates the position size (quantity) to achieve a target volatility contribution.
+        
+        Formula:
+            Target Exposure = (Target Vol / Asset Vol) * Equity
+            Quantity = Target Exposure / Price
+            
+        Args:
+            portfolio_equity: Current total portfolio value.
+            asset_volatility: Annualized volatility of the asset (decimal, e.g., 0.20).
+            target_volatility: Target annualized volatility contribution (decimal, e.g., 0.15).
+            asset_price: Current price of the asset.
+            
+        Returns:
+            Number of shares to buy/hold.
+        """
+        if asset_volatility <= 0:
+            return 0
+            
+        # Cap leverage factor to avoid extreme positions in low-vol assets
+        # e.g., Max 200% exposure to any single asset
+        leverage_factor = min(2.0, target_volatility / asset_volatility)
+        
+        target_exposure = portfolio_equity * leverage_factor
+        quantity = int(target_exposure / asset_price)
+        
+        return quantity

@@ -7,9 +7,9 @@ from data_pipeline.universe_fetcher import UniverseFetcher
 
 
 @pytest.fixture
-def fetcher():
+def fetcher(tmp_path):
     """Provides a UniverseFetcher instance for testing."""
-    return UniverseFetcher()
+    return UniverseFetcher(cache_dir=str(tmp_path))
 
 
 def test_crypto_normalization(fetcher):
@@ -33,18 +33,21 @@ def test_run_method_returns_unique_normalized_tickers(mock_fetch_crypto, fetcher
     normalizing them and removing duplicates.
     """
     # Simulate the messy data we get from the source
-    mock_fetch_crypto.return_value = [
-        "BTC-USD",
-        "bitcoin",
-        "ETH",
-        "ethereum",
-        "SOL",
-        "AAPL",
-    ]
+    mock_fetch_crypto.return_value = {
+        "tickers": [
+            "BTC-USD",
+            "bitcoin",
+            "ETH",
+            "ethereum",
+            "SOL",
+            "AAPL",
+        ],
+        "market_caps": {}
+    }
 
     # Run the method for the crypto source
     result = fetcher.run(source="Top Crypto")
 
     # Assert the output is clean, sorted, and unique
     expected = ["AAPL", "BTC-USD", "ETH-USD", "SOL-USD"]
-    assert result == expected
+    assert result[0] == expected

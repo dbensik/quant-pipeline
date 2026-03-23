@@ -70,6 +70,11 @@ class PerformanceAnalyzer:
 
         _series, max_drawdown, max_drawdown_duration = self._calculate_drawdowns()
 
+        # --- Calmar Ratio ---
+        calmar_ratio = (
+            annualized_return / abs(max_drawdown) if max_drawdown != 0 else 0.0
+        )
+
         return {
             "Final Value": final_value,
             "Total Return": total_return,
@@ -77,6 +82,7 @@ class PerformanceAnalyzer:
             "Annualized Volatility": annualized_volatility,
             "Sharpe Ratio": sharpe_ratio,
             "Sortino Ratio": sortino_ratio,
+            "Calmar Ratio": calmar_ratio,
             "Max Drawdown": max_drawdown,
             "Max Drawdown Duration (Days)": max_drawdown_duration,
             "Trade Count": trade_count,

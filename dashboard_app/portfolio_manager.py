@@ -1,3 +1,8 @@
+"""
+[DEPRECATED]
+This module is legacy and used for backtest result tracking. 
+For live/paper trading, use `services.execution_service.portfolio_manager`.
+"""
 import json
 import logging
 from pathlib import Path

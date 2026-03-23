@@ -7,7 +7,7 @@ ROOT_DIR = Path(__file__).parent.parent
 # --- Database Configuration ---
 # Use the '/' operator for clean path joining
 DB_PATH = ROOT_DIR / "quant_pipeline.db"
-DB_PRICE_TABLE = "price_data"
+DB_PRICE_TABLE = "price_data_daily"
 DB_PRICE_DATA_COLUMNS = [
     "Date",
     "Ticker",

@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package services;
+
+// Service definition
+service ExecutionService {
+  // Execute a trade based on a user confirmation
+  rpc ExecuteTrade (TradeRequest) returns (TradeResponse);
+  
+  // Get current portfolio state
+  rpc GetPortfolio (PortfolioRequest) returns (PortfolioResponse);
+}
+
+// Messages
+message TradeRequest {
+  string symbol = 1;
+  string action = 2; // "BUY" or "SELL"
+  double quantity = 3;
+  double price = 4; // The price at which the user confirmed the trade
+  string timestamp = 5; // To verify the 30s window
+}
+
+message TradeResponse {
+  bool success = 1;
+  string message = 2;
+  string transaction_id = 3;
+  double filled_price = 4;
+}
+
+message PortfolioRequest {
+  // Empty for now, gets everything
+}
+
+message PortfolioResponse {
+  map<string, Position> positions = 1;
+  double cash_balance = 2;
+  double total_equity = 3;
+}
+
+message Position {
+  string symbol = 1;
+  double quantity = 2;
+  double average_price = 3;
+  double current_value = 4;
+}

@@ -5,14 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.0] - 2026-01-20
 
 ### Added
-- New backtesting strategies (e.g., RSI, Bollinger Bands).
-- API endpoint for retrieving backtest results.
+- **API Layer**: Implemented a FastAPI application to expose system status and backtest results.
+- **Index Rebalancing Strategy**: Added a new strategy supporting monthly, weekly, and quarterly rebalancing.
+- **Run Script**: Updated `run_pipeline.sh` to support starting the API and fixing execution path issues.
 
 ### Changed
-- Improved performance of the data normalization step.
+- **Dashboard Refactor**: Extracted business logic from `dashboard.py` into dedicated controllers (`AnalysisController`, `OptimizationController`, `StatisticsController`).
+- **Performance Optimization**: Vectorized `time_series_normalizer.py` for significant speed improvements.
 
 ---
 

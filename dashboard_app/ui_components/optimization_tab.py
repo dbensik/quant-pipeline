@@ -70,7 +70,6 @@ class OptimizationTab:
                 x=param_cols[0],
                 y=param_cols[1],
                 color=metric,
-                size=metric,
                 hover_data=results_df.columns,
                 color_continuous_scale=px.colors.sequential.Viridis,
                 title=f"{metric} by {param_cols[0]} and {param_cols[1]}",

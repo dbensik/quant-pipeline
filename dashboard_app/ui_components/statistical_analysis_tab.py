@@ -40,6 +40,8 @@ class StatisticalAnalysisTab:
             "Engle-Granger Cointegration Test": self._render_engle_granger_results,
             "Johansen Cointegration Test": self._render_johansen_results,
             "Kalman Filter Smoother": self._render_kalman_filter_results,
+            "Monte Carlo Simulation": self._render_monte_carlo_results,
+            "Cluster Analysis (K-Means)": self._render_cluster_analysis_results,
         }
 
         render_function = render_map.get(test_type)
@@ -57,6 +59,91 @@ class StatisticalAnalysisTab:
         else:
             st.warning(f"Result rendering for '{test_type}' is not yet implemented.")
             st.json(results)
+
+    def _render_monte_carlo_results(self, results: dict):
+        """Displays Monte Carlo Simulation results."""
+        st.subheader("Monte Carlo Simulation Results")
+        stats = results["stats"]
+        paths = results["paths"]
+        
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Start Value", f"${stats['Start Value']:,.0f}")
+        col2.metric("Mean Ending Value", f"${stats['Mean Ending Value']:,.0f}")
+        col3.metric("VaR (95%)", f"${stats['VaR (95%)']:,.0f}", help="Value at Risk (5th Percentile)")
+        
+        # Plot Paths (Line Chart)
+        # Downsample if too many paths for performance
+        st.markdown("##### Simulated Portfolio Paths")
+        MAX_PATHS_TO_PLOT = 500
+        plot_paths = paths
+        if paths.shape[1] > MAX_PATHS_TO_PLOT:
+             st.info(f"Displaying a random subset of {MAX_PATHS_TO_PLOT} paths (out of {paths.shape[1]}) for performance.")
+             plot_paths = paths.sample(n=MAX_PATHS_TO_PLOT, axis=1)
+
+        fig_paths = go.Figure()
+        # Add simpler line traces or use px
+        # Using simple lines is faster in loop for excessive traces? Actually px is better optimized for wide data?
+        # Let's use simple loop but optimized
+        for col in plot_paths.columns:
+            fig_paths.add_trace(go.Scatter(y=plot_paths[col], mode='lines', line=dict(width=1, color='rgba(0,100,250,0.1)'), showlegend=False))
+        
+        # Add Mean path
+        mean_path = paths.mean(axis=1)
+        fig_paths.add_trace(go.Scatter(y=mean_path, mode='lines', line=dict(width=3, color='orange'), name='Mean Path'))
+        
+        fig_paths.update_layout(title="Projected Equity Curves", xaxis_title="Days", yaxis_title="Portfolio Value")
+        st.plotly_chart(fig_paths, use_container_width=True)
+        
+        # Distribution of Ending Values (Histogram)
+        st.markdown("##### Distribution of Ending Values")
+        final_values = paths.iloc[-1, :]
+        fig_hist = px.histogram(final_values, nbins=50, title="Final Portfolio Value Distribution", labels={'value': 'Ending Value'})
+        fig_hist.add_vline(x=stats['VaR (95%)'], line_dash="dash", line_color="red", annotation_text="95% VaR")
+        fig_hist.add_vline(x=stats['Start Value'], line_dash="solid", line_color="green", annotation_text="Start Value")
+        st.plotly_chart(fig_hist, use_container_width=True)
+
+    def _render_cluster_analysis_results(self, results: dict):
+        """Displays K-Means Cluster Analysis results."""
+        st.subheader("Cluster Analysis Results (K-Means)")
+        clusters = results["clusters"]
+        corr_matrix = results["corr_matrix"]
+        
+        st.markdown(
+            "Assets are grouped based on the similarity of their daily return correlations. "
+            "Assets in the same cluster tend to move together."
+        )
+        
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            # Scatter Plot (PC1 vs PC2)
+            fig_scatter = px.scatter(
+                clusters, 
+                x="PC1", 
+                y="PC2", 
+                color=clusters["Cluster"].astype(str),
+                text="Ticker",
+                title="Cluster Visualization (PCA Projection)",
+                hover_data=["Ticker", "Cluster"]
+            )
+            fig_scatter.update_traces(textposition='top center')
+            st.plotly_chart(fig_scatter, use_container_width=True)
+            
+        with col2:
+            st.markdown("##### Cluster Assignments")
+            st.dataframe(clusters[["Ticker", "Cluster"]].sort_values("Cluster"), use_container_width=True, hide_index=True)
+            
+        # Correlation Matrix Heatmap
+        with st.expander("View Correlation Matrix"):
+            fig_corr = px.imshow(
+                corr_matrix, 
+                text_auto=".2f",
+                aspect="auto",
+                color_continuous_scale="RdBu_r",
+                zmin=-1, zmax=1,
+                title="Asset Correlation Matrix"
+            )
+            st.plotly_chart(fig_corr, use_container_width=True)
 
     def _render_pca_results(self, results: dict):
         """Displays the results of a Principal Component Analysis."""
