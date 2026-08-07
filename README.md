@@ -161,7 +161,7 @@ quant-pipeline/
 
 ### Prerequisites
 
-You must have Miniconda or Anaconda installed.
+Python 3.11 and [Poetry](https://python-poetry.org/) (authoritative since 2026-07-31; `environment.yml` and the conda-based setup have been retired).
 
 ## Installation
 
@@ -171,16 +171,12 @@ You must have Miniconda or Anaconda installed.
    cd quant-pipeline
    ```
 
-2. **Create and activate your conda environment:**
+2. **Install dependencies:**
    ```bash
-   conda create -n quant-pipeline-env python=3.11
-   conda activate quant-pipeline-env
+   poetry install
    ```
 
-3. **Install dependencies:**
-   ```bash
-   pip install -e .
-   ```
+`run_pipeline.sh` activates the Poetry environment automatically and exits with instructions if it isn't set up.
 
 ## Usage
 

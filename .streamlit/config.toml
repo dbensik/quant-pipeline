@@ -1,0 +1,12 @@
+# Streamlit server config — loopback-only binding (added 2026-07-31).
+# The dashboard has no authentication, so it must only be reachable from this
+# machine. Without this, Streamlit binds 0.0.0.0 and anyone on the LAN can open
+# it (the "Network URL" in the startup output). The "External URL" it prints is
+# just your detected public IP — not actually reachable unless the router
+# forwards the port — but loopback binding removes both lines entirely.
+
+[server]
+address = "127.0.0.1"
+
+[browser]
+gatherUsageStats = false

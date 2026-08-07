@@ -21,7 +21,7 @@ services:
   backend:
     build: .
     container_name: quant_backend
-    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000
     volumes:
       - .:/app
     ports:
@@ -35,7 +35,7 @@ services:
   dashboard:
     build: .
     container_name: quant_dashboard
-    command: streamlit run dashboard_app/main.py
+    command: streamlit run dashboard_app/dashboard.py
     volumes:
       - .:/app
     ports:

@@ -7,8 +7,11 @@ class ServiceConfig:
     """
     
     # --- gRPC Service Settings ---
-    # Host for binding the server (0.0.0.0 or [::] allows external access)
-    GRPC_BIND_ADDRESS = os.getenv("QUANT_GRPC_BIND_ADDRESS", "[::]")
+    # Bind address. Default is loopback-only (changed 2026-07-31): the signal
+    # service has no auth, so it must not listen on LAN interfaces by default.
+    # For containerized/remote deployment, override explicitly:
+    #   QUANT_GRPC_BIND_ADDRESS=0.0.0.0 (or [::])
+    GRPC_BIND_ADDRESS = os.getenv("QUANT_GRPC_BIND_ADDRESS", "127.0.0.1")
     # Host for clients to connect to (localhost for local dev)
     GRPC_HOST = os.getenv("QUANT_GRPC_HOST", "localhost")
     GRPC_PORT = int(os.getenv("QUANT_GRPC_PORT", "50051"))

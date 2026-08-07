@@ -73,6 +73,11 @@ Thumbs.db
 .env
 .env.*
 *.env
+# ...but the committed template is allowed
+!.env.example
+
+# Poetry in-project virtualenv (poetry.toml sets in-project = true)
+.venv/
 
 # --- Frontend ---
 frontend/node_modules/

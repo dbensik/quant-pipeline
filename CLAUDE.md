@@ -1,0 +1,44 @@
+# CLAUDE.md — Quant Pipeline
+
+End-to-end modular framework for systematic trading: data ingestion, backtesting, ML models, and a Streamlit dashboard.
+
+## Run
+
+```bash
+./run_pipeline.sh all          # start dashboard + API + gRPC + verification
+./run_pipeline.sh dashboard    # Streamlit dashboard only
+./run_pipeline.sh api          # FastAPI only
+./run_pipeline.sh grpc         # gRPC service only
+python -m cli.run_pipeline     # data pipeline only
+```
+
+## Test
+
+```bash
+python -m pytest tests/
+./run_pipeline.sh verify       # verify 3-layer architecture integrity
+```
+
+## Environment
+
+Poetry is authoritative (decided 2026-07-31; `package-mode = false` is set): `poetry install`.
+`run_pipeline.sh` activates the Poetry venv (Poetry-only; the conda fallback and `environment.yml` were removed 2026-07-31 — do not recreate them or add conda-based setup instructions).
+For the TimescaleDB layer, copy `.env.example` → `.env`; without it, `db/session.py` defaults to the local docker-compose database.
+
+## Architecture
+
+- `data_pipeline/` — `EquityPipeline`, `CryptoPipeline`, `FundamentalPipeline`, `DynamicUniverse`, `DataEnricher`; fetches via `yfinance`; stores to SQLite (`quant_pipeline.db`)
+- `alpha_models/` — Strategy classes (Moving Average Crossover, Mean Reversion, Trend Following, Pairs Trading, etc.) all inherit from `base_model.py`
+- `backtesting/backtester.py` — Simulates strategy on historical data; produces equity curves and KPIs
+- `screeners/` — Filter universe by criteria (momentum, low volatility); output feeds into watchlists
+- `dashboard_app/` — Streamlit UI; `controllers/` hold business logic; `ui_components/` hold rendering
+- `ml_models/` — EDA, model training (scikit-learn), signal generation
+- `services/` — 3-layer architecture: gRPC signal service → GraphQL gateway → Ed25519/SHA256 crypto audit log (`audit_log.json`)
+- `config/settings.py` — Centralized settings
+
+## Invariants
+
+- New strategies inherit from `alpha_models/base_model.py`.
+- Dashboard business logic lives in `controllers/`, never in `ui_components/`.
+- Run `./run_pipeline.sh verify` after any change touching `services/`.
+- Settings changes go through `config/settings.py` — no hardcoded parameters in pipelines or strategies.

@@ -11,13 +11,18 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
 # Change to the script directory (project root) to ensure imports work correctly
 cd "$SCRIPT_DIR"
 
-# IMPORTANT: Activate your conda environment.
-# Replace '/opt/anaconda3' with your actual anaconda installation path if different.
-# You can find it by running 'conda info --base' in your terminal.
-source /opt/anaconda3/etc/profile.d/conda.sh
-conda activate quant-pipeline-env
-
-echo "--- Conda environment activated. ---"
+# Environment activation — Poetry only (conda fallback removed 2026-07-31 after
+# confirming the Poetry flow works on this machine).
+if command -v poetry &> /dev/null && VENV_PATH="$(poetry env info --path 2> /dev/null)" && [ -n "$VENV_PATH" ] && [ -f "$VENV_PATH/bin/activate" ]; then
+    # shellcheck disable=SC1091
+    source "$VENV_PATH/bin/activate"
+    echo "--- Poetry environment activated ($VENV_PATH). ---"
+else
+    echo "ERROR: Poetry environment not found."
+    echo "  Fix: cd into the project root and run 'poetry install'"
+    echo "  (install Poetry first if needed: brew install poetry)"
+    exit 1
+fi
 
 # Check if the first argument is "api" to run the API server
 if [ "$1" == "api" ] || [ "$1" == "gateway" ]; then
