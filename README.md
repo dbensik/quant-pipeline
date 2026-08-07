@@ -47,8 +47,8 @@ The project is organized into several key components:
   - `02_alpha_research.ipynb`: Notebook for alpha research and signal generation.
 
 - **Project Setup Files:**
-  - `environment.yml`: Conda environment specification.
-  - `pyproject.toml`: PEP 517 configuration file for modern build systems.
+  - `pyproject.toml`: PEP 517 configuration and the authoritative Poetry dependency list.
+  - `.env.example`: Template for the TimescaleDB connection URLs — copy to `.env`.
   - `setup.py`: Setup script for packaging the project.
   - `.gitignore`: Specifies files and directories to exclude from version control.
 
@@ -146,8 +146,8 @@ quant-pipeline/
 │   ├── test_dynamic_universe.py                # Unit tests for DynamicUniverse
 │   └── test_pipeline_orchestrator.py           # Unit tests for PipelineOrchestrator
 ├── CHANGELOG.md                                # Changelog
-├── environment.yml                             # Conda environment specification
-├── pyproject.toml                              # PEP 517 configuration file
+├── alembic.ini                                 # Alembic config for the TimescaleDB schema
+├── pyproject.toml                              # PEP 517 config + Poetry dependencies
 ├── quant_pipeline.db                           # SQLite database
 ├── README.md                                   # This file
 ├── run_pipeline.sh                             # Main orchestration script

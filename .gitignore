@@ -91,6 +91,12 @@ poetry.toml
 debug_*.py
 diagnose_*.py
 verify_*.py
+# ...but verify_all.py is a real entry point, not a scratch script: run_pipeline.sh
+# invokes it for `./run_pipeline.sh verify` and `all`, and CLAUDE.md names that an
+# invariant. Without this negation a fresh clone cannot run the project's own
+# verification. (verify_advanced_features.py / verify_paper_trading.py are
+# referenced nowhere and stay ignored.)
+!verify_all.py
 
 # --- Project Specific Ignores ---
 # Ignore personal or non-code project files
