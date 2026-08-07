@@ -25,15 +25,22 @@ class Sidebar:
         watchlist_manager: WatchlistManager,
         portfolio_manager: PortfolioManager,
         all_db_tickers: list,
+        api_client: "QuantApiClient" = None,
     ):
         """
         Initializes the Sidebar with service managers.
+
+        api_client supplies the strategy catalogue. The strategy dropdown and
+        every parameter widget are generated from it, so registering a strategy
+        in alpha_models/registry.py makes it appear here with its own controls
+        and no edit to this file.
         """
         self.db_manager = db_manager
         self.results_manager = results_manager
         self.watchlist_manager = watchlist_manager
         self.portfolio_manager = portfolio_manager
         self.all_db_tickers = all_db_tickers
+        self.api_client = api_client
         self.config_manager = ConfigManager()
 
         self.watchlists = self.watchlist_manager.load()
@@ -89,6 +96,70 @@ class Sidebar:
 
     # _render_analysis_panel removed in refactor
 
+
+    def _strategy_specs(self, input_contract: str) -> list:
+        """
+        Strategy catalogue for the given input contract, from the API.
+
+        Returns [] when the API is unreachable; the caller surfaces that rather
+        than silently offering an empty dropdown.
+        """
+        if self.api_client is None:
+            return []
+        return self.api_client.get_strategies(input_contract=input_contract)
+
+    def _render_strategy_params(self, spec: dict, optimizing: bool = False) -> dict:
+        """
+        Build parameter widgets from a strategy's schema.
+
+        Replaces the previous hardcoded if/elif chain, which had to be edited
+        for every new strategy and used bespoke session keys (mr_window,
+        mac_short_window, ...). Widget type follows the declared param type and
+        the advisory min/max bounds from the registry.
+
+        When `optimizing` is set, numeric params render as ranges instead of
+        single values; the optimisation path still runs in-process, so those
+        ranges keep their own key namespace.
+        """
+        params: dict = {}
+        for p in spec.get("params", []):
+            key = f"param_{spec['id']}_{p['name']}"
+            label = p.get("label") or p["name"]
+            help_text = p.get("description") or None
+            lo, hi, default = p.get("minimum"), p.get("maximum"), p["default"]
+
+            if p["type"] == "int":
+                lo_i = int(lo) if lo is not None else 1
+                hi_i = int(hi) if hi is not None else max(int(default) * 4, lo_i + 1)
+                if optimizing:
+                    params[f"{p['name']}_range"] = st.slider(
+                        f"{label} (range)", lo_i, hi_i,
+                        (int(default), min(int(default) * 2, hi_i)),
+                        key=f"{key}_range", help=help_text,
+                    )
+                else:
+                    params[p["name"]] = st.slider(
+                        label, lo_i, hi_i, int(default), key=key, help=help_text
+                    )
+            elif p["type"] == "float":
+                lo_f = float(lo) if lo is not None else 0.0
+                hi_f = float(hi) if hi is not None else max(float(default) * 4, lo_f + 1.0)
+                if optimizing:
+                    params[f"{p['name']}_range"] = st.slider(
+                        f"{label} (range)", lo_f, hi_f,
+                        (float(default), min(float(default) * 2, hi_f)),
+                        key=f"{key}_range", help=help_text,
+                    )
+                else:
+                    params[p["name"]] = st.slider(
+                        label, lo_f, hi_f, float(default), step=0.1,
+                        key=key, help=help_text,
+                    )
+            else:  # str
+                params[p["name"]] = st.text_input(
+                    label, value=str(default), key=key, help=help_text
+                )
+        return params
 
     def _render_strategy_comparison_configs(self, selections: dict):
         """Renders configuration for comparing multiple strategies."""
@@ -188,72 +259,39 @@ class Sidebar:
                     "**Portfolio:** Run a single backtest on all selected tickers as a combined portfolio."
                 ),
             )
-            strategy_options = [
-                "Buy and Hold",
-                "Mean Reversion",
-                "Moving Average Crossover",
-                "RSI Oscillator",
-                "ATR Breakout",
-                "Random Forest",
-            ]
-            if selections["backtest_mode"] == "Portfolio":
-                strategy_options.append("Cointegrated Mean Reversion")
-                strategy_options.append("Index Rebalancing")
-            selections["strategy_type"] = st.selectbox(
-                "Strategy Type", strategy_options
-            )
+            # Strategy list comes from the API's registry-backed catalogue.
+            # Individual-ticker mode offers single-asset strategies; Portfolio
+            # mode offers the multi-asset ones, which cannot run per symbol.
+            wanted = "multi" if selections["backtest_mode"] == "Portfolio" else "single"
+            specs = self._strategy_specs(wanted)
+
+            if not specs:
+                st.error(
+                    "Could not load the strategy catalogue from the API. "
+                    "Start it with `poetry run uvicorn api.main:app --port 8001`, "
+                    "or set QUANT_USE_API=0 to fall back to the local SQLite path."
+                )
+                selections["strategy_id"] = None
+                selections["strategy_params"] = {}
+                return selections
+
+            by_name = {s["display_name"]: s for s in specs}
+            chosen_name = st.selectbox("Strategy Type", list(by_name))
+            spec = by_name[chosen_name]
+            selections["strategy_id"] = spec["id"]
+            selections["strategy_type"] = chosen_name  # kept for display/back-compat
+
+            if spec.get("caveat"):
+                st.warning(spec["caveat"], icon="⚠️")
 
             selections["optimization_mode"] = st.checkbox(
                 "Enable Parameter Optimization"
             )
-            if selections["strategy_type"] == "Mean Reversion":
-                if selections["optimization_mode"]:
-                    selections["mr_window_range"] = st.slider(
-                        "Window Range", 1, 100, (5, 20)
-                    )
-                    selections["mr_threshold_range"] = st.slider(
-                        "Threshold Range", 0.1, 3.0, (0.5, 1.5), 0.1
-                    )
-                else:
-                    selections["mr_window"] = st.slider(
-                        "Z-Score Window", 5, 100, 20
-                    )
-                    selections["mr_threshold"] = st.slider(
-                        "Z-Score Threshold", 0.5, 3.0, 1.0, 0.1
-                    )
-            elif selections["strategy_type"] == "Index Rebalancing":
-                selections["rebalance_freq"] = st.selectbox(
-                    "Rebalance Frequency",
-                    options=["M", "W", "Q"],
-                    format_func=lambda x: {"M": "Monthly", "W": "Weekly", "Q": "Quarterly"}[x],
-                    index=0
-                )
-            elif selections["strategy_type"] == "Moving Average Crossover":
-                if selections["optimization_mode"]:
-                    selections["mac_short_range"] = st.slider(
-                        "Short MA Range", 5, 100, (10, 30)
-                    )
-                    selections["mac_long_range"] = st.slider(
-                        "Long MA Range", 20, 250, (40, 60)
-                    )
-                else:
-                    selections["mac_short_window"] = st.slider(
-                        "Short MA Window", 5, 100, 20
-                    )
-                    selections["mac_long_window"] = st.slider(
-                        "Long MA Window", 20, 250, 50
-                    )
-            elif selections["strategy_type"] == "RSI Oscillator":
-                selections["rsi_window"] = st.slider("RSI Window", 2, 50, 14)
-                col1, col2 = st.columns(2)
-                selections["rsi_buy_threshold"] = col1.slider("Buy Below (Oversold)", 10, 45, 30)
-                selections["rsi_sell_threshold"] = col2.slider("Sell Above (Overbought)", 55, 90, 70)
-            elif selections["strategy_type"] == "ATR Breakout":
-                selections["atr_window"] = st.slider("ATR Window", 5, 50, 20)
-                selections["atr_multiplier"] = st.slider("Multiplier", 0.5, 5.0, 2.0, 0.1)
-            elif selections["strategy_type"] == "Random Forest":
-                selections["ml_n_estimators"] = st.slider("Number of Estimators", 10, 500, 100, 10)
-                selections["ml_lookback_window"] = st.slider("Lookback Window (Days)", 1, 30, 5)
+
+            # Parameter widgets are generated from the schema, not hardcoded.
+            selections["strategy_params"] = self._render_strategy_params(
+                spec, optimizing=selections["optimization_mode"]
+            )
             if selections["optimization_mode"]:
                 selections["optimize_metric"] = st.selectbox(
                     "Metric to Optimize",

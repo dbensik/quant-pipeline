@@ -3,26 +3,23 @@ from typing import Optional
 import pandas as pd
 import streamlit as st
 
-from alpha_models.base_model import BaseAlphaModel
-from alpha_models.basket_trading import BasketTradingStrategy
-from alpha_models.buy_and_hold import BuyAndHoldStrategy
-from alpha_models.cointegrated_mean_reversion import CointegratedMeanReversionStrategy
-from alpha_models.index_rebalancing import IndexRebalancingStrategy
-from alpha_models.mean_reversion import MeanReversionStrategy
-from alpha_models.moving_average_crossover import MovingAverageCrossoverStrategy
-from alpha_models.pairs_trading import PairsTradingStrategy
+from dashboard_app.api_client import ApiUnavailable, QuantApiClient
 
-from alpha_models.push_response_strategy import PushResponseStrategy
-from alpha_models.trend_following import TrendFollowingStrategy
-# New Strategy Imports
-from alpha_models.rsi_strategy import RSIStrategy
-from alpha_models.atr_breakout import ATRBreakoutStrategy
-from alpha_models.ml_random_forest import RandomForestStrategy
-from backtesting.backtester import Backtester
-from backtesting.portfolio_backtester import PortfolioBacktester
 from services.execution_service.portfolio_manager import PortfolioManager
 from dashboard_app.price_data_handler import PriceDataHandler
-from portfolio.risk_manager import RiskManager
+
+# Phase 3 exit gate: single-symbol backtests and every strategy definition now
+# come from the API (QuantApiClient), so this module no longer imports
+# alpha_models or backtesting.Backtester.
+#
+# The imports below are the documented remainder — each covers functionality
+# with NO API endpoint yet, so it still runs in-process. See the Phase 3 task
+# note for the delta:
+#   PortfolioBacktester — multi-asset portfolio backtests (/api/v1/backtest is
+#                         single-symbol only)
+#   RiskManager         — VaR/CVaR and related risk metrics
+# They are imported lazily inside the methods that need them so that importing
+# this controller does not pull the compute layer into the Streamlit process.
 
 
 class AnalysisController:
@@ -31,84 +28,75 @@ class AnalysisController:
     """
 
     def __init__(
-        self, price_handler: PriceDataHandler, portfolio_manager: PortfolioManager
+        self,
+        price_handler: PriceDataHandler,
+        portfolio_manager: PortfolioManager,
+        api_client: QuantApiClient = None,
     ):
         self.price_handler = price_handler
         self.portfolio_manager = portfolio_manager
+        self.api = api_client or QuantApiClient()
 
-    def create_strategy_model(self, params: dict) -> Optional[BaseAlphaModel]:
-        """Factory method to create strategy model instances."""
-        strategy_type = params.get("strategy_type")
-        if strategy_type == "Buy and Hold":
-            return BuyAndHoldStrategy()
-        elif strategy_type == "Mean Reversion":
-            return MeanReversionStrategy(
-                window=params.get("mr_window", 20),
-                threshold=params.get("mr_threshold", 1.5),
+    def resolve_strategy(self, selections: dict) -> tuple:
+        """
+        Return (strategy_id, params) for the API from the sidebar's selections.
+
+        Replaces the old create_strategy_model() if/elif chain, which mapped 13
+        display names onto strategy classes with bespoke param keys and was the
+        third copy of strategy identity in the codebase. The sidebar now emits
+        the registry id and registry-named params directly, so this is a lookup
+        rather than a translation table.
+        """
+        strategy_id = selections.get("strategy_id")
+        params = selections.get("strategy_params", {}) or {}
+
+        if not strategy_id:
+            st.error(
+                "No strategy selected. If the sidebar's strategy list is empty, "
+                "the API is unreachable — start it with "
+                "`poetry run uvicorn api.main:app --port 8001`."
             )
-        elif strategy_type == "Moving Average Crossover":
-            short_ma, long_ma = params.get("mac_short_window", 40), params.get(
-                "mac_long_window", 100
+            return None, {}
+
+        # Optimisation emits <name>_range keys; those belong to the in-process
+        # optimiser, not to a single backtest run.
+        params = {k: v for k, v in params.items() if not k.endswith("_range")}
+        return strategy_id, params
+
+    def _build_local_model(self, strategy_id: str, params: dict, selections: dict):
+        """
+        Build a strategy object in-process, for the multi-asset portfolio path only.
+
+        Everything single-symbol goes through the API. This exists because
+        /api/v1/backtest is single-symbol, so a portfolio backtest still needs a
+        real model object locally. The import is lazy and the registry is the
+        same source of truth the API serves from, so the two cannot diverge.
+        """
+        from alpha_models import registry
+
+        params = dict(params)
+        if strategy_id == "cointegrated_mean_reversion":
+            # Requires Johansen weights the registry cannot default.
+            portfolio_data = self.portfolio_manager.portfolios.get(
+                selections.get("source_name"), {}
             )
-            if short_ma >= long_ma:
-                st.error(
-                    f"Short MA ({short_ma}) must be less than Long MA ({long_ma})."
-                )
-                return None
-            return MovingAverageCrossoverStrategy(
-                short_window=short_ma, long_window=long_ma
-            )
-        elif strategy_type == "Trend Following":
-            return TrendFollowingStrategy(window=params.get("tf_window", 50))
-        elif strategy_type == "Push-Response":
-            return PushResponseStrategy(
-                tau=params.get("pr_tau", 21),
-                training_window=params.get("pr_training_window", 252),
-                threshold=params.get("pr_threshold", 0.0),
-            )
-        elif strategy_type == "Pairs Trading":
-            return PairsTradingStrategy(
-                window=params.get("mr_window", 20),
-                threshold=params.get("mr_threshold", 2.0),
-            )
-        elif strategy_type == "Basket Trading":
-            return BasketTradingStrategy(rebalance_frequency="M")
-        elif strategy_type == "Index Rebalancing":
-            return IndexRebalancingStrategy(
-                rebalance_frequency=params.get("rebalance_freq", "M")
-            )
-        elif strategy_type == "Cointegrated Mean Reversion":
-            portfolio_name = params.get("source_name")
-            portfolio_data = self.portfolio_manager.portfolios.get(portfolio_name, {})
             weights = portfolio_data.get("weights")
             if not weights:
                 st.error(
-                    "Cointegrated Mean Reversion requires a portfolio with weights from a Johansen test."
+                    "Cointegrated Mean Reversion requires a portfolio with weights "
+                    "from a Johansen test."
                 )
                 return None
-            return CointegratedMeanReversionStrategy(
-                weights=weights,
-                window=params.get("mr_window", 20),
-                threshold=params.get("mr_threshold", 2.0),
-            )
-        elif strategy_type == "RSI Oscillator":
-            return RSIStrategy(
-                window=params.get("rsi_window", 14),
-                buy_threshold=params.get("rsi_buy_threshold", 30),
-                sell_threshold=params.get("rsi_sell_threshold", 70),
-            )
-        elif strategy_type == "ATR Breakout":
-            return ATRBreakoutStrategy(
-                window=params.get("atr_window", 20),
-                multiplier=params.get("atr_multiplier", 2.0),
-            )
-        elif strategy_type == "Random Forest":
-            return RandomForestStrategy(
-                n_estimators=params.get("ml_n_estimators", 100),
-                lookback_window=params.get("ml_lookback_window", 5),
-            )
-        st.error(f"Unknown strategy type: {strategy_type}")
-        return None
+            spec = registry.get(strategy_id)
+            return spec.cls(weights=weights, **{
+                p.name: params.get(p.name, p.default) for p in spec.params
+            })
+
+        try:
+            return registry.build(strategy_id, params)
+        except (KeyError, ValueError) as exc:
+            st.error(f"Could not build strategy '{strategy_id}': {exc}")
+            return None
 
     def run_individual_backtest(self, selections: dict):
         """Runs a standard backtest on a set of symbols."""
@@ -133,19 +121,39 @@ class AnalysisController:
                 else {}
             )
 
+            # RiskManager has no API endpoint yet — imported lazily so this
+            # module's import does not drag the compute layer into Streamlit.
+            from portfolio.risk_manager import RiskManager
+
             results_data = {}
-            backtester = Backtester(
-                initial_capital=selections.get("initial_capital", 100000.0)
-            )
-            model = self.create_strategy_model(selections)
-            if not model:
+            strategy_id, strategy_params = self.resolve_strategy(selections)
+            if not strategy_id:
                 return
 
+            caveat_shown = False
             for symbol, data in backtest_data_dict.items():
-                portfolio = backtester.run(price_data=data, model=model, symbol_name=symbol)
-                stats = backtester.get_performance_metrics()
+                try:
+                    portfolio, stats, trade_log, caveat = self.api.run_backtest(
+                        symbol=symbol,
+                        strategy_id=strategy_id,
+                        start=start_date,
+                        end=end_date,
+                        params=strategy_params,
+                        initial_capital=selections.get("initial_capital", 100000.0),
+                        transaction_cost=selections.get("commission", 0.0) or 0.0,
+                    )
+                except ApiUnavailable as exc:
+                    # Surface loudly: an empty result would read as "the strategy
+                    # made no trades" rather than "the request failed".
+                    st.error(f"Backtest failed for {symbol}: {exc}")
+                    continue
+
+                if caveat and not caveat_shown:
+                    st.warning(caveat, icon="⚠️")
+                    caveat_shown = True
+
                 risk_metrics = {}
-                if not portfolio["returns"].empty:
+                if not portfolio.empty and not portfolio["returns"].empty:
                     risk_manager = RiskManager(portfolio_returns=portfolio["returns"])
                     risk_metrics = risk_manager.get_all_risk_metrics()
 
@@ -153,7 +161,7 @@ class AnalysisController:
                     "portfolio": portfolio,
                     "stats": stats,
                     "risk_metrics": risk_metrics,
-                    "trade_log": backtester.get_trade_log(),
+                    "trade_log": trade_log,
                 }
                 benchmarks[f"Buy & Hold {symbol}"] = pd.DataFrame(data["Close"]).rename(
                     columns={"Close": "total"}
@@ -204,7 +212,16 @@ class AnalysisController:
             )
 
         with st.spinner("Generating trading signals and running backtest..."):
-            model = self.create_strategy_model(selections)
+            # Multi-asset portfolio backtests have no API endpoint
+            # (/api/v1/backtest is single-symbol), so this path builds the model
+            # and runs the backtest in-process. Both imports are lazy and local
+            # to this method — see the module docstring's delta note.
+            from backtesting.portfolio_backtester import PortfolioBacktester
+
+            strategy_id, strategy_params = self.resolve_strategy(selections)
+            if not strategy_id:
+                return
+            model = self._build_local_model(strategy_id, strategy_params, selections)
             if not model:
                 return
 
@@ -224,7 +241,7 @@ class AnalysisController:
                     portfolio_weights = portfolio_data["weights"]
 
             signals_data = {}
-            if isinstance(model, PairsTradingStrategy):
+            if strategy_id == "pairs_trading":
                 price_df = pd.DataFrame(
                     {symbol: data["Close"] for symbol, data in price_data.items()}
                 ).dropna()
@@ -233,19 +250,19 @@ class AnalysisController:
                     col: signals_df[[col]].rename(columns={col: "signal"})
                     for col in signals_df.columns
                 }
-            elif isinstance(model, BasketTradingStrategy):
+            elif strategy_id == "basket_trading":
                 any_ticker_data = next(iter(price_data.values()))
                 rebalance_signals = model.generate_signals(any_ticker_data)
                 signals_data = {
                     symbol: rebalance_signals for symbol in price_data.keys()
                 }
-            elif isinstance(model, IndexRebalancingStrategy):
+            elif strategy_id == "index_rebalancing":
                 any_ticker_data = next(iter(price_data.values()))
                 rebalance_signals = model.generate_signals(any_ticker_data)
                 signals_data = {
                     symbol: rebalance_signals for symbol in price_data.keys()
                 }
-            elif isinstance(model, CointegratedMeanReversionStrategy):
+            elif strategy_id == "cointegrated_mean_reversion":
                 price_df = pd.DataFrame(
                     {symbol: data["Close"] for symbol, data in price_data.items()}
                 ).dropna()
@@ -352,39 +369,40 @@ class AnalysisController:
         progress_bar = st.progress(0)
         
         with st.spinner("Running strategies..."):
+            target_symbol = selected_symbols[0]
             for i, strategy_name in enumerate(selected_strategies):
-                params = selections.copy()
-                params["strategy_type"] = strategy_name
-                
-                # --- AUTO-OPTIMIZATION ---
-                # Attempt to find best parameters to ensure fair comparison
-                best_params = self._find_optimal_params(strategy_name, data.get(selected_symbols[0]), params)
-                if best_params:
-                    params.update(best_params)
-                
-                model = self.create_strategy_model(params)
-                if not model:
-                    continue
-                
-                target_symbol = selected_symbols[0]
-                ticker_data = data.get(target_symbol)
-                
-                if ticker_data is None or ticker_data.empty:
+                strategy_id = self._id_for_display_name(strategy_name)
+                if not strategy_id:
+                    st.warning(f"Strategy '{strategy_name}' is not in the catalogue; skipping.")
                     continue
 
-                backtester = Backtester()
-                portfolio = backtester.run(price_data=ticker_data, model=model)
-                stats = backtester.get_performance_metrics()
-                
-                # Inject the parameters used into stats for display
+                # --- AUTO-OPTIMIZATION ---
+                # Grid-search the best parameters so the comparison is fair.
+                best_params = self._find_optimal_params(
+                    strategy_id, target_symbol, start_date, end_date
+                )
+
+                try:
+                    portfolio, stats, _trades, _caveat = self.api.run_backtest(
+                        symbol=target_symbol,
+                        strategy_id=strategy_id,
+                        start=start_date,
+                        end=end_date,
+                        params=best_params,
+                    )
+                except ApiUnavailable as exc:
+                    st.warning(f"{strategy_name}: {exc}")
+                    continue
+
+                # Show which parameters produced the result.
                 if best_params:
-                    stats.update(best_params)
-                
+                    stats = {**stats, **best_params}
+
                 comparison_results[strategy_name] = {
                     "portfolio": portfolio,
                     "stats": stats
                 }
-                
+
                 progress_bar.progress((i + 1) / len(selected_strategies))
 
         if not comparison_results:
@@ -397,48 +415,63 @@ class AnalysisController:
             "benchmarks": benchmarks
         }
 
-    def _find_optimal_params(self, strategy_name: str, price_data: pd.DataFrame, base_params: dict) -> dict:
+    def _id_for_display_name(self, display_name: str) -> Optional[str]:
+        """Map a sidebar display name back to its registry id via the catalogue."""
+        for spec in self.api.get_strategies():
+            if spec["display_name"] == display_name:
+                return spec["id"]
+        return None
+
+    # Grid searched per strategy when comparing. Kept small deliberately: each
+    # point is a full backtest over HTTP, so the cost is points x symbols.
+    _OPTIMIZATION_GRIDS = {
+        "mean_reversion": {"window": [10, 20, 30, 40, 50], "threshold": [1.0, 1.5, 2.0, 2.5]},
+        "ma_crossover": {"short_window": [10, 20, 30], "long_window": [50, 100, 200]},
+    }
+
+    def _find_optimal_params(
+        self, strategy_id: str, symbol: str, start_date: str, end_date: str
+    ) -> dict:
         """
-        Performs a quick grid search to find optimal parameters for a given strategy
-        to Maximize Sharpe Ratio.
+        Grid-search parameters maximising Sharpe, running each point via the API.
+
+        Previously this constructed strategy objects and a Backtester directly —
+        two of the imports the Phase 3 exit gate removes. Running the grid over
+        HTTP is slower per point but keeps the dashboard free of the compute
+        layer, and the API seeds slippage so the comparison between grid points
+        is deterministic rather than partly comparing random draws.
+
+        Returns {} for strategies with no grid, meaning "use registry defaults".
         """
-        best_sharpe = -float('inf')
-        best_params = {}
-        
-        if strategy_name == "Mean Reversion":
-            # Grid search for Window and Threshold
-            windows = range(10, 60, 10)
-            thresholds = [1.0, 1.5, 2.0, 2.5]
-            
-            for w in windows:
-                for t in thresholds:
-                    # Create temporary model
-                    model = MeanReversionStrategy(window=w, threshold=t)
-                    # Fast backtest (just get metrics)
-                    backtester = Backtester()
-                    metrics = backtester.run_and_get_metrics(price_data, model)
-                    sharpe = metrics.get("Sharpe Ratio", -100)
-                    
-                    if sharpe > best_sharpe:
-                        best_sharpe = sharpe
-                        best_params = {"mr_window": w, "mr_threshold": t}
-                        
-        elif strategy_name == "Moving Average Crossover":
-            # Grid search for Short and Long Windows
-            short_windows = [10, 20, 30]
-            long_windows = [50, 100, 200]
-            
-            for s in short_windows:
-                for l in long_windows:
-                    if s >= l: continue
-                    
-                    model = MovingAverageCrossoverStrategy(short_window=s, long_window=l)
-                    backtester = Backtester()
-                    metrics = backtester.run_and_get_metrics(price_data, model)
-                    sharpe = metrics.get("Sharpe Ratio", -100)
-                    
-                    if sharpe > best_sharpe:
-                        best_sharpe = sharpe
-                        best_params = {"mac_short_window": s, "mac_long_window": l}
-        
+        grid = self._OPTIMIZATION_GRIDS.get(strategy_id)
+        if not grid:
+            return {}
+
+        names = list(grid)
+        best_sharpe, best_params = -float("inf"), {}
+
+        def combos(idx: int, current: dict):
+            if idx == len(names):
+                yield dict(current)
+                return
+            for value in grid[names[idx]]:
+                current[names[idx]] = value
+                yield from combos(idx + 1, current)
+
+        for params in combos(0, {}):
+            # Respect the strategy's own constraint rather than discovering it
+            # via a 422 on every invalid combination.
+            if strategy_id == "ma_crossover" and params["short_window"] >= params["long_window"]:
+                continue
+            try:
+                _pf, stats, _t, _c = self.api.run_backtest(
+                    symbol=symbol, strategy_id=strategy_id,
+                    start=start_date, end=end_date, params=params,
+                )
+            except ApiUnavailable:
+                continue
+            sharpe = stats.get("Sharpe Ratio")
+            if sharpe is not None and sharpe > best_sharpe:
+                best_sharpe, best_params = sharpe, params
+
         return best_params

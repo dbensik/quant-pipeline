@@ -40,9 +40,10 @@ URL_NASDAQ100_WIKIPEDIA = "https://en.wikipedia.org/wiki/Nasdaq-100"
 URL_COINGECKO_API = "https://api.coingecko.com/api/v3/coins/markets"
 
 # --- Quant Pipeline REST API (Phase 3) ---
-# The dashboard reads prices straight from SQLite by default. Set
-# QUANT_USE_API=1 to route them through the FastAPI service instead — the
-# Phase 3 migration path, opt-in until the API is the only source.
+# The dashboard reads prices through the FastAPI service by default as of the
+# Phase 3 cutover (2026-08-07). Set QUANT_USE_API=0 to fall back to reading
+# SQLite directly — kept as an escape hatch so the dashboard still works when
+# the API or TimescaleDB is down, and as the Phase 3 rollback path.
 #
 # PORT 8001, NOT 8000: the GraphQL gateway owns 8000 (services/config.py
 # GRAPHQL_PORT, and `./run_pipeline.sh api`). Running both on 8000 collides —
@@ -51,7 +52,7 @@ QUANT_API_PORT = int(os.getenv("QUANT_API_PORT", "8001"))
 QUANT_API_BASE_URL = os.getenv(
     "QUANT_API_BASE_URL", f"http://127.0.0.1:{QUANT_API_PORT}"
 )
-QUANT_USE_API = os.getenv("QUANT_USE_API", "0").lower() in {"1", "true", "yes"}
+QUANT_USE_API = os.getenv("QUANT_USE_API", "1").lower() in {"1", "true", "yes"}
 QUANT_API_TIMEOUT_SECONDS = float(os.getenv("QUANT_API_TIMEOUT_SECONDS", "30"))
 
 # --- Pipeline Configuration ---

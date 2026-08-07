@@ -42,12 +42,39 @@ def mock_env():
     st.session_state.clear()
     st.session_state["selections"] = {}
 
+    # The strategy dropdown and its parameter widgets are now generated from the
+    # API's registry-backed catalogue (Phase 3), so the sidebar needs a client.
+    # A stub keeps this a unit test — no live API required.
+    mock_api_client = MagicMock()
+    mock_api_client.get_strategies.return_value = [
+        {
+            "id": "buy_and_hold",
+            "display_name": "Buy and Hold",
+            "description": "baseline",
+            "input_contract": "single",
+            "params": [],
+            "caveat": None,
+        },
+        {
+            "id": "mean_reversion",
+            "display_name": "Mean Reversion",
+            "description": "fade extremes",
+            "input_contract": "single",
+            "params": [
+                {"name": "window", "type": "int", "default": 20, "label": "Window",
+                 "description": "", "minimum": 2, "maximum": 500},
+            ],
+            "caveat": None,
+        },
+    ]
+
     sidebar = Sidebar(
         db_manager=mock_db_manager,
         results_manager=mock_results_manager,
         watchlist_manager=mock_watchlist_manager,
         portfolio_manager=mock_portfolio_manager,
         all_db_tickers=all_db_tickers,
+        api_client=mock_api_client,
     )
     return sidebar
 

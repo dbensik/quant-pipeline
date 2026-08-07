@@ -15,6 +15,7 @@ try:
     from dashboard_app.watchlist_manager import WatchlistManager
     from dashboard_app.price_data_handler import PriceDataHandler
     from dashboard_app.api_price_data_handler import ApiPriceDataHandler
+    from dashboard_app.api_client import QuantApiClient
     from dashboard_app.config_manager import ConfigManager
     from config.settings import QUANT_USE_API
 
@@ -36,12 +37,11 @@ try:
     from dashboard_app.ui_components.asset_deep_dive_tab import AssetDeepDiveTab
     from dashboard_app.ui_components.dashboard_home import DashboardHome
 
-    # Pipeline
-    from data_pipeline.pipeline_orchestrator import PipelineOrchestrator
-    
-    # Models and Analysis (Still needed for imports check, though usage moved to controllers)
-    from backtesting.backtester import Backtester  # unused here but keeps import check valid
-    from analysis.statistical_analyzer import StatisticalAnalyzer
+    # Phase 3 exit gate: PipelineOrchestrator, Backtester and StatisticalAnalyzer
+    # were all imported here and never referenced — the Backtester line even said
+    # so ("unused here but keeps import check valid"). Removed rather than
+    # rewired: an unused import is not a dependency. Controllers own this work,
+    # and single-symbol backtesting now goes through the API.
 
 except ImportError as e:
     st.error(
@@ -71,11 +71,12 @@ class DashboardApp:
         self.results_manager = ResultsManager()
         self.portfolio_manager = PortfolioManager()
         self.watchlist_manager = WatchlistManager()
-        # Phase 3 migration seam: QUANT_USE_API=1 routes every price read through
-        # the FastAPI service instead of SQLite. Both handlers expose the same
-        # interface, so nothing downstream of this line changes. Default stays
-        # SQLite until the API path is proven across all consumers; the Phase 3
-        # exit gate is reached when this branch collapses to the API handler.
+        # Phase 3 cutover (2026-08-07): the API is now the default source for
+        # every price read. QUANT_USE_API=0 falls back to reading SQLite
+        # directly — deliberately retained as an escape hatch for when the API
+        # or TimescaleDB is down, and as the Phase 3 rollback path. Both
+        # handlers expose the same interface, so nothing downstream changes.
+        self.api_client = QuantApiClient()
         if QUANT_USE_API:
             self.price_handler = ApiPriceDataHandler()
         else:
@@ -84,7 +85,7 @@ class DashboardApp:
 
         # 2. Initialize Controllers (Logic Layer)
         self.analysis_controller = AnalysisController(
-            self.price_handler, self.portfolio_manager
+            self.price_handler, self.portfolio_manager, api_client=self.api_client
         )
         self.statistics_controller = StatisticsController(self.price_handler)
         self.optimization_controller = OptimizationController(self.price_handler)
@@ -145,6 +146,7 @@ class DashboardApp:
             self.watchlist_manager,
             self.portfolio_manager,
             st.session_state.all_tickers,
+            api_client=self.api_client,
         )
         user_selections = sidebar.render()
         

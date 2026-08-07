@@ -1,14 +1,15 @@
 import pandas as pd
 import streamlit as st
 
-from backtesting.backtester import Backtester
-from backtesting.parameter_generator import (
-    MACrossoverParameterGenerator,
-    MeanReversionParameterGenerator,
-)
-from backtesting.parameter_optimizer import ParameterOptimizer
 from dashboard_app.price_data_handler import PriceDataHandler
-from portfolio.portfolio_optimizer import PortfolioOptimizer
+
+# Phase 3 exit gate: parameter and portfolio optimisation have NO API endpoint
+# (/api/v1/backtest runs one strategy on one symbol; it does not grid-search or
+# solve for weights), so this controller still runs them in-process. Their
+# imports are deferred into the methods that use them, so merely importing this
+# controller does not pull the compute layer into the Streamlit process. Fold
+# these into the API when an /api/v1/optimize endpoint exists — see the Phase 3
+# task note's remaining delta.
 
 
 class OptimizationController:
@@ -25,6 +26,13 @@ class OptimizationController:
         if len(selected_symbols) != 1:
             st.warning("Parameter optimization currently supports one ticker at a time.")
             return
+
+        from backtesting.backtester import Backtester
+        from backtesting.parameter_generator import (
+            MACrossoverParameterGenerator,
+            MeanReversionParameterGenerator,
+        )
+        from backtesting.parameter_optimizer import ParameterOptimizer
 
         ticker = selected_symbols[0]
         start_date, end_date = selections["start_date"].strftime("%Y-%m-%d"), selections[
@@ -86,6 +94,8 @@ class OptimizationController:
 
     def run_portfolio_optimization(self, selections: dict):
         """Runs a Monte Carlo simulation to find optimal weights for a Buy & Hold strategy."""
+        from portfolio.portfolio_optimizer import PortfolioOptimizer
+
         selected_symbols = selections.get("selected_symbols", [])
         if len(selected_symbols) < 2:
             st.warning("Portfolio optimization requires at least two assets.")
