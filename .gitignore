@@ -96,3 +96,6 @@ verify_*.py
 # Ignore personal or non-code project files
 PROJECT.md
 *.bak
+
+# Pre-migration database snapshots (large binaries kept for rollback, not VCS)
+archive/

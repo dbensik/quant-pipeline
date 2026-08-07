@@ -171,7 +171,11 @@ class TimescaleMarketDataRepo:
                 symbol=asset.symbol,
                 asset_class=asset.asset_class,
                 source=asset.source,
-                metadata=asset.metadata,
+                # NOTE: must be metadata_, not metadata. The DB column is named
+                # "metadata" but the mapped attribute is metadata_ — plain
+                # `metadata=` resolves to the declarative Base.metadata MetaData
+                # object and raises AttributeError on compile.
+                metadata_=asset.metadata,
             )
             .on_conflict_do_nothing(constraint="uq_asset_identity")
             .returning(AssetORM.id)
