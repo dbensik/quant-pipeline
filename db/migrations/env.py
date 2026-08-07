@@ -48,6 +48,35 @@ target_metadata = Base.metadata
 
 
 # ---------------------------------------------------------------------------
+# Keep TimescaleDB's own objects out of autogenerate
+# ---------------------------------------------------------------------------
+# TimescaleDB creates and maintains objects the ORM deliberately does not
+# declare: the default `<table>_time_idx` on every hypertable, the per-chunk
+# `_hyper_*` tables, and everything in its internal schemas. Without this
+# filter, `alembic revision --autogenerate` proposes dropping them on every
+# run — and committing that would break the hypertable.
+_TIMESCALE_SCHEMAS = {
+    "_timescaledb_catalog",
+    "_timescaledb_internal",
+    "_timescaledb_config",
+    "_timescaledb_cache",
+    "timescaledb_information",
+    "timescaledb_experimental",
+}
+
+
+def include_object(object_, name, type_, reflected, compare_to):
+    if getattr(object_, "schema", None) in _TIMESCALE_SCHEMAS:
+        return False
+    if type_ == "table" and name and name.startswith("_hyper_"):
+        return False
+    # TimescaleDB's default time index on each hypertable.
+    if type_ == "index" and name and name.endswith("_time_idx"):
+        return False
+    return True
+
+
+# ---------------------------------------------------------------------------
 # Run migrations offline (generates SQL without a live DB connection)
 # ---------------------------------------------------------------------------
 def run_migrations_offline() -> None:
@@ -59,6 +88,7 @@ def run_migrations_offline() -> None:
         dialect_opts={"paramstyle": "named"},
         # Ensure Alembic detects column-type changes (e.g. Float → Numeric)
         compare_type=True,
+        include_object=include_object,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -78,6 +108,7 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             compare_type=True,
+            include_object=include_object,
         )
         with context.begin_transaction():
             context.run_migrations()
