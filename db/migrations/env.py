@@ -64,14 +64,20 @@ _TIMESCALE_SCHEMAS = {
     "timescaledb_experimental",
 }
 
+# Add an entry here whenever a new hypertable is created.
+_HYPERTABLES = {"market_data"}
+_TIMESCALE_DEFAULT_INDEXES = {f"{t}_time_idx" for t in _HYPERTABLES}
+
 
 def include_object(object_, name, type_, reflected, compare_to):
     if getattr(object_, "schema", None) in _TIMESCALE_SCHEMAS:
         return False
     if type_ == "table" and name and name.startswith("_hyper_"):
         return False
-    # TimescaleDB's default time index on each hypertable.
-    if type_ == "index" and name and name.endswith("_time_idx"):
+    # TimescaleDB's default time index, named <hypertable>_time_idx. Matched
+    # against the known hypertable list rather than a bare "_time_idx" suffix,
+    # so an index a developer adds deliberately is never silently hidden.
+    if type_ == "index" and name in _TIMESCALE_DEFAULT_INDEXES:
         return False
     return True
 

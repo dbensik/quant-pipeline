@@ -11,11 +11,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine
 
 from fastapi.responses import JSONResponse
 
 from app.core.config import settings
+from db.session import engine as db_engine
+
+from api.routers import ohlcv
 
 
 # ---------------------------------------------------------------------------
@@ -30,10 +32,15 @@ async def lifespan(app: FastAPI):
 
     Startup: initialise DB connection pool and any warm caches.
     Shutdown: dispose pool and release resources cleanly.
+
+    Uses db/session.py's engine rather than constructing its own — one engine
+    per process against one database. The previous second engine was built from
+    app.core.config.database_url, which defaulted to SQLite, so the API would
+    have served an empty database while the migrated data sat in TimescaleDB.
     """
-    app.state.db_engine = create_async_engine(settings.database_url)
+    app.state.db_engine = db_engine
     yield
-    await app.state.db_engine.dispose()
+    await db_engine.dispose()
 
 
 # ---------------------------------------------------------------------------
@@ -66,6 +73,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ---------------------------------------------------------------------------
+# Routers
+# ---------------------------------------------------------------------------
+
+app.include_router(ohlcv.router)
 
 
 # ---------------------------------------------------------------------------

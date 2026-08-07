@@ -11,6 +11,20 @@ from config.settings import DB_PATH, DB_PRICE_TABLE
 logger = logging.getLogger(__name__)
 
 
+def _inclusive_end(end_date: str) -> str:
+    """
+    Extend a date-only `end_date` to the end of that day.
+
+    `Timestamp` is stored as the TEXT 'YYYY-MM-DD HH:MM:SS', so SQLite compares
+    it lexically. Against a date-only bound that makes
+    '2023-03-31 00:00:00' <= '2023-03-31' evaluate to False, silently dropping
+    the final day of every requested range — the most recent bar, for any query
+    ending today. Callers pass date-only strings throughout the dashboard, so
+    normalise here rather than at each call site.
+    """
+    return f"{end_date} 23:59:59" if len(end_date.strip()) == 10 else end_date
+
+
 class PriceDataHandler:
     """
     A dedicated class for fetching historical price data from the database.
@@ -46,7 +60,7 @@ class PriceDataHandler:
         """
         try:
             with sqlite3.connect(self.db_path) as conn:
-                params = tickers + [start_date, end_date]
+                params = tickers + [start_date, _inclusive_end(end_date)]
                 df = pd.read_sql_query(
                     sql, conn, params=params, index_col="Timestamp", parse_dates=["Timestamp"]
                 )
@@ -85,7 +99,7 @@ class PriceDataHandler:
         """
         try:
             with sqlite3.connect(self.db_path) as conn:
-                params = tickers + [start_date, end_date]
+                params = tickers + [start_date, _inclusive_end(end_date)]
                 df = pd.read_sql_query(
                     sql, conn, params=params, index_col="Timestamp", parse_dates=["Timestamp"]
                 )

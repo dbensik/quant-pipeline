@@ -49,16 +49,30 @@ class MarketDataRepository:
     async def fetch_range(
         self,
         symbol: str,
-        asset_class: str,
+        asset_class: Optional[str],
         start: datetime,
         end: datetime,
         source: Optional[str] = None,
     ) -> List[MarketDataRecord]:
         """
-        Return OHLCV records for *symbol* / *asset_class* within [start, end].
+        Return OHLCV records for *symbol* within [start, end].
+
+        Pass asset_class=None to resolve by symbol alone — API consumers know a
+        symbol, not its asset class, and deriving one in the API layer would
+        duplicate the migration's '-USD' heuristic (a decision about legacy
+        data, not an API contract). Symbol is not unique by the
+        uq_asset_identity constraint in principle, so callers that genuinely
+        need disambiguation should still pass asset_class.
+
         Optionally filter by data *source* (e.g. 'yfinance').
         Results are ordered by time ascending.
         """
+        ...
+
+    async def find_asset(
+        self, symbol: str, asset_class: Optional[str] = None
+    ) -> Optional[Asset]:
+        """Return the registered Asset for *symbol*, or None if unknown."""
         ...
 
 
@@ -115,7 +129,7 @@ class TimescaleMarketDataRepo:
     async def fetch_range(
         self,
         symbol: str,
-        asset_class: str,
+        asset_class: Optional[str],
         start: datetime,
         end: datetime,
         source: Optional[str] = None,
@@ -124,18 +138,21 @@ class TimescaleMarketDataRepo:
         Time-range query.  Joins market_data → assets so no separate lookup
         is needed. TimescaleDB's chunk exclusion makes this very fast for
         bounded date ranges.
+
+        asset_class=None resolves by symbol alone — see the Protocol docstring.
         """
         stmt = (
             select(MarketDataORM, AssetORM)
             .join(AssetORM, MarketDataORM.asset_id == AssetORM.id)
             .where(
                 AssetORM.symbol == symbol,
-                AssetORM.asset_class == asset_class,
                 MarketDataORM.time >= start,
                 MarketDataORM.time <= end,
             )
             .order_by(MarketDataORM.time.asc())
         )
+        if asset_class:
+            stmt = stmt.where(AssetORM.asset_class == asset_class)
         if source:
             stmt = stmt.where(MarketDataORM.source == source)
 
@@ -143,6 +160,30 @@ class TimescaleMarketDataRepo:
         rows = result.all()
 
         return [self._orm_to_domain(md_row, asset_row) for md_row, asset_row in rows]
+
+    async def find_asset(
+        self, symbol: str, asset_class: Optional[str] = None
+    ) -> Optional[Asset]:
+        """
+        Look up a registered asset by symbol.
+
+        Lets callers distinguish "unknown symbol" (404) from "known symbol, no
+        bars in this date range" (200 with an empty list) — fetch_range alone
+        returns [] for both.
+        """
+        stmt = select(AssetORM).where(AssetORM.symbol == symbol)
+        if asset_class:
+            stmt = stmt.where(AssetORM.asset_class == asset_class)
+
+        row = (await self.session.execute(stmt.limit(1))).scalar_one_or_none()
+        if row is None:
+            return None
+        return Asset(
+            symbol=row.symbol,
+            asset_class=row.asset_class,
+            source=row.source,
+            metadata=row.metadata_ or {},
+        )
 
     # ------------------------------------------------------------------
     # Private helpers

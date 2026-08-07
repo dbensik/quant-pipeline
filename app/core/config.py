@@ -10,11 +10,14 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    """Application settings populated from environment variables."""
+    """
+    API-layer settings only.
 
-    # -- Database --------------------------------------------------------
-    # Docker Compose sets DATABASE_URL; local dev falls back to SQLite.
-    database_url: str = "sqlite+aiosqlite:///quant_pipeline.db"
+    NOTE: database configuration deliberately does NOT live here. `db/session.py`
+    owns DATABASE_URL / SYNC_DATABASE_URL and the async engine; this class owns
+    HTTP concerns. Two Settings classes both reading DATABASE_URL is how the app
+    ended up pointing at SQLite while the data lived in TimescaleDB.
+    """
 
     # -- CORS ------------------------------------------------------------
     # Comma-separated origins, e.g. "http://localhost:8501,https://app.example.com"
@@ -27,7 +30,15 @@ class Settings(BaseSettings):
     # -- General ---------------------------------------------------------
     debug: bool = False
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    # extra="ignore" is required, not optional: the project's .env carries
+    # DATABASE_URL / SYNC_DATABASE_URL for db/session.py and Alembic. Without
+    # this, merely creating that .env makes `import api.main` raise
+    # ValidationError("Extra inputs are not permitted").
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "extra": "ignore",
+    }
 
 
 settings = Settings()

@@ -26,9 +26,13 @@ This revision:
   * widens chunk_time_interval 7 days -> 90 days
 
 90 days rather than 1 year: at current density a 90-day chunk holds ~39k rows
-(616 tickers x ~63 trading days), which is comfortably small, and it leaves
-headroom for the intraday backfill into price_data_hourly without chunks
-becoming oversized. 5.5 years of history lands at ~23 chunks instead of 1,160.
+(616 tickers x ~63 trading days), which is comfortably small while keeping the
+chunk count low. 5.5 years of history lands at ~23 chunks instead of 1,160.
+
+Do NOT read this as headroom for intraday data. market_data's composite PK is
+(time, asset_id) with no interval column, so hourly bars for a symbol that also
+has daily bars would collide on the PK — intraday requires a schema change
+regardless of chunk size, not merely a smaller chunk interval.
 
 Also drops `ix_market_data_asset_time`. 0001 created it via raw SQL after
 create_hypertable, but it never propagated to any chunk — it existed only as an

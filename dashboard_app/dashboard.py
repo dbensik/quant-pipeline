@@ -14,7 +14,9 @@ try:
     from services.execution_service.portfolio_manager import PortfolioManager
     from dashboard_app.watchlist_manager import WatchlistManager
     from dashboard_app.price_data_handler import PriceDataHandler
+    from dashboard_app.api_price_data_handler import ApiPriceDataHandler
     from dashboard_app.config_manager import ConfigManager
+    from config.settings import QUANT_USE_API
 
     # UI Components
     from dashboard_app.ui_components.sidebar import Sidebar
@@ -69,7 +71,15 @@ class DashboardApp:
         self.results_manager = ResultsManager()
         self.portfolio_manager = PortfolioManager()
         self.watchlist_manager = WatchlistManager()
-        self.price_handler = PriceDataHandler(self.db_manager.db_path)
+        # Phase 3 migration seam: QUANT_USE_API=1 routes every price read through
+        # the FastAPI service instead of SQLite. Both handlers expose the same
+        # interface, so nothing downstream of this line changes. Default stays
+        # SQLite until the API path is proven across all consumers; the Phase 3
+        # exit gate is reached when this branch collapses to the API handler.
+        if QUANT_USE_API:
+            self.price_handler = ApiPriceDataHandler()
+        else:
+            self.price_handler = PriceDataHandler(self.db_manager.db_path)
         self.config_manager = ConfigManager()
 
         # 2. Initialize Controllers (Logic Layer)
