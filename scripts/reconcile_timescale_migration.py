@@ -141,8 +141,11 @@ async def main() -> int:
             for t in sorted(sq_tickers)
             if sq_counts.get(t, 0) != ts_counts.get(t, 0)
         ]
+        # Note: len(sq_tickers), not len(sq_counts) — the latter omits tickers
+        # whose rows are all empty bars, but the loop above checks those too
+        # (expecting 0 on both sides), so it covers the full ticker universe.
         passed &= (
-            ok(f"all {len(sq_counts)} tickers match on row count")
+            ok(f"all {len(sq_tickers)} tickers match on row count")
             if not mismatched
             else fail(f"{len(mismatched)} mismatched: {mismatched[:10]}")
         )
