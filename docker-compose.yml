@@ -21,11 +21,13 @@ services:
   backend:
     build: .
     container_name: quant_backend
-    command: uvicorn api.main:app --host 0.0.0.0 --port 8000
+    # Port 8001, not 8000 — the GraphQL gateway owns 8000 (services/config.py
+    # GRAPHQL_PORT). Keep these distinct or `run_pipeline.sh all` collides.
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8001
     volumes:
       - .:/app
     ports:
-      - "8000:8000"
+      - "8001:8001"
     environment:
       - DATABASE_URL=postgresql+asyncpg://quant:quant@timescaledb:5432/quant_pipeline
     depends_on:

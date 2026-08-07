@@ -19,15 +19,21 @@ class Backtester:
         initial_capital: float = 100000.0,
         transaction_cost: float = 0.001,
         execution_handler: SimulatedExecutionHandler = None,
+        seed: int = None,
     ):
         """
         Initializes the Backtester with portfolio settings.
+
+        Args:
+            seed: Seed for the default execution handler's slippage RNG. Pass an
+                  int to make a run reproducible. Ignored when an explicit
+                  execution_handler is supplied — that handler owns its own RNG.
         """
         self.initial_capital = initial_capital
         self.transaction_cost = transaction_cost
         self.results = None
         self.trade_log = []
-        self.execution_handler = execution_handler or SimulatedExecutionHandler()
+        self.execution_handler = execution_handler or SimulatedExecutionHandler(seed=seed)
 
     def run(self, price_data: pd.DataFrame, model: BaseAlphaModel, symbol_name: str = None) -> pd.DataFrame:
         """

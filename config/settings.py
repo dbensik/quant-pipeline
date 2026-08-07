@@ -43,7 +43,14 @@ URL_COINGECKO_API = "https://api.coingecko.com/api/v3/coins/markets"
 # The dashboard reads prices straight from SQLite by default. Set
 # QUANT_USE_API=1 to route them through the FastAPI service instead — the
 # Phase 3 migration path, opt-in until the API is the only source.
-QUANT_API_BASE_URL = os.getenv("QUANT_API_BASE_URL", "http://127.0.0.1:8000")
+#
+# PORT 8001, NOT 8000: the GraphQL gateway owns 8000 (services/config.py
+# GRAPHQL_PORT, and `./run_pipeline.sh api`). Running both on 8000 collides —
+# it only went unnoticed because they were never started together.
+QUANT_API_PORT = int(os.getenv("QUANT_API_PORT", "8001"))
+QUANT_API_BASE_URL = os.getenv(
+    "QUANT_API_BASE_URL", f"http://127.0.0.1:{QUANT_API_PORT}"
+)
 QUANT_USE_API = os.getenv("QUANT_USE_API", "0").lower() in {"1", "true", "yes"}
 QUANT_API_TIMEOUT_SECONDS = float(os.getenv("QUANT_API_TIMEOUT_SECONDS", "30"))
 

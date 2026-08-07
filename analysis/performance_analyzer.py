@@ -47,8 +47,7 @@ class PerformanceAnalyzer:
         # --- Core Metrics ---
         final_value = self.portfolio_value.iloc[-1]
         total_return = (final_value / self.initial_capital) - 1.0
-        trades = self.portfolio.get("trades", pd.Series(0, index=self.portfolio.index))
-        trade_count = (trades != 0).sum()
+        trade_count = self._count_trades()
 
         # --- Time-Based Metrics ---
         days = (self.portfolio_value.index[-1] - self.portfolio_value.index[0]).days
@@ -87,6 +86,28 @@ class PerformanceAnalyzer:
             "Max Drawdown Duration (Days)": max_drawdown_duration,
             "Trade Count": trade_count,
         }
+
+    def _count_trades(self) -> int:
+        """
+        Number of executions over the backtest.
+
+        This previously read `portfolio.get("trades", <zeros>)`, but Backtester.run()
+        produces columns Close/signal/holdings/cash/position/total/returns — there
+        has never been a "trades" column, so the default always won and every
+        backtest reported a Trade Count of 0 regardless of activity.
+
+        Position changes are the reliable signal: the Backtester emits exactly one
+        FillEvent per change in share count. A "trades" column is still honoured if
+        a caller supplies one, so PortfolioBacktester and any other producer can
+        report its own count.
+        """
+        if "trades" in self.portfolio.columns:
+            return int((self.portfolio["trades"] != 0).sum())
+        if "position" in self.portfolio.columns:
+            position = self.portfolio["position"].fillna(0)
+            # First bar counts only if it opened a position from flat.
+            return int((position.diff().fillna(position) != 0).sum())
+        return 0
 
     def _calculate_drawdowns(self) -> Tuple[pd.Series, float, int]:
         """

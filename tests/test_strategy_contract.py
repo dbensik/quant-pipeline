@@ -24,30 +24,18 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from alpha_models.mean_reversion import MeanReversionStrategy
-from alpha_models.moving_average_crossover import MovingAverageCrossoverStrategy
-from alpha_models.trend_following import TrendFollowingStrategy
-from alpha_models.buy_and_hold import BuyAndHoldStrategy
-from alpha_models.rsi_strategy import RSIStrategy
-from alpha_models.atr_breakout import ATRBreakoutStrategy
-from alpha_models.push_response_strategy import PushResponseStrategy
-from alpha_models.ml_random_forest import RandomForestStrategy
+from alpha_models import registry
 
 N = 300
 TRUNCATE = 30          # bars removed for the look-ahead test
 WARMUP = 150           # ignore early bars where rolling windows are filling
 
-# (id, factory) — small params so 300 bars is plenty
-SINGLE_ASSET_STRATEGIES = [
-    ("buy_and_hold", lambda: BuyAndHoldStrategy()),
-    ("mean_reversion", lambda: MeanReversionStrategy(window=20, threshold=1.0)),
-    ("ma_crossover", lambda: MovingAverageCrossoverStrategy(short_window=10, long_window=30)),
-    ("trend_following", lambda: TrendFollowingStrategy(window=20)),
-    ("rsi", lambda: RSIStrategy(window=14, buy_threshold=30, sell_threshold=70)),
-    ("atr_breakout", lambda: ATRBreakoutStrategy(window=14, multiplier=2.0)),
-    ("push_response", lambda: PushResponseStrategy(tau=5, training_window=100, num_bins=10)),
-    ("ml_random_forest", lambda: RandomForestStrategy(n_estimators=10, lookback_window=5)),
-]
+# (id, factory) pairs come from alpha_models/registry.py, the single source of
+# truth for strategy identity — so registering a strategy there automatically
+# subjects it to this contract, and this suite doubles as the registry's own
+# correctness check. Test-sized parameters live in the registry alongside the
+# production defaults (_CONTRACT_TEST_PARAMS).
+SINGLE_ASSET_STRATEGIES = registry.contract_test_cases()
 
 STRATEGY_IDS = [s[0] for s in SINGLE_ASSET_STRATEGIES]
 
