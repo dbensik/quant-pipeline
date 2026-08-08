@@ -29,6 +29,25 @@ export type StrategyListResponse = components['schemas']['StrategyListResponse']
 export type ParamSchema = components['schemas']['ParamSchema']
 export type BacktestRequest = components['schemas']['BacktestRequest']
 export type BacktestResponse = components['schemas']['BacktestResponse']
+export type EquityPoint = components['schemas']['EquityPoint']
+
+/**
+ * What a caller actually has to supply for a backtest.
+ *
+ * The generated BacktestRequest marks `initial_capital`, `transaction_cost`,
+ * `seed`, `include_equity_curve` and `include_trades` as required, because
+ * Pydantic emits them with defaults rather than as optional. The server fills
+ * them in when omitted (verified), so this type spares every call site from
+ * restating five defaults it does not care about.
+ *
+ * `start`/`end` are typed date-time but accept plain YYYY-MM-DD — Pydantic
+ * coerces, and that is the shape the Zustand store holds.
+ */
+export type BacktestInput = Pick<
+  BacktestRequest,
+  'symbol' | 'strategy_id' | 'start' | 'end'
+> &
+  Partial<Omit<BacktestRequest, 'symbol' | 'strategy_id' | 'start' | 'end'>>
 export type SignalsResponse = components['schemas']['SignalsResponse']
 
 export const API_BASE_URL: string =
@@ -137,7 +156,7 @@ export const api = {
     return request(`/api/v1/strategies${qs(params)}`)
   },
 
-  runBacktest(body: BacktestRequest): Promise<BacktestResponse> {
+  runBacktest(body: BacktestInput): Promise<BacktestResponse> {
     return request('/api/v1/backtest', {
       method: 'POST',
       body: JSON.stringify(body),

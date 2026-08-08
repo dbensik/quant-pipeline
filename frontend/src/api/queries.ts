@@ -17,7 +17,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 
 import { api, ApiError } from './client'
-import type { BacktestRequest } from './client'
+import type { BacktestInput } from './client'
 
 /**
  * Query keys in one place so invalidation can never typo a key.
@@ -116,6 +116,6 @@ export function useSignals(
  */
 export function useRunBacktest() {
   return useMutation({
-    mutationFn: (request: BacktestRequest) => api.runBacktest(request),
+    mutationFn: (request: BacktestInput) => api.runBacktest(request),
   })
 }

@@ -1,21 +1,20 @@
 /**
  * pages/DashboardPage.tsx
  *
- * The Phase 4 vertical slice: symbol picker -> OHLCV chart.
+ * Symbol picker -> price chart -> backtest.
  *
- * Demonstrates the whole structure end to end — Zustand holds the selection,
- * TanStack Query fetches the bars, a presentational chart renders them, and
- * shadcn supplies the surface. The strategy selector, backtest results and
- * signal overlay build on exactly this shape.
+ * Zustand holds the selection, TanStack Query fetches server state, chart
+ * components stay presentational, and shadcn supplies the surface. The signal
+ * overlay and candlestick view build on exactly this shape.
  *
  * Phase 4 — React frontend
  */
 
-import { useAssets, useOhlcv, useStrategies } from '@/api/queries'
+import { useAssets, useOhlcv } from '@/api/queries'
 import { ApiError } from '@/api/client'
+import { BacktestPanel } from '@/components/backtest/BacktestPanel'
 import { PriceChart } from '@/components/charts/PriceChart'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Badge } from '@/components/ui/badge'
 import {
   Card,
   CardContent,
@@ -89,32 +88,6 @@ function DateRangeInputs() {
   )
 }
 
-/**
- * Present purely to prove the strategy catalogue reaches the frontend with its
- * parameter schemas — running a backtest from here is the next slice.
- */
-function StrategyCatalogue() {
-  const { data, isLoading, isError } = useStrategies('single')
-
-  if (isLoading) return <Skeleton className="h-24 w-full" />
-  if (isError) return null
-
-  return (
-    <div className="flex flex-wrap gap-2">
-      {(data?.strategies ?? []).map((strategy) => (
-        <Badge
-          key={strategy.id}
-          variant="secondary"
-          title={`${strategy.description} (${strategy.params.length} parameters)`}
-        >
-          {strategy.display_name}
-          {strategy.caveat ? ' ⚠️' : ''}
-        </Badge>
-      ))}
-    </div>
-  )
-}
-
 function PriceCard() {
   const { selectedSymbol, startDate, endDate } = useAppStore()
   const { data, isLoading, isError, error } = useOhlcv(
@@ -176,14 +149,16 @@ export function DashboardPage() {
             <SymbolPicker />
           </div>
           <DateRangeInputs />
-          <div className="space-y-1.5 pt-2">
-            <Label>Available strategies</Label>
-            <StrategyCatalogue />
-          </div>
         </CardContent>
       </Card>
 
       <PriceCard />
+
+      {/* Backtest spans the full width beneath the chart — the equity curve and
+          KPI grid need the room. */}
+      <div className="lg:col-span-3">
+        <BacktestPanel />
+      </div>
     </div>
   )
 }
