@@ -51,6 +51,17 @@ def test_trade_count_metric_matches_the_trade_log(client: TestClient):
     assert body["metrics"]["Trade Count"] == len(body["trades"])
 
 
+def test_echoes_initial_capital_separately_from_strategy_params(client: TestClient):
+    """
+    initial_capital is NOT a strategy parameter, so it is a top-level field.
+    A client needs it to draw a break-even line on the equity curve; reading it
+    out of `params` silently yields undefined and a wrong reference line.
+    """
+    body = run(client, strategy_id="ma_crossover", initial_capital=250_000.0).json()
+    assert body["initial_capital"] == 250_000.0
+    assert "initial_capital" not in body["params"]
+
+
 def test_metrics_only_response_omits_curve_and_trades(client: TestClient):
     body = run(client, include_equity_curve=False, include_trades=False).json()
     assert body["equity_curve"] == []

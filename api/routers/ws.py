@@ -180,9 +180,20 @@ async def backtest_ws(websocket: WebSocket) -> None:
             "strategy_id": spec.id,
             "strategy_name": spec.display_name,
             "bars": len(frame),
+            # A count, not the log itself: the trade list can run to thousands
+            # of rows and the UI only shows how many there were.
             "trades": 0 if trades is None or trades.empty else len(trades),
             "metrics": {k: _json_safe(v) for k, v in (metrics or {}).items()},
             "caveat": spec.caveat,
+            # Echoed for the same reason the REST response echoes them: a result
+            # that does not say what produced it cannot be reproduced or
+            # compared. `initial_capital` in particular is what a client needs
+            # to draw a break-even line on the equity curve.
+            "params": {
+                p.name: request.params.get(p.name, p.default) for p in spec.params
+            },
+            "seed": request.seed,
+            "initial_capital": request.initial_capital,
         }
         if request.include_equity_curve and results is not None and not results.empty:
             payload["equity_curve"] = [

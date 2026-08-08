@@ -35,6 +35,8 @@ interface AppState {
   strategyParams: Record<string, number | string>
   /** Whether the price chart draws the strategy's buy/sell markers. */
   showSignals: boolean
+  /** Run backtests over the websocket (live progress) rather than plain REST. */
+  streamProgress: boolean
 
   // --- actions ------------------------------------------------------------
   setSymbol: (symbol: string | null) => void
@@ -43,6 +45,7 @@ interface AppState {
   setStrategyParam: (name: string, value: number | string) => void
   resetStrategyParams: (params: Record<string, number | string>) => void
   toggleSignals: () => void
+  toggleStreamProgress: () => void
 }
 
 /**
@@ -61,6 +64,7 @@ export const useAppStore = create<AppState>((set) => ({
   strategyId: null,
   strategyParams: {},
   showSignals: false,
+  streamProgress: true,
 
   setSymbol: (symbol) => set({ selectedSymbol: symbol }),
 
@@ -78,6 +82,9 @@ export const useAppStore = create<AppState>((set) => ({
   resetStrategyParams: (strategyParams) => set({ strategyParams }),
 
   toggleSignals: () => set((state) => ({ showSignals: !state.showSignals })),
+
+  toggleStreamProgress: () =>
+    set((state) => ({ streamProgress: !state.streamProgress })),
 }))
 
 export { isoDaysAgo }

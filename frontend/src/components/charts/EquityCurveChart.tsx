@@ -18,7 +18,16 @@ import {
   YAxis,
 } from 'recharts'
 
-import type { EquityPoint } from '@/api/client'
+/**
+ * Only what this chart actually reads. Typing the prop as the API's full
+ * EquityPoint would demand cash/holdings/position/signal that nothing here
+ * uses — and would exclude the websocket result, which sends time and total
+ * only.
+ */
+export interface EquityCurvePoint {
+  time: string
+  total: number
+}
 
 const currency = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -36,7 +45,7 @@ export function EquityCurveChart({
   points,
   initialCapital,
 }: {
-  points: EquityPoint[]
+  points: EquityCurvePoint[]
   initialCapital: number
 }) {
   if (points.length === 0) {

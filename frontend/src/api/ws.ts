@@ -13,7 +13,7 @@
  */
 
 import { API_BASE_URL } from './client'
-import type { BacktestRequest } from './client'
+import type { BacktestInput } from './client'
 
 export interface WsAccepted {
   type: 'accepted'
@@ -35,9 +35,13 @@ export interface WsResult {
   strategy_id: string
   strategy_name: string
   bars: number
+  /** A COUNT, not the log — unlike the REST response's `trades` array. */
   trades: number
   metrics: Record<string, number | null>
   caveat: string | null
+  params: Record<string, number | string>
+  seed: number | null
+  initial_capital: number
   equity_curve?: Array<{ time: string; total: number }>
 }
 
@@ -63,7 +67,7 @@ export function backtestSocketUrl(): string {
  * so callers reconnect for the next run.
  */
 export function runBacktestOverSocket(
-  request: BacktestRequest,
+  request: BacktestInput,
   onMessage: (message: WsMessage) => void,
 ): Promise<WsResult> {
   return new Promise((resolve, reject) => {

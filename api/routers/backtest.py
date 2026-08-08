@@ -74,6 +74,13 @@ class BacktestResponse(BaseModel):
     end: datetime
     bars: int = Field(description="Bars fed to the strategy")
     params: Dict[str, Any] = Field(description="Parameters actually used, defaults filled in")
+    initial_capital: float = Field(
+        description=(
+            "Starting capital for this run. Echoed because a client needs it to "
+            "draw a break-even line on the equity curve — it is NOT part of "
+            "`params`, which carries strategy parameters only."
+        )
+    )
     seed: Optional[int] = Field(default=None, description="Slippage seed used for this run")
     metrics: Dict[str, Any] = Field(description="KPIs from PerformanceAnalyzer")
     caveat: Optional[str] = Field(
@@ -245,6 +252,7 @@ async def run_backtest(
         end=end,
         bars=len(frame),
         params=effective_params,
+        initial_capital=request.initial_capital,
         seed=request.seed,
         metrics={k: _json_safe(v) for k, v in (metrics or {}).items()},
         caveat=spec.caveat,

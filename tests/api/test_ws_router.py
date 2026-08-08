@@ -80,6 +80,21 @@ def test_result_carries_metrics_and_counts(ws_client: TestClient):
     assert "equity_curve" not in result
 
 
+def test_result_is_self_describing(ws_client: TestClient):
+    """
+    The streamed result must say what produced it — parameters, seed and
+    starting capital — or it cannot be reproduced, compared, or charted with a
+    correct break-even line.
+    """
+    with ws_client.websocket_connect("/api/v1/ws/backtest") as ws:
+        ws.send_json({**REQUEST, "initial_capital": 250_000.0})
+        result = drain(ws)[-1]
+
+    assert result["params"] == {"short_window": 10, "long_window": 30}
+    assert result["seed"] == 42
+    assert result["initial_capital"] == 250_000.0
+
+
 def test_equity_curve_is_included_when_requested(ws_client: TestClient):
     with ws_client.websocket_connect("/api/v1/ws/backtest") as ws:
         ws.send_json({**REQUEST, "include_equity_curve": True})

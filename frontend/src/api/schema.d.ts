@@ -354,6 +354,11 @@ export interface components {
                 [key: string]: unknown;
             };
             /**
+             * Initial Capital
+             * @description Starting capital for this run. Echoed because a client needs it to draw a break-even line on the equity curve — it is NOT part of `params`, which carries strategy parameters only.
+             */
+            initial_capital: number;
+            /**
              * Seed
              * @description Slippage seed used for this run
              */

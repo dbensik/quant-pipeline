@@ -5,7 +5,7 @@
  * Phase 4 — React frontend
  */
 
-import type { BacktestResponse } from '@/api/client'
+import type { BacktestResult } from '@/api/backtestResult'
 import { EquityCurveChart } from '@/components/charts/EquityCurveChart'
 import { Badge } from '@/components/ui/badge'
 
@@ -65,11 +65,11 @@ function toneFor(key: string, value: unknown): string {
   return ''
 }
 
-export function BacktestResults({ result }: { result: BacktestResponse }) {
-  const initialCapital =
-    typeof result.params.initial_capital === 'number'
-      ? result.params.initial_capital
-      : 100_000
+export function BacktestResults({ result }: { result: BacktestResult }) {
+  // Read from the top-level field, NOT from params: initial capital is not a
+  // strategy parameter, and looking for it there silently yields undefined and
+  // draws the break-even line at a hardcoded default.
+  const initialCapital = result.initialCapital
 
   const entries = Object.entries(result.metrics)
 
@@ -77,9 +77,9 @@ export function BacktestResults({ result }: { result: BacktestResponse }) {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="secondary">{result.symbol}</Badge>
-        <Badge variant="secondary">{result.strategy_name}</Badge>
+        <Badge variant="secondary">{result.strategyName}</Badge>
         <Badge variant="secondary">{result.bars} bars</Badge>
-        <Badge variant="secondary">{result.trades?.length ?? 0} trades</Badge>
+        <Badge variant="secondary">{result.tradeCount} trades</Badge>
         {/* Seed is shown because it makes the run reproducible — the same
             request with the same seed returns the same numbers. */}
         {result.seed != null ? (
@@ -90,7 +90,7 @@ export function BacktestResults({ result }: { result: BacktestResponse }) {
       </div>
 
       <EquityCurveChart
-        points={result.equity_curve ?? []}
+        points={result.equityCurve}
         initialCapital={initialCapital}
       />
 
