@@ -6,7 +6,11 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // src/components/ui and src/api/schema.d.ts are GENERATED, not authored:
+  // shadcn writes the former (`npx shadcn add ...`), openapi-typescript the
+  // latter (`npm run gen:api`). Linting them just flags upstream's style — and
+  // any fix is overwritten on the next regeneration.
+  globalIgnores(['dist', 'src/components/ui/**', 'src/api/schema.d.ts']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [

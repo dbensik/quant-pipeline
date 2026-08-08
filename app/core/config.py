@@ -21,7 +21,15 @@ class Settings(BaseSettings):
 
     # -- CORS ------------------------------------------------------------
     # Comma-separated origins, e.g. "http://localhost:8501,https://app.example.com"
-    cors_origins_str: str = "http://localhost:8501,http://localhost:3000"
+    # 5173 is Vite's default dev port (Phase 4 React frontend) — without it every
+    # browser fetch fails CORS and reads as an API bug. 8501 is Streamlit, 3000 a
+    # common alternative dev port. 127.0.0.1 and localhost are distinct origins to
+    # a browser, so both spellings are listed.
+    cors_origins_str: str = (
+        "http://localhost:8501,http://127.0.0.1:8501,"
+        "http://localhost:5173,http://127.0.0.1:5173,"
+        "http://localhost:3000"
+    )
 
     @property
     def cors_origins(self) -> list[str]:
