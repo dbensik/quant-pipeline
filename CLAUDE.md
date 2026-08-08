@@ -15,9 +15,19 @@ python -m cli.run_pipeline     # data pipeline only
 ## Test
 
 ```bash
-python -m pytest tests/
+python -m pytest tests/        # needs NO Docker — keep it that way
+python -m pytest -m integration  # +9 tests, needs TimescaleDB running
 ./run_pipeline.sh verify       # verify 3-layer architecture integrity
 ```
+
+`tests/api/` covers all six routers without a database, via the repository
+Protocol (`db/repositories/market_data.py` documents this as its purpose).
+Integration tests are deselected by default and skip if the DB is down.
+
+When adding router tests: assert on the *output*, not on values the response
+merely echoes back, and check the fixture actually exercises the behaviour —
+both mistakes produced tests here that passed against the very bug they were
+written to catch.
 
 ## Environment
 
