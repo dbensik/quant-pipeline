@@ -12,6 +12,18 @@ export default defineConfig([
   // any fix is overwritten on the next regeneration.
   globalIgnores(['dist', 'src/components/ui/**', 'src/api/schema.d.ts']),
   {
+    // Test files: allow the leading-underscore convention for values that exist
+    // only to be discarded by destructuring (e.g. omitting a key before a deep
+    // equality assertion).
+    files: ['**/*.test.{ts,tsx}', 'src/test/**'],
+    rules: {
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { varsIgnorePattern: '^_', argsIgnorePattern: '^_' },
+      ],
+    },
+  },
+  {
     files: ['**/*.{ts,tsx}'],
     extends: [
       js.configs.recommended,

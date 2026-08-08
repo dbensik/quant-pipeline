@@ -25,8 +25,8 @@ import {
   YAxis,
 } from 'recharts'
 
-import type { OHLCVBar } from '@/api/client'
-import type { SignalPoint } from '@/api/client'
+import type { OHLCVBar, SignalPoint } from '@/api/client'
+import { buildChartRows } from '@/components/charts/chartRows'
 
 interface PriceChartProps {
   bars: OHLCVBar[]
@@ -44,24 +44,11 @@ const currency = new Intl.NumberFormat('en-US', {
 const BUY_COLOR = '#16a34a'
 const SELL_COLOR = '#dc2626'
 
-interface ChartRow {
-  date: string
-  close: number
-  /** Set only on bars where the signal turns long — drives the buy markers. */
-  buy?: number
-  /** Set only on bars where the signal turns short/flat-from-long. */
-  sell?: number
-}
-
 export function PriceChart({ bars, symbol, signals }: PriceChartProps) {
-  // Bars with a null close are real: the migration kept partial rows where
-  // OHLC was incomplete. Dropping them avoids a line that dives to zero.
-  const rows: ChartRow[] = bars
-    .filter((bar) => bar.close != null)
-    .map((bar) => ({
-      date: bar.time.slice(0, 10),
-      close: bar.close as number,
-    }))
+  // Row building lives in chartRows.ts — pure, and tested there. Recharts
+  // renders nothing in jsdom, so logic left inside this component would be
+  // effectively untestable.
+  const { rows, buyCount, sellCount } = buildChartRows(bars, signals)
 
   if (rows.length === 0) {
     return (
@@ -69,41 +56,6 @@ export function PriceChart({ bars, symbol, signals }: PriceChartProps) {
         No price data in this range.
       </div>
     )
-  }
-
-  let buyCount = 0
-  let sellCount = 0
-
-  if (signals && signals.length > 0) {
-    const byDate = new Map(rows.map((row) => [row.date, row]))
-
-    // Mark TRANSITIONS, not every bar holding a position. A strategy that goes
-    // long once and holds emits +1 on hundreds of bars; plotting all of them
-    // buries the price line under a solid band of markers. Only the bar where
-    // the signal changes is an actual trade decision.
-    // Starts at 0, not null: the implicit opening state is flat, so a first
-    // signal of +1 IS an entry. Seeding with null instead would silently drop
-    // it — Buy and Hold enters on bar one and holds, and would have reported
-    // "no signal changes" for a strategy that plainly made one.
-    let previous = 0
-    for (const point of signals) {
-      const value = point.signal
-      if (value == null) continue // warm-up bars carry no decision
-
-      if (value !== previous) {
-        const row = byDate.get(point.time.slice(0, 10))
-        if (row) {
-          if (value > previous) {
-            row.buy = row.close
-            buyCount += 1
-          } else {
-            row.sell = row.close
-            sellCount += 1
-          }
-        }
-      }
-      previous = value
-    }
   }
 
   const hasOverlay = buyCount + sellCount > 0
