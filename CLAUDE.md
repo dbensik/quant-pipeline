@@ -24,10 +24,19 @@ python -m pytest -m integration  # +9 tests, needs TimescaleDB running
 Protocol (`db/repositories/market_data.py` documents this as its purpose).
 Integration tests are deselected by default and skip if the DB is down.
 
-When adding router tests: assert on the *output*, not on values the response
-merely echoes back, and check the fixture actually exercises the behaviour —
-both mistakes produced tests here that passed against the very bug they were
-written to catch.
+```bash
+cd frontend && npm test        # 61 tests — also needs NO API/Docker
+```
+
+When adding tests: assert on the *output*, not on values the response merely
+echoes back; check the fixture actually exercises the behaviour; and verify the
+test FAILS against the bug it covers. All three mistakes have produced tests
+here that passed against the very bug they were written to catch.
+
+Frontend specifics: Recharts renders nothing under jsdom (ResponsiveContainer
+measures a 0x0 parent), so never assert on chart output — mock the chart child
+and assert on its props. Chart computation lives in
+`components/charts/chartRows.ts` as a pure function for the same reason.
 
 ## Environment
 
