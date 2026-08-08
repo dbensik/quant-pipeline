@@ -20,6 +20,13 @@ import { create } from 'zustand'
 /** ISO date (YYYY-MM-DD) — the format the API's date query params expect. */
 export type IsoDate = string
 
+/**
+ * 'line' is Recharts and ships in the main bundle; 'candlestick' is Plotly and
+ * is loaded on demand (~1.2 MB). Default to line so the initial page load
+ * never pays for Plotly.
+ */
+export type ChartType = 'line' | 'candlestick'
+
 function isoDaysAgo(days: number): IsoDate {
   const date = new Date()
   date.setUTCDate(date.getUTCDate() - days)
@@ -37,6 +44,8 @@ interface AppState {
   showSignals: boolean
   /** Run backtests over the websocket (live progress) rather than plain REST. */
   streamProgress: boolean
+  /** Which price chart to render. */
+  chartType: ChartType
 
   // --- actions ------------------------------------------------------------
   setSymbol: (symbol: string | null) => void
@@ -46,6 +55,7 @@ interface AppState {
   resetStrategyParams: (params: Record<string, number | string>) => void
   toggleSignals: () => void
   toggleStreamProgress: () => void
+  setChartType: (chartType: ChartType) => void
 }
 
 /**
@@ -65,6 +75,7 @@ export const useAppStore = create<AppState>((set) => ({
   strategyParams: {},
   showSignals: false,
   streamProgress: true,
+  chartType: 'line',
 
   setSymbol: (symbol) => set({ selectedSymbol: symbol }),
 
@@ -85,6 +96,8 @@ export const useAppStore = create<AppState>((set) => ({
 
   toggleStreamProgress: () =>
     set((state) => ({ streamProgress: !state.streamProgress })),
+
+  setChartType: (chartType) => set({ chartType }),
 }))
 
 export { isoDaysAgo }

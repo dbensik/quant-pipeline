@@ -10,10 +10,27 @@
  * Phase 4 — React frontend
  */
 
+import { lazy, Suspense } from 'react'
+
 import { useAssets, useOhlcv, useSignals, useStrategies } from '@/api/queries'
 import { ApiError } from '@/api/client'
 import { BacktestPanel } from '@/components/backtest/BacktestPanel'
 import { PriceChart } from '@/components/charts/PriceChart'
+
+/**
+ * Plotly (~1.2 MB) is larger than the whole rest of the bundle, and most
+ * sessions never open the candlestick view. Loading it lazily keeps it out of
+ * the initial download entirely — `npm run build` should show it as its own
+ * chunk, with the main bundle unchanged.
+ *
+ * React.lazy requires a default export and this component is a named one,
+ * hence the .then() remap.
+ */
+const CandlestickChart = lazy(() =>
+  import('@/components/charts/CandlestickChart').then((module) => ({
+    default: module.CandlestickChart,
+  })),
+)
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
   Card,
@@ -98,6 +115,8 @@ function PriceCard() {
     strategyParams,
     showSignals,
     toggleSignals,
+    chartType,
+    setChartType,
   } = useAppStore()
 
   const { data, isLoading, isError, error } = useOhlcv(
@@ -141,8 +160,24 @@ function PriceCard() {
             </span>
           ) : null}
         </CardTitle>
-        <CardDescription className="flex items-center justify-between gap-4">
-          <span>Daily close price</span>
+        <CardDescription className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <span className="inline-flex items-center gap-1 rounded-md border p-0.5">
+            {(['line', 'candlestick'] as const).map((type) => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => setChartType(type)}
+                aria-pressed={chartType === type}
+                className={`rounded px-2 py-0.5 text-xs capitalize ${
+                  chartType === type
+                    ? 'bg-secondary font-medium text-foreground'
+                    : 'text-muted-foreground'
+                }`}
+              >
+                {type}
+              </button>
+            ))}
+          </span>
           <label className="flex cursor-pointer items-center gap-2 text-xs">
             <input
               type="checkbox"
@@ -187,15 +222,24 @@ function PriceCard() {
         ) : null}
 
         {data && !isLoading ? (
-          <PriceChart
-            bars={data.bars}
-            symbol={data.symbol}
-            signals={
-              showSignals && signalsQuery.data
-                ? signalsQuery.data.signals
-                : undefined
-            }
-          />
+          chartType === 'candlestick' ? (
+            // Suspense fallback matches the loading skeleton above, so the
+            // first switch to candlestick view does not flash an empty card
+            // while the Plotly chunk downloads.
+            <Suspense fallback={<Skeleton className="h-80 w-full" />}>
+              <CandlestickChart bars={data.bars} symbol={data.symbol} />
+            </Suspense>
+          ) : (
+            <PriceChart
+              bars={data.bars}
+              symbol={data.symbol}
+              signals={
+                showSignals && signalsQuery.data
+                  ? signalsQuery.data.signals
+                  : undefined
+              }
+            />
+          )
         ) : null}
       </CardContent>
     </Card>
