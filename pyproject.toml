@@ -87,7 +87,13 @@ minversion = "6.0"
 testpaths = [
     "tests",
 ]
-addopts = "-ra -q" # Report all test info except passes, and run in quiet mode.
+addopts = "-ra -q -m 'not integration'" # Report all test info except passes, quiet mode, and skip tests needing a live database.
+markers = [
+    # Tests requiring a running TimescaleDB (docker-compose up -d timescaledb).
+    # Deselected by default so `pytest tests/` stays runnable with no Docker.
+    # Run them with: pytest -m integration
+    "integration: requires a live TimescaleDB",
+]
 
 # This tells setuptools to automatically find all the packages in your project
 # (like 'dashboard_app', 'data_pipeline', etc.) without you having to list them manually.
