@@ -49,6 +49,7 @@ export type BacktestInput = Pick<
 > &
   Partial<Omit<BacktestRequest, 'symbol' | 'strategy_id' | 'start' | 'end'>>
 export type SignalsResponse = components['schemas']['SignalsResponse']
+export type SignalPoint = components['schemas']['SignalPoint']
 
 export const API_BASE_URL: string =
   import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8001'
@@ -163,13 +164,21 @@ export const api = {
     })
   },
 
-  getSignals(params: {
+  getSignals(args: {
     symbol: string
     strategy_id: string
     start: string
     end: string
+    /** Strategy parameters. Serialised to JSON for the query string. */
+    params?: Record<string, number | string>
   }): Promise<SignalsResponse> {
-    const { symbol, ...rest } = params
-    return request(`/api/v1/signals/${encodeURIComponent(symbol)}${qs(rest)}`)
+    const { symbol, params, ...rest } = args
+    // The endpoint takes `params` as a JSON-encoded query value so it stays a
+    // GET. Omit it entirely when empty so the server uses registry defaults.
+    const encoded =
+      params && Object.keys(params).length > 0
+        ? { ...rest, params: JSON.stringify(params) }
+        : rest
+    return request(`/api/v1/signals/${encodeURIComponent(symbol)}${qs(encoded)}`)
   },
 }

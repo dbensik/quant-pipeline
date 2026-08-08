@@ -16,6 +16,7 @@ SCOPE — read this before extending:
 Phase 3 — FastAPI routers for the React UI
 """
 
+import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -80,6 +81,14 @@ async def get_signals(
     strategy_id: str = Query(description="Registry id, e.g. 'ma_crossover'"),
     start: datetime = Query(description="Inclusive range start (ISO 8601)"),
     end: datetime = Query(description="Inclusive range end (ISO 8601)"),
+    params: Optional[str] = Query(
+        default=None,
+        description=(
+            'JSON object of strategy parameters, e.g. {"short_window": 10, '
+            '"long_window": 30}. Omitted parameters use registry defaults. '
+            "Unknown names are rejected with 422 rather than ignored."
+        ),
+    ),
     include_close: bool = Query(
         default=True, description="Include the Close price alongside each signal"
     ),
@@ -88,12 +97,27 @@ async def get_signals(
     """
     Run a strategy over the range and return its per-bar signal.
 
-    Strategy parameters use registry defaults. For non-default parameters, POST
-    to /api/v1/backtest — its response carries the same signal in the equity
-    curve, alongside the resulting KPIs.
+    `params` is JSON-encoded because this is a GET — the endpoint stays a
+    cacheable read rather than becoming a POST just to carry a body. The
+    response echoes the parameters actually used, so a caller can always tell
+    what produced the signals it is looking at.
     """
     if start > end:
         raise HTTPException(status_code=422, detail="`start` must not be after `end`.")
+
+    strategy_params: Dict[str, Any] = {}
+    if params:
+        try:
+            decoded = json.loads(params)
+        except json.JSONDecodeError as exc:
+            raise HTTPException(
+                status_code=422, detail=f"`params` is not valid JSON: {exc}"
+            ) from None
+        if not isinstance(decoded, dict):
+            raise HTTPException(
+                status_code=422, detail="`params` must be a JSON object."
+            )
+        strategy_params = decoded
 
     try:
         spec = registry.get(strategy_id)
@@ -129,8 +153,10 @@ async def get_signals(
         )
 
     try:
-        signals = await run_in_threadpool(_generate_sync, frame, spec, {})
+        signals = await run_in_threadpool(_generate_sync, frame, spec, strategy_params)
     except ValueError as exc:
+        # Strategies validate their own parameters, and the registry rejects
+        # unknown names — both are client errors, not server faults.
         raise HTTPException(status_code=422, detail=str(exc)) from None
 
     closes = frame["Close"]
@@ -158,7 +184,9 @@ async def get_signals(
         start=start,
         end=end,
         count=len(points),
-        params={p.name: p.default for p in spec.params},
+        params={
+            p.name: strategy_params.get(p.name, p.default) for p in spec.params
+        },
         caveat=spec.caveat,
         signals=points,
     )

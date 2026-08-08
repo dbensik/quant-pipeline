@@ -10,7 +10,7 @@
  * Phase 4 — React frontend
  */
 
-import { useAssets, useOhlcv } from '@/api/queries'
+import { useAssets, useOhlcv, useSignals, useStrategies } from '@/api/queries'
 import { ApiError } from '@/api/client'
 import { BacktestPanel } from '@/components/backtest/BacktestPanel'
 import { PriceChart } from '@/components/charts/PriceChart'
@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useDebounced } from '@/lib/useDebounced'
 import { useAppStore } from '@/store/useAppStore'
 
 function SymbolPicker() {
@@ -89,11 +90,44 @@ function DateRangeInputs() {
 }
 
 function PriceCard() {
-  const { selectedSymbol, startDate, endDate } = useAppStore()
+  const {
+    selectedSymbol,
+    startDate,
+    endDate,
+    strategyId,
+    strategyParams,
+    showSignals,
+    toggleSignals,
+  } = useAppStore()
+
   const { data, isLoading, isError, error } = useOhlcv(
     selectedSymbol,
     startDate,
     endDate,
+  )
+
+  const { data: strategyCatalogue } = useStrategies('single')
+  const activeStrategy = strategyCatalogue?.strategies.find(
+    (s) => s.id === strategyId,
+  )
+
+  // Same strategy AND same parameters the backtest uses, so the markers can
+  // never disagree with the results below. Empty values (a field cleared
+  // mid-edit) are dropped so the server falls back to registry defaults.
+  const overlayParams = Object.fromEntries(
+    Object.entries(strategyParams).filter(([, value]) => value !== ''),
+  )
+  // Debounced: typing "0.5" into a number field passes through 0, which several
+  // strategies reject — an undebounced query fires per keystroke and flashes a
+  // 422 the user never asked for.
+  const debouncedParams = useDebounced(overlayParams)
+  const signalsQuery = useSignals(
+    selectedSymbol,
+    strategyId,
+    startDate,
+    endDate,
+    debouncedParams,
+    showSignals,
   )
 
   return (
@@ -107,7 +141,21 @@ function PriceCard() {
             </span>
           ) : null}
         </CardTitle>
-        <CardDescription>Daily close price</CardDescription>
+        <CardDescription className="flex items-center justify-between gap-4">
+          <span>Daily close price</span>
+          <label className="flex cursor-pointer items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={showSignals}
+              onChange={toggleSignals}
+              disabled={!strategyId}
+              className="size-3.5 accent-current"
+            />
+            {activeStrategy
+              ? `Overlay ${activeStrategy.display_name} signals`
+              : 'Select a strategy to overlay signals'}
+          </label>
+        </CardDescription>
       </CardHeader>
       <CardContent>
         {isLoading ? <Skeleton className="h-80 w-full" /> : null}
@@ -125,8 +173,29 @@ function PriceCard() {
           </Alert>
         ) : null}
 
+        {/* The overlay is a separate request, so a signal failure must not
+            blank the price chart — surface it and keep drawing prices. */}
+        {showSignals && signalsQuery.isError ? (
+          <Alert variant="destructive" className="mb-4">
+            <AlertTitle>Could not load signals</AlertTitle>
+            <AlertDescription>
+              {signalsQuery.error instanceof ApiError
+                ? signalsQuery.error.detail
+                : String(signalsQuery.error)}
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
         {data && !isLoading ? (
-          <PriceChart bars={data.bars} symbol={data.symbol} />
+          <PriceChart
+            bars={data.bars}
+            symbol={data.symbol}
+            signals={
+              showSignals && signalsQuery.data
+                ? signalsQuery.data.signals
+                : undefined
+            }
+          />
         ) : null}
       </CardContent>
     </Card>

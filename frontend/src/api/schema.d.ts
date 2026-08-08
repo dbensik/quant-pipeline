@@ -149,9 +149,10 @@ export interface paths {
          * Unsigned strategy signals for a symbol
          * @description Run a strategy over the range and return its per-bar signal.
          *
-         *     Strategy parameters use registry defaults. For non-default parameters, POST
-         *     to /api/v1/backtest — its response carries the same signal in the equity
-         *     curve, alongside the resulting KPIs.
+         *     `params` is JSON-encoded because this is a GET — the endpoint stays a
+         *     cacheable read rather than becoming a POST just to carry a body. The
+         *     response echoes the parameters actually used, so a caller can always tell
+         *     what produced the signals it is looking at.
          */
         get: operations["get_signals_api_v1_signals__symbol__get"];
         put?: never;
@@ -820,6 +821,8 @@ export interface operations {
                 start: string;
                 /** @description Inclusive range end (ISO 8601) */
                 end: string;
+                /** @description JSON object of strategy parameters, e.g. {"short_window": 10, "long_window": 30}. Omitted parameters use registry defaults. Unknown names are rejected with 422 rather than ignored. */
+                params?: string | null;
                 /** @description Include the Close price alongside each signal */
                 include_close?: boolean;
             };

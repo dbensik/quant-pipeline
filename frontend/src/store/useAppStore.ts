@@ -33,6 +33,8 @@ interface AppState {
   endDate: IsoDate
   strategyId: string | null
   strategyParams: Record<string, number | string>
+  /** Whether the price chart draws the strategy's buy/sell markers. */
+  showSignals: boolean
 
   // --- actions ------------------------------------------------------------
   setSymbol: (symbol: string | null) => void
@@ -40,6 +42,7 @@ interface AppState {
   setStrategy: (strategyId: string | null) => void
   setStrategyParam: (name: string, value: number | string) => void
   resetStrategyParams: (params: Record<string, number | string>) => void
+  toggleSignals: () => void
 }
 
 /**
@@ -57,6 +60,7 @@ export const useAppStore = create<AppState>((set) => ({
   endDate: DEFAULT_END,
   strategyId: null,
   strategyParams: {},
+  showSignals: false,
 
   setSymbol: (symbol) => set({ selectedSymbol: symbol }),
 
@@ -72,6 +76,8 @@ export const useAppStore = create<AppState>((set) => ({
     })),
 
   resetStrategyParams: (strategyParams) => set({ strategyParams }),
+
+  toggleSignals: () => set((state) => ({ showSignals: !state.showSignals })),
 }))
 
 export { isoDaysAgo }

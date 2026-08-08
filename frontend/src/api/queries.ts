@@ -31,8 +31,13 @@ export const queryKeys = {
   ohlcv: (symbol: string, start: string, end: string) =>
     ['ohlcv', symbol, start, end] as const,
   strategies: (contract?: string) => ['strategies', { contract }] as const,
-  signals: (symbol: string, strategyId: string, start: string, end: string) =>
-    ['signals', symbol, strategyId, start, end] as const,
+  signals: (
+    symbol: string,
+    strategyId: string,
+    start: string,
+    end: string,
+    params?: Record<string, number | string>,
+  ) => ['signals', symbol, strategyId, start, end, params ?? {}] as const,
 }
 
 /**
@@ -99,12 +104,22 @@ export function useSignals(
   strategyId: string | null,
   start: string,
   end: string,
+  params?: Record<string, number | string>,
   enabled = true,
 ) {
   return useQuery({
-    queryKey: queryKeys.signals(symbol ?? '', strategyId ?? '', start, end),
+    // params are part of the key: the same symbol and strategy with different
+    // windows are different signals, and sharing a key would serve stale
+    // markers that disagree with the chart's parameters.
+    queryKey: queryKeys.signals(symbol ?? '', strategyId ?? '', start, end, params),
     queryFn: () =>
-      api.getSignals({ symbol: symbol!, strategy_id: strategyId!, start, end }),
+      api.getSignals({
+        symbol: symbol!,
+        strategy_id: strategyId!,
+        start,
+        end,
+        params,
+      }),
     enabled: enabled && Boolean(symbol) && Boolean(strategyId),
     retry: retryUnlessNotFound,
   })
