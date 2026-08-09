@@ -20,18 +20,29 @@ python -m pytest -m integration  # +9 tests, needs TimescaleDB running
 ./run_pipeline.sh verify       # verify 3-layer architecture integrity
 ```
 
-`tests/api/` covers all six routers without a database, via the repository
+`tests/api/` covers every router without a database, via the repository
 Protocol (`db/repositories/market_data.py` documents this as its purpose).
 Integration tests are deselected by default and skip if the DB is down.
 
 ```bash
-cd frontend && npm test        # 61 tests — also needs NO API/Docker
+cd frontend && npm test        # 73 tests — also needs NO API/Docker
 ```
 
 When adding tests: assert on the *output*, not on values the response merely
 echoes back; check the fixture actually exercises the behaviour; and verify the
 test FAILS against the bug it covers. All three mistakes have produced tests
 here that passed against the very bug they were written to catch.
+
+Know the `tests/api/conftest.py` fixture before asserting on relationships
+*between* symbols. AAPL and BTC-USD come from one price formula differing only
+in scale, so their **returns are identical** — any test about correlation,
+diversification or portfolio weights is vacuous over that pair. Use MSFT, which
+follows an independent seeded random walk, as the decorrelated counterpart.
+
+Determinism tests need the same scrutiny. Slippage is seeded, and asserting
+"the same winner" is often weaker than it looks — a dominant candidate wins
+whether or not the seed is threaded. Assert on the metrics, and confirm the
+unseeded version actually differs before committing the test.
 
 Frontend specifics: charts render nothing under jsdom (Recharts measures a 0x0
 parent; Plotly needs canvas APIs jsdom lacks), so never assert on chart output —

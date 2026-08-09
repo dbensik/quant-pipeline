@@ -51,7 +51,14 @@ class OptimizationController:
         metric = selections.get("optimize_metric", "Sharpe Ratio")
         param_grid = []
 
+        # ParameterOptimizer takes a REGISTRY ID, not a display name (changed
+        # 2026-08-09 when its hardcoded two-strategy factory was replaced by
+        # alpha_models.registry). The Streamlit selections still carry display
+        # names, so they are translated here.
+        strategy_id = None
+
         if strategy_type == "Mean Reversion":
+            strategy_id = "mean_reversion"
             w_range = selections.get("mr_window_range", (5, 20))
             t_range = selections.get("mr_threshold_range", (0.5, 1.5))
             param_grid = MeanReversionParameterGenerator.generate_grid(
@@ -61,6 +68,7 @@ class OptimizationController:
                 ],
             )
         elif strategy_type == "Moving Average Crossover":
+            strategy_id = "ma_crossover"
             s_range = selections.get("mac_short_range", (10, 30))
             l_range = selections.get("mac_long_range", (40, 60))
             param_grid = MACrossoverParameterGenerator.generate_grid(
@@ -73,7 +81,7 @@ class OptimizationController:
 
         with st.spinner(f"Running optimization ({len(param_grid)} combinations)..."):
             optimizer = ParameterOptimizer(
-                price_data[ticker], strategy_type, param_grid, metric
+                price_data[ticker], strategy_id, param_grid, metric
             )
             results_df = optimizer.run_optimization()
             best_params = optimizer.get_best_parameters()

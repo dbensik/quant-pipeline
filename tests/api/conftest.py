@@ -45,11 +45,33 @@ KNOWN_ASSETS: Dict[str, Asset] = {
     "AAPL": Asset(symbol="AAPL", asset_class="equity", source="yfinance",
                   metadata={"sector": "Information Technology"}),
     "BTC-USD": Asset(symbol="BTC-USD", asset_class="crypto", source="yfinance"),
+    # Decorrelated from the other two, which share one price formula and
+    # differ only in `base` — so their RETURNS are identical and every
+    # weighting of them has the same volatility. That makes portfolio-weight
+    # tests vacuous: a frontier over AAPL + BTC-USD is a single point. MSFT
+    # follows an independent seeded path so diversification is expressible.
+    "MSFT": Asset(symbol="MSFT", asset_class="equity", source="yfinance",
+                  metadata={"sector": "Information Technology"}),
     # Registered but with zero bars — mirrors the five padding-only crypto
     # tickers the migration found, and makes "unknown symbol" (404) vs "known
     # symbol, no data" (200 + empty) a testable distinction.
     "EMPTY-USD": Asset(symbol="EMPTY-USD", asset_class="crypto", source="yfinance"),
 }
+
+
+def _decorrelated_closes() -> List[float]:
+    """
+    A seeded random walk, independent of the shared sawtooth path.
+
+    Seeded rather than random: these fixtures must produce the same bars on
+    every run, or the determinism tests they feed would be testing the
+    fixture instead of the code.
+    """
+    import numpy as np
+
+    rng = np.random.default_rng(20260809)
+    steps = rng.normal(0.0006, 0.011, N_BARS)
+    return [float(v) for v in 150.0 * np.cumprod(1 + steps)]
 
 
 def _series(symbol: str) -> List[MarketDataRecord]:
@@ -63,10 +85,18 @@ def _series(symbol: str) -> List[MarketDataRecord]:
     if symbol == "EMPTY-USD":
         return []
 
-    base = 100.0 if symbol == "AAPL" else 30_000.0
+    if symbol == "MSFT":
+        closes = _decorrelated_closes()
+    else:
+        base = 100.0 if symbol == "AAPL" else 30_000.0
+        closes = [
+            base * (1 + 0.0008 * i) + base * 0.02 * ((i % 20) - 10) / 10
+            for i in range(N_BARS)
+        ]
+
     records: List[MarketDataRecord] = []
     for i in range(N_BARS):
-        close = base * (1 + 0.0008 * i) + base * 0.02 * ((i % 20) - 10) / 10
+        close = closes[i]
         records.append(
             MarketDataRecord(
                 asset=KNOWN_ASSETS[symbol],

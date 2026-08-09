@@ -7,14 +7,29 @@ class PortfolioOptimizer:
     allocations that maximize Sharpe Ratio or minimize volatility.
     """
 
-    def __init__(self, price_data: pd.DataFrame, risk_free_rate: float = 0.02):
+    def __init__(
+        self,
+        price_data: pd.DataFrame,
+        risk_free_rate: float = 0.02,
+        seed: int = 42,
+    ):
         """
         Args:
             price_data: DataFrame of asset prices (Close).
             risk_free_rate: Annualized risk-free rate for Sharpe calculation.
+            seed: Seed for the weight-sampling RNG. This used to draw from the
+                  global numpy RNG, so the same universe and date range
+                  returned different "optimal" weights on every run and a
+                  saved allocation could not be reproduced or audited. Pass
+                  None for unseeded behaviour.
         """
         self.price_data = price_data
         self.risk_free_rate = risk_free_rate
+        self.seed = seed
+        # A dedicated Generator rather than np.random.seed(): seeding the
+        # global RNG here would silently change the draws of anything else
+        # sharing it in the same process, including the slippage handler.
+        self._rng = np.random.default_rng(seed)
         # Calculate daily returns
         self.returns = self.price_data.pct_change().dropna()
         self.mean_returns = self.returns.mean()
@@ -39,9 +54,13 @@ class PortfolioOptimizer:
         results_list = []
         all_weights = np.zeros((num_portfolios, self.num_assets))
 
+        # Restart from the seed on every call, so two calls on the same
+        # instance draw the same portfolios rather than continuing the stream.
+        rng = np.random.default_rng(self.seed)
+
         for i in range(num_portfolios):
             # Generate random weights
-            weights = np.random.random(self.num_assets)
+            weights = rng.random(self.num_assets)
             weights /= np.sum(weights)
             all_weights[i, :] = weights
 

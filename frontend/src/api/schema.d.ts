@@ -115,6 +115,117 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/screeners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List available screeners
+         * @description Every registered screener and its parameter schema.
+         *
+         *     Same contract as /api/v1/strategies: a UI builds its whole screener panel,
+         *     including per-screener controls with defaults and bounds, from this alone.
+         */
+        get: operations["list_screeners_api_v1_screeners_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/screeners/{screener_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One screener's schema */
+        get: operations["get_screener_api_v1_screeners__screener_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/screeners/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Filter a universe through one or more screeners
+         * @description Fetch history for each symbol, then apply the screeners in order.
+         *
+         *     Symbols with no bars in the range are excluded before screening and counted
+         *     in `with_data`, so an empty result distinguishes "nothing passed the filter"
+         *     from "nothing had data".
+         */
+        post: operations["run_screen_api_v1_screeners_run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/statistics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List available tests
+         * @description Every registered test with its arity, input kind and parameter schema — a
+         *     UI builds its whole panel from this, including how many symbols to ask for.
+         */
+        get: operations["list_tests_api_v1_statistics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/statistics/{test_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One test's schema */
+        get: operations["get_test_api_v1_statistics__test_id__get"];
+        put?: never;
+        /**
+         * Run a statistical test over stored history
+         * @description Fetch each symbol's closes, align them, convert to returns if the test
+         *     needs returns, then run it.
+         *
+         *     Symbol ORDER is preserved and significant: OLS treats the first symbol as
+         *     the asset and the second as the benchmark, so sorting them would silently
+         *     invert alpha and beta.
+         */
+        post: operations["run_test_api_v1_statistics__test_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/backtest": {
         parameters: {
             query?: never;
@@ -132,6 +243,57 @@ export interface paths {
          *     not block the event loop and stall every other request.
          */
         post: operations["run_backtest_api_v1_backtest_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/backtest/portfolio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Backtest a multi-asset strategy across a portfolio */
+        post: operations["run_portfolio_backtest_api_v1_backtest_portfolio_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/optimize/strategy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Grid-search a strategy's parameters on one symbol */
+        post: operations["optimize_strategy_api_v1_optimize_strategy_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/optimize/portfolio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Monte Carlo search for optimal portfolio weights */
+        post: operations["optimize_portfolio_api_v1_optimize_portfolio_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -214,6 +376,19 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AllocationPoint */
+        AllocationPoint: {
+            /** Annualized Return */
+            annualized_return: number;
+            /** Annualized Volatility */
+            annualized_volatility: number;
+            /** Sharpe Ratio */
+            sharpe_ratio: number;
+            /** Weights */
+            weights: {
+                [key: string]: number;
+            };
+        };
         /**
          * AssetDetail
          * @description Adds coverage, which requires an aggregate over market_data.
@@ -481,6 +656,312 @@ export interface components {
             /** Maximum */
             maximum?: number | null;
         };
+        /** PortfolioBacktestRequest */
+        PortfolioBacktestRequest: {
+            /**
+             * Symbols
+             * @description Constituents, two or more
+             */
+            symbols: string[];
+            /**
+             * Strategy Id
+             * @description Registry id — must be a multi-asset strategy
+             */
+            strategy_id: string;
+            /**
+             * Start
+             * Format: date-time
+             */
+            start: string;
+            /**
+             * End
+             * Format: date-time
+             */
+            end: string;
+            /** Params */
+            params?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Weights
+             * @description Target weight per symbol. Omitted means equal-weight. Must cover every requested symbol when supplied — a partial mapping would silently zero-weight the rest.
+             */
+            weights?: {
+                [key: string]: number;
+            } | null;
+            /**
+             * Initial Capital
+             * @default 100000
+             */
+            initial_capital: number;
+            /**
+             * Seed
+             * @description Seed for simulated slippage, so the same request returns the same result. Pass null for unseeded, non-reproducible behaviour.
+             * @default 42
+             */
+            seed: number | null;
+            /**
+             * Enable Vol Targeting
+             * @default false
+             */
+            enable_vol_targeting: boolean;
+            /**
+             * Target Volatility
+             * @default 0.15
+             */
+            target_volatility: number;
+            /**
+             * Include Risk
+             * @description Compute VaR/CVaR on the resulting returns
+             * @default true
+             */
+            include_risk: boolean;
+            /**
+             * Include Equity Curve
+             * @default true
+             */
+            include_equity_curve: boolean;
+        };
+        /** PortfolioBacktestResponse */
+        PortfolioBacktestResponse: {
+            /** Symbols */
+            symbols: string[];
+            /** Strategy Id */
+            strategy_id: string;
+            /** Strategy Name */
+            strategy_name: string;
+            /**
+             * Start
+             * Format: date-time
+             */
+            start: string;
+            /**
+             * End
+             * Format: date-time
+             */
+            end: string;
+            /** Bars */
+            bars: number;
+            /** Params */
+            params: {
+                [key: string]: unknown;
+            };
+            /**
+             * Weights
+             * @description Weights actually used
+             */
+            weights: {
+                [key: string]: number;
+            };
+            /** Initial Capital */
+            initial_capital: number;
+            /** Seed */
+            seed: number | null;
+            /** Metrics */
+            metrics: {
+                [key: string]: unknown;
+            };
+            /**
+             * Risk Metrics
+             * @description VaR/CVaR etc., empty when not requested
+             */
+            risk_metrics?: {
+                [key: string]: unknown;
+            };
+            /** Caveat */
+            caveat?: string | null;
+            /** Equity Curve */
+            equity_curve?: components["schemas"]["PortfolioEquityPoint"][];
+        };
+        /** PortfolioEquityPoint */
+        PortfolioEquityPoint: {
+            /**
+             * Time
+             * Format: date-time
+             */
+            time: string;
+            /** Total */
+            total: number;
+        };
+        /** PortfolioOptimizeRequest */
+        PortfolioOptimizeRequest: {
+            /**
+             * Symbols
+             * @description Two or more assets to allocate across
+             */
+            symbols: string[];
+            /**
+             * Start
+             * Format: date-time
+             */
+            start: string;
+            /**
+             * End
+             * Format: date-time
+             */
+            end: string;
+            /**
+             * Num Portfolios
+             * @default 5000
+             */
+            num_portfolios: number;
+            /**
+             * Risk Free Rate
+             * @default 0.02
+             */
+            risk_free_rate: number;
+            /**
+             * Seed
+             * @description Seed for weight sampling. Monte Carlo weights were drawn from the global numpy RNG, so the same request returned different optimal allocations each time.
+             * @default 42
+             */
+            seed: number | null;
+            /**
+             * Include Frontier
+             * @description Return every sampled portfolio for a frontier scatter. Off by default: 5,000 rows each carrying a weights mapping is a large response, and the allocation alone is what most callers want.
+             * @default false
+             */
+            include_frontier: boolean;
+            /**
+             * Frontier Points
+             * @description Cap on returned frontier points; sampled evenly.
+             * @default 1000
+             */
+            frontier_points: number;
+        };
+        /** PortfolioOptimizeResponse */
+        PortfolioOptimizeResponse: {
+            /** Symbols */
+            symbols: string[];
+            /**
+             * Start
+             * Format: date-time
+             */
+            start: string;
+            /**
+             * End
+             * Format: date-time
+             */
+            end: string;
+            /** Bars */
+            bars: number;
+            /** Num Portfolios */
+            num_portfolios: number;
+            /** Risk Free Rate */
+            risk_free_rate: number;
+            /** Seed */
+            seed: number | null;
+            max_sharpe: components["schemas"]["AllocationPoint"];
+            min_volatility: components["schemas"]["AllocationPoint"];
+            /** Frontier */
+            frontier?: components["schemas"]["AllocationPoint"][];
+        };
+        /**
+         * RangeSpec
+         * @description An inclusive numeric sweep. `{"min": 10, "max": 30, "step": 5}`.
+         */
+        RangeSpec: {
+            /** Min */
+            min: number;
+            /** Max */
+            max: number;
+            /**
+             * Step
+             * @default 1
+             */
+            step: number;
+        };
+        /** ScreenRequest */
+        ScreenRequest: {
+            /**
+             * Symbols
+             * @description Universe to filter
+             */
+            symbols: string[];
+            /**
+             * Start
+             * Format: date-time
+             */
+            start: string;
+            /**
+             * End
+             * Format: date-time
+             */
+            end: string;
+            /**
+             * Screeners
+             * @description Applied in order, each narrowing the output of the last — the same composition ScreenerPipeline performs.
+             */
+            screeners: components["schemas"]["ScreenerStep"][];
+        };
+        /** ScreenResponse */
+        ScreenResponse: {
+            /** Requested */
+            requested: number;
+            /**
+             * With Data
+             * @description Symbols that had bars in the range. A symbol with no data cannot be screened and is reported here rather than silently failing the filter — five registered crypto tickers hold zero bars.
+             */
+            with_data: number;
+            /** Passed */
+            passed: string[];
+            /**
+             * Steps
+             * @description Per-step counts, so a screen returning nothing shows where it emptied.
+             */
+            steps: components["schemas"]["ScreenerStepResult"][];
+        };
+        /** ScreenerListResponse */
+        ScreenerListResponse: {
+            /** Count */
+            count: number;
+            /** Screeners */
+            screeners: components["schemas"]["ScreenerSchema"][];
+        };
+        /** ScreenerSchema */
+        ScreenerSchema: {
+            /** Id */
+            id: string;
+            /** Display Name */
+            display_name: string;
+            /** Description */
+            description: string;
+            /** Params */
+            params: components["schemas"]["ParamSchema"][];
+            /** Caveat */
+            caveat?: string | null;
+        };
+        /** ScreenerStep */
+        ScreenerStep: {
+            /**
+             * Screener Id
+             * @description Registry id, e.g. 'momentum'
+             */
+            screener_id: string;
+            /**
+             * Params
+             * @description Omitted parameters use registry defaults.
+             */
+            params?: {
+                [key: string]: unknown;
+            };
+        };
+        /** ScreenerStepResult */
+        ScreenerStepResult: {
+            /** Screener Id */
+            screener_id: string;
+            /** Display Name */
+            display_name: string;
+            /** Params */
+            params: {
+                [key: string]: unknown;
+            };
+            /**
+             * Passed
+             * @description Symbols surviving this step
+             */
+            passed: number;
+        };
         /** SignalPoint */
         SignalPoint: {
             /**
@@ -534,12 +1015,184 @@ export interface components {
             /** Signals */
             signals: components["schemas"]["SignalPoint"][];
         };
+        /** SkippedCombination */
+        SkippedCombination: {
+            /** Params */
+            params: {
+                [key: string]: unknown;
+            };
+            /** Reason */
+            reason: string;
+        };
+        /** StatisticsRequest */
+        StatisticsRequest: {
+            /** Symbols */
+            symbols: string[];
+            /**
+             * Start
+             * Format: date-time
+             */
+            start: string;
+            /**
+             * End
+             * Format: date-time
+             */
+            end: string;
+            /** Params */
+            params?: {
+                [key: string]: unknown;
+            };
+        };
+        /** StatisticsResponse */
+        StatisticsResponse: {
+            /** Test Id */
+            test_id: string;
+            /** Display Name */
+            display_name: string;
+            /**
+             * Symbols
+             * @description Symbols actually used, in order
+             */
+            symbols: string[];
+            /**
+             * Input Kind
+             * @enum {string}
+             */
+            input_kind: "price" | "returns";
+            /**
+             * Observations
+             * @description Rows fed to the test after alignment
+             */
+            observations: number;
+            /** Params */
+            params: {
+                [key: string]: unknown;
+            };
+            /** Result */
+            result: {
+                [key: string]: unknown;
+            };
+        };
         /** StrategyListResponse */
         StrategyListResponse: {
             /** Count */
             count: number;
             /** Strategies */
             strategies: components["schemas"]["StrategySchema"][];
+        };
+        /** StrategyOptimizeRequest */
+        StrategyOptimizeRequest: {
+            /** Symbol */
+            symbol: string;
+            /**
+             * Strategy Id
+             * @description Registry id — must be single-asset
+             */
+            strategy_id: string;
+            /**
+             * Start
+             * Format: date-time
+             */
+            start: string;
+            /**
+             * End
+             * Format: date-time
+             */
+            end: string;
+            /**
+             * Grid
+             * @description Parameter axes to sweep. Each value is either a list of values or an inclusive range: {"short_window": {"min": 10, "max": 30, "step": 5}, "long_window": [40, 50, 60]}
+             */
+            grid: {
+                [key: string]: unknown[] | components["schemas"]["RangeSpec"];
+            };
+            /**
+             * Params
+             * @description Fixed values for parameters not being swept.
+             */
+            params?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Metric
+             * @description Metric to rank by. One of: Annualized Return, Annualized Volatility, Calmar Ratio, Final Value, Max Drawdown, Max Drawdown Duration (Days), Sharpe Ratio, Sortino Ratio, Total Return
+             * @default Sharpe Ratio
+             */
+            metric: string;
+            /**
+             * Initial Capital
+             * @default 100000
+             */
+            initial_capital: number;
+            /**
+             * Transaction Cost
+             * @default 0.001
+             */
+            transaction_cost: number;
+            /**
+             * Seed
+             * @description Slippage seed applied identically to every combination, so the ranking reflects the parameters rather than the draw. Pass null for unseeded, non-reproducible behaviour.
+             * @default 42
+             */
+            seed: number | null;
+            /**
+             * Top N
+             * @default 25
+             */
+            top_n: number;
+        };
+        /** StrategyOptimizeResponse */
+        StrategyOptimizeResponse: {
+            /** Symbol */
+            symbol: string;
+            /** Strategy Id */
+            strategy_id: string;
+            /** Strategy Name */
+            strategy_name: string;
+            /**
+             * Start
+             * Format: date-time
+             */
+            start: string;
+            /**
+             * End
+             * Format: date-time
+             */
+            end: string;
+            /** Bars */
+            bars: number;
+            /** Metric */
+            metric: string;
+            /** Seed */
+            seed: number | null;
+            /** Initial Capital */
+            initial_capital: number;
+            /** Combinations Requested */
+            combinations_requested: number;
+            /** Combinations Evaluated */
+            combinations_evaluated: number;
+            /** Best Params */
+            best_params: {
+                [key: string]: unknown;
+            };
+            /** Best Metrics */
+            best_metrics: {
+                [key: string]: unknown;
+            };
+            /**
+             * Results
+             * @description Ranked best-first, truncated to top_n
+             */
+            results: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Skipped
+             * @description Combinations the strategy itself rejected, e.g. short_window >= long_window. Reported rather than dropped.
+             */
+            skipped?: components["schemas"]["SkippedCombination"][];
+            /** Caveat */
+            caveat?: string | null;
         };
         /** StrategySchema */
         StrategySchema: {
@@ -561,6 +1214,40 @@ export interface components {
              * Caveat
              * @description Set when the strategy is known to be unsound — surface it to the user.
              */
+            caveat?: string | null;
+        };
+        /** TestListResponse */
+        TestListResponse: {
+            /** Count */
+            count: number;
+            /** Tests */
+            tests: components["schemas"]["TestSchema"][];
+        };
+        /** TestSchema */
+        TestSchema: {
+            /** Id */
+            id: string;
+            /** Display Name */
+            display_name: string;
+            /** Description */
+            description: string;
+            /**
+             * Arity
+             * @description 'single' takes one symbol, 'pair' exactly two, 'multi' two or more.
+             * @enum {string}
+             */
+            arity: "single" | "pair" | "multi";
+            /**
+             * Input Kind
+             * @description Whether the test consumes price levels or returns. The API performs the conversion — callers always send symbols.
+             * @enum {string}
+             */
+            input_kind: "price" | "returns";
+            /** Min Symbols */
+            min_symbols: number;
+            /** Params */
+            params: components["schemas"]["ParamSchema"][];
+            /** Caveat */
             caveat?: string | null;
         };
         /** ValidationError */
@@ -779,6 +1466,203 @@ export interface operations {
             };
         };
     };
+    list_screeners_api_v1_screeners_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScreenerListResponse"];
+                };
+            };
+        };
+    };
+    get_screener_api_v1_screeners__screener_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Registry id, e.g. 'low_volatility' */
+                screener_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScreenerSchema"];
+                };
+            };
+            /** @description No such screener */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_screen_api_v1_screeners_run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScreenRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScreenResponse"];
+                };
+            };
+            /** @description Unknown screener */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid parameters, bad range, or too many symbols */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_tests_api_v1_statistics_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestListResponse"];
+                };
+            };
+        };
+    };
+    get_test_api_v1_statistics__test_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Registry id, e.g. 'adf' */
+                test_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestSchema"];
+                };
+            };
+            /** @description No such test */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_test_api_v1_statistics__test_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Registry id, e.g. 'johansen' */
+                test_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatisticsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatisticsResponse"];
+                };
+            };
+            /** @description Unknown test or symbol */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Wrong symbol count, invalid parameters, or no data */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     run_backtest_api_v1_backtest_post: {
         parameters: {
             query?: never;
@@ -809,6 +1693,120 @@ export interface operations {
                 content?: never;
             };
             /** @description Invalid parameters, bad date range, or no data */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    run_portfolio_backtest_api_v1_backtest_portfolio_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PortfolioBacktestRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortfolioBacktestResponse"];
+                };
+            };
+            /** @description Unknown symbol or strategy */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Single-asset strategy, bad weights, or no data */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    optimize_strategy_api_v1_optimize_strategy_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StrategyOptimizeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StrategyOptimizeResponse"];
+                };
+            };
+            /** @description Unknown symbol or strategy */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad grid, metric, date range, or no valid combination */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    optimize_portfolio_api_v1_optimize_portfolio_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PortfolioOptimizeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortfolioOptimizeResponse"];
+                };
+            };
+            /** @description Unknown symbol */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Fewer than two symbols, or insufficient overlap */
             422: {
                 headers: {
                     [name: string]: unknown;
