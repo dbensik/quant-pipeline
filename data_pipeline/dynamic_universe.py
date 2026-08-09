@@ -30,13 +30,31 @@ class DynamicUniverse:
             timeout (int): The timeout in seconds for web requests.
         """
         self.session = requests.Session()
+        # Wikipedia returns 403 to requests' default User-Agent, so every
+        # constituent fetch failed and returned [] — which callers could not
+        # distinguish from "this index is empty". Identifying the client is
+        # what their robot policy asks for.
+        self.session.headers.update(
+            {
+                "User-Agent": (
+                    "quant-pipeline/1.0 (research tool; "
+                    "https://github.com/dbensik/quant-pipeline)"
+                )
+            }
+        )
         self.timeout = timeout
         # A mapping of source keys to their respective fetch methods.
+        # Aliases included deliberately. api/routers/ingest.py advertised
+        # "dow_jones" and "top_100_crypto" — names taken from the private
+        # method names rather than these keys — so those two sources silently
+        # returned [] and surfaced as a 503 "came back empty".
         self._source_map = {
             "sp500": self._fetch_sp500_tickers,
             "dowjones": self._fetch_dow_jones_tickers,
+            "dow_jones": self._fetch_dow_jones_tickers,
             "nasdaq100": self._fetch_nasdaq100_tickers,
             "crypto": self._fetch_top_100_crypto_tickers,
+            "top_100_crypto": self._fetch_top_100_crypto_tickers,
         }
 
     def get_tickers(self, source: str) -> List[str]:
@@ -89,7 +107,11 @@ class DynamicUniverse:
     def _fetch_dow_jones_tickers(self) -> List[str]:
         """Scrapes the Wikipedia page for Dow Jones Industrial Average constituents."""
         try:
-            tables = pd.read_html(URL_DOWJONES_WIKIPEDIA)
+            # storage_options, because pd.read_html makes its own request and
+            # never sees self.session's headers.
+            tables = pd.read_html(
+                URL_DOWJONES_WIKIPEDIA, storage_options=self.session.headers
+            )
             dow_table = next((tbl for tbl in tables if "Symbol" in tbl.columns), None)
             if dow_table is None:
                 logger.error(
@@ -110,7 +132,9 @@ class DynamicUniverse:
     def _fetch_nasdaq100_tickers(self) -> List[str]:
         """Scrapes the Wikipedia page for NASDAQ-100 constituents."""
         try:
-            tables = pd.read_html(URL_NASDAQ100_WIKIPEDIA)
+            tables = pd.read_html(
+                URL_NASDAQ100_WIKIPEDIA, storage_options=self.session.headers
+            )
             nasdaq_table = next(
                 (tbl for tbl in tables if "Ticker" in tbl.columns), None
             )

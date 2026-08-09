@@ -35,12 +35,14 @@ from api.dependencies import (
     get_fetcher,
     get_market_data_repo,
     get_portfolio_repo,
+    get_universe_repo,
     get_watchlist_repo,
 )
 from api.upstream import YFinanceGateway, get_upstream
 from api.main import app
 from core.models import OHLCV, Asset, MarketDataRecord, Timestamp
 from core.portfolio import Portfolio, Trade
+from db.repositories.universe import Membership, Snapshot
 from db.repositories.watchlists import Watchlist
 
 # ---------------------------------------------------------------------------
@@ -460,6 +462,67 @@ class StubFetcher:
         ]
 
 
+class FakeUniverseRepo:
+    """
+    In-memory point-in-time membership.
+
+    Seeded with one index observed at two dates, one member having been
+    dropped in between — the shape that makes survivorship bias testable.
+    """
+
+    FIRST = datetime(2024, 6, 1, tzinfo=timezone.utc)
+    SECOND = datetime(2024, 12, 1, tzinfo=timezone.utc)
+
+    def __init__(self) -> None:
+        # AAPL throughout; BTC-USD dropped after the first observation.
+        self.members = {
+            "AAPL": (self.FIRST, self.SECOND),
+            "BTC-USD": (self.FIRST, self.FIRST),
+            "MSFT": (self.SECOND, self.SECOND),
+        }
+        self.index_name = "sp500"
+
+    async def record_snapshot(self, index_name, symbols, taken_at=None):
+        taken_at = taken_at or datetime.now(timezone.utc)
+        for symbol in symbols:
+            upper = symbol.upper()
+            first = self.members.get(upper, (taken_at, taken_at))[0]
+            self.members[upper] = (first, taken_at)
+        return Snapshot(
+            index_name=index_name, taken_at=taken_at,
+            member_count=len(symbols), added=[], removed=[],
+        )
+
+    async def members_as_of(self, index_name, as_of):
+        if index_name != self.index_name or as_of < self.FIRST:
+            return Membership(
+                index_name=index_name, as_of=as_of, symbols=[],
+                first_observed=self.FIRST if index_name == self.index_name else None,
+                last_observed=self.SECOND if index_name == self.index_name else None,
+                observed=False,
+            )
+        # Anchored on the most recent observation at or before as_of, as the
+        # real repo does: a symbol seen then was in the index then.
+        anchor = self.SECOND if as_of >= self.SECOND else self.FIRST
+        symbols = sorted(
+            s for s, (first, last) in self.members.items()
+            if first <= anchor <= last
+        )
+        return Membership(
+            index_name=index_name, as_of=as_of, symbols=symbols,
+            first_observed=self.FIRST, last_observed=self.SECOND, observed=True,
+        )
+
+    async def indexes(self):
+        return [self.index_name]
+
+    async def snapshots(self, index_name):
+        return [
+            Snapshot(index_name=index_name, taken_at=t, member_count=2, added=[], removed=[])
+            for t in (self.SECOND, self.FIRST)
+        ]
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -490,12 +553,18 @@ def fetcher() -> "StubFetcher":
 
 
 @pytest.fixture
+def universe_repo() -> "FakeUniverseRepo":
+    return FakeUniverseRepo()
+
+
+@pytest.fixture
 def client(
     repo: FakeRepo,
     portfolio_repo: "FakePortfolioRepo",
     watchlist_repo: "FakeWatchlistRepo",
     upstream: "StubGateway",
     fetcher: "StubFetcher",
+    universe_repo: "FakeUniverseRepo",
 ) -> TestClient:
     """TestClient with both repositories replaced by in-memory fakes."""
     app.dependency_overrides[get_market_data_repo] = lambda: repo
@@ -503,6 +572,7 @@ def client(
     app.dependency_overrides[get_watchlist_repo] = lambda: watchlist_repo
     app.dependency_overrides[get_upstream] = lambda: upstream
     app.dependency_overrides[get_fetcher] = lambda: fetcher
+    app.dependency_overrides[get_universe_repo] = lambda: universe_repo
     try:
         yield TestClient(app)
     finally:

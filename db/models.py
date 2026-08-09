@@ -254,3 +254,66 @@ class WatchlistSymbolORM(Base):
 
     def __repr__(self) -> str:
         return f"<WatchlistSymbolORM {self.symbol}>"
+
+
+# ---------------------------------------------------------------------------
+# Point-in-time universe membership
+# ---------------------------------------------------------------------------
+
+class UniverseMembershipORM(Base):
+    """
+    One observation window of a symbol's membership in an index.
+
+    WHY THIS EXISTS. Screeners and backtests resolve their universe from the
+    `assets` table, which holds whatever is registered TODAY. Screening a 2024
+    window against the 2026 index is survivorship bias: the names that were
+    dropped are exactly the ones that did badly, and removing them flatters
+    every result — silently, because the numbers still look plausible.
+
+    OBSERVED, NOT RECONSTRUCTED. `first_seen` and `last_seen` are the dates
+    this system SAW the symbol in the index, not the dates it truly joined or
+    left. Nothing available here can reconstruct membership before the first
+    snapshot, and inventing it would be worse than admitting the gap — so
+    queries before `first_seen` for an index return an explicit "not observed"
+    rather than today's list.
+    """
+
+    __tablename__ = "universe_membership"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    index_name = Column(String, nullable=False)   # 'sp500' | 'dow_jones' | ...
+    symbol = Column(String, nullable=False)
+    first_seen = Column(DateTime(timezone=True), nullable=False)
+    #: Last snapshot in which the symbol was present. A symbol absent from a
+    #: later snapshot keeps its old last_seen, which is what marks it as gone.
+    last_seen = Column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("index_name", "symbol", name="uq_universe_member"),
+        Index("ix_universe_membership_index_seen", "index_name", "last_seen"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<UniverseMembershipORM {self.index_name}/{self.symbol}>"
+
+
+class UniverseSnapshotORM(Base):
+    """
+    A record that an index's membership was observed at a point in time.
+
+    Kept separately from the memberships so "we looked and AAPL was absent" is
+    distinguishable from "we never looked". Without it, a query for a date
+    before any snapshot and a query for a date when a symbol had left would
+    both return nothing.
+    """
+
+    __tablename__ = "universe_snapshots"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    index_name = Column(String, nullable=False)
+    taken_at = Column(DateTime(timezone=True), nullable=False)
+    member_count = Column(Integer, nullable=False)
+
+    __table_args__ = (
+        Index("ix_universe_snapshots_index_taken", "index_name", "taken_at"),
+    )

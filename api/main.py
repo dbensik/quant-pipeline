@@ -32,6 +32,7 @@ from api.routers import (
     signals,
     statistics,
     strategies,
+    universe,
     watchlists,
     ws,
 )
@@ -108,6 +109,7 @@ app.include_router(optimize.router)
 app.include_router(portfolios.router)
 app.include_router(signals.router)
 app.include_router(watchlists.router)
+app.include_router(universe.router)
 app.include_router(research.router)
 app.include_router(ingest.router)
 app.include_router(results.router)

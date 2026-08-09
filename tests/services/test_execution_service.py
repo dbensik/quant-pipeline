@@ -28,9 +28,21 @@ from services.execution_service.portfolio_store import PortfolioNotFound
 from services.execution_service.service import ExecutionService
 from services.proto import execution_pb2
 
-NOW = datetime.now(timezone.utc)
-FRESH = NOW.isoformat()
-STALE = (NOW - timedelta(seconds=45)).isoformat()
+def fresh() -> str:
+    """
+    A quote timestamp from RIGHT NOW.
+
+    Deliberately a function. As a module-level constant it was evaluated at
+    import, so in a full-suite run — about 40 seconds — every "fresh" quote had
+    aged past the 30-second window by the time these tests executed. They
+    passed in isolation and failed together, which is the worst way to find
+    out.
+    """
+    return datetime.now(timezone.utc).isoformat()
+
+
+def stale() -> str:
+    return (datetime.now(timezone.utc) - timedelta(seconds=45)).isoformat()
 
 
 class FakeContext:
@@ -97,7 +109,7 @@ def test_a_fresh_trade_is_recorded():
     service = ExecutionService(store=store)
     response = service.ExecuteTrade(
         execution_pb2.TradeRequest(
-            symbol="AAPL", action="BUY", quantity=10, price=200.0, timestamp=FRESH
+            symbol="AAPL", action="BUY", quantity=10, price=200.0, timestamp=fresh()
         ),
         FakeContext(),
     )
@@ -110,7 +122,7 @@ def test_the_transaction_id_identifies_the_stored_trade():
     service = ExecutionService(store=FakeStore())
     response = service.ExecuteTrade(
         execution_pb2.TradeRequest(
-            symbol="AAPL", action="BUY", quantity=1, price=1.0, timestamp=FRESH
+            symbol="AAPL", action="BUY", quantity=1, price=1.0, timestamp=fresh()
         ),
         FakeContext(),
     )
@@ -123,7 +135,7 @@ def test_a_named_portfolio_is_used():
     service.ExecuteTrade(
         execution_pb2.TradeRequest(
             symbol="AAPL", action="BUY", quantity=1, price=1.0,
-            timestamp=FRESH, portfolio="Growth",
+            timestamp=fresh(), portfolio="Growth",
         ),
         FakeContext(),
     )
@@ -140,7 +152,7 @@ def test_an_unknown_portfolio_is_rejected_not_substituted():
     response = service.ExecuteTrade(
         execution_pb2.TradeRequest(
             symbol="AAPL", action="BUY", quantity=1, price=1.0,
-            timestamp=FRESH, portfolio="Growht",
+            timestamp=fresh(), portfolio="Growht",
         ),
         FakeContext(),
     )
@@ -154,7 +166,7 @@ def test_a_stale_quote_is_rejected():
     service = ExecutionService(store=store)
     response = service.ExecuteTrade(
         execution_pb2.TradeRequest(
-            symbol="AAPL", action="BUY", quantity=1, price=1.0, timestamp=STALE
+            symbol="AAPL", action="BUY", quantity=1, price=1.0, timestamp=stale()
         ),
         FakeContext(),
     )
@@ -186,7 +198,7 @@ def test_an_invalid_action_is_rejected():
     service = ExecutionService(store=store)
     response = service.ExecuteTrade(
         execution_pb2.TradeRequest(
-            symbol="AAPL", action="SHORT", quantity=1, price=1.0, timestamp=FRESH
+            symbol="AAPL", action="SHORT", quantity=1, price=1.0, timestamp=fresh()
         ),
         FakeContext(),
     )

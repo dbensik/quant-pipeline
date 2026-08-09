@@ -16,7 +16,9 @@ from db.repositories.market_data import TimescaleMarketDataRepo
 from screeners import registry
 from screeners.base_screener import BaseScreener
 
-from api.dependencies import get_market_data_repo
+from db.repositories.universe import TimescaleUniverseRepo
+
+from api.dependencies import get_market_data_repo, get_universe_repo
 from api.frames import records_to_frame
 
 router = APIRouter(prefix="/api/v1/screeners", tags=["screeners"])
@@ -64,7 +66,24 @@ class ScreenerStep(BaseModel):
 
 
 class ScreenRequest(BaseModel):
-    symbols: List[str] = Field(description="Universe to filter")
+    symbols: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Universe to filter. Omit when using `index`, which resolves the "
+            "universe as it stood at `start`."
+        ),
+    )
+    index: Optional[str] = Field(
+        default=None,
+        description=(
+            "Resolve the universe from this index's membership AS OF `start`, "
+            "rather than from whatever is registered today. Requires a "
+            "snapshot at or before `start` — see POST /api/v1/universe/"
+            "{index}/snapshot. Without this, screening a past window uses "
+            "today's membership, which excludes everything since dropped and "
+            "flatters the result."
+        ),
+    )
     start: datetime
     end: datetime
     screeners: List[ScreenerStep] = Field(
@@ -83,6 +102,15 @@ class ScreenerStepResult(BaseModel):
 
 
 class ScreenResponse(BaseModel):
+    universe: List[str] = Field(
+        default_factory=list,
+        description=(
+            "The symbols actually screened. Worth returning when `index` "
+            "resolved them: a caller cannot otherwise tell WHICH universe was "
+            "used, which is the thing point-in-time membership exists to make "
+            "explicit."
+        ),
+    )
     requested: int
     with_data: int = Field(
         description=(
@@ -187,6 +215,7 @@ async def get_screener(
 async def run_screen(
     request: ScreenRequest,
     repo: TimescaleMarketDataRepo = Depends(get_market_data_repo),
+    universe: TimescaleUniverseRepo = Depends(get_universe_repo),
 ) -> ScreenResponse:
     """
     Fetch history for each symbol, then apply the screeners in order.
@@ -197,6 +226,36 @@ async def run_screen(
     """
     if request.start > request.end:
         raise HTTPException(status_code=422, detail="`start` must not be after `end`.")
+
+    # Resolve the universe as it stood, when asked to.
+    if request.index:
+        if request.symbols:
+            raise HTTPException(
+                status_code=422,
+                detail="Pass `symbols` or `index`, not both.",
+            )
+        membership = await universe.members_as_of(request.index, request.start)
+        if not membership.observed:
+            # Falling back to today's membership here is exactly the
+            # survivorship bias the index option exists to avoid, so this is
+            # an error rather than a silent substitution.
+            earliest = (
+                membership.first_observed.date().isoformat()
+                if membership.first_observed
+                else None
+            )
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"No snapshot of {request.index!r} at or before "
+                    f"{request.start.date().isoformat()}"
+                    + (f"; the earliest is {earliest}." if earliest else
+                       " — this index has never been snapshotted.")
+                    + " Membership before then is unknown; today's list is not"
+                    " a substitute. Take a snapshot, or pass `symbols`."
+                ),
+            )
+        request = request.model_copy(update={"symbols": membership.symbols})
 
     if not request.symbols:
         raise HTTPException(status_code=422, detail="`symbols` must not be empty.")
@@ -265,6 +324,7 @@ async def run_screen(
         raise HTTPException(status_code=422, detail=str(exc)) from None
 
     return ScreenResponse(
+        universe=list(request.symbols),
         requested=len(request.symbols),
         with_data=len(data),
         passed=passed,

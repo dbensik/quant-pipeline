@@ -71,3 +71,25 @@ def test_every_route_has_a_summary():
             if not operation.get("summary"):
                 missing.append(f"{method.upper()} {path}")
     assert missing == []
+
+
+def test_every_advertised_universe_source_is_actually_fetchable():
+    """
+    api/routers/ingest.py advertised "dow_jones" and "top_100_crypto" — names
+    taken from DynamicUniverse's private METHOD names rather than its
+    `_source_map` KEYS ("dowjones", "crypto"). Both silently returned [] and
+    surfaced as a 503, so two of the four advertised sources never worked.
+
+    This asserts the two lists agree, which is cheaper than discovering it
+    from a 503 again.
+    """
+    from data_pipeline.dynamic_universe import DynamicUniverse
+
+    from api.routers.ingest import UNIVERSE_SOURCES
+
+    known = set(DynamicUniverse()._source_map)
+    unmapped = sorted(set(UNIVERSE_SOURCES) - known)
+    assert unmapped == [], (
+        f"These sources are offered by the API but DynamicUniverse cannot "
+        f"resolve them: {unmapped}. Known: {sorted(known)}."
+    )

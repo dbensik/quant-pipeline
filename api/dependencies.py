@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.repositories.market_data import TimescaleMarketDataRepo
 from db.repositories.portfolios import TimescalePortfolioRepo
+from db.repositories.universe import TimescaleUniverseRepo
 from db.repositories.watchlists import TimescaleWatchlistRepo
 from db.session import get_session
 
@@ -67,3 +68,10 @@ def get_fetcher():
     from core.ingest import default_fetcher
 
     return default_fetcher
+
+
+async def get_universe_repo(
+    session: AsyncSession = Depends(get_db),
+) -> TimescaleUniverseRepo:
+    """Point-in-time index membership, bound to the request's session."""
+    return TimescaleUniverseRepo(session)

@@ -406,9 +406,18 @@ async def get_universe(
         ) from None
 
     if not symbols:
+        # Empty means the scrape failed, not that the index has no members —
+        # DynamicUniverse returns [] for both. Said plainly so nobody reads it
+        # as "this index is empty". Known broken upstream as of 2026-08-09:
+        # nasdaq100, whose Wikipedia page no longer carries a constituents
+        # table at all.
         raise HTTPException(
             status_code=503,
-            detail=f"The {source} constituent list came back empty.",
+            detail=(
+                f"Could not read the {source} constituent list — the upstream "
+                "page returned nothing usable. This is a scrape failure, not "
+                "an empty index."
+            ),
         )
 
     return UniverseResponse(source=source, symbols=symbols, count=len(symbols))

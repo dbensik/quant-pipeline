@@ -476,6 +476,81 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/universe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Indexes with recorded history */
+        get: operations["list_indexes_api_v1_universe_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/universe/{index_name}/snapshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record what an index contains right now
+         * @description Fetches the index's current members and records them as of now.
+         *
+         *     Deliberately NOT backdatable. A snapshot asserts "this system observed
+         *     these members at this time"; accepting a date would let a caller
+         *     manufacture history the data cannot support.
+         */
+        post: operations["take_snapshot_api_v1_universe__index_name__snapshot_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/universe/{index_name}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Members of an index at a point in time */
+        get: operations["members_api_v1_universe__index_name__members_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/universe/{index_name}/snapshots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** When an index was observed, and how many members it had */
+        get: operations["snapshots_api_v1_universe__index_name__snapshots_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/research/{symbol}/profile": {
         parameters: {
             query?: never;
@@ -1244,6 +1319,29 @@ export interface components {
             /** Current Symbol */
             current_symbol?: string | null;
         };
+        /** MembershipResult */
+        MembershipResult: {
+            /** Index Name */
+            index_name: string;
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Symbols */
+            symbols: string[];
+            /**
+             * Observed
+             * @description False when `as_of` predates the first snapshot. The symbol list is then empty and must NOT be read as an empty index — substituting today's membership is the bias this exists to stop.
+             */
+            observed: boolean;
+            /** First Observed */
+            first_observed?: string | null;
+            /** Last Observed */
+            last_observed?: string | null;
+            /** Detail */
+            detail?: string | null;
+        };
         /** NewsFeed */
         NewsFeed: {
             /**
@@ -1758,9 +1856,14 @@ export interface components {
         ScreenRequest: {
             /**
              * Symbols
-             * @description Universe to filter
+             * @description Universe to filter. Omit when using `index`, which resolves the universe as it stood at `start`.
              */
-            symbols: string[];
+            symbols?: string[];
+            /**
+             * Index
+             * @description Resolve the universe from this index's membership AS OF `start`, rather than from whatever is registered today. Requires a snapshot at or before `start` — see POST /api/v1/universe/{index}/snapshot. Without this, screening a past window uses today's membership, which excludes everything since dropped and flatters the result.
+             */
+            index?: string | null;
             /**
              * Start
              * Format: date-time
@@ -1779,6 +1882,11 @@ export interface components {
         };
         /** ScreenResponse */
         ScreenResponse: {
+            /**
+             * Universe
+             * @description The symbols actually screened. Worth returning when `index` resolved them: a caller cannot otherwise tell WHICH universe was used, which is the thing point-in-time membership exists to make explicit.
+             */
+            universe?: string[];
             /** Requested */
             requested: number;
             /**
@@ -1906,6 +2014,38 @@ export interface components {
             };
             /** Reason */
             reason: string;
+        };
+        /** SnapshotResult */
+        SnapshotResult: {
+            /** Index Name */
+            index_name: string;
+            /**
+             * Taken At
+             * Format: date-time
+             */
+            taken_at: string;
+            /** Member Count */
+            member_count: number;
+            /**
+             * Added
+             * @description Not seen in the previous snapshot
+             */
+            added: string[];
+            /**
+             * Removed
+             * @description Present previously and absent now. They are NOT deleted — they stay queryable for the window they were in, which is the point.
+             */
+            removed: string[];
+        };
+        /** SnapshotSummary */
+        SnapshotSummary: {
+            /**
+             * Taken At
+             * Format: date-time
+             */
+            taken_at: string;
+            /** Member Count */
+            member_count: number;
         };
         /** StatementLine */
         StatementLine: {
@@ -3345,6 +3485,127 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_indexes_api_v1_universe_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+        };
+    };
+    take_snapshot_api_v1_universe__index_name__snapshot_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                index_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SnapshotResult"];
+                };
+            };
+            /** @description Unknown index */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Could not read the constituent list */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    members_api_v1_universe__index_name__members_get: {
+        parameters: {
+            query?: {
+                /** @description Defaults to now. */
+                as_of?: string | null;
+            };
+            header?: never;
+            path: {
+                index_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    snapshots_api_v1_universe__index_name__snapshots_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                index_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SnapshotSummary"][];
+                };
             };
             /** @description Validation Error */
             422: {
