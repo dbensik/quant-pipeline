@@ -44,6 +44,20 @@ class PortfolioTab:
 
         st.header(f"Managing Portfolio: {portfolio_name}")
 
+        # Portfolios moved to TimescaleDB on 2026-08-09 (0003_portfolios) and
+        # are served by /api/v1/portfolios. This tab still reads and writes
+        # portfolios.json, so the two diverge silently the moment either side
+        # is edited — and this one is the copy that gets deleted with the rest
+        # of dashboard_app. Warned rather than rewired: the tab is being
+        # removed, and pointing it at the API would be work thrown away.
+        st.warning(
+            "⚠️ This tab still edits the legacy `portfolios.json`. Portfolios "
+            "now live in the database and are served by `/api/v1/portfolios` — "
+            "changes made here will NOT appear there, and are not migrated "
+            "again. Re-run `scripts/import_portfolios_json.py` only against a "
+            "portfolio name the database does not already have."
+        )
+
         # Load the portfolio data
         portfolio_data = self.portfolio_manager.portfolios.get(
             portfolio_name, {"trades": []}

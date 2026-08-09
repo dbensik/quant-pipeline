@@ -300,6 +300,100 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/portfolios": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List portfolios */
+        get: operations["list_portfolios_api_v1_portfolios_get"];
+        put?: never;
+        /** Create a portfolio */
+        post: operations["create_portfolio_api_v1_portfolios_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portfolios/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Portfolio state derived from its trade log */
+        get: operations["get_portfolio_state_api_v1_portfolios__name__get"];
+        put?: never;
+        post?: never;
+        /** Delete a portfolio and its trades */
+        delete: operations["delete_portfolio_api_v1_portfolios__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portfolios/{name}/trades": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The portfolio's trade log, oldest first */
+        get: operations["list_trades_api_v1_portfolios__name__trades_get"];
+        put?: never;
+        /** Record a trade */
+        post: operations["add_trade_api_v1_portfolios__name__trades_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portfolios/{name}/trades/{trade_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a trade from the log */
+        delete: operations["delete_trade_api_v1_portfolios__name__trades__trade_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portfolios/{name}/rebalance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview orders to reach target weights
+         * @description A PREVIEW. It returns orders; it does not record them. Post them to
+         *     /trades to act on them — the Streamlit tool executed straight from the
+         *     preview button, so there was no point at which the orders could be
+         *     inspected and declined.
+         */
+        post: operations["preview_rebalance_api_v1_portfolios__name__rebalance_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/signals/{symbol}": {
         parameters: {
             query?: never;
@@ -556,6 +650,20 @@ export interface components {
             trades?: {
                 [key: string]: unknown;
             }[];
+        };
+        /** CreatePortfolioRequest */
+        CreatePortfolioRequest: {
+            /** Name */
+            name: string;
+            /**
+             * Initial Cash
+             * @default 100000
+             */
+            initial_cash: number;
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** EquityPoint */
         EquityPoint: {
@@ -856,6 +964,67 @@ export interface components {
             /** Frontier */
             frontier?: components["schemas"]["AllocationPoint"][];
         };
+        /** PortfolioStateOut */
+        PortfolioStateOut: {
+            /** Name */
+            name: string;
+            /** Initial Cash */
+            initial_cash: number;
+            /** Cash */
+            cash: number;
+            /** Positions */
+            positions: components["schemas"]["PositionOut"][];
+            /** Realised Pnl */
+            realised_pnl: number;
+            /** Unrealised Pnl */
+            unrealised_pnl: number;
+            /** Market Value */
+            market_value: number;
+            /** Total Equity */
+            total_equity: number;
+            /** Trade Count */
+            trade_count: number;
+            /**
+             * Unpriced
+             * @description Open positions with no price available. Excluded from market value rather than valued at cost, which would overstate equity while looking like a complete answer.
+             */
+            unpriced?: string[];
+            /** Priced At */
+            priced_at?: string | null;
+        };
+        /** PortfolioSummary */
+        PortfolioSummary: {
+            /** Name */
+            name: string;
+            /** Initial Cash */
+            initial_cash: number;
+            /** Created At */
+            created_at?: string | null;
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** PositionOut */
+        PositionOut: {
+            /** Ticker */
+            ticker: string;
+            /**
+             * Quantity
+             * @description Negative for a short position
+             */
+            quantity: number;
+            /** Average Price */
+            average_price: number;
+            /** Realised Pnl */
+            realised_pnl: number;
+            /** Last Price */
+            last_price?: number | null;
+            /** Market Value */
+            market_value?: number | null;
+            /** Unrealised Pnl */
+            unrealised_pnl?: number | null;
+        };
         /**
          * RangeSpec
          * @description An inclusive numeric sweep. `{"min": 10, "max": 30, "step": 5}`.
@@ -870,6 +1039,53 @@ export interface components {
              * @default 1
              */
             step: number;
+        };
+        /** RebalanceOrder */
+        RebalanceOrder: {
+            /** Ticker */
+            ticker: string;
+            /** Action */
+            action: string;
+            /** Quantity */
+            quantity: number;
+            /** Price */
+            price: number;
+            /** Value */
+            value: number;
+            /** Current Weight */
+            current_weight: number;
+            /** Target Weight */
+            target_weight: number;
+        };
+        /** RebalancePreview */
+        RebalancePreview: {
+            /** Name */
+            name: string;
+            /** Total Equity */
+            total_equity: number;
+            /** Orders */
+            orders: components["schemas"]["RebalanceOrder"][];
+            /**
+             * Unpriced
+             * @description Tickers skipped because no price was available to size them
+             */
+            unpriced?: string[];
+        };
+        /** RebalanceRequest */
+        RebalanceRequest: {
+            /**
+             * Target Weights
+             * @description Ticker to target weight of total equity
+             */
+            target_weights: {
+                [key: string]: number;
+            };
+            /**
+             * Minimum Order Value
+             * @description Skip orders smaller than this
+             * @default 10
+             */
+            minimum_order_value: number;
         };
         /** ScreenRequest */
         ScreenRequest: {
@@ -1249,6 +1465,72 @@ export interface components {
             params: components["schemas"]["ParamSchema"][];
             /** Caveat */
             caveat?: string | null;
+        };
+        /** TradeIn */
+        TradeIn: {
+            /** Ticker */
+            ticker: string;
+            /**
+             * Action
+             * @description BUY or SELL
+             */
+            action: string;
+            /**
+             * Quantity
+             * @description Always positive; `action` signs it
+             */
+            quantity: number;
+            /** Price */
+            price: number;
+            /**
+             * Time
+             * @description Execution time; defaults to now (UTC)
+             */
+            time?: string | null;
+            /**
+             * Costs
+             * @description Commission; reduces cash
+             * @default 0
+             */
+            costs: number;
+            /** Broker */
+            broker?: string | null;
+            /** Notes */
+            notes?: string | null;
+        };
+        /** TradeOut */
+        TradeOut: {
+            /** Ticker */
+            ticker: string;
+            /**
+             * Action
+             * @description BUY or SELL
+             */
+            action: string;
+            /**
+             * Quantity
+             * @description Always positive; `action` signs it
+             */
+            quantity: number;
+            /** Price */
+            price: number;
+            /**
+             * Time
+             * @description Execution time; defaults to now (UTC)
+             */
+            time?: string | null;
+            /**
+             * Costs
+             * @description Commission; reduces cash
+             * @default 0
+             */
+            costs: number;
+            /** Broker */
+            broker?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /** Id */
+            id: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -1807,6 +2089,301 @@ export interface operations {
                 content?: never;
             };
             /** @description Fewer than two symbols, or insufficient overlap */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_portfolios_api_v1_portfolios_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortfolioSummary"][];
+                };
+            };
+        };
+    };
+    create_portfolio_api_v1_portfolios_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePortfolioRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortfolioSummary"];
+                };
+            };
+            /** @description A portfolio with that name already exists */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_portfolio_state_api_v1_portfolios__name__get: {
+        parameters: {
+            query?: {
+                /** @description Value open positions at the latest stored close. Set false for cost-basis-only state, which needs no market-data lookup. */
+                include_prices?: boolean;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortfolioStateOut"];
+                };
+            };
+            /** @description No such portfolio */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_portfolio_api_v1_portfolios__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such portfolio */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_trades_api_v1_portfolios__name__trades_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TradeOut"][];
+                };
+            };
+            /** @description No such portfolio */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_trade_api_v1_portfolios__name__trades_post: {
+        parameters: {
+            query?: {
+                /** @description Permit a BUY that takes cash negative. Off by default so paper trading cannot run on unlimited leverage — PortfolioManager never checked cash at all. Turn it on when RECORDING trades that already happened elsewhere, where rejecting them would be wrong. */
+                allow_overdraft?: boolean;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TradeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TradeOut"];
+                };
+            };
+            /** @description No such portfolio */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad action, or insufficient cash */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_trade_api_v1_portfolios__name__trades__trade_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+                trade_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such portfolio or trade */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_rebalance_api_v1_portfolios__name__rebalance_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RebalanceRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RebalancePreview"];
+                };
+            };
+            /** @description No such portfolio */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Weights out of range */
             422: {
                 headers: {
                     [name: string]: unknown;

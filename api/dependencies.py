@@ -11,6 +11,7 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.repositories.market_data import TimescaleMarketDataRepo
+from db.repositories.portfolios import TimescalePortfolioRepo
 from db.session import get_session
 
 
@@ -38,3 +39,10 @@ async def get_market_data_repo(
     without touching route handlers.
     """
     return TimescaleMarketDataRepo(session)
+
+
+async def get_portfolio_repo(
+    session: AsyncSession = Depends(get_db),
+) -> TimescalePortfolioRepo:
+    """Portfolio repository bound to the request's session."""
+    return TimescalePortfolioRepo(session)

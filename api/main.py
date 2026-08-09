@@ -23,6 +23,7 @@ from api.routers import (
     ohlcv,
     optimize,
     portfolio_backtest,
+    portfolios,
     screeners,
     signals,
     statistics,
@@ -98,6 +99,7 @@ app.include_router(statistics.router)
 app.include_router(backtest.router)
 app.include_router(portfolio_backtest.router)
 app.include_router(optimize.router)
+app.include_router(portfolios.router)
 app.include_router(signals.router)
 app.include_router(ws.router)
 

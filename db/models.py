@@ -99,3 +99,86 @@ class MarketDataORM(Base):
 
     def __repr__(self) -> str:
         return f"<MarketDataORM asset_id={self.asset_id} time={self.time}>"
+
+
+# ---------------------------------------------------------------------------
+# Paper / manual portfolios
+# ---------------------------------------------------------------------------
+# The trade log is the ONLY stored state. Cash, positions, average cost and
+# P&L are derived from it by core/portfolio.py — there is deliberately no
+# `cash` or `positions` column. `portfolios.json` stored both a trade log and
+# a cash/positions ledger under one key, they disagreed, and the gRPC service
+# raised KeyError('cash') reading a trade-log portfolio. A derived value
+# cannot drift from the trades that produce it.
+
+
+class PortfolioORM(Base):
+    """A named paper or manually-recorded portfolio."""
+
+    __tablename__ = "portfolios"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, nullable=False, unique=True)
+    initial_cash = Column(Float, nullable=False, default=100_000.0)
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+    # Free-form: the migrated `MAG7PortTest1` carried `constituents` and
+    # `weights` keys that belong to no column. Kept rather than discarded.
+    metadata_ = Column("metadata", JSONB, nullable=True)
+
+    trades = relationship(
+        "PortfolioTradeORM",
+        back_populates="portfolio",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+    def __repr__(self) -> str:
+        return f"<PortfolioORM {self.name!r}>"
+
+
+class PortfolioTradeORM(Base):
+    """
+    One executed trade.
+
+    NOT a hypertable: portfolios hold hundreds of rows, not millions, and the
+    dominant query is "every trade for one portfolio" rather than a time
+    range. Chunking that would add planning cost for no exclusion benefit —
+    the lesson 0002_retune_hypertable recorded for market_data.
+    """
+
+    __tablename__ = "portfolio_trades"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    portfolio_id = Column(
+        Integer,
+        ForeignKey("portfolios.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    time = Column(DateTime(timezone=True), nullable=False)
+    ticker = Column(String, nullable=False)
+    # 'BUY' | 'SELL'. There is no `direction` column — see core/portfolio.py:
+    # the Streamlit form recorded Long/Short independently of Buy/Sell, nothing
+    # ever read it, and a short is simply a negative net quantity.
+    action = Column(String, nullable=False)
+    quantity = Column(Float, nullable=False)
+    price = Column(Float, nullable=False)
+    costs = Column(Float, nullable=False, default=0.0)
+    broker = Column(String, nullable=True)
+    notes = Column(String, nullable=True)
+
+    portfolio = relationship("PortfolioORM", back_populates="trades")
+
+    __table_args__ = (
+        # Average cost is order-dependent, so the log is always read in
+        # timestamp order for one portfolio.
+        Index("ix_portfolio_trades_portfolio_time", "portfolio_id", "time"),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<PortfolioTradeORM {self.action} {self.quantity} "
+            f"{self.ticker} @ {self.price}>"
+        )

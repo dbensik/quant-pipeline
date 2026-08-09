@@ -24,15 +24,17 @@ Phase 3/4 — API router tests
 """
 
 from contextlib import asynccontextmanager
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
 import pytest
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_market_data_repo
+from api.dependencies import get_market_data_repo, get_portfolio_repo
 from api.main import app
 from core.models import OHLCV, Asset, MarketDataRecord, Timestamp
+from core.portfolio import Portfolio, Trade
 
 # ---------------------------------------------------------------------------
 # Fixture data
@@ -164,6 +166,102 @@ class FakeRepo:
         return out
 
 
+class FakePortfolioRepo:
+    """
+    In-memory PortfolioRepository.
+
+    Enforces the same invariants as TimescalePortfolioRepo — unique names,
+    trade ids scoped to their portfolio, cascade on delete — so router tests
+    about 404s and conflicts are not passing against a permissive stub.
+    """
+
+    def __init__(self) -> None:
+        self._portfolios: Dict[str, Portfolio] = {}
+        self._next_id = 1
+        # One portfolio with history, so read paths have something to derive
+        # from without every test having to build a log first.
+        self._portfolios["Growth"] = Portfolio(
+            name="Growth",
+            initial_cash=100_000.0,
+            created_at=START,
+            metadata=None,
+            trades=[
+                self._issue(
+                    Trade("AAPL", "BUY", 10, 100.0, START, costs=1.0)
+                ),
+                self._issue(
+                    Trade("MSFT", "BUY", 5, 200.0, START + timedelta(days=1))
+                ),
+            ],
+        )
+        self._portfolios["Empty"] = Portfolio(
+            name="Empty", initial_cash=50_000.0, created_at=START, trades=[]
+        )
+
+    def _issue(self, trade: Trade) -> Trade:
+        stamped = replace(trade, id=str(self._next_id))
+        self._next_id += 1
+        return stamped
+
+    async def list_portfolios(self) -> List[Portfolio]:
+        return [
+            Portfolio(
+                name=p.name,
+                initial_cash=p.initial_cash,
+                created_at=p.created_at,
+                metadata=p.metadata,
+                trades=[],  # listing must not load trade logs
+            )
+            for p in sorted(self._portfolios.values(), key=lambda p: p.name)
+        ]
+
+    async def get_portfolio(self, name: str) -> Optional[Portfolio]:
+        found = self._portfolios.get(name)
+        if found is None:
+            return None
+        return Portfolio(
+            name=found.name,
+            initial_cash=found.initial_cash,
+            created_at=found.created_at,
+            metadata=found.metadata,
+            trades=list(found.trades),
+        )
+
+    async def create_portfolio(
+        self, name: str, initial_cash: float, metadata: Optional[dict] = None
+    ) -> Portfolio:
+        if name in self._portfolios:
+            raise ValueError(f"A portfolio named {name!r} already exists.")
+        created = Portfolio(
+            name=name,
+            initial_cash=initial_cash,
+            created_at=START,
+            metadata=metadata,
+            trades=[],
+        )
+        self._portfolios[name] = created
+        return created
+
+    async def delete_portfolio(self, name: str) -> bool:
+        return self._portfolios.pop(name, None) is not None
+
+    async def add_trade(self, name: str, trade: Trade) -> Optional[Trade]:
+        found = self._portfolios.get(name)
+        if found is None:
+            return None
+        stamped = self._issue(trade)
+        found.trades.append(stamped)
+        return stamped
+
+    async def delete_trade(self, name: str, trade_id: str) -> bool:
+        found = self._portfolios.get(name)
+        if found is None:
+            return False
+        before = len(found.trades)
+        found.trades = [t for t in found.trades if t.id != trade_id]
+        return len(found.trades) != before
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -174,9 +272,15 @@ def repo() -> FakeRepo:
 
 
 @pytest.fixture
-def client(repo: FakeRepo) -> TestClient:
-    """TestClient with the market-data repository replaced by the fake."""
+def portfolio_repo() -> "FakePortfolioRepo":
+    return FakePortfolioRepo()
+
+
+@pytest.fixture
+def client(repo: FakeRepo, portfolio_repo: "FakePortfolioRepo") -> TestClient:
+    """TestClient with both repositories replaced by in-memory fakes."""
     app.dependency_overrides[get_market_data_repo] = lambda: repo
+    app.dependency_overrides[get_portfolio_repo] = lambda: portfolio_repo
     try:
         yield TestClient(app)
     finally:
