@@ -8,9 +8,18 @@
  */
 
 import type { ComponentType } from 'react'
-import { Briefcase, LineChart, Newspaper, Star } from 'lucide-react'
+import {
+  BarChart3,
+  Briefcase,
+  LineChart,
+  Newspaper,
+  SlidersHorizontal,
+  Star,
+} from 'lucide-react'
 
+import { ComparePage } from '@/pages/ComparePage'
 import { DashboardPage } from '@/pages/DashboardPage'
+import { OptimizePage } from '@/pages/OptimizePage'
 import { PortfoliosPage } from '@/pages/PortfoliosPage'
 import { ResearchPage } from '@/pages/ResearchPage'
 import { WatchlistsPage } from '@/pages/WatchlistsPage'
@@ -31,6 +40,20 @@ export const routes: RouteDef[] = [
     icon: LineChart,
     element: DashboardPage,
     blurb: 'Price history, signal overlay and a single-symbol backtest.',
+  },
+  {
+    path: '/compare',
+    label: 'Compare',
+    icon: BarChart3,
+    element: ComparePage,
+    blurb: 'Run several strategies on one symbol and rank them.',
+  },
+  {
+    path: '/optimize',
+    label: 'Optimize',
+    icon: SlidersHorizontal,
+    element: OptimizePage,
+    blurb: 'Grid-search strategy parameters, or Monte Carlo portfolio weights.',
   },
   {
     path: '/portfolios',

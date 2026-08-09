@@ -345,3 +345,24 @@ export function useNews(params: {
     retry: retryTransientOnly,
   })
 }
+
+
+// ---------------------------------------------------------------------------
+// Compare & optimize
+// ---------------------------------------------------------------------------
+//
+// Mutations, not queries. Both are expensive, explicit "run this now" actions
+// with a request body — a grid search is hundreds of backtests. Modelling them
+// as queries would fire one on every parameter keystroke.
+
+export function useCompare() {
+  return useMutation({ mutationFn: api.compareStrategies })
+}
+
+export function useOptimizeStrategy() {
+  return useMutation({ mutationFn: api.optimizeStrategy })
+}
+
+export function useOptimizePortfolio() {
+  return useMutation({ mutationFn: api.optimizePortfolio })
+}

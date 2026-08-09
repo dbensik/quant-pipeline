@@ -49,6 +49,13 @@ export type BacktestInput = Pick<
 > &
   Partial<Omit<BacktestRequest, 'symbol' | 'strategy_id' | 'start' | 'end'>>
 export type WatchlistOut = components['schemas']['WatchlistOut']
+export type CompareRequest = components['schemas']['CompareRequest']
+export type CompareResponse = components['schemas']['CompareResponse']
+export type ComparisonRow = components['schemas']['ComparisonRow']
+export type StrategyOptimizeRequest = components['schemas']['StrategyOptimizeRequest']
+export type StrategyOptimizeResponse = components['schemas']['StrategyOptimizeResponse']
+export type PortfolioOptimizeRequest = components['schemas']['PortfolioOptimizeRequest']
+export type PortfolioOptimizeResponse = components['schemas']['PortfolioOptimizeResponse']
 export type Profile = components['schemas']['Profile']
 export type Financials = components['schemas']['Financials']
 export type NewsFeed = components['schemas']['NewsFeed']
@@ -303,6 +310,52 @@ export const api = {
       `/api/v1/portfolios/${encodeURIComponent(name)}/trades/${encodeURIComponent(tradeId)}`,
       { method: 'DELETE' },
     )
+  },
+
+  // -- compare & optimize --------------------------------------------------
+
+  compareStrategies(body: {
+    symbol: string
+    start: string
+    end: string
+    strategies: { strategy_id: string; params?: Record<string, unknown>; grid?: Record<string, unknown[]> }[]
+    benchmark_symbol?: string | null
+    optimize?: boolean
+    metric?: string
+    include_equity_curves?: boolean
+  }): Promise<CompareResponse> {
+    return request('/api/v1/backtest/compare', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  },
+
+  optimizeStrategy(body: {
+    symbol: string
+    strategy_id: string
+    start: string
+    end: string
+    grid: Record<string, unknown[] | { min: number; max: number; step?: number }>
+    metric?: string
+    top_n?: number
+  }): Promise<StrategyOptimizeResponse> {
+    return request('/api/v1/optimize/strategy', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  },
+
+  optimizePortfolio(body: {
+    symbols: string[]
+    start: string
+    end: string
+    num_portfolios?: number
+    include_frontier?: boolean
+  }): Promise<PortfolioOptimizeResponse> {
+    return request('/api/v1/optimize/portfolio', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
   },
 
   // -- research (the only network-touching endpoints) ----------------------
