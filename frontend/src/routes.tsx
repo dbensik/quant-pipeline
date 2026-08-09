@@ -8,10 +8,11 @@
  */
 
 import type { ComponentType } from 'react'
-import { Briefcase, LineChart, Star } from 'lucide-react'
+import { Briefcase, LineChart, Newspaper, Star } from 'lucide-react'
 
 import { DashboardPage } from '@/pages/DashboardPage'
 import { PortfoliosPage } from '@/pages/PortfoliosPage'
+import { ResearchPage } from '@/pages/ResearchPage'
 import { WatchlistsPage } from '@/pages/WatchlistsPage'
 
 export interface RouteDef {
@@ -37,6 +38,13 @@ export const routes: RouteDef[] = [
     icon: Briefcase,
     element: PortfoliosPage,
     blurb: 'Trade log, derived positions and P&L, rebalancing previews.',
+  },
+  {
+    path: '/research',
+    label: 'Research',
+    icon: Newspaper,
+    element: ResearchPage,
+    blurb: 'Company profile, financial statements and news.',
   },
   {
     path: '/watchlists',

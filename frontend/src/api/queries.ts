@@ -43,6 +43,10 @@ export const queryKeys = {
   portfolio: (name: string, withPrices: boolean) =>
     ['portfolio', name, { withPrices }] as const,
   trades: (name: string) => ['trades', name] as const,
+  profile: (symbol: string) => ['profile', symbol] as const,
+  financials: (symbol: string, quarterly: boolean) =>
+    ['financials', symbol, { quarterly }] as const,
+  news: (source: Record<string, unknown>) => ['news', source] as const,
 }
 
 /**
@@ -52,6 +56,19 @@ export const queryKeys = {
  */
 function retryUnlessNotFound(failureCount: number, error: unknown): boolean {
   if (error instanceof ApiError && error.isNotFound) return false
+  return failureCount < 2
+}
+
+/**
+ * For the research endpoints. Like retryUnlessNotFound, but 503 is also
+ * terminal: it means the upstream provider failed, the server has ALREADY
+ * attempted the call, and it caches the outcome — so retrying twice only adds
+ * seconds before the user sees the same message.
+ */
+function retryTransientOnly(failureCount: number, error: unknown): boolean {
+  if (error instanceof ApiError && (error.isNotFound || error.status === 503)) {
+    return false
+  }
   return failureCount < 2
 }
 
@@ -280,5 +297,51 @@ export function useRebalancePreview() {
       name: string
       targetWeights: Record<string, number>
     }) => api.previewRebalance(name, { target_weights: targetWeights }),
+  })
+}
+
+
+// ---------------------------------------------------------------------------
+// Research
+// ---------------------------------------------------------------------------
+//
+// These are the only endpoints that reach the network (yfinance). The server
+// caches them — 3600s profile/financials, 600s news — so the client's
+// staleTime mirrors those rather than refetching into a warm server cache.
+//
+// A 503 means the upstream provider failed, not that the symbol is wrong;
+// retrying once is reasonable, but a 404-style "no such thing" is not.
+
+export function useProfile(symbol: string | null) {
+  return useQuery({
+    queryKey: queryKeys.profile(symbol ?? ''),
+    queryFn: () => api.getProfile(symbol as string),
+    enabled: Boolean(symbol),
+    staleTime: 60 * 60_000,
+    retry: retryTransientOnly,
+  })
+}
+
+export function useFinancials(symbol: string | null, quarterly: boolean) {
+  return useQuery({
+    queryKey: queryKeys.financials(symbol ?? '', quarterly),
+    queryFn: () => api.getFinancials(symbol as string, { quarterly }),
+    enabled: Boolean(symbol),
+    staleTime: 60 * 60_000,
+    retry: retryTransientOnly,
+  })
+}
+
+export function useNews(params: {
+  symbols?: string[]
+  portfolio?: string
+  watchlist?: string
+  limit?: number
+}) {
+  return useQuery({
+    queryKey: queryKeys.news(params as Record<string, unknown>),
+    queryFn: () => api.getNews(params),
+    staleTime: 10 * 60_000,
+    retry: retryTransientOnly,
   })
 }

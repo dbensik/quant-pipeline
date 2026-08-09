@@ -49,6 +49,11 @@ export type BacktestInput = Pick<
 > &
   Partial<Omit<BacktestRequest, 'symbol' | 'strategy_id' | 'start' | 'end'>>
 export type WatchlistOut = components['schemas']['WatchlistOut']
+export type Profile = components['schemas']['Profile']
+export type Financials = components['schemas']['Financials']
+export type NewsFeed = components['schemas']['NewsFeed']
+export type NewsItem = components['schemas']['NewsItem']
+export type StatementLine = components['schemas']['StatementLine']
 export type PortfolioSummary = components['schemas']['PortfolioSummary']
 export type PortfolioStateOut = components['schemas']['PortfolioStateOut']
 export type PositionOut = components['schemas']['PositionOut']
@@ -298,6 +303,40 @@ export const api = {
       `/api/v1/portfolios/${encodeURIComponent(name)}/trades/${encodeURIComponent(tradeId)}`,
       { method: 'DELETE' },
     )
+  },
+
+  // -- research (the only network-touching endpoints) ----------------------
+
+  getProfile(symbol: string): Promise<Profile> {
+    return request(`/api/v1/research/${encodeURIComponent(symbol)}/profile`)
+  },
+
+  getFinancials(
+    symbol: string,
+    params: { quarterly?: boolean } = {},
+  ): Promise<Financials> {
+    return request(
+      `/api/v1/research/${encodeURIComponent(symbol)}/financials${qs(params)}`,
+    )
+  },
+
+  /**
+   * Sources are mutually exclusive and resolved server-side in order:
+   * explicit symbols, then portfolio, then watchlist, then market proxies.
+   */
+  getNews(params: {
+    symbols?: string[]
+    portfolio?: string
+    watchlist?: string
+    limit?: number
+  } = {}): Promise<NewsFeed> {
+    const search = new URLSearchParams()
+    for (const symbol of params.symbols ?? []) search.append('symbols', symbol)
+    if (params.portfolio) search.set('portfolio', params.portfolio)
+    if (params.watchlist) search.set('watchlist', params.watchlist)
+    if (params.limit) search.set('limit', String(params.limit))
+    const query = search.toString()
+    return request(`/api/v1/research/news${query ? `?${query}` : ''}`)
   },
 
   /** A PREVIEW — it returns orders, it does not record them. */
