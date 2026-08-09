@@ -21,28 +21,66 @@ class StatisticalAnalyzer:
         if price_series.empty:
             return {"error": "Input series is empty."}
 
-        # The ADF test is performed on returns, which are more likely to be stationary
-        returns = price_series.pct_change().dropna()
-        if len(returns) < 20:  # Need a minimum number of observations
+        series = price_series.dropna()
+        if len(series) < 21:  # need enough for both the level and diff tests
             return {"error": "Not enough data points to perform ADF test."}
 
-        adf_result = adfuller(returns)
+        # BUG FIX (2026-08-09): this used to run
+        #     adfuller(price_series.pct_change().dropna())
+        # — silently differencing the input before testing it, with the comment
+        # "returns are more likely to be stationary". They are: almost always.
+        # So the test reported "likely stationary" for EVERY input and could
+        # never answer the question it was named for. Verified against a random
+        # walk (non-stationary by construction): it returned p = 0.0000,
+        # "stationary", where the correct test on levels gives p = 0.7052.
+        #
+        # It now tests the series it is given, AND the first difference, which
+        # together give the integration order. That order is the thing the
+        # cointegration tests actually need: Engle-Granger and Johansen assume
+        # I(1) inputs, and the previous version could not establish that.
+        level = adfuller(series)
+        diff = adfuller(series.diff().dropna())
 
-        p_value = adf_result[1]
-        is_stationary = p_value < 0.05
-        interpretation = (
-            f"The p-value is {p_value:.4f}. "
-            f"The series is likely {'stationary' if is_stationary else 'non-stationary'}."
-        )
+        # bool(), not the bare comparison: adfuller returns numpy scalars, so
+        # `level[1] < 0.05` is np.bool_ — which is not JSON-native and is not
+        # identical to Python's True/False, so it fails both `is True` checks
+        # and strict serialisers.
+        level_stationary = bool(level[1] < 0.05)
+        diff_stationary = bool(diff[1] < 0.05)
+
+        if level_stationary:
+            order, reading = "I(0)", "stationary in levels"
+        elif diff_stationary:
+            order, reading = (
+                "I(1)",
+                "non-stationary in levels but stationary in first differences — "
+                "the usual case for prices, and the assumption cointegration "
+                "tests require",
+            )
+        else:
+            order, reading = (
+                "I(2) or higher",
+                "non-stationary even after differencing once; cointegration "
+                "tests are not valid on this series",
+            )
 
         return {
-            "Test Statistic": adf_result[0],
-            "p-value": p_value,
-            "Lags Used": adf_result[2],
-            "Number of Observations": adf_result[3],
-            "Critical Values": adf_result[4],
-            "is_stationary": is_stationary,
-            "interpretation": interpretation,
+            # Level test — the answer to "is this series stationary?"
+            "Test Statistic": float(level[0]),
+            "p-value": float(level[1]),
+            "Lags Used": int(level[2]),
+            "Number of Observations": int(level[3]),
+            "Critical Values": level[4],
+            "is_stationary": level_stationary,
+            # Difference test — needed to establish the integration order.
+            "Diff Test Statistic": float(diff[0]),
+            "Diff p-value": float(diff[1]),
+            "diff_is_stationary": diff_stationary,
+            "integration_order": order,
+            "interpretation": (
+                f"Levels p-value {level[1]:.4f}, first-difference p-value "
+                f"{diff[1]:.4f}. The series is {order} — {reading}."
+            ),
         }
 
     def run_ols_regression(
