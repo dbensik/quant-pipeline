@@ -16,9 +16,14 @@ python -m cli.run_pipeline     # data pipeline only
 
 ```bash
 python -m pytest tests/        # needs NO Docker — keep it that way
-python -m pytest -m integration  # +9 tests, needs TimescaleDB running
+python -m pytest -m integration  # +19 tests, needs TimescaleDB running
 ./run_pipeline.sh verify       # verify 3-layer architecture integrity
 ```
+
+Integration tests that drive the async engine directly must mark
+`loop_scope="session"`. `db/session.py` builds one module-level engine and its
+pooled asyncpg connections bind to the first event loop, so pytest-asyncio's
+default per-test loop fails in teardown with "Event loop is closed".
 
 `tests/api/` covers every router without a database, via the repository
 Protocol (`db/repositories/market_data.py` documents this as its purpose).
@@ -69,6 +74,9 @@ For the TimescaleDB layer, copy `.env.example` → `.env`; without it, `db/sessi
 - `dashboard_app/` — Streamlit UI; `controllers/` hold business logic; `ui_components/` hold rendering
 - `ml_models/` — EDA, model training (scikit-learn), signal generation
 - `services/` — 3-layer architecture: gRPC signal service → GraphQL gateway → Ed25519/SHA256 crypto audit log (`audit_log.json`)
+- `core/portfolio.py` — portfolio accounting; the trade log is the only stored
+  state and cash/positions/P&L are derived from it (`db/models.py` has no
+  `cash` or `positions` column, deliberately)
 - `config/settings.py` — Centralized settings
 
 ## Invariants
