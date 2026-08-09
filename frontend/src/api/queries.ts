@@ -366,3 +366,40 @@ export function useOptimizeStrategy() {
 export function useOptimizePortfolio() {
   return useMutation({ mutationFn: api.optimizePortfolio })
 }
+
+
+// ---------------------------------------------------------------------------
+// Screeners & statistics
+// ---------------------------------------------------------------------------
+
+export function useScreeners() {
+  return useQuery({
+    queryKey: ['screeners'],
+    queryFn: api.listScreeners,
+    staleTime: 60 * 60_000,
+  })
+}
+
+export function useRunScreen() {
+  return useMutation({ mutationFn: api.runScreen })
+}
+
+export function useStatisticsCatalogue() {
+  return useQuery({
+    queryKey: ['statistics-catalogue'],
+    queryFn: api.listStatistics,
+    staleTime: 60 * 60_000,
+  })
+}
+
+export function useRunStatistic() {
+  return useMutation({
+    mutationFn: ({
+      testId,
+      body,
+    }: {
+      testId: string
+      body: { symbols: string[]; start: string; end: string; params?: Record<string, unknown> }
+    }) => api.runStatistic(testId, body),
+  })
+}

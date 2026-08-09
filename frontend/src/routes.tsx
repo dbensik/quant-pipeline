@@ -11,8 +11,10 @@ import type { ComponentType } from 'react'
 import {
   BarChart3,
   Briefcase,
+  Filter,
   LineChart,
   Newspaper,
+  Sigma,
   SlidersHorizontal,
   Star,
 } from 'lucide-react'
@@ -20,6 +22,8 @@ import {
 import { ComparePage } from '@/pages/ComparePage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { OptimizePage } from '@/pages/OptimizePage'
+import { ScreenersPage } from '@/pages/ScreenersPage'
+import { StatisticsPage } from '@/pages/StatisticsPage'
 import { PortfoliosPage } from '@/pages/PortfoliosPage'
 import { ResearchPage } from '@/pages/ResearchPage'
 import { WatchlistsPage } from '@/pages/WatchlistsPage'
@@ -54,6 +58,20 @@ export const routes: RouteDef[] = [
     icon: SlidersHorizontal,
     element: OptimizePage,
     blurb: 'Grid-search strategy parameters, or Monte Carlo portfolio weights.',
+  },
+  {
+    path: '/screeners',
+    label: 'Screeners',
+    icon: Filter,
+    element: ScreenersPage,
+    blurb: 'Filter the universe by momentum, volatility or fundamentals.',
+  },
+  {
+    path: '/statistics',
+    label: 'Statistics',
+    icon: Sigma,
+    element: StatisticsPage,
+    blurb: 'Stationarity, cointegration, alpha/beta and PCA.',
   },
   {
     path: '/portfolios',

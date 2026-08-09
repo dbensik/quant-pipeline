@@ -49,6 +49,13 @@ export type BacktestInput = Pick<
 > &
   Partial<Omit<BacktestRequest, 'symbol' | 'strategy_id' | 'start' | 'end'>>
 export type WatchlistOut = components['schemas']['WatchlistOut']
+export type ScreenerSchema = components['schemas']['ScreenerSchema']
+export type ScreenerListResponse = components['schemas']['ScreenerListResponse']
+export type ScreenResponse = components['schemas']['ScreenResponse']
+export type ScreenerStepResult = components['schemas']['ScreenerStepResult']
+export type TestSchema = components['schemas']['TestSchema']
+export type TestListResponse = components['schemas']['TestListResponse']
+export type StatisticsResponse = components['schemas']['StatisticsResponse']
 export type CompareRequest = components['schemas']['CompareRequest']
 export type CompareResponse = components['schemas']['CompareResponse']
 export type ComparisonRow = components['schemas']['ComparisonRow']
@@ -310,6 +317,43 @@ export const api = {
       `/api/v1/portfolios/${encodeURIComponent(name)}/trades/${encodeURIComponent(tradeId)}`,
       { method: 'DELETE' },
     )
+  },
+
+  // -- screeners & statistics ----------------------------------------------
+
+  listScreeners(): Promise<ScreenerListResponse> {
+    return request('/api/v1/screeners')
+  },
+
+  runScreen(body: {
+    symbols: string[]
+    start: string
+    end: string
+    screeners: { screener_id: string; params?: Record<string, unknown> }[]
+  }): Promise<ScreenResponse> {
+    return request('/api/v1/screeners/run', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  },
+
+  listStatistics(): Promise<TestListResponse> {
+    return request('/api/v1/statistics')
+  },
+
+  runStatistic(
+    testId: string,
+    body: {
+      symbols: string[]
+      start: string
+      end: string
+      params?: Record<string, unknown>
+    },
+  ): Promise<StatisticsResponse> {
+    return request(`/api/v1/statistics/${encodeURIComponent(testId)}`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
   },
 
   // -- compare & optimize --------------------------------------------------
