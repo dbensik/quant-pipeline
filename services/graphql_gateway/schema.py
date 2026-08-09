@@ -10,7 +10,7 @@ from services.proto import signals_pb2
 from services.proto import signals_pb2_grpc
 
 # Import legacy components
-from dashboard_app.results_manager import ResultsManager
+from core.persistence.results_manager import ResultsManager
 from services.utils import DataSerializer
 from services.config import ServiceConfig
 

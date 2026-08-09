@@ -2,9 +2,9 @@ import pandas as pd
 import streamlit as st
 
 from dashboard_app.config_manager import ConfigManager
-from dashboard_app.database_manager import DatabaseManager
+from core.persistence.database_manager import DatabaseManager
 from services.execution_service.portfolio_manager import PortfolioManager
-from dashboard_app.results_manager import ResultsManager
+from core.persistence.results_manager import ResultsManager
 from dashboard_app.watchlist_manager import WatchlistManager
 from screeners.low_volatility_screener import LowVolatilityScreener
 from screeners.momentum_screener import MomentumScreener

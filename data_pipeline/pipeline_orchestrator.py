@@ -3,7 +3,7 @@ import sqlite3
 from datetime import datetime
 
 from config.settings import DEFAULT_START_DATE
-from dashboard_app.database_manager import DatabaseManager
+from core.persistence.database_manager import DatabaseManager
 from data_pipeline.crypto_pipeline import CryptoPipeline
 from data_pipeline.equity_pipeline import EquityPipeline
 from data_pipeline.fundamental_pipeline import FundamentalPipeline

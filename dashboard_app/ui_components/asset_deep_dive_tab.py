@@ -4,7 +4,7 @@ import streamlit as st
 import yfinance as yf
 from plotly.subplots import make_subplots
 
-from dashboard_app.database_manager import DatabaseManager
+from core.persistence.database_manager import DatabaseManager
 
 
 class AssetDeepDiveTab:
