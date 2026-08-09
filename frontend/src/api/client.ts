@@ -49,6 +49,12 @@ export type BacktestInput = Pick<
 > &
   Partial<Omit<BacktestRequest, 'symbol' | 'strategy_id' | 'start' | 'end'>>
 export type WatchlistOut = components['schemas']['WatchlistOut']
+export type IngestResponse = components['schemas']['IngestResponse']
+export type IngestStatus = components['schemas']['IngestStatus']
+export type SymbolResult = components['schemas']['SymbolResult']
+export type AssetOut = components['schemas']['AssetOut']
+export type UniverseResponse = components['schemas']['UniverseResponse']
+export type ResultSummary = components['schemas']['ResultSummary']
 export type ScreenerSchema = components['schemas']['ScreenerSchema']
 export type ScreenerListResponse = components['schemas']['ScreenerListResponse']
 export type ScreenResponse = components['schemas']['ScreenResponse']
@@ -317,6 +323,57 @@ export const api = {
       `/api/v1/portfolios/${encodeURIComponent(name)}/trades/${encodeURIComponent(tradeId)}`,
       { method: 'DELETE' },
     )
+  },
+
+  // -- ingest & results ----------------------------------------------------
+
+  ingestStatus(): Promise<IngestStatus> {
+    return request('/api/v1/ingest/status')
+  },
+
+  runIngest(body: {
+    symbols?: string[] | null
+    full_backfill?: boolean
+  } = {}): Promise<IngestResponse> {
+    return request('/api/v1/ingest', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  },
+
+  addAsset(body: {
+    symbol: string
+    asset_class?: string
+  }): Promise<AssetOut> {
+    return request('/api/v1/ingest/assets', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  },
+
+  getUniverse(source: string): Promise<UniverseResponse> {
+    return request(`/api/v1/ingest/universe${qs({ source })}`)
+  },
+
+  listResults(): Promise<ResultSummary[]> {
+    return request('/api/v1/results')
+  },
+
+  loadResult(name: string): Promise<unknown> {
+    return request(`/api/v1/results/${encodeURIComponent(name)}`)
+  },
+
+  saveResult(name: string, payload: unknown): Promise<{ name: string; saved: boolean }> {
+    return request('/api/v1/results', {
+      method: 'POST',
+      body: JSON.stringify({ name, payload }),
+    })
+  },
+
+  deleteResult(name: string): Promise<void> {
+    return requestNoContent(`/api/v1/results/${encodeURIComponent(name)}`, {
+      method: 'DELETE',
+    })
   },
 
   // -- screeners & statistics ----------------------------------------------

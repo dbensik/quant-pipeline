@@ -403,3 +403,76 @@ export function useRunStatistic() {
     }) => api.runStatistic(testId, body),
   })
 }
+
+
+// ---------------------------------------------------------------------------
+// Ingest & results
+// ---------------------------------------------------------------------------
+
+export function useIngestStatus(enabled: boolean) {
+  return useQuery({
+    queryKey: ['ingest-status'],
+    queryFn: api.ingestStatus,
+    // Polled only while a run is in flight. A permanent 2s poll would keep the
+    // API busy for a page nobody is watching.
+    refetchInterval: enabled ? 2_000 : false,
+    enabled,
+  })
+}
+
+export function useRunIngest() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: api.runIngest,
+    onSuccess: () => {
+      // New bars change every price-derived view, so the OHLCV and asset
+      // caches are stale the moment this returns.
+      void queryClient.invalidateQueries({ queryKey: ['ohlcv'] })
+      void queryClient.invalidateQueries({ queryKey: ['assets'] })
+      void queryClient.invalidateQueries({ queryKey: ['ingest-status'] })
+    },
+  })
+}
+
+export function useAddAsset() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: api.addAsset,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['assets'] })
+    },
+  })
+}
+
+export function useUniverse(source: string | null) {
+  return useQuery({
+    queryKey: ['universe', source],
+    queryFn: () => api.getUniverse(source as string),
+    enabled: Boolean(source),
+    staleTime: 24 * 60 * 60_000,
+    retry: false,
+  })
+}
+
+export function useResults() {
+  return useQuery({ queryKey: ['results'], queryFn: api.listResults })
+}
+
+export function useResult(name: string | null) {
+  return useQuery({
+    queryKey: ['result', name],
+    queryFn: () => api.loadResult(name as string),
+    enabled: Boolean(name),
+    retry: retryUnlessNotFound,
+  })
+}
+
+export function useDeleteResult() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (name: string) => api.deleteResult(name),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['results'] })
+    },
+  })
+}

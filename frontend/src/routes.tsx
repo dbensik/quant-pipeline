@@ -11,21 +11,25 @@ import type { ComponentType } from 'react'
 import {
   BarChart3,
   Briefcase,
+  Database,
   Filter,
   LineChart,
   Newspaper,
+  Save,
   Sigma,
   SlidersHorizontal,
   Star,
 } from 'lucide-react'
 
 import { ComparePage } from '@/pages/ComparePage'
+import { DataPage } from '@/pages/DataPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { OptimizePage } from '@/pages/OptimizePage'
 import { ScreenersPage } from '@/pages/ScreenersPage'
 import { StatisticsPage } from '@/pages/StatisticsPage'
 import { PortfoliosPage } from '@/pages/PortfoliosPage'
 import { ResearchPage } from '@/pages/ResearchPage'
+import { ResultsPage } from '@/pages/ResultsPage'
 import { WatchlistsPage } from '@/pages/WatchlistsPage'
 
 export interface RouteDef {
@@ -93,5 +97,19 @@ export const routes: RouteDef[] = [
     icon: Star,
     element: WatchlistsPage,
     blurb: 'Named lists of tickers.',
+  },
+  {
+    path: '/data',
+    label: 'Data',
+    icon: Database,
+    element: DataPage,
+    blurb: 'Ingest price bars, register tickers, browse index constituents.',
+  },
+  {
+    path: '/results',
+    label: 'Results',
+    icon: Save,
+    element: ResultsPage,
+    blurb: 'Saved analysis results.',
   },
 ]
