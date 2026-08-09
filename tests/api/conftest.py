@@ -36,6 +36,7 @@ from api.dependencies import (
     get_portfolio_repo,
     get_watchlist_repo,
 )
+from api.upstream import YFinanceGateway, get_upstream
 from api.main import app
 from core.models import OHLCV, Asset, MarketDataRecord, Timestamp
 from core.portfolio import Portfolio, Trade
@@ -317,6 +318,98 @@ class FakeWatchlistRepo:
         return sorted(k for k, v in self._lists.items() if upper in v.symbols)
 
 
+class StubTicker:
+    """Stands in for yfinance.Ticker. No network."""
+
+    NEWS = {
+        "AAPL": [
+            {
+                "id": "n1",
+                "content": {
+                    "id": "n1",
+                    "title": "Apple ships something",
+                    "summary": "Summary one.",
+                    "pubDate": "2026-08-09T16:00:00Z",
+                    "provider": {"displayName": "Reuters"},
+                    "canonicalUrl": {"url": "https://example.com/a1"},
+                },
+            },
+            {
+                "id": "shared",
+                "content": {
+                    "id": "shared",
+                    "title": "Tech selloff",
+                    "pubDate": "2026-08-08T10:00:00Z",
+                    "provider": {"displayName": "Bloomberg"},
+                    "canonicalUrl": {"url": "https://example.com/shared"},
+                },
+            },
+        ],
+        "MSFT": [
+            {
+                "id": "shared",
+                "content": {
+                    "id": "shared",
+                    "title": "Tech selloff",
+                    "pubDate": "2026-08-08T10:00:00Z",
+                    "provider": {"displayName": "Bloomberg"},
+                    "canonicalUrl": {"url": "https://example.com/shared"},
+                },
+            },
+        ],
+    }
+
+    def __init__(self, symbol: str) -> None:
+        self.symbol = symbol
+
+    @property
+    def news(self):
+        if self.symbol == "BROKEN":
+            raise RuntimeError("upstream down")
+        return self.NEWS.get(self.symbol, [])
+
+    @property
+    def info(self):
+        if self.symbol == "BROKEN":
+            raise RuntimeError("upstream down")
+        if self.symbol == "NOSUCH":
+            return {}
+        return {
+            "symbol": self.symbol,
+            "longName": f"{self.symbol} Inc.",
+            "sector": "Information Technology",
+            "industry": "Consumer Electronics",
+            "marketCap": 3.2e12,
+            "longBusinessSummary": "Designs and sells things.",
+        }
+
+    def _frame(self):
+        import pandas as pd
+
+        return pd.DataFrame(
+            {pd.Timestamp("2025-12-31"): [100.0, 25.0]},
+            index=["Total Revenue", "Net Income"],
+        )
+
+    financials = property(lambda self: self._frame())
+    balance_sheet = property(lambda self: self._frame())
+    cashflow = property(lambda self: self._frame())
+    quarterly_financials = property(lambda self: self._frame())
+    quarterly_balance_sheet = property(lambda self: self._frame())
+    quarterly_cashflow = property(lambda self: self._frame())
+
+
+class StubGateway(YFinanceGateway):
+    """
+    The real gateway with only its network seam replaced, so caching,
+    de-duplication, ordering and normalisation are genuinely exercised while
+    `pytest tests/` stays offline.
+    """
+
+    def _ticker(self, symbol: str) -> StubTicker:
+        return StubTicker(symbol)
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -337,15 +430,22 @@ def watchlist_repo() -> "FakeWatchlistRepo":
 
 
 @pytest.fixture
+def upstream() -> "StubGateway":
+    return StubGateway()
+
+
+@pytest.fixture
 def client(
     repo: FakeRepo,
     portfolio_repo: "FakePortfolioRepo",
     watchlist_repo: "FakeWatchlistRepo",
+    upstream: "StubGateway",
 ) -> TestClient:
     """TestClient with both repositories replaced by in-memory fakes."""
     app.dependency_overrides[get_market_data_repo] = lambda: repo
     app.dependency_overrides[get_portfolio_repo] = lambda: portfolio_repo
     app.dependency_overrides[get_watchlist_repo] = lambda: watchlist_repo
+    app.dependency_overrides[get_upstream] = lambda: upstream
     try:
         yield TestClient(app)
     finally:

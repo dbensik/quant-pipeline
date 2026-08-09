@@ -459,6 +459,61 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/research/{symbol}/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Company profile */
+        get: operations["get_profile_api_v1_research__symbol__profile_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/research/{symbol}/financials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Income statement, balance sheet and cash flow */
+        get: operations["get_financials_api_v1_research__symbol__financials_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/research/news": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * News for the market, a portfolio, a watchlist, or given tickers
+         * @description Sources are mutually exclusive and resolved in order: explicit `symbols`,
+         *     then `portfolio`, then `watchlist`, then market proxies.
+         */
+        get: operations["get_news_api_v1_research_news_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health/live": {
         parameters: {
             query?: never;
@@ -723,10 +778,60 @@ export interface components {
             /** Signal */
             signal: number;
         };
+        /** Financials */
+        Financials: {
+            /** Symbol */
+            symbol: string;
+            /** Quarterly */
+            quarterly: boolean;
+            /** Income Statement */
+            income_statement: components["schemas"]["StatementLine"][];
+            /** Balance Sheet */
+            balance_sheet: components["schemas"]["StatementLine"][];
+            /** Cash Flow */
+            cash_flow: components["schemas"]["StatementLine"][];
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** NewsFeed */
+        NewsFeed: {
+            /**
+             * Symbols
+             * @description Tickers the feed was built from
+             */
+            symbols: string[];
+            /**
+             * Source
+             * @description market | portfolio:<name> | watchlist:<name> | symbols
+             */
+            source: string;
+            /** Items */
+            items: components["schemas"]["NewsItem"][];
+            /**
+             * Truncated Symbols
+             * @description Tickers dropped by the per-request cap. Reported rather than silently trimmed, so a long watchlist does not look fully covered.
+             */
+            truncated_symbols?: string[];
+        };
+        /** NewsItem */
+        NewsItem: {
+            /** Id */
+            id: string;
+            /** Symbol */
+            symbol: string;
+            /** Title */
+            title: string;
+            /** Url */
+            url?: string | null;
+            /** Publisher */
+            publisher?: string | null;
+            /** Summary */
+            summary?: string | null;
+            /** Published At */
+            published_at?: string | null;
         };
         /**
          * OHLCVBar
@@ -1065,6 +1170,37 @@ export interface components {
             /** Unrealised Pnl */
             unrealised_pnl?: number | null;
         };
+        /** Profile */
+        Profile: {
+            /** Symbol */
+            symbol: string;
+            /** Long Name */
+            long_name?: string | null;
+            /** Short Name */
+            short_name?: string | null;
+            /** Sector */
+            sector?: string | null;
+            /** Industry */
+            industry?: string | null;
+            /** Full Time Employees */
+            full_time_employees?: number | null;
+            /** Business Summary */
+            business_summary?: string | null;
+            /** Market Cap */
+            market_cap?: number | null;
+            /** Trailing Pe */
+            trailing_pe?: number | null;
+            /** Forward Pe */
+            forward_pe?: number | null;
+            /** Dividend Yield */
+            dividend_yield?: number | null;
+            /** Website */
+            website?: string | null;
+            /** Country */
+            country?: string | null;
+            /** Currency */
+            currency?: string | null;
+        };
         /**
          * RangeSpec
          * @description An inclusive numeric sweep. `{"min": 10, "max": 30, "step": 5}`.
@@ -1287,6 +1423,18 @@ export interface components {
             };
             /** Reason */
             reason: string;
+        };
+        /** StatementLine */
+        StatementLine: {
+            /** Line Item */
+            line_item: string;
+            /**
+             * Values
+             * @description Period end date (ISO) to value
+             */
+            values: {
+                [key: string]: number | null;
+            };
         };
         /** StatisticsRequest */
         StatisticsRequest: {
@@ -2633,6 +2781,136 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+        };
+    };
+    get_profile_api_v1_research__symbol__profile_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                symbol: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Profile"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Upstream provider unavailable or unknown symbol */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_financials_api_v1_research__symbol__financials_get: {
+        parameters: {
+            query?: {
+                /** @description Quarterly instead of annual */
+                quarterly?: boolean;
+            };
+            header?: never;
+            path: {
+                symbol: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Financials"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Upstream provider unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_news_api_v1_research_news_get: {
+        parameters: {
+            query?: {
+                /** @description Explicit tickers */
+                symbols?: string[] | null;
+                /** @description Open positions of this portfolio */
+                portfolio?: string | null;
+                /** @description Members of this watchlist */
+                watchlist?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NewsFeed"];
+                };
+            };
+            /** @description Unknown portfolio or watchlist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Upstream provider unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
