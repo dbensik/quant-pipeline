@@ -27,6 +27,7 @@ from api.routers import (
     portfolio_backtest,
     portfolios,
     research,
+    results,
     screeners,
     signals,
     statistics,
@@ -109,6 +110,7 @@ app.include_router(signals.router)
 app.include_router(watchlists.router)
 app.include_router(research.router)
 app.include_router(ingest.router)
+app.include_router(results.router)
 app.include_router(ws.router)
 
 

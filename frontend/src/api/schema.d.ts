@@ -615,6 +615,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List saved results */
+        get: operations["list_results_api_v1_results_get"];
+        put?: never;
+        /**
+         * Save a result
+         * @description Saving over an existing name replaces it — the Streamlit form did too.
+         */
+        post: operations["save_result_api_v1_results_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/results/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Load a saved result
+         * @description Returns the payload as stored. DataFrames come back in pandas'
+         *     `orient="split"` layout, which is what api_client's `_deserialize_data`
+         *     already reconstructs.
+         */
+        get: operations["load_result_api_v1_results__name__get"];
+        put?: never;
+        post?: never;
+        /** Delete a saved result */
+        delete: operations["delete_result_api_v1_results__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health/live": {
         parameters: {
             query?: never;
@@ -1565,6 +1609,41 @@ export interface components {
              * @default 10
              */
             minimum_order_value: number;
+        };
+        /** ResultSummary */
+        ResultSummary: {
+            /** Name */
+            name: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /**
+             * Modified At
+             * Format: date-time
+             */
+            modified_at: string;
+        };
+        /** SaveResultRequest */
+        SaveResultRequest: {
+            /**
+             * Name
+             * @description Letters, digits, dot, dash, underscore
+             */
+            name: string;
+            /**
+             * Payload
+             * @description Any JSON-serialisable result
+             */
+            payload: unknown;
+        };
+        /** SaveResultResponse */
+        SaveResultResponse: {
+            /** Name */
+            name: string;
+            /**
+             * Saved
+             * @default true
+             */
+            saved: boolean;
         };
         /** SaveWatchlistRequest */
         SaveWatchlistRequest: {
@@ -3460,6 +3539,129 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    list_results_api_v1_results_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResultSummary"][];
+                };
+            };
+        };
+    };
+    save_result_api_v1_results_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveResultRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SaveResultResponse"];
+                };
+            };
+            /** @description Unusable or unsafe name */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    load_result_api_v1_results__name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description No such result */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unusable or unsafe name */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_result_api_v1_results__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such result */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
         };
     };
