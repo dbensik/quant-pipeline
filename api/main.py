@@ -21,6 +21,7 @@ from api.routers import (
     assets,
     backtest,
     ohlcv,
+    portfolio_backtest,
     screeners,
     signals,
     statistics,
@@ -94,6 +95,7 @@ app.include_router(strategies.router)
 app.include_router(screeners.router)
 app.include_router(statistics.router)
 app.include_router(backtest.router)
+app.include_router(portfolio_backtest.router)
 app.include_router(signals.router)
 app.include_router(ws.router)
 

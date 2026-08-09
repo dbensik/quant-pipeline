@@ -19,10 +19,19 @@ class PortfolioBacktester:
         execution_handler: SimulatedExecutionHandler = None,
         risk_manager: PortfolioRiskManager = None,
         enable_vol_targeting: bool = False,
-        target_volatility: float = 0.15
+        target_volatility: float = 0.15,
+        seed: int = None,
     ):
+        """
+        seed: passed to the default execution handler's slippage RNG. Without
+        it, identical portfolio backtests return different numbers — the same
+        defect fixed for the single-symbol Backtester, and the same
+        consequence: saved results cannot be reproduced and comparing two runs
+        partly compares random draws. Ignored when an explicit
+        execution_handler is supplied, since that handler owns its own RNG.
+        """
         self.initial_capital = initial_capital
-        self.execution_handler = execution_handler or SimulatedExecutionHandler()
+        self.execution_handler = execution_handler or SimulatedExecutionHandler(seed=seed)
         self.risk_manager = risk_manager or PortfolioRiskManager()
         self.enable_vol_targeting = enable_vol_targeting
         self.target_volatility = target_volatility

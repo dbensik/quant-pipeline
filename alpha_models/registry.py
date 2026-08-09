@@ -226,7 +226,15 @@ _SPECS: List[StrategySpec] = [
         cls=BasketTradingStrategy,
         description="Periodically rebalance an equally weighted basket.",
         params=[
-            ParamSpec("rebalance_frequency", "str", "M", "Rebalance frequency", "Pandas offset alias, e.g. M or Q"),
+            ParamSpec(
+                "rebalance_frequency", "str", "ME", "Rebalance frequency",
+                # 'ME'/'QE', not 'M'/'Q': pandas 2.2 deprecated the bare
+                # month/quarter aliases for resample and removes them in 3.0.
+                # They are pure renames — identical period counts — so this
+                # changes nothing except the FutureWarning it was emitting on
+                # every rebalance. 'W' is unaffected.
+                "Pandas offset alias: ME month-end, QE quarter-end, W weekly",
+            ),
         ],
         input_contract="multi",
     ),
@@ -236,7 +244,10 @@ _SPECS: List[StrategySpec] = [
         cls=IndexRebalancingStrategy,
         description="Trade around scheduled index rebalance dates.",
         params=[
-            ParamSpec("rebalance_frequency", "str", "M", "Rebalance frequency", "Pandas offset alias, e.g. M or Q"),
+            ParamSpec(
+                "rebalance_frequency", "str", "ME", "Rebalance frequency",
+                "Pandas offset alias: ME month-end, QE quarter-end, W weekly",
+            ),
         ],
         input_contract="multi",
     ),
