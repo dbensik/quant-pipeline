@@ -11,9 +11,14 @@ newest bar in TimescaleDB was 2025-07-15 while the button reported success.
 
 So this is not a port of that button. It is the missing write path: fetch
 through the existing adapters, which already return MarketDataRecord, and
-persist through the repository, whose write() is an idempotent upsert
-(ON CONFLICT DO NOTHING on the (time, asset_id) primary key) and therefore
-safe to re-run.
+persist through the repository.
+
+An incremental run upserts with ON CONFLICT DO NOTHING, so re-running it is
+idempotent and cheap. A `full_backfill` run passes replace=True instead,
+because it exists to RESTATE history: yfinance's auto_adjust re-adjusts the
+whole series for splits as of the fetch date, so a symbol that split after
+its bars were stored ends up with two segments adjusted to different as-of
+dates. DO NOTHING made that refresh a silent no-op.
 
 Pure of FastAPI so it can be tested directly and driven from a CLI later.
 
@@ -28,6 +33,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional, Protocol
 
+from core.corporate_actions import looks_delisted
 from core.models import Asset, MarketDataRecord, OHLCV, Timestamp
 
 logger = logging.getLogger(__name__)
@@ -64,6 +70,9 @@ class SymbolOutcome:
     error: Optional[str] = None
     first_bar: Optional[datetime] = None
     last_bar: Optional[datetime] = None
+    #: Set when an empty fetch plus a stale newest bar says "no longer trades"
+    #: rather than "already current" — the two were indistinguishable before.
+    delisted: bool = False
 
 
 @dataclass
@@ -80,6 +89,10 @@ class IngestReport:
     @property
     def failed(self) -> List[str]:
         return [o.symbol for o in self.outcomes if o.error]
+
+    @property
+    def delisted(self) -> List[str]:
+        return [o.symbol for o in self.outcomes if o.delisted]
 
 
 def is_empty_bar(ohlcv: OHLCV) -> bool:
@@ -160,12 +173,18 @@ async def ingest_symbols(
                     progress(index, total, symbol)
                 continue
 
+            newest_stored = await _newest_bar(repo, symbol)
+
             window_start = start
             if window_start is None:
                 window_start = (
                     DEFAULT_BACKFILL_START
                     if full_backfill
-                    else await _resume_point(repo, symbol)
+                    else (
+                        newest_stored + timedelta(days=1)
+                        if newest_stored
+                        else DEFAULT_BACKFILL_START
+                    )
                 )
 
             if window_start >= end:
@@ -189,10 +208,33 @@ async def ingest_symbols(
                     continue
                 usable.append(retag(record, asset.asset_class, asset.source))
 
+            # replace=full_backfill. An incremental run writes only new dates,
+            # so DO NOTHING is right and cheap. A full backfill exists to
+            # RESTATE history — yfinance re-adjusts the whole series for splits
+            # as of the fetch date — and DO NOTHING made that a silent no-op.
+            persisted = 0
             for start_index in range(0, len(usable), WRITE_BATCH):
-                await repo.write(usable[start_index : start_index + WRITE_BATCH])
+                persisted += await repo.write(
+                    usable[start_index : start_index + WRITE_BATCH],
+                    replace=full_backfill,
+                ) or 0
 
-            outcome.written = len(usable)
+            # Rows the DATABASE accepted, not rows submitted. The two differ
+            # whenever bars already exist, and reporting the latter made a
+            # no-op refresh look like 39,707 bars written.
+            outcome.written = persisted
+
+            # A full backfill has just restated the whole series, so record
+            # when — a split newer than this means the bars have drifted.
+            if full_backfill and usable and hasattr(repo, "mark_full_refresh"):
+                await repo.mark_full_refresh(symbol, datetime.now(timezone.utc))
+
+            # An empty fetch is ambiguous on its own: already current, or no
+            # longer trading. Judged together with how old the newest bar is.
+            if not raw and looks_delisted(newest_stored, len(raw)):
+                outcome.delisted = True
+                if hasattr(repo, "mark_delisted"):
+                    await repo.mark_delisted(symbol, datetime.now(timezone.utc))
             if usable:
                 stamps = [r.ohlcv.timestamp.utc for r in usable]
                 outcome.first_bar, outcome.last_bar = min(stamps), max(stamps)
@@ -208,13 +250,14 @@ async def ingest_symbols(
     return report
 
 
-async def _resume_point(repo: Any, symbol: str) -> datetime:
+async def _newest_bar(repo: Any, symbol: str) -> Optional[datetime]:
     """
-    The day after the newest stored bar, or DEFAULT_BACKFILL_START if none.
+    Timestamp of the newest stored bar, or None if there are none.
 
-    +1 day rather than the stored date itself: fetch_range is inclusive at
-    both ends, so re-requesting the last stored day would re-download a bar
-    the upsert then discards.
+    The resume point is this + 1 day: fetch_range is inclusive at both ends, so
+    re-requesting the last stored date would re-download a bar the upsert then
+    discards. It is also what decides whether an empty fetch means "current" or
+    "delisted".
     """
     records = await repo.fetch_range(
         symbol=symbol,
@@ -223,9 +266,8 @@ async def _resume_point(repo: Any, symbol: str) -> datetime:
         end=datetime.now(timezone.utc),
     )
     if not records:
-        return DEFAULT_BACKFILL_START
-    newest = max(r.ohlcv.timestamp.utc for r in records)
-    return newest + timedelta(days=1)
+        return None
+    return max(r.ohlcv.timestamp.utc for r in records)
 
 
 # ---------------------------------------------------------------------------

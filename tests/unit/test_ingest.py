@@ -51,6 +51,7 @@ class RecordingRepo:
         }
         self.existing = existing or {}
         self.written = []
+        self.replace_calls: list = []
 
     async def find_asset(self, symbol, asset_class=None):
         return self.assets.get(symbol)
@@ -58,8 +59,11 @@ class RecordingRepo:
     async def fetch_range(self, symbol, asset_class, start, end, source=None):
         return self.existing.get(symbol, [])
 
-    async def write(self, records):
+    async def write(self, records, replace: bool = False):
         self.written.extend(records)
+        self.replace_calls.append(replace)
+        # Mirrors the real repo: rows persisted, not rows submitted.
+        return len(records)
 
 
 def fetcher_for(records, calls=None):
@@ -290,3 +294,61 @@ def test_status_reports_progress():
 
 def test_status_is_idle_before_any_run():
     assert IngestJob().status()["running"] is False
+
+
+# ---------------------------------------------------------------------------
+# Re-adjustment (corporate actions)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_incremental_writes_do_not_overwrite():
+    """
+    A routine run only adds dates that are missing, so DO NOTHING is right and
+    keeps a re-run cheap.
+    """
+    repo = RecordingRepo()
+    await ingest_symbols(repo, ["AAPL"], fetcher=fetcher_for([bar("AAPL", 0)]))
+    assert repo.replace_calls == [False]
+
+
+@pytest.mark.asyncio
+async def test_full_backfill_asks_the_database_to_overwrite():
+    """
+    THE corporate-actions regression. yfinance's auto_adjust restates the whole
+    series for splits as of the FETCH DATE, so a symbol that splits after its
+    bars were stored ends up with two segments adjusted to different as-of
+    dates. Measured 2026-08-09: NFLX closed 1260.27 on 2025-07-15 and 125.03 on
+    2025-07-16 — a 10:1 split in November 2025 applied to the newer segment
+    only, which every strategy reads as a -90% day.
+
+    A full backfill is the fix, but it could not work while write() used ON
+    CONFLICT DO NOTHING: every corrected bar collided with an existing row and
+    was silently discarded. The re-fetch reported 39,707 bars written and
+    changed nothing.
+    """
+    repo = RecordingRepo(existing={"AAPL": [bar("AAPL", 0)]})
+    await ingest_symbols(
+        repo, ["AAPL"], full_backfill=True, fetcher=fetcher_for([bar("AAPL", 0)])
+    )
+    assert repo.replace_calls == [True]
+
+
+@pytest.mark.asyncio
+async def test_written_counts_rows_the_database_accepted():
+    """
+    Not rows submitted. The two differ whenever bars already exist, and
+    reporting the latter is what made a no-op refresh look successful.
+    """
+
+    class HalfRejecting(RecordingRepo):
+        async def write(self, records, replace: bool = False):
+            self.written.extend(records)
+            self.replace_calls.append(replace)
+            return len(records) // 2  # as if half collided
+
+    repo = HalfRejecting()
+    report = await ingest_symbols(
+        repo, ["AAPL"], fetcher=fetcher_for([bar("AAPL", i) for i in range(4)])
+    )
+    assert report.outcomes[0].fetched == 4
+    assert report.outcomes[0].written == 2

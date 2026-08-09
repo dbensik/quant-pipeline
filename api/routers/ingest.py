@@ -107,6 +107,34 @@ class AssetOut(BaseModel):
     created: bool = Field(description="False when it already existed")
 
 
+class DriftedSymbol(BaseModel):
+    symbol: str
+    last_full_refresh_at: Optional[datetime] = None
+    splits: List[Dict[str, Any]] = Field(
+        description="Splits newer than the last full refresh"
+    )
+    detail: str
+
+
+class DataHealthResponse(BaseModel):
+    checked: int
+    drifted: List[DriftedSymbol] = Field(
+        description=(
+            "Stored bars are adjusted to a stale as-of date. Fix with a full "
+            "backfill of these symbols."
+        )
+    )
+    delisted: List[str] = Field(
+        description="Marked as no longer trading by a previous ingest"
+    )
+    unrefreshed: List[str] = Field(
+        description=(
+            "Never restated by a full backfill, so their adjustment date is "
+            "unknown. Not necessarily wrong."
+        )
+    )
+
+
 class UniverseResponse(BaseModel):
     source: str
     symbols: List[str]
@@ -263,6 +291,81 @@ async def add_asset(
         asset_class=request.asset_class,
         source=request.source,
         created=True,
+    )
+
+
+@router.get(
+    "/health",
+    response_model=DataHealthResponse,
+    summary="Which stored series have drifted against corporate actions",
+    responses={422: {"description": "Too many symbols"}},
+)
+async def data_health(
+    symbols: Optional[List[str]] = Query(
+        default=None,
+        description="Tickers to check. Omit for every registered asset.",
+    ),
+    session: AsyncSession = Depends(get_db),
+) -> DataHealthResponse:
+    """
+    Reports drift; it does not fix it.
+
+    The fix is `POST /api/v1/ingest {"symbols": [...], "full_backfill": true}`,
+    which restates the series — a write, and therefore the caller's decision.
+
+    One network call per symbol (split history), so checking the whole registry
+    takes minutes. Pass `symbols` to check a few.
+    """
+    from core.corporate_actions import detect_drift, yfinance_splits
+
+    result = await session.execute(
+        select(
+            AssetORM.symbol, AssetORM.last_full_refresh_at, AssetORM.delisted_at
+        ).order_by(AssetORM.symbol)
+    )
+    rows = list(result.all())
+    if symbols:
+        wanted = {s.upper() for s in symbols}
+        rows = [r for r in rows if r[0] in wanted]
+
+    if len(rows) > MAX_SYMBOLS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"{len(rows)} symbols to check; the limit is {MAX_SYMBOLS}.",
+        )
+
+    drifted: List[DriftedSymbol] = []
+    delisted: List[str] = []
+    unrefreshed: List[str] = []
+
+    for symbol, last_refresh, delisted_at in rows:
+        if delisted_at is not None:
+            delisted.append(symbol)
+            continue
+        if last_refresh is None:
+            unrefreshed.append(symbol)
+
+        report = await run_in_threadpool(
+            detect_drift, symbol, last_refresh, yfinance_splits
+        )
+        if report.needs_refresh and last_refresh is not None:
+            drifted.append(
+                DriftedSymbol(
+                    symbol=symbol,
+                    last_full_refresh_at=last_refresh,
+                    splits=[
+                        {"date": s.date.date().isoformat(), "ratio": s.ratio}
+                        for s in report.splits
+                    ],
+                    detail=report.describe(),
+                )
+            )
+
+    return DataHealthResponse(
+        checked=len(rows),
+        drifted=drifted,
+        delisted=delisted,
+        unrefreshed=unrefreshed,
     )
 
 

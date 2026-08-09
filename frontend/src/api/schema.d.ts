@@ -593,6 +593,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ingest/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Which stored series have drifted against corporate actions
+         * @description Reports drift; it does not fix it.
+         *
+         *     The fix is `POST /api/v1/ingest {"symbols": [...], "full_backfill": true}`,
+         *     which restates the series — a write, and therefore the caller's decision.
+         *
+         *     One network call per symbol (split history), so checking the whole registry
+         *     takes minutes. Pass `symbols` to check a few.
+         */
+        get: operations["data_health_api_v1_ingest_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/ingest/universe": {
         parameters: {
             query?: never;
@@ -1090,6 +1116,42 @@ export interface components {
             metadata?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /** DataHealthResponse */
+        DataHealthResponse: {
+            /** Checked */
+            checked: number;
+            /**
+             * Drifted
+             * @description Stored bars are adjusted to a stale as-of date. Fix with a full backfill of these symbols.
+             */
+            drifted: components["schemas"]["DriftedSymbol"][];
+            /**
+             * Delisted
+             * @description Marked as no longer trading by a previous ingest
+             */
+            delisted: string[];
+            /**
+             * Unrefreshed
+             * @description Never restated by a full backfill, so their adjustment date is unknown. Not necessarily wrong.
+             */
+            unrefreshed: string[];
+        };
+        /** DriftedSymbol */
+        DriftedSymbol: {
+            /** Symbol */
+            symbol: string;
+            /** Last Full Refresh At */
+            last_full_refresh_at?: string | null;
+            /**
+             * Splits
+             * @description Splits newer than the last full refresh
+             */
+            splits: {
+                [key: string]: unknown;
+            }[];
+            /** Detail */
+            detail: string;
         };
         /** EquityPoint */
         EquityPoint: {
@@ -3513,6 +3575,36 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+        };
+    };
+    data_health_api_v1_ingest_health_get: {
+        parameters: {
+            query?: {
+                /** @description Tickers to check. Omit for every registered asset. */
+                symbols?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataHealthResponse"];
+                };
+            };
+            /** @description Too many symbols */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

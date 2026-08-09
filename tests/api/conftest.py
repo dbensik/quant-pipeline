@@ -141,9 +141,18 @@ class FakeRepo:
         #: with the note "Router tests never write" — true until the ingest
         #: router arrived, which is the one write path in the API.
         self.written: List[MarketDataRecord] = []
+        #: `replace` flag per write() call, so tests can assert a full
+        #: backfill actually asks the database to overwrite.
+        self.replace_calls: List[bool] = []
 
-    async def write(self, records: List[MarketDataRecord]) -> None:
+    async def write(
+        self, records: List[MarketDataRecord], replace: bool = False
+    ) -> int:
         self.written.extend(records)
+        self.replace_calls.append(replace)
+        # Returns rows persisted, as the real repository does — the ingest
+        # report counts this rather than what it submitted.
+        return len(records)
 
     async def find_asset(
         self, symbol: str, asset_class: Optional[str] = None

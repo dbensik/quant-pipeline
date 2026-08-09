@@ -42,8 +42,15 @@ class MarketDataRepository:
     valid MarketDataRepository — no explicit inheritance required.
     """
 
-    async def write(self, records: List[MarketDataRecord]) -> None:
-        """Persist a batch of MarketDataRecord objects."""
+    async def write(
+        self, records: List[MarketDataRecord], replace: bool = False
+    ) -> int:
+        """
+        Persist a batch of MarketDataRecord objects. Returns rows persisted.
+
+        `replace=True` overwrites bars that already exist. Required for a
+        re-adjustment pass — see the implementation for why.
+        """
         ...
 
     async def fetch_range(
@@ -95,13 +102,31 @@ class TimescaleMarketDataRepo:
     # Write
     # ------------------------------------------------------------------
 
-    async def write(self, records: List[MarketDataRecord]) -> None:
+    async def write(
+        self, records: List[MarketDataRecord], replace: bool = False
+    ) -> int:
         """
-        Upsert a batch of MarketDataRecord objects.
+        Upsert a batch of MarketDataRecord objects. Returns rows persisted.
 
-        Uses ON CONFLICT DO NOTHING on the (time, asset_id) composite PK so
-        re-running the same batch is idempotent — safe for back-fill jobs.
+        DEFAULT (replace=False) is ON CONFLICT DO NOTHING on the (time,
+        asset_id) primary key, so re-running an incremental batch is
+        idempotent and cheap.
+
+        replace=True is ON CONFLICT DO UPDATE, and exists because DO NOTHING
+        made `full_backfill` a silent no-op. yfinance's auto_adjust restates
+        the WHOLE series for splits as of the fetch date, so a symbol that
+        split after its bars were stored has two segments adjusted to
+        different as-of dates. Measured 2026-08-09: NFLX closed 1260.27 on
+        2025-07-15 and 125.03 on 2025-07-16 — a 10:1 split in November 2025
+        applied to the newer segment only, which every strategy reads as a
+        -90% day. Re-fetching could not fix it because every corrected bar
+        collided with an existing row and was discarded.
+
+        The return value matters for the same reason: the ingest report used
+        to count rows SUBMITTED, so a run that persisted nothing still
+        reported 39,707 bars written.
         """
+        persisted = 0
         for record in records:
             asset_id = await self._get_or_create_asset(record.asset)
             stmt = (
@@ -116,11 +141,29 @@ class TimescaleMarketDataRepo:
                     volume=record.ohlcv.volume,
                     source=record.asset.source,
                 )
-                .on_conflict_do_nothing(index_elements=["time", "asset_id"])
             )
-            await self.session.execute(stmt)
+            if replace:
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=["time", "asset_id"],
+                    set_={
+                        "open": stmt.excluded.open,
+                        "high": stmt.excluded.high,
+                        "low": stmt.excluded.low,
+                        "close": stmt.excluded.close,
+                        "volume": stmt.excluded.volume,
+                        "source": stmt.excluded.source,
+                    },
+                )
+            else:
+                stmt = stmt.on_conflict_do_nothing(
+                    index_elements=["time", "asset_id"]
+                )
+            result = await self.session.execute(stmt)
+            # rowcount is 0 for a skipped conflict, 1 for an insert or update.
+            persisted += result.rowcount or 0
 
         await self.session.commit()
+        return persisted
 
     # ------------------------------------------------------------------
     # Read
@@ -250,3 +293,38 @@ class TimescaleMarketDataRepo:
                 timestamp=Timestamp(utc=md.time),
             ),
         )
+
+    # -- corporate actions ---------------------------------------------------
+
+    async def mark_full_refresh(self, symbol: str, when: datetime) -> None:
+        """
+        Record that `symbol`'s whole series has been restated.
+
+        A split newer than this timestamp means the stored bars are adjusted to
+        a stale as-of date — see core/corporate_actions.py.
+        """
+        await self.session.execute(
+            AssetORM.__table__.update()
+            .where(AssetORM.symbol == symbol)
+            .values(last_full_refresh_at=when, delisted_at=None)
+        )
+        await self.session.commit()
+
+    async def mark_delisted(self, symbol: str, when: datetime) -> None:
+        """Record that `symbol` appears to have stopped trading."""
+        await self.session.execute(
+            AssetORM.__table__.update()
+            .where(AssetORM.symbol == symbol)
+            .values(delisted_at=when)
+        )
+        await self.session.commit()
+
+    async def refresh_state(self, symbol: str) -> tuple:
+        """(last_full_refresh_at, delisted_at) for `symbol`."""
+        result = await self.session.execute(
+            select(AssetORM.last_full_refresh_at, AssetORM.delisted_at).where(
+                AssetORM.symbol == symbol
+            )
+        )
+        row = result.first()
+        return (row[0], row[1]) if row else (None, None)

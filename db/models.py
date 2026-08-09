@@ -39,6 +39,18 @@ class AssetORM(Base):
     source = Column(String, nullable=False)        # 'yfinance' | 'coingecko'
     metadata_ = Column("metadata", JSONB, nullable=True)
 
+    # --- corporate actions (0005) -----------------------------------------
+    # When this symbol's WHOLE series was last restated by a full backfill.
+    # yfinance's auto_adjust re-adjusts a series for splits as of the fetch
+    # date, so a split newer than this timestamp means the stored bars are
+    # adjusted to a stale as-of date and the series has a discontinuity.
+    last_full_refresh_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Set when a fetch returns nothing for a symbol whose history is well
+    # behind. Without it, "written: 0" means both "already current" and "no
+    # longer trades", which is the ambiguity the Data page had to hedge.
+    delisted_at = Column(DateTime(timezone=True), nullable=True)
+
     # NOTE: lazy="dynamic" is deprecated in SQLAlchemy 2.0 (removed in 2.1) and is
     # incompatible with AsyncSession anyway. "selectin" issues one batched SELECT and
     # works under asyncio; for large per-asset scans, query MarketDataORM directly

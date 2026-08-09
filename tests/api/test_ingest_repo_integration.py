@@ -189,3 +189,84 @@ async def test_empty_bars_never_reach_the_table(repo):
     report = await ingest_symbols(repo, [SYMBOL], start=START, fetcher=all_null)
     assert report.outcomes[0].skipped_empty == 1
     assert await _bar_count(repo.session) == 0
+
+
+# ---------------------------------------------------------------------------
+# Re-adjustment (corporate actions)
+# ---------------------------------------------------------------------------
+
+async def test_a_plain_rerun_does_not_change_stored_prices(repo):
+    """
+    ON CONFLICT DO NOTHING: an incremental re-run is idempotent and cheap.
+    """
+    await ingest_symbols(repo, [SYMBOL], start=START, fetcher=stub_fetcher(2))
+
+    def different_prices(symbols, start_date, end_date):
+        records = stub_fetcher(2)(symbols, start_date, end_date)
+        for r in records:
+            r.ohlcv.close = 999.0
+        return records
+
+    await ingest_symbols(repo, [SYMBOL], start=START, fetcher=different_prices)
+
+    rows = await repo.session.execute(
+        text(
+            "SELECT m.close FROM market_data m JOIN assets a ON a.id=m.asset_id "
+            "WHERE a.symbol = :s ORDER BY m.time"
+        ),
+        {"s": SYMBOL},
+    )
+    assert 999.0 not in [r[0] for r in rows]
+
+
+async def test_full_backfill_restates_existing_bars(repo):
+    """
+    THE fix for split drift, asserted against real SQL.
+
+    yfinance re-adjusts a whole series for splits as of the fetch date, so the
+    only way to remove a discontinuity is to overwrite the stored bars. With
+    ON CONFLICT DO NOTHING that was impossible: the corrected bars collided and
+    were discarded, and the run still reported thousands of bars written.
+    """
+    await ingest_symbols(repo, [SYMBOL], start=START, fetcher=stub_fetcher(2))
+
+    def readjusted(symbols, start_date, end_date):
+        records = stub_fetcher(2)(symbols, start_date, end_date)
+        for r in records:
+            r.ohlcv.close = r.ohlcv.close / 10.0  # as a 10:1 split would
+        return records
+
+    await ingest_symbols(
+        repo, [SYMBOL], start=START, full_backfill=True, fetcher=readjusted
+    )
+
+    rows = await repo.session.execute(
+        text(
+            "SELECT m.close FROM market_data m JOIN assets a ON a.id=m.asset_id "
+            "WHERE a.symbol = :s ORDER BY m.time"
+        ),
+        {"s": SYMBOL},
+    )
+    closes = [r[0] for r in rows]
+    assert closes == pytest.approx([1.05, 1.15])
+
+
+async def test_full_backfill_does_not_duplicate_rows(repo):
+    """Overwriting must update in place, not append a second bar per date."""
+    await ingest_symbols(repo, [SYMBOL], start=START, fetcher=stub_fetcher(3))
+    await ingest_symbols(
+        repo, [SYMBOL], start=START, full_backfill=True, fetcher=stub_fetcher(3)
+    )
+    assert await _bar_count(repo.session) == 3
+
+
+async def test_written_reports_rows_the_database_accepted(repo):
+    """
+    A second incremental run persists nothing, and must say so. This used to
+    report the submitted count, so a no-op refresh looked like a success.
+    """
+    first = await ingest_symbols(repo, [SYMBOL], start=START, fetcher=stub_fetcher(3))
+    assert first.written == 3
+
+    second = await ingest_symbols(repo, [SYMBOL], start=START, fetcher=stub_fetcher(3))
+    assert second.written == 0
