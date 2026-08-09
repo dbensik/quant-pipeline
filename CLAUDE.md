@@ -27,6 +27,23 @@ and `cli.run_pipeline`. The SQLite `PipelineOrchestrator` was deleted on
 re-adjusts a series for splits as of the fetch date; `GET /api/v1/ingest/health`
 says which symbols have drifted.
 
+## Scheduled
+
+```bash
+crontab -l                                  # 06:00 daily
+scripts/cron/daily_maintenance.sh           # ingest, then snapshot indexes
+tail -f logs/daily_maintenance.log
+```
+
+Ingest runs before the snapshot so a name that joined an index today already
+has bars. The job is single-instance (lock file) and aborts with one clear
+line if TimescaleDB is unreachable, rather than two stack traces.
+
+**Universe snapshots cannot be backdated.** A missed day is a permanent gap in
+point-in-time membership, and membership is what makes survivorship-free
+screening possible — so this job matters more than its size suggests. It needs
+Docker up at 06:00.
+
 ## Test
 
 ```bash

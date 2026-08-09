@@ -105,3 +105,5 @@ PROJECT.md
 
 # Pre-migration database snapshots (large binaries kept for rollback, not VCS)
 archive/
+# Scheduled-job logs
+logs/
