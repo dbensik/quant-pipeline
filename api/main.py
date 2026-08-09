@@ -28,6 +28,7 @@ from api.routers import (
     signals,
     statistics,
     strategies,
+    watchlists,
     ws,
 )
 
@@ -101,6 +102,7 @@ app.include_router(portfolio_backtest.router)
 app.include_router(optimize.router)
 app.include_router(portfolios.router)
 app.include_router(signals.router)
+app.include_router(watchlists.router)
 app.include_router(ws.router)
 
 

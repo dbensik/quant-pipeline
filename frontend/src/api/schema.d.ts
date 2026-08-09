@@ -419,6 +419,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/watchlists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List watchlists */
+        get: operations["list_watchlists_api_v1_watchlists_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/watchlists/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One watchlist */
+        get: operations["get_watchlist_api_v1_watchlists__name__get"];
+        /**
+         * Create or replace a watchlist
+         * @description PUT, not POST: this is idempotent and replaces the whole list, so the same
+         *     call creates a new watchlist or overwrites an existing one.
+         */
+        put: operations["save_watchlist_api_v1_watchlists__name__put"];
+        post?: never;
+        /** Delete a watchlist */
+        delete: operations["delete_watchlist_api_v1_watchlists__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health/live": {
         parameters: {
             query?: never;
@@ -1087,6 +1127,14 @@ export interface components {
              */
             minimum_order_value: number;
         };
+        /** SaveWatchlistRequest */
+        SaveWatchlistRequest: {
+            /**
+             * Symbols
+             * @description The complete list. Symbols are upper-cased and de-duplicated, and their order is preserved.
+             */
+            symbols: string[];
+        };
         /** ScreenRequest */
         ScreenRequest: {
             /**
@@ -1544,6 +1592,15 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** WatchlistOut */
+        WatchlistOut: {
+            /** Name */
+            name: string;
+            /** Symbols */
+            symbols: string[];
+            /** Created At */
+            created_at?: string | null;
         };
     };
     responses: never;
@@ -2437,6 +2494,145 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    list_watchlists_api_v1_watchlists_get: {
+        parameters: {
+            query?: {
+                /** @description Return only watchlists containing this ticker. */
+                symbol?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchlistOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_watchlist_api_v1_watchlists__name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchlistOut"];
+                };
+            };
+            /** @description No such watchlist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_watchlist_api_v1_watchlists__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveWatchlistRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchlistOut"];
+                };
+            };
+            /** @description Too many symbols */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_watchlist_api_v1_watchlists__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such watchlist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
         };
     };

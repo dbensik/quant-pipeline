@@ -182,3 +182,63 @@ class PortfolioTradeORM(Base):
             f"<PortfolioTradeORM {self.action} {self.quantity} "
             f"{self.ticker} @ {self.price}>"
         )
+
+
+# ---------------------------------------------------------------------------
+# Watchlists
+# ---------------------------------------------------------------------------
+
+class WatchlistORM(Base):
+    """A named list of tickers."""
+
+    __tablename__ = "watchlists"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, nullable=False, unique=True)
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+
+    symbols = relationship(
+        "WatchlistSymbolORM",
+        back_populates="watchlist",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+    def __repr__(self) -> str:
+        return f"<WatchlistORM {self.name!r}>"
+
+
+class WatchlistSymbolORM(Base):
+    """
+    One ticker in one watchlist.
+
+    A child table rather than a JSONB array on `watchlists`. Two reasons:
+    the unique constraint below makes a duplicate ticker impossible rather
+    than merely discouraged, and "which watchlists contain AAPL?" — which the
+    news feed asks — is an index lookup instead of a containment scan.
+    """
+
+    __tablename__ = "watchlist_symbols"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    watchlist_id = Column(
+        Integer,
+        ForeignKey("watchlists.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    symbol = Column(String, nullable=False)
+    # Preserves the order the user arranged them in; a set would not.
+    position = Column(Integer, nullable=False, default=0)
+
+    watchlist = relationship("WatchlistORM", back_populates="symbols")
+
+    __table_args__ = (
+        UniqueConstraint("watchlist_id", "symbol", name="uq_watchlist_symbol"),
+        Index("ix_watchlist_symbols_symbol", "symbol"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<WatchlistSymbolORM {self.symbol}>"

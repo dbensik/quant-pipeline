@@ -31,10 +31,15 @@ from typing import Dict, List, Optional
 import pytest
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_market_data_repo, get_portfolio_repo
+from api.dependencies import (
+    get_market_data_repo,
+    get_portfolio_repo,
+    get_watchlist_repo,
+)
 from api.main import app
 from core.models import OHLCV, Asset, MarketDataRecord, Timestamp
 from core.portfolio import Portfolio, Trade
+from db.repositories.watchlists import Watchlist
 
 # ---------------------------------------------------------------------------
 # Fixture data
@@ -262,6 +267,56 @@ class FakePortfolioRepo:
         return len(found.trades) != before
 
 
+class FakeWatchlistRepo:
+    """
+    In-memory WatchlistRepository.
+
+    Enforces the same invariants as TimescaleWatchlistRepo — upper-casing,
+    de-duplication with order preserved, wholesale replacement on save — so
+    router tests are not passing against a permissive stub.
+    """
+
+    def __init__(self) -> None:
+        self._lists: Dict[str, Watchlist] = {
+            "MAG7": Watchlist(
+                name="MAG7",
+                symbols=["AAPL", "MSFT", "NVDA"],
+                created_at=START,
+            ),
+            "Crypto": Watchlist(name="Crypto", symbols=["BTC-USD"], created_at=START),
+        }
+
+    async def list_watchlists(self) -> List[Watchlist]:
+        return [self._lists[k] for k in sorted(self._lists)]
+
+    async def get_watchlist(self, name: str) -> Optional[Watchlist]:
+        return self._lists.get(name)
+
+    async def save_watchlist(self, name: str, symbols: List[str]) -> Watchlist:
+        seen: set = set()
+        ordered: List[str] = []
+        for symbol in symbols:
+            upper = symbol.upper().strip()
+            if upper and upper not in seen:
+                seen.add(upper)
+                ordered.append(upper)
+        existing = self._lists.get(name)
+        saved = Watchlist(
+            name=name,
+            symbols=ordered,
+            created_at=existing.created_at if existing else START,
+        )
+        self._lists[name] = saved
+        return saved
+
+    async def delete_watchlist(self, name: str) -> bool:
+        return self._lists.pop(name, None) is not None
+
+    async def watchlists_containing(self, symbol: str) -> List[str]:
+        upper = symbol.upper()
+        return sorted(k for k, v in self._lists.items() if upper in v.symbols)
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -277,10 +332,20 @@ def portfolio_repo() -> "FakePortfolioRepo":
 
 
 @pytest.fixture
-def client(repo: FakeRepo, portfolio_repo: "FakePortfolioRepo") -> TestClient:
+def watchlist_repo() -> "FakeWatchlistRepo":
+    return FakeWatchlistRepo()
+
+
+@pytest.fixture
+def client(
+    repo: FakeRepo,
+    portfolio_repo: "FakePortfolioRepo",
+    watchlist_repo: "FakeWatchlistRepo",
+) -> TestClient:
     """TestClient with both repositories replaced by in-memory fakes."""
     app.dependency_overrides[get_market_data_repo] = lambda: repo
     app.dependency_overrides[get_portfolio_repo] = lambda: portfolio_repo
+    app.dependency_overrides[get_watchlist_repo] = lambda: watchlist_repo
     try:
         yield TestClient(app)
     finally:

@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.repositories.market_data import TimescaleMarketDataRepo
 from db.repositories.portfolios import TimescalePortfolioRepo
+from db.repositories.watchlists import TimescaleWatchlistRepo
 from db.session import get_session
 
 
@@ -46,3 +47,10 @@ async def get_portfolio_repo(
 ) -> TimescalePortfolioRepo:
     """Portfolio repository bound to the request's session."""
     return TimescalePortfolioRepo(session)
+
+
+async def get_watchlist_repo(
+    session: AsyncSession = Depends(get_db),
+) -> TimescaleWatchlistRepo:
+    """Watchlist repository bound to the request's session."""
+    return TimescaleWatchlistRepo(session)
