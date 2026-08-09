@@ -13,14 +13,19 @@ features was ported to a router and a React page. Do not reintroduce it.
 ./run_pipeline.sh dashboard    # React dev server only (port 5173)
 ./run_pipeline.sh api          # GraphQL gateway only (port 8000) — NOT FastAPI
 ./run_pipeline.sh grpc         # gRPC service only
-python -m cli.run_pipeline     # legacy SQLite data pipeline
+python -m cli.run_pipeline     # ingest bars into TimescaleDB (same path as the API)
 ```
 
 `api`/`gateway` means the GraphQL gateway, not the REST API — a naming wart
 that predates FastAPI. Use `rest` for FastAPI.
 
-Ingestion goes through `POST /api/v1/ingest`, which writes TimescaleDB.
-`cli.run_pipeline` writes the legacy SQLite database that nothing reads.
+Ingestion goes through `core/ingest.py`, reached by both `POST /api/v1/ingest`
+and `cli.run_pipeline`. The SQLite `PipelineOrchestrator` was deleted on
+2026-08-09 — it wrote a database nothing read while reporting success.
+
+`--full-backfill` OVERWRITES stored bars. It exists because yfinance
+re-adjusts a series for splits as of the fetch date; `GET /api/v1/ingest/health`
+says which symbols have drifted.
 
 ## Test
 
@@ -77,7 +82,9 @@ For the TimescaleDB layer, copy `.env.example` → `.env`; without it, `db/sessi
 
 ## Architecture
 
-- `data_pipeline/` — `EquityPipeline`, `CryptoPipeline`, `FundamentalPipeline`, `DynamicUniverse`, `DataEnricher`; fetches via `yfinance`; stores to SQLite (`quant_pipeline.db`)
+- `data_pipeline/` — `EquityPipeline`, `CryptoPipeline`, `FundamentalPipeline`, `DynamicUniverse`, `DataEnricher`; legacy fetchers still used for universe listings
+- `core/ingest.py` — THE write path: fetch via adapters, persist via the repository into TimescaleDB
+- `core/corporate_actions.py` — split-adjustment drift and delisting detection
 - `alpha_models/` — Strategy classes (Moving Average Crossover, Mean Reversion, Trend Following, Pairs Trading, etc.) all inherit from `base_model.py`
 - `backtesting/backtester.py` — Simulates strategy on historical data; produces equity curves and KPIs
 - `screeners/` — Filter universe by criteria (momentum, low volatility); output feeds into watchlists

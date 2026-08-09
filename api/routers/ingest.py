@@ -3,8 +3,8 @@ api/routers/ingest.py
 Fetching new price bars into TimescaleDB, and managing the universe.
 
 THE STREAMLIT BUTTON WAS WRITING TO THE WRONG DATABASE. It shelled out to
-`cli/run_pipeline.py`, which drives PipelineOrchestrator over a
-`sqlite3.Connection`; nothing in that path touches TimescaleDB. Every ingest
+`cli/run_pipeline.py`, which at the time drove PipelineOrchestrator over a
+`sqlite3.Connection`; nothing in that path touched TimescaleDB. Every ingest
 run since the cutover filled a database the API does not read, while
 reporting success — the newest bar in TimescaleDB was 2025-07-15.
 
@@ -12,6 +12,10 @@ Nothing here shells out. `core/ingest.py` runs in-process, which also avoids
 inheriting the hardcoded conda interpreter path the button used
 (/opt/anaconda3/envs/quant-pipeline-env/bin/python) — an environment
 deprecated on 2026-07-31 when Poetry became authoritative.
+
+`cli/run_pipeline.py` was rewritten on 2026-08-09 to call core/ingest.py too,
+so the CLI and this endpoint cannot diverge; the SQLite orchestrator and its
+DatabaseManager were deleted.
 
 Ingestion is single-flight: a second start while one is running is a 409.
 Progress streams over WS /api/v1/ws/ingest.

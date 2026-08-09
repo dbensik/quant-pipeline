@@ -14,7 +14,9 @@ Neither module contains any Streamlit code; they only happened to live there.
 Phase 5 — decommissioning Streamlit
 """
 
-from core.persistence.database_manager import DatabaseManager
 from core.persistence.results_manager import ResultsManager
 
-__all__ = ["DatabaseManager", "ResultsManager"]
+# DatabaseManager was removed on 2026-08-09 with the SQLite pipeline it served.
+# Its only consumer was PipelineOrchestrator, which wrote a database nothing
+# read. Ingestion goes through core/ingest.py into TimescaleDB.
+__all__ = ["ResultsManager"]

@@ -3,11 +3,14 @@ core/ingest.py
 Fetching new price bars and writing them to TimescaleDB.
 
 WHY THIS EXISTS AT ALL. The Streamlit "Run Data Ingestion Pipeline" button
-shelled out to `cli/run_pipeline.py`, which builds a PipelineOrchestrator over
-a `sqlite3.Connection` and writes to `quant_pipeline.db`. NOTHING in that path
-touches TimescaleDB — the migration was a one-time script — so every ingest
-run since the cutover has been filling a database the API does not read. The
-newest bar in TimescaleDB was 2025-07-15 while the button reported success.
+shelled out to `cli/run_pipeline.py`, which built a PipelineOrchestrator over
+a `sqlite3.Connection` and wrote to `quant_pipeline.db`. NOTHING in that path
+touched TimescaleDB — the migration was a one-time script — so every ingest
+run since the cutover filled a database the API does not read. The newest bar
+in TimescaleDB was 2025-07-15 while the button reported success.
+
+Both callers now come here: the API's POST /api/v1/ingest and, since
+2026-08-09, `cli/run_pipeline.py`. The orchestrator was deleted.
 
 So this is not a port of that button. It is the missing write path: fetch
 through the existing adapters, which already return MarketDataRecord, and
