@@ -4,6 +4,18 @@ services:
   timescaledb:
     image: timescale/timescaledb:latest-pg15
     container_name: quant_timescaledb
+    # Comes back on its own after a reboot or a Docker Desktop restart.
+    # Without this the 06:00 cron aborts with "database unreachable" every
+    # morning following a restart — Docker Desktop starting at login is
+    # necessary but not sufficient, because it does not start containers.
+    # `always`, not `unless-stopped`. Measured on macOS 26.6: Docker Desktop's
+    # shutdown stops containers in a way the daemon records as an explicit
+    # stop, so `unless-stopped` left the container Exited across a restart —
+    # verified twice, via `osascript quit` and `docker desktop restart`. That
+    # is precisely the reboot case this needs to survive.
+    # Trade-off accepted: `docker compose stop` will also be undone by a
+    # Docker restart. Use `docker compose down` for real maintenance.
+    restart: always
     environment:
       POSTGRES_USER: quant
       POSTGRES_PASSWORD: quant

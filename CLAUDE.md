@@ -41,8 +41,19 @@ line if TimescaleDB is unreachable, rather than two stack traces.
 
 **Universe snapshots cannot be backdated.** A missed day is a permanent gap in
 point-in-time membership, and membership is what makes survivorship-free
-screening possible — so this job matters more than its size suggests. It needs
-Docker up at 06:00.
+screening possible — so this job matters more than its size suggests.
+
+It needs TimescaleDB up at 06:00, which takes two settings, both applied
+2026-08-09:
+
+- Docker Desktop starts at login (`AutoStart: true` in
+  `~/Library/Group Containers/group.com.docker/settings-store.json`).
+- `docker-compose.yml` uses **`restart: always`**, not `unless-stopped`.
+  Measured on macOS 26.6: Docker Desktop's shutdown stops containers in a way
+  the daemon records as an explicit stop, so `unless-stopped` left the
+  container Exited across a restart. Verified both ways. Consequence:
+  `docker compose stop` is undone by a Docker restart — use
+  `docker compose down` for maintenance.
 
 ## Test
 
