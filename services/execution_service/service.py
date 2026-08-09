@@ -1,104 +1,162 @@
-import grpc
-import logging
-from datetime import datetime, timedelta
-import dateutil.parser
+"""
+services/execution_service/service.py
+gRPC ExecutionService — the SIGNED path for paper trades.
 
-from services.proto import execution_pb2
-from services.proto import execution_pb2_grpc
-from services.execution_service.portfolio_manager import PortfolioManager
+REWIRED 2026-08-09. This read `portfolios.json` through PortfolioManager, a
+file nothing else has used since portfolios moved into the database in 0003.
+GetPortfolio did `state["cash"]` on a trade-log-shaped portfolio and raised
+KeyError against the user's real data, so the paper portfolio view had been
+broken in production; deleting Streamlit merely removed the only client that
+reached it.
+
+It now reads and writes the same `portfolios` / `portfolio_trades` tables the
+REST API uses, deriving cash and positions with `core.portfolio.derive_state`
+— so the signed layer and the API cannot disagree about what a portfolio
+holds. That is the point of keeping this service: an audit-logged execution
+path over the real book, rather than a second book nobody reads.
+
+Access is synchronous (see portfolio_store.py): gRPC servicers are sync, and
+db/session.py's async engine binds its pool to one event loop.
+
+Phase 5 — reconnecting the signed execution layer
+"""
+
+import logging
+from datetime import datetime, timedelta, timezone
+
+import dateutil.parser
+import grpc
+
+from services.execution_service.portfolio_store import (
+    DEFAULT_PORTFOLIO,
+    PortfolioNotFound,
+    PortfolioStore,
+)
+from services.proto import execution_pb2, execution_pb2_grpc
 
 logger = logging.getLogger("ExecutionService")
 
-class ExecutionService(execution_pb2_grpc.ExecutionServiceServicer):
-    """
-    gRPC Service for handling paper trades and portfolio management.
-    """
-    def __init__(self):
-        self.portfolio_manager = PortfolioManager()
-        
-    def ExecuteTrade(self, request, context):
-        """
-        Executes a trade if it passes validation (e.g. timeout check).
-        """
-        logger.info(f"Received trade request: {request.action} {request.quantity} {request.symbol} @ {request.price}")
-        
-        # 1. Validation: Check if the trade execution is within the valid 30s window
-        # The request.timestamp is when the user *viewed* the quote/signal.
-        try:
-            quote_time = dateutil.parser.isoparse(request.timestamp)
-            now = datetime.utcnow()
-            
-            # Allow 30 seconds validity window for the quote
-            if now - quote_time > timedelta(seconds=30):
-                msg = "Trade Rejected: Quote expired (limit 30s)."
-                logger.warning(msg)
-                return execution_pb2.TradeResponse(
-                    success=False,
-                    message=msg
-                )
-        except Exception as e:
-            logger.error(f"Timestamp parsing error: {e}")
-            # In a strict system, we might reject. For MVP, we proceed or log.
-            pass
+#: How long a quote stays valid. The client shows a countdown against this.
+QUOTE_VALIDITY = timedelta(seconds=30)
 
-        # 2. Execute via Portfolio Manager
+
+class ExecutionService(execution_pb2_grpc.ExecutionServiceServicer):
+    """gRPC service for paper trades against the database-backed portfolios."""
+
+    def __init__(self, store: PortfolioStore | None = None):
+        self.store = store or PortfolioStore()
+
+    # -- helpers -------------------------------------------------------------
+
+    @staticmethod
+    def _name(requested: str) -> str:
+        return requested.strip() if requested and requested.strip() else DEFAULT_PORTFOLIO
+
+    def _quote_expired(self, timestamp: str) -> bool:
+        """
+        True when the quote the user confirmed against is too old.
+
+        A malformed timestamp is treated as EXPIRED, not as valid. The previous
+        version logged the parse error and proceeded — so the one input that
+        defeats the check was also the one that skipped it.
+        """
+        if not timestamp:
+            return True
         try:
-            result_msg = self.portfolio_manager.execute_trade(
+            quoted_at = dateutil.parser.isoparse(timestamp)
+        except (ValueError, TypeError) as exc:
+            logger.warning("Unparseable quote timestamp %r: %s", timestamp, exc)
+            return True
+        if quoted_at.tzinfo is None:
+            quoted_at = quoted_at.replace(tzinfo=timezone.utc)
+        return (datetime.now(timezone.utc) - quoted_at) > QUOTE_VALIDITY
+
+    # -- rpcs ----------------------------------------------------------------
+
+    def ExecuteTrade(self, request, context):
+        logger.info(
+            "Trade request: %s %s %s @ %s in %r",
+            request.action, request.quantity, request.symbol,
+            request.price, request.portfolio or DEFAULT_PORTFOLIO,
+        )
+
+        if self._quote_expired(request.timestamp):
+            message = "Trade Rejected: Quote expired (limit 30s)."
+            logger.warning(message)
+            return execution_pb2.TradeResponse(success=False, message=message)
+
+        name = self._name(request.portfolio)
+        try:
+            trade_id = self.store.append_trade(
+                name=name,
                 symbol=request.symbol,
                 action=request.action,
                 quantity=request.quantity,
-                price=request.price
+                price=request.price,
             )
-            
-            logger.info(f"Trade Executed: {result_msg}")
-            
+        except PortfolioNotFound as exc:
+            # Named but absent. PortfolioManager fell back to "the only
+            # portfolio" here, so a typo traded in a different book.
+            logger.warning("Trade rejected: %s", exc)
             return execution_pb2.TradeResponse(
-                success=True,
-                message=result_msg,
-                transaction_id=f"txn_{int(datetime.utcnow().timestamp())}",
-                filled_price=request.price
+                success=False, message=f"Trade Rejected: {exc}"
             )
-            
-        except ValueError as e:
-            msg = f"Trade Rejected: {str(e)}"
-            logger.warning(msg)
+        except ValueError as exc:
+            logger.warning("Trade rejected: %s", exc)
             return execution_pb2.TradeResponse(
-                success=False,
-                message=msg
+                success=False, message=f"Trade Rejected: {exc}"
             )
-        except Exception as e:
-            logger.error(f"Internal execution error: {e}", exc_info=True)
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Internal execution error: %s", exc, exc_info=True)
             context.set_code(grpc.StatusCode.INTERNAL)
-            context.set_details(str(e))
+            context.set_details(str(exc))
             return execution_pb2.TradeResponse()
 
+        verb = "BOUGHT" if request.action.upper() == "BUY" else "SOLD"
+        return execution_pb2.TradeResponse(
+            success=True,
+            message=f"{verb} {request.quantity} {request.symbol} @ {request.price}",
+            # The trade's own row id, so a caller can find what was recorded.
+            # It used to be a timestamp, which referred to nothing.
+            transaction_id=str(trade_id),
+            filled_price=request.price,
+        )
+
     def GetPortfolio(self, request, context):
-        """Returns the current portfolio state."""
-        state = self.portfolio_manager.get_portfolio_state()
-        
-        # Convert dictionary state to Protobuf messages
-        # State structure: {'cash': 100000.0, 'positions': {'AAPL': {'quantity': 10, 'average_price': 150.0}}}
-        
-        positions_pb = {}
-        total_equity = state["cash"]
-        
-        for sym, pos_data in state.get("positions", {}).items():
-            # Calculate current value (mocking current price as avg price for now, 
-            # ideally we fetch real-time price here or pass it in)
-            qty = pos_data["quantity"]
-            avg = pos_data["average_price"]
-            val = qty * avg # using entry price as proxy for value in MVP
-            
-            positions_pb[sym] = execution_pb2.Position(
-                symbol=sym,
-                quantity=qty,
-                average_price=avg,
-                current_value=val
+        name = self._name(request.portfolio)
+        try:
+            state = self.store.state(name)
+            # Value at the latest STORED close, not at entry price. The old
+            # implementation used the entry price "as proxy for value in MVP",
+            # which made unrealised P&L identically zero and total equity wrong.
+            prices = self.store.latest_prices([p.ticker for p in state.positions])
+            state = self.store.state(name, prices)
+        except PortfolioNotFound as exc:
+            context.set_code(grpc.StatusCode.NOT_FOUND)
+            context.set_details(str(exc))
+            return execution_pb2.PortfolioResponse()
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Could not read portfolio %r: %s", name, exc, exc_info=True)
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(str(exc))
+            return execution_pb2.PortfolioResponse()
+
+        positions = {
+            position.ticker: execution_pb2.Position(
+                symbol=position.ticker,
+                quantity=position.quantity,
+                average_price=position.average_price,
+                current_value=(
+                    position.market_value
+                    if position.market_value is not None
+                    else position.quantity * position.average_price
+                ),
             )
-            total_equity += val
-            
+            for position in state.positions
+        }
+
         return execution_pb2.PortfolioResponse(
-            positions=positions_pb,
-            cash_balance=state["cash"],
-            total_equity=total_equity
+            positions=positions,
+            cash_balance=state.cash,
+            total_equity=state.total_equity,
         )

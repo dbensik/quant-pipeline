@@ -5,7 +5,7 @@ import warnings
 
 from services.proto import execution_pb2 as services_dot_proto_dot_execution__pb2
 
-GRPC_GENERATED_VERSION = '1.76.0'
+GRPC_GENERATED_VERSION = '1.83.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -25,7 +25,7 @@ if _version_not_supported:
     )
 
 
-class ExecutionServiceStub(object):
+class ExecutionServiceStub:
     """Service definition
     """
 
@@ -47,7 +47,7 @@ class ExecutionServiceStub(object):
                 _registered_method=True)
 
 
-class ExecutionServiceServicer(object):
+class ExecutionServiceServicer:
     """Service definition
     """
 
@@ -86,7 +86,7 @@ def add_ExecutionServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class ExecutionService(object):
+class ExecutionService:
     """Service definition
     """
 

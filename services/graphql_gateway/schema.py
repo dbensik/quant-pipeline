@@ -94,8 +94,16 @@ class Query:
             raise Exception(f"Failed to fetch signal: {e.details()}")
 
     @strawberry.field
-    async def portfolio(self) -> PortfolioType:
-        req = execution_pb2.PortfolioRequest()
+    async def portfolio(self, name: Optional[str] = None) -> PortfolioType:
+        """
+        Paper portfolio state, derived from the database-backed trade log.
+
+        `name` was added 2026-08-09 when the execution service moved off
+        portfolios.json, where there was effectively one book, onto the
+        `portfolios` table, where there are many. Omitted means the
+        service's configured default.
+        """
+        req = execution_pb2.PortfolioRequest(portfolio=name or "")
         try:
             resp = await asyncio.to_thread(get_execution_stub().GetPortfolio, req, timeout=10)
             positions = [
@@ -129,9 +137,26 @@ class Query:
 @strawberry.type
 class Mutation:
     @strawberry.mutation
-    async def execute_trade(self, symbol: str, action: str, quantity: float, price: float, timestamp: str) -> TradeResponseType:
+    async def execute_trade(
+        self,
+        symbol: str,
+        action: str,
+        quantity: float,
+        price: float,
+        timestamp: str,
+        portfolio: Optional[str] = None,
+    ) -> TradeResponseType:
+        """
+        Record a signed paper trade against a database-backed portfolio.
+
+        `timestamp` is when the user saw the quote; the service rejects it
+        after 30 seconds. An unnamed portfolio uses the service default —
+        never "whichever one happens to exist", which is what the old
+        JSON-backed manager did.
+        """
         req = execution_pb2.TradeRequest(
-            symbol=symbol, action=action, quantity=quantity, price=price, timestamp=timestamp
+            symbol=symbol, action=action, quantity=quantity, price=price,
+            timestamp=timestamp, portfolio=portfolio or "",
         )
         try:
             resp = await asyncio.to_thread(get_execution_stub().ExecuteTrade, req, timeout=10)
