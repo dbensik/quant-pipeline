@@ -32,6 +32,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api.dependencies import (
+    get_fetcher,
     get_market_data_repo,
     get_portfolio_repo,
     get_watchlist_repo,
@@ -136,9 +137,13 @@ class FakeRepo:
 
     def __init__(self) -> None:
         self.data = {symbol: _series(symbol) for symbol in KNOWN_ASSETS}
+        #: Records handed to write(). This used to raise NotImplementedError
+        #: with the note "Router tests never write" — true until the ingest
+        #: router arrived, which is the one write path in the API.
+        self.written: List[MarketDataRecord] = []
 
-    async def write(self, records: List[MarketDataRecord]) -> None:  # pragma: no cover
-        raise NotImplementedError("Router tests never write.")
+    async def write(self, records: List[MarketDataRecord]) -> None:
+        self.written.extend(records)
 
     async def find_asset(
         self, symbol: str, asset_class: Optional[str] = None
@@ -410,6 +415,42 @@ class StubGateway(YFinanceGateway):
         return StubTicker(symbol)
 
 
+class StubFetcher:
+    """
+    Stands in for core.ingest.default_fetcher. No network.
+
+    Returns three daily bars starting the day after `start_date`, so tests can
+    assert on the window the ingester actually asked for.
+    """
+
+    def __init__(self) -> None:
+        self.calls: List[tuple] = []
+        self.fail_for: set = set()
+        self.bars_per_symbol = 3
+
+    def __call__(self, symbols: List[str], start_date: str, end_date: str):
+        self.calls.append((tuple(symbols), start_date, end_date))
+        symbol = symbols[0]
+        if symbol in self.fail_for:
+            raise RuntimeError(f"provider failed for {symbol}")
+
+        begin = datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        return [
+            MarketDataRecord(
+                asset=Asset(symbol=symbol, asset_class="equity", source="yfinance"),
+                ohlcv=OHLCV(
+                    open=100.0 + i,
+                    high=101.0 + i,
+                    low=99.0 + i,
+                    close=100.5 + i,
+                    volume=1_000.0,
+                    timestamp=Timestamp(utc=begin + timedelta(days=i)),
+                ),
+            )
+            for i in range(self.bars_per_symbol)
+        ]
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -435,17 +476,24 @@ def upstream() -> "StubGateway":
 
 
 @pytest.fixture
+def fetcher() -> "StubFetcher":
+    return StubFetcher()
+
+
+@pytest.fixture
 def client(
     repo: FakeRepo,
     portfolio_repo: "FakePortfolioRepo",
     watchlist_repo: "FakeWatchlistRepo",
     upstream: "StubGateway",
+    fetcher: "StubFetcher",
 ) -> TestClient:
     """TestClient with both repositories replaced by in-memory fakes."""
     app.dependency_overrides[get_market_data_repo] = lambda: repo
     app.dependency_overrides[get_portfolio_repo] = lambda: portfolio_repo
     app.dependency_overrides[get_watchlist_repo] = lambda: watchlist_repo
     app.dependency_overrides[get_upstream] = lambda: upstream
+    app.dependency_overrides[get_fetcher] = lambda: fetcher
     try:
         yield TestClient(app)
     finally:

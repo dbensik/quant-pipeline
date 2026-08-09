@@ -54,3 +54,16 @@ async def get_watchlist_repo(
 ) -> TimescaleWatchlistRepo:
     """Watchlist repository bound to the request's session."""
     return TimescaleWatchlistRepo(session)
+
+
+def get_fetcher():
+    """
+    The price-bar fetcher used by ingestion.
+
+    A dependency purely so tests can substitute one — `pytest tests/` must
+    need no network, and ingestion is otherwise the one write path that would
+    reach Yahoo.
+    """
+    from core.ingest import default_fetcher
+
+    return default_fetcher

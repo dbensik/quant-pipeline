@@ -531,6 +531,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ingest/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Current ingest state */
+        get: operations["ingest_status_api_v1_ingest_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ingest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fetch new bars into TimescaleDB
+         * @description Runs to completion before responding. For a large universe use the
+         *     websocket instead — this can take minutes.
+         */
+        post: operations["run_ingest_api_v1_ingest_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ingest/assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a ticker to the universe
+         * @description Registers a symbol so ingestion will fetch it.
+         *
+         *     Idempotent: adding an existing ticker returns it with created=false rather
+         *     than 409. The Streamlit form was a fire-and-forget "Add Ticker & Run
+         *     Pipeline" button, and making a repeat press an error would be unhelpful.
+         */
+        post: operations["add_asset_api_v1_ingest_assets_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ingest/universe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Constituents of a known index
+         * @description Lists an index's members WITHOUT registering them — the caller decides
+         *     what to add. DynamicUniverse scrapes public pages, so this is the second
+         *     network-touching path in the API; it is read-only and explicit.
+         */
+        get: operations["get_universe_api_v1_ingest_universe_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health/live": {
         parameters: {
             query?: never;
@@ -582,6 +666,22 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AddAssetRequest */
+        AddAssetRequest: {
+            /** Symbol */
+            symbol: string;
+            /**
+             * Asset Class
+             * @description equity | crypto
+             * @default equity
+             */
+            asset_class: string;
+            /**
+             * Source
+             * @default yfinance
+             */
+            source: string;
+        };
         /** AllocationPoint */
         AllocationPoint: {
             /** Annualized Return */
@@ -632,6 +732,20 @@ export interface components {
             count: number;
             /** Assets */
             assets: components["schemas"]["AssetSummary"][];
+        };
+        /** AssetOut */
+        AssetOut: {
+            /** Symbol */
+            symbol: string;
+            /** Asset Class */
+            asset_class: string;
+            /** Source */
+            source: string;
+            /**
+             * Created
+             * @description False when it already existed
+             */
+            created: boolean;
         };
         /** AssetSummary */
         AssetSummary: {
@@ -929,6 +1043,61 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** IngestRequest */
+        IngestRequest: {
+            /**
+             * Symbols
+             * @description Tickers to refresh. Omit for every asset in the registry.
+             */
+            symbols?: string[] | null;
+            /**
+             * Start
+             * @description Window start. Omitted means resume from the day after each symbol's newest stored bar.
+             */
+            start?: string | null;
+            /** End */
+            end?: string | null;
+            /**
+             * Full Backfill
+             * @description Ignore stored history and refetch from 2015.
+             * @default false
+             */
+            full_backfill: boolean;
+        };
+        /** IngestResponse */
+        IngestResponse: {
+            /** Symbols */
+            symbols: string[];
+            /** Written */
+            written: number;
+            /** Failed */
+            failed: string[];
+            /** Started At */
+            started_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            /** Results */
+            results: components["schemas"]["SymbolResult"][];
+        };
+        /** IngestStatus */
+        IngestStatus: {
+            /** Running */
+            running: boolean;
+            /** Started At */
+            started_at?: string | null;
+            /**
+             * Completed
+             * @default 0
+             */
+            completed: number;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+            /** Current Symbol */
+            current_symbol?: string | null;
         };
         /** NewsFeed */
         NewsFeed: {
@@ -1785,6 +1954,26 @@ export interface components {
                 [key: string]: unknown[];
             } | null;
         };
+        /** SymbolResult */
+        SymbolResult: {
+            /** Symbol */
+            symbol: string;
+            /** Fetched */
+            fetched: number;
+            /** Written */
+            written: number;
+            /**
+             * Skipped Empty
+             * @description Bars with no prices at all — dropped, per the Phase 2 cutover
+             */
+            skipped_empty: number;
+            /** Error */
+            error?: string | null;
+            /** First Bar */
+            first_bar?: string | null;
+            /** Last Bar */
+            last_bar?: string | null;
+        };
         /** TestListResponse */
         TestListResponse: {
             /** Count */
@@ -1884,6 +2073,15 @@ export interface components {
             notes?: string | null;
             /** Id */
             id: string;
+        };
+        /** UniverseResponse */
+        UniverseResponse: {
+            /** Source */
+            source: string;
+            /** Symbols */
+            symbols: string[];
+            /** Count */
+            count: number;
         };
         /** ValidationError */
         ValidationError: {
@@ -3129,6 +3327,134 @@ export interface operations {
                 };
             };
             /** @description Upstream provider unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ingest_status_api_v1_ingest_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IngestStatus"];
+                };
+            };
+        };
+    };
+    run_ingest_api_v1_ingest_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IngestRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IngestResponse"];
+                };
+            };
+            /** @description An ingest is already running */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No symbols, or too many */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    add_asset_api_v1_ingest_assets_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddAssetRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_universe_api_v1_ingest_universe_get: {
+        parameters: {
+            query: {
+                /** @description One of: sp500, dow_jones, nasdaq100, top_100_crypto */
+                source: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UniverseResponse"];
+                };
+            };
+            /** @description Unknown source */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Could not reach the constituent list */
             503: {
                 headers: {
                     [name: string]: unknown;

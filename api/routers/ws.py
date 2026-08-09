@@ -593,3 +593,139 @@ async def optimize_portfolio_ws(websocket: WebSocket) -> None:
             await websocket.close()
         except Exception:
             pass
+
+
+# ---------------------------------------------------------------------------
+# Ingestion
+# ---------------------------------------------------------------------------
+
+@router.websocket("/ingest")
+async def ingest_ws(websocket: WebSocket) -> None:
+    """
+    Fetch new bars into TimescaleDB, streaming per-symbol progress.
+
+    The case the progress machinery exists for: a full-universe refresh is
+    hundreds of network round trips and runs for minutes. Progress originates
+    inside the threadpool worker, so it goes through _ProgressBridge.
+
+    Client sends one JSON message matching IngestRequest; the server replies
+    accepted / progress* / result | error, then closes.
+    """
+    from core.ingest import IngestReport, ingest_symbols, job
+    from api.routers.ingest import (
+        MAX_SYMBOLS,
+        IngestRequest,
+        all_registered_symbols,
+        to_response,
+    )
+
+    await websocket.accept()
+
+    try:
+        raw = await websocket.receive_json()
+    except WebSocketDisconnect:
+        return
+    except Exception:
+        await _send_error(websocket, "Expected a JSON ingest request.", 422)
+        await websocket.close()
+        return
+
+    try:
+        request = IngestRequest.model_validate(raw)
+    except ValidationError as exc:
+        await _send_error(websocket, f"Invalid request: {exc.errors()}", 422)
+        await websocket.close()
+        return
+
+    started = False
+    report: Optional["IngestReport"] = None
+    try:
+        async with get_session() as session:
+            symbols = request.symbols or await all_registered_symbols(session)
+        symbols = [s.upper().strip() for s in symbols if s and s.strip()]
+
+        if not symbols:
+            await _send_error(
+                websocket, "No symbols to ingest — the registry is empty.", 422
+            )
+            return
+        if len(symbols) > MAX_SYMBOLS:
+            await _send_error(
+                websocket,
+                f"{len(symbols)} symbols requested; the limit is {MAX_SYMBOLS}.",
+                422,
+            )
+            return
+
+        if not job.try_start(len(symbols)):
+            await _send_error(
+                websocket,
+                "An ingest is already running. Two runs would fetch the same "
+                "window twice for no benefit.",
+                409,
+            )
+            return
+        started = True
+
+        await websocket.send_json(
+            {
+                "type": "accepted",
+                "symbols": symbols,
+                "total": len(symbols),
+                "full_backfill": request.full_backfill,
+            }
+        )
+
+        async with _ProgressBridge(websocket) as bridge:
+            def on_progress(completed: int, total: int, symbol: str) -> None:
+                # Runs in the threadpool worker via ingest_symbols.
+                job.note(completed, total, symbol)
+                bridge.publish(
+                    {
+                        "type": "progress",
+                        "stage": "running",
+                        "pct": int(100 * completed / max(total, 1)),
+                        "detail": f"{symbol} ({completed} of {total})",
+                        "completed": completed,
+                        "total": total,
+                        "symbol": symbol,
+                    }
+                )
+
+            async with get_session() as session:
+                repo = TimescaleMarketDataRepo(session)
+                report = await ingest_symbols(
+                    repo=repo,
+                    symbols=symbols,
+                    start=request.start,
+                    end=request.end,
+                    full_backfill=request.full_backfill,
+                    progress=on_progress,
+                    run_in_thread=run_in_threadpool,
+                )
+
+        payload = to_response(report).model_dump(mode="json")
+        payload["type"] = "result"
+        await websocket.send_json(payload)
+
+    except WebSocketDisconnect:
+        logger.info("Websocket client disconnected during ingest.")
+        return
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Unhandled error in ingest websocket: %s", exc)
+        try:
+            await _send_error(websocket, "Internal server error", 500)
+        except Exception:
+            pass
+    finally:
+        if started:
+            # Released here too, or a disconnect mid-run would 409 every later
+            # request until the process restarts. The report is passed through
+            # so GET /api/v1/ingest/status can still report the last run.
+            from core.ingest import job as ingest_job
+
+            ingest_job.finish(report)
+        try:
+            await websocket.close()
+        except Exception:
+            pass
