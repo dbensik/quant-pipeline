@@ -17,7 +17,15 @@ from fastapi.responses import JSONResponse
 from app.core.config import settings
 from db.session import engine as db_engine
 
-from api.routers import assets, backtest, ohlcv, signals, strategies, ws
+from api.routers import (
+    assets,
+    backtest,
+    ohlcv,
+    screeners,
+    signals,
+    strategies,
+    ws,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -82,6 +90,7 @@ app.add_middleware(
 app.include_router(assets.router)
 app.include_router(ohlcv.router)
 app.include_router(strategies.router)
+app.include_router(screeners.router)
 app.include_router(backtest.router)
 app.include_router(signals.router)
 app.include_router(ws.router)
