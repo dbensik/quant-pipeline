@@ -45,9 +45,19 @@ class OptimizationTab:
         self, results_df: pd.DataFrame, metric: str
     ):
         """Displays results for a single-asset parameter sweep."""
-        st.metric(f"Best Metric ({metric})", f"{results_df[metric].max():.2f}")
+        # Direction matters: this took .max() and sorted descending for every
+        # metric, so selecting "Annualized Volatility" showed the MOST volatile
+        # parameter set labelled "Best Metric". Same defect as the one fixed in
+        # ParameterOptimizer's ranking (2026-08-09); MINIMIZE is imported from
+        # there so the two cannot drift apart.
+        from backtesting.parameter_optimizer import MINIMIZE
+
+        minimize = metric in MINIMIZE
+        best = results_df[metric].min() if minimize else results_df[metric].max()
+        st.metric(f"Best Metric ({metric})", f"{best:.2f}")
         st.dataframe(
-            results_df.sort_values(by=metric, ascending=False), use_container_width=True
+            results_df.sort_values(by=metric, ascending=minimize),
+            use_container_width=True,
         )
 
         param_cols = [

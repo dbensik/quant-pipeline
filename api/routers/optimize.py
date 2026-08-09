@@ -139,7 +139,13 @@ class StrategyOptimizeRequest(BaseModel):
     )
     metric: str = Field(
         default="Sharpe Ratio",
-        description=f"Metric to rank by. One of: {', '.join(OPTIMIZABLE_METRICS)}",
+        description=(
+            f"Metric to rank by. One of: {', '.join(OPTIMIZABLE_METRICS)}. "
+            "Note that the risk metrics have a degenerate optimum: the least "
+            "volatile parameter set is usually one that never trades (zero "
+            "volatility, zero return). Rank by a risk-ADJUSTED metric such as "
+            "Sharpe or Calmar unless you specifically want that."
+        ),
     )
     initial_capital: float = Field(default=100_000.0, gt=0)
     transaction_cost: float = Field(default=0.001, ge=0)

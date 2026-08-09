@@ -1115,7 +1115,7 @@ export interface components {
             };
             /**
              * Metric
-             * @description Metric to rank by. One of: Annualized Return, Annualized Volatility, Calmar Ratio, Final Value, Max Drawdown, Max Drawdown Duration (Days), Sharpe Ratio, Sortino Ratio, Total Return
+             * @description Metric to rank by. One of: Annualized Return, Annualized Volatility, Calmar Ratio, Final Value, Max Drawdown, Max Drawdown Duration (Days), Sharpe Ratio, Sortino Ratio, Total Return. Note that the risk metrics have a degenerate optimum: the least volatile parameter set is usually one that never trades (zero volatility, zero return). Rank by a risk-ADJUSTED metric such as Sharpe or Calmar unless you specifically want that.
              * @default Sharpe Ratio
              */
             metric: string;
