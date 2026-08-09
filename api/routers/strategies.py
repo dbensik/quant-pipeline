@@ -10,7 +10,7 @@ frontend change required.
 Phase 3 — FastAPI routers for the React UI
 """
 
-from typing import Any, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from fastapi import APIRouter, HTTPException, Path, Query
 from pydantic import BaseModel, Field
@@ -45,6 +45,14 @@ class StrategySchema(BaseModel):
         default=None,
         description="Set when the strategy is known to be unsound — surface it to the user.",
     )
+    default_grid: Optional[Dict[str, List[Any]]] = Field(
+        default=None,
+        description=(
+            "Parameter sweep used when a caller asks to optimize or compare "
+            "without supplying a grid. Null means no default sweep — pass one "
+            "explicitly."
+        ),
+    )
 
 
 class StrategyListResponse(BaseModel):
@@ -71,6 +79,7 @@ def _to_schema(spec: registry.StrategySpec) -> StrategySchema:
             for p in spec.params
         ],
         caveat=spec.caveat,
+        default_grid=spec.default_grid,
     )
 
 

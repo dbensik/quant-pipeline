@@ -266,6 +266,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/backtest/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Compare several strategies on one symbol */
+        post: operations["compare_strategies_api_v1_backtest_compare_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/optimize/strategy": {
         parameters: {
             query?: never;
@@ -740,11 +757,146 @@ export interface components {
              */
             caveat?: string | null;
             /** Equity Curve */
-            equity_curve?: components["schemas"]["EquityPoint"][];
+            equity_curve?: components["schemas"]["api__routers__backtest__EquityPoint"][];
             /** Trades */
             trades?: {
                 [key: string]: unknown;
             }[];
+        };
+        /** BenchmarkRow */
+        BenchmarkRow: {
+            /** Symbol */
+            symbol: string;
+            /** Metrics */
+            metrics: {
+                [key: string]: unknown;
+            };
+            /** Equity Curve */
+            equity_curve?: components["schemas"]["api__routers__compare__EquityPoint"][];
+        };
+        /** CompareRequest */
+        CompareRequest: {
+            /** Symbol */
+            symbol: string;
+            /**
+             * Start
+             * Format: date-time
+             */
+            start: string;
+            /**
+             * End
+             * Format: date-time
+             */
+            end: string;
+            /** Strategies */
+            strategies: components["schemas"]["StrategyEntry"][];
+            /**
+             * Benchmark Symbol
+             * @description Buy-and-hold on this symbol, normalised to initial_capital.
+             */
+            benchmark_symbol?: string | null;
+            /**
+             * Optimize
+             * @description Tune each strategy over its grid before comparing, so the ranking does not just measure whose defaults suited the window.
+             * @default false
+             */
+            optimize: boolean;
+            /**
+             * Metric
+             * @description Tuning and ranking metric
+             * @default Sharpe Ratio
+             */
+            metric: string;
+            /**
+             * Initial Capital
+             * @default 100000
+             */
+            initial_capital: number;
+            /**
+             * Transaction Cost
+             * @default 0.001
+             */
+            transaction_cost: number;
+            /**
+             * Seed
+             * @default 42
+             */
+            seed: number | null;
+            /**
+             * Include Equity Curves
+             * @default true
+             */
+            include_equity_curves: boolean;
+        };
+        /** CompareResponse */
+        CompareResponse: {
+            /** Symbol */
+            symbol: string;
+            /**
+             * Start
+             * Format: date-time
+             */
+            start: string;
+            /**
+             * End
+             * Format: date-time
+             */
+            end: string;
+            /** Bars */
+            bars: number;
+            /** Metric */
+            metric: string;
+            /** Initial Capital */
+            initial_capital: number;
+            /** Seed */
+            seed: number | null;
+            /** Optimized */
+            optimized: boolean;
+            /**
+             * Results
+             * @description Ranked best-first by `metric`
+             */
+            results: components["schemas"]["ComparisonRow"][];
+            benchmark?: components["schemas"]["BenchmarkRow"] | null;
+            /**
+             * Skipped
+             * @description Strategies that could not be run, with the reason. Reported rather than dropped, so a comparison missing an entry says why.
+             */
+            skipped?: {
+                [key: string]: string;
+            }[];
+        };
+        /** ComparisonRow */
+        ComparisonRow: {
+            /** Strategy Id */
+            strategy_id: string;
+            /** Strategy Name */
+            strategy_name: string;
+            /**
+             * Params
+             * @description Parameters actually used
+             */
+            params: {
+                [key: string]: unknown;
+            };
+            /**
+             * Tuned
+             * @description Whether these came from a grid search
+             */
+            tuned: boolean;
+            /**
+             * Combinations Evaluated
+             * @default 0
+             */
+            combinations_evaluated: number;
+            /** Metrics */
+            metrics: {
+                [key: string]: unknown;
+            };
+            /** Caveat */
+            caveat?: string | null;
+            /** Equity Curve */
+            equity_curve?: components["schemas"]["api__routers__compare__EquityPoint"][];
         };
         /** CreatePortfolioRequest */
         CreatePortfolioRequest: {
@@ -759,24 +911,6 @@ export interface components {
             metadata?: {
                 [key: string]: unknown;
             } | null;
-        };
-        /** EquityPoint */
-        EquityPoint: {
-            /**
-             * Time
-             * Format: date-time
-             */
-            time: string;
-            /** Total */
-            total: number;
-            /** Cash */
-            cash: number;
-            /** Holdings */
-            holdings: number;
-            /** Position */
-            position: number;
-            /** Signal */
-            signal: number;
         };
         /** Financials */
         Financials: {
@@ -1485,6 +1619,22 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** StrategyEntry */
+        StrategyEntry: {
+            /** Strategy Id */
+            strategy_id: string;
+            /** Params */
+            params?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Grid
+             * @description Sweep for this strategy when `optimize` is on. Omit to use the registry's default_grid; a strategy with neither runs on `params`.
+             */
+            grid?: {
+                [key: string]: unknown[];
+            } | null;
+        };
         /** StrategyListResponse */
         StrategyListResponse: {
             /** Count */
@@ -1627,6 +1777,13 @@ export interface components {
              * @description Set when the strategy is known to be unsound — surface it to the user.
              */
             caveat?: string | null;
+            /**
+             * Default Grid
+             * @description Parameter sweep used when a caller asks to optimize or compare without supplying a grid. Null means no default sweep — pass one explicitly.
+             */
+            default_grid?: {
+                [key: string]: unknown[];
+            } | null;
         };
         /** TestListResponse */
         TestListResponse: {
@@ -1749,6 +1906,34 @@ export interface components {
             symbols: string[];
             /** Created At */
             created_at?: string | null;
+        };
+        /** EquityPoint */
+        api__routers__backtest__EquityPoint: {
+            /**
+             * Time
+             * Format: date-time
+             */
+            time: string;
+            /** Total */
+            total: number;
+            /** Cash */
+            cash: number;
+            /** Holdings */
+            holdings: number;
+            /** Position */
+            position: number;
+            /** Signal */
+            signal: number;
+        };
+        /** EquityPoint */
+        api__routers__compare__EquityPoint: {
+            /**
+             * Time
+             * Format: date-time
+             */
+            time: string;
+            /** Total */
+            total: number;
         };
     };
     responses: never;
@@ -2218,6 +2403,44 @@ export interface operations {
                 content?: never;
             };
             /** @description Single-asset strategy, bad weights, or no data */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    compare_strategies_api_v1_backtest_compare_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompareRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompareResponse"];
+                };
+            };
+            /** @description Unknown symbol */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad window, metric, or no strategy could run */
             422: {
                 headers: {
                     [name: string]: unknown;

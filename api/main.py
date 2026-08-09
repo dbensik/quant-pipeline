@@ -20,6 +20,7 @@ from db.session import engine as db_engine
 from api.routers import (
     assets,
     backtest,
+    compare,
     ohlcv,
     optimize,
     portfolio_backtest,
@@ -100,6 +101,7 @@ app.include_router(screeners.router)
 app.include_router(statistics.router)
 app.include_router(backtest.router)
 app.include_router(portfolio_backtest.router)
+app.include_router(compare.router)
 app.include_router(optimize.router)
 app.include_router(portfolios.router)
 app.include_router(signals.router)

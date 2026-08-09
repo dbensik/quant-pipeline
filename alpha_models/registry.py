@@ -79,6 +79,21 @@ class StrategySpec:
     # so a consumer can warn rather than silently trusting the numbers.
     caveat: Optional[str] = None
 
+    # A sensible parameter sweep, used when a caller asks to optimize without
+    # supplying a grid — chiefly the comparison endpoint, which tunes each
+    # strategy before comparing so the ranking is not just measuring whose
+    # DEFAULTS happened to suit the window.
+    #
+    # It lives here because it is a fact about the strategy, alongside its
+    # params and input contract. It was previously `_OPTIMIZATION_GRIDS` inside
+    # the Streamlit AnalysisController — a fifth copy of grid-search knowledge,
+    # which also re-hardcoded the short<long constraint that
+    # MovingAverageCrossoverStrategy already enforces.
+    #
+    # None means "no default sweep"; pass a grid explicitly. Deliberately not
+    # invented for strategies where a sensible range is a guess.
+    default_grid: Optional[Dict[str, List[Any]]] = None
+
     def build(self, params: Optional[Dict[str, Any]] = None) -> BaseAlphaModel:
         """
         Instantiate the strategy, filling unspecified parameters with defaults.
@@ -128,6 +143,10 @@ _SPECS: List[StrategySpec] = [
             ParamSpec("window", "int", 20, "Lookback window", "Bars in the rolling mean", 2, 500),
             ParamSpec("threshold", "float", 1.5, "Z-score threshold", "Std devs from the mean to trigger", 0.1, 10.0),
         ],
+        default_grid={
+            "window": [10, 20, 30, 40, 50],
+            "threshold": [1.0, 1.5, 2.0, 2.5],
+        },
     ),
     StrategySpec(
         id="ma_crossover",
@@ -138,6 +157,12 @@ _SPECS: List[StrategySpec] = [
             ParamSpec("short_window", "int", 40, "Short window", "Must be smaller than the long window", 1, 500),
             ParamSpec("long_window", "int", 100, "Long window", "Must be larger than the short window", 2, 1000),
         ],
+        # Combinations where short >= long are rejected by the strategy's own
+        # ValueError and reported as skipped — no constraint is restated here.
+        default_grid={
+            "short_window": [10, 20, 30],
+            "long_window": [50, 100, 200],
+        },
     ),
     StrategySpec(
         id="trend_following",
