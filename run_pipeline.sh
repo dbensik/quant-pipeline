@@ -30,13 +30,23 @@ if [ "$1" == "api" ] || [ "$1" == "gateway" ]; then
     shift
     # Run strawberry server (default port 8000)
     strawberry dev services.graphql_gateway.schema --host 127.0.0.1 --port 8000
-elif [ "$1" == "dashboard" ] || [ "$1" == "ui" ]; then
-    echo "--- Starting Streamlit Dashboard... ---"
+elif [ "$1" == "rest" ] || [ "$1" == "fastapi" ]; then
+    echo "--- Starting FastAPI (REST + websockets) on 127.0.0.1:8001... ---"
     shift
-    # Add the current directory to PYTHONPATH so that 'dashboard_app' module can be found
-    export PYTHONPATH=$PYTHONPATH:$(pwd)
-    # Run Streamlit
-    streamlit run dashboard_app/dashboard.py "$@"
+    uvicorn api.main:app --host 127.0.0.1 --port 8001 "$@"
+elif [ "$1" == "dashboard" ] || [ "$1" == "ui" ]; then
+    # Was `streamlit run dashboard_app/dashboard.py` until 2026-08-09.
+    # dashboard_app was deleted once every one of its features had a React
+    # page; the UI is now the Vite dev server, which talks to the FastAPI
+    # process above.
+    echo "--- Starting React dashboard (Vite) on localhost:5173... ---"
+    shift
+    if [ ! -d "frontend/node_modules" ]; then
+        echo "ERROR: frontend dependencies are not installed."
+        echo "  Fix: cd frontend && npm install"
+        exit 1
+    fi
+    ( cd frontend && npm run dev -- "$@" )
 elif [ "$1" == "grpc" ]; then
     echo "--- Starting gRPC Server... ---"
     python -m services.grpc_service.server
@@ -44,7 +54,7 @@ elif [ "$1" == "verify" ]; then
     echo "--- Running Verification / GraphQL Client... ---"
     python verify_all.py
 elif [ "$1" == "all" ]; then
-    echo "--- Starting ALL Services (gRPC, API, Dashboard) + Verification ---"
+    echo "--- Starting ALL Services (gRPC, GraphQL, FastAPI, React) + Verification ---"
     
     # Function to handle script exit (kill background processes)
     cleanup() {
@@ -60,9 +70,15 @@ elif [ "$1" == "all" ]; then
     echo "2. Starting GraphQL Gateway..."
     strawberry dev services.graphql_gateway.schema --host 127.0.0.1 --port 8000 &
 
-    echo "3. Starting Streamlit Dashboard..."
-    export PYTHONPATH=$PYTHONPATH:$(pwd)
-    streamlit run dashboard_app/dashboard.py &
+    echo "3. Starting FastAPI (REST + websockets)..."
+    uvicorn api.main:app --host 127.0.0.1 --port 8001 &
+
+    echo "4. Starting React dashboard (Vite)..."
+    if [ -d "frontend/node_modules" ]; then
+        ( cd frontend && npm run dev ) &
+    else
+        echo "   SKIPPED: frontend/node_modules missing — run 'cd frontend && npm install'"
+    fi
 
     echo "--- Services launched in background. Waiting 5s for startup... ---"
     sleep 5

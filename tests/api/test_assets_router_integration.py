@@ -106,17 +106,52 @@ def test_detail_carries_metadata(live_client: TestClient):
 
 def test_registered_symbol_with_no_bars_reports_zero_coverage(live_client: TestClient):
     """
-    Five crypto tickers are registered with zero bars — every legacy row for
-    them was an all-NULL padding bar. Coverage must report that honestly rather
-    than 404, so a consumer can tell "unknown" from "known but empty".
+    A registered symbol with no bars must report zero coverage rather than 404,
+    so a consumer can tell "unknown" from "known but empty".
+
+    This used to assert against TAO-USD, one of five crypto tickers the Phase 2
+    migration left with zero bars because every legacy row was an all-NULL
+    padding bar. That premise expired on 2026-08-09: /api/v1/ingest fetched
+    real data for them, so TAO-USD now has bars and the test failed on its own
+    fixture rather than on a defect. It registers its own empty asset instead,
+    which no ingest will fill.
     """
     _skip_if_db_down(live_client)
-    response = live_client.get("/api/v1/assets/TAO-USD")
-    if response.status_code == 404:
-        pytest.skip("TAO-USD not present in this database.")
-    body = response.json()
-    assert body["bar_count"] == 0
-    assert body["first_bar"] is None and body["last_bar"] is None
+    symbol = "PYTEST-EMPTY-COVERAGE"
+
+    created = live_client.post(
+        "/api/v1/ingest/assets", json={"symbol": symbol, "asset_class": "equity"}
+    )
+    if created.status_code >= 400:
+        pytest.skip(f"Could not register {symbol}: {created.text}")
+
+    try:
+        body = live_client.get(f"/api/v1/assets/{symbol}").json()
+        assert body["bar_count"] == 0
+        assert body["first_bar"] is None and body["last_bar"] is None
+    finally:
+        _drop_asset(symbol)
+
+
+def _drop_asset(symbol: str) -> None:
+    """
+    Remove the throwaway asset. No API endpoint deletes one, so this is direct
+    SQL — over a SYNC engine, deliberately. The async engine in db/session.py
+    is bound to TestClient's portal loop, and asyncio.run() here opens a second
+    loop that asyncpg rejects ("unknown protocol state").
+    """
+    from sqlalchemy import create_engine, text
+
+    from db.session import settings
+
+    engine = create_engine(settings.SYNC_DATABASE_URL)
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text("DELETE FROM assets WHERE symbol = :symbol"), {"symbol": symbol}
+            )
+    finally:
+        engine.dispose()
 
 
 def test_unknown_symbol_is_404(live_client: TestClient):

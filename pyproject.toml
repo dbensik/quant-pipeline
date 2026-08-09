@@ -41,7 +41,6 @@ dependencies = [
     "beautifulsoup4",
     "curl-cffi",
     "yfinance",
-    "streamlit",
     "peewee",
     "fastapi",
     "uvicorn[standard] (>=0.42.0,<0.43.0)",

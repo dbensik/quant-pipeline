@@ -34,19 +34,12 @@ services:
       timescaledb:
         condition: service_healthy
 
-  dashboard:
-    build: .
-    container_name: quant_dashboard
-    command: streamlit run dashboard_app/dashboard.py
-    volumes:
-      - .:/app
-    ports:
-      - "8501:8501"
-    environment:
-      - DATABASE_URL=postgresql://quant:quant@timescaledb:5432/quant_pipeline
-    depends_on:
-      timescaledb:
-        condition: service_healthy
+  # The Streamlit dashboard service was removed on 2026-08-09 along with
+  # dashboard_app/. The UI is now the React app in frontend/, which is a
+  # static build plus a dev server — it needs a Node image rather than this
+  # Python one, and it talks to the `api` service over HTTP rather than
+  # sharing the database. Run it with `./run_pipeline.sh dashboard`, or add a
+  # node service here when containerising it becomes worthwhile.
 
   pipeline:
     build: .

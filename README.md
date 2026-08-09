@@ -1,4 +1,4 @@
-# Quant Pipeline
+    # Quant Pipeline
 Quant Pipeline is an end-to-end modular framework for developing, backtesting, and deploying systematic trading strategies using both traditional and machine learning approaches.
 
 ## Overview
@@ -21,11 +21,17 @@ The project is organized into several key components:
 - **CLI (cli/):**  
   Contains the CLI runner (`run_pipeline.py`) to execute the complete pipeline from the command line.
 
-- **Dashboard App (dashboard_app/):**  
-  Contains the Streamlit dashboard code.
-  - `controllers/`: Contains logic for Analysis, Optimization, and Statistics.
-  - `ui_components/`: Contains UI rendering modules.
-  - `dashboard.py`: Main entry point.
+- **API (api/):**  
+  FastAPI backend — the REST and websocket surface the dashboard reads.
+  - `routers/`: one module per feature (ohlcv, backtest, compare, optimize,
+    screeners, statistics, portfolios, watchlists, research, ingest, results).
+  - `upstream.py`: the only module that reaches the network (yfinance).
+
+- **Frontend (frontend/):**  
+  React dashboard (Vite, TanStack Query, Tailwind/shadcn).
+  - `routes.tsx`: declares the pages once, for both the router and the nav bar.
+  - `api/schema.d.ts`: generated from the live OpenAPI document — never edited
+    by hand (`npm run gen:api`).
 
 - **Data Pipeline (data_pipeline/):**  
   Contains the core functionality for fetching and cleaning market data.
@@ -91,25 +97,8 @@ quant-pipeline/
 ├── config/                                     # Configuration files
 │   ├── __init__.py                             # Package initializer
 │   └── settings.py                             # Centralized settings
-├── dashboard_app/                              # Dashboard interface
-│   ├── controllers/                            # Business Logic Controllers
-│   │    ├── analysis_controller.py
-│   │    ├── optimization_controller.py
-│   │    └── statistics_controller.py
-│   ├── ui_components/                          # UI components
-│   │    ├── __init__.py                        # Package initializer
-│   │    ├── analysis_tab.py                    # Analysis Tab Components
-│   │    ├── optimization_tab.py                # Optimization Tab Components
-│   │    ├── portfolio_tab.py                   # Portfolio Tab Components
-│   │    ├── sidebar.py                         # Sidebar Components
-│   │    └── stats_tab.py                       # Stats Tab Components
-│   ├── dashboard.py                            # Main Dashboard Application
-│   ├── database_manager.py                     # Database Manager
-│   ├── portfolio_manager.py                    # Portfolio Manager
-│   ├── results_manager.py                      # Results Manager
-│   ├── universe_manager.py                     # Universe Manager
-│   ├── utils.py                                # Utility functions
-│   └── watchlist_manager.py                    # Watchlist Manager
+├── api/                                        # FastAPI backend (routers, upstream gateway)
+├── frontend/                                   # React dashboard (Vite + TanStack Query)
 ├── data/                                       # Folder for storing additional data files
 │   └── universe.csv                            # Universe data
 ├── data_pipeline/                              # Core data pipeline functionality
@@ -216,12 +205,21 @@ Start the Dashboard, API, and gRPC service, plus run verification checks in one 
 
 ### Workflow
 
-1.  **Run the Pipeline**: Ensure your data is up-to-date by running `python -m cli.run_pipeline`.
-2.  **Launch the Dashboard**: Start the app with `streamlit run dashboard_app/dashboard.py`.
-3.  **Select a Strategy**: In the dashboard's sidebar, choose a strategy like "Moving Average Crossover" from the dropdown.
-4.  **Set Parameters**: Adjust the parameters, such as the short and long window for the moving averages, and select the assets to test.
-5.  **Run Backtest**: Click the "Run Backtest" button.
-6.  **Analyze Results**: View the equity curve, performance statistics (Sharpe Ratio, Max Drawdown), and trade logs in the results tabs.
+1.  **Start the backend**: `./run_pipeline.sh rest` (FastAPI on 127.0.0.1:8001).
+    Interactive docs at <http://127.0.0.1:8001/api/v1/docs>.
+2.  **Start the dashboard**: `./run_pipeline.sh dashboard` (React on
+    localhost:5173). `./run_pipeline.sh all` starts both plus gRPC and the
+    GraphQL gateway.
+3.  **Refresh the data**: on the **Data** page, or `POST /api/v1/ingest`. This
+    writes TimescaleDB; `cli.run_pipeline` writes the legacy SQLite database
+    that nothing reads any more.
+4.  **Chart & Backtest**: pick a symbol and strategy, adjust parameters, and
+    run — with live progress over the websocket.
+5.  **Go further**: **Compare** ranks several strategies on one symbol,
+    **Optimize** grid-searches parameters or portfolio weights, **Screeners**
+    filters the universe, **Statistics** runs ADF/cointegration/PCA,
+    **Portfolios** keeps a trade log with derived P&L, and **Research** shows
+    profiles, financials and news.
 
 ## 3-Layer Architecture (gRPC, GraphQL, Crypto)
 We have integrated a verifiable signal generation architecture:

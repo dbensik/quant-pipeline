@@ -1,16 +1,26 @@
 # CLAUDE.md — Quant Pipeline
 
-End-to-end modular framework for systematic trading: data ingestion, backtesting, ML models, and a Streamlit dashboard.
+End-to-end modular framework for systematic trading: data ingestion, backtesting, ML models, a FastAPI backend and a React dashboard.
+
+Streamlit (`dashboard_app/`) was deleted on 2026-08-09 after every one of its
+features was ported to a router and a React page. Do not reintroduce it.
 
 ## Run
 
 ```bash
-./run_pipeline.sh all          # start dashboard + API + gRPC + verification
-./run_pipeline.sh dashboard    # Streamlit dashboard only
-./run_pipeline.sh api          # FastAPI only
+./run_pipeline.sh all          # gRPC + GraphQL + FastAPI + React + verification
+./run_pipeline.sh rest         # FastAPI only (REST + websockets, port 8001)
+./run_pipeline.sh dashboard    # React dev server only (port 5173)
+./run_pipeline.sh api          # GraphQL gateway only (port 8000) — NOT FastAPI
 ./run_pipeline.sh grpc         # gRPC service only
-python -m cli.run_pipeline     # data pipeline only
+python -m cli.run_pipeline     # legacy SQLite data pipeline
 ```
+
+`api`/`gateway` means the GraphQL gateway, not the REST API — a naming wart
+that predates FastAPI. Use `rest` for FastAPI.
+
+Ingestion goes through `POST /api/v1/ingest`, which writes TimescaleDB.
+`cli.run_pipeline` writes the legacy SQLite database that nothing reads.
 
 ## Test
 
@@ -30,7 +40,7 @@ Protocol (`db/repositories/market_data.py` documents this as its purpose).
 Integration tests are deselected by default and skip if the DB is down.
 
 ```bash
-cd frontend && npm test        # 73 tests — also needs NO API/Docker
+cd frontend && npm test        # 186 tests — also needs NO API/Docker
 ```
 
 When adding tests: assert on the *output*, not on values the response merely
@@ -71,7 +81,12 @@ For the TimescaleDB layer, copy `.env.example` → `.env`; without it, `db/sessi
 - `alpha_models/` — Strategy classes (Moving Average Crossover, Mean Reversion, Trend Following, Pairs Trading, etc.) all inherit from `base_model.py`
 - `backtesting/backtester.py` — Simulates strategy on historical data; produces equity curves and KPIs
 - `screeners/` — Filter universe by criteria (momentum, low volatility); output feeds into watchlists
-- `dashboard_app/` — Streamlit UI; `controllers/` hold business logic; `ui_components/` hold rendering
+- `api/routers/` — the REST/WS surface: ohlcv, assets, strategies, backtest,
+  compare, optimize, screeners, statistics, portfolios, watchlists, research,
+  ingest, results, signals, ws
+- `frontend/` — React dashboard; `routes.tsx` declares pages once for both the
+  router and the nav bar; TanStack Query owns server state, Zustand owns UI
+  selections only
 - `ml_models/` — EDA, model training (scikit-learn), signal generation
 - `services/` — 3-layer architecture: gRPC signal service → GraphQL gateway → Ed25519/SHA256 crypto audit log (`audit_log.json`)
 - `core/portfolio.py` — portfolio accounting; the trade log is the only stored
@@ -82,6 +97,8 @@ For the TimescaleDB layer, copy `.env.example` → `.env`; without it, `db/sessi
 ## Invariants
 
 - New strategies inherit from `alpha_models/base_model.py`.
-- Dashboard business logic lives in `controllers/`, never in `ui_components/`.
+- Pages read server state through TanStack Query hooks in `api/queries.ts`; Zustand holds UI selections only, never fetched data.
+- A mutation must invalidate every query its write affects — for portfolios that includes the DERIVED state, not just the trade list.
+- Two Pydantic models must never share a class name across routers: FastAPI qualifies the collision by module, silently renaming the generated TypeScript type. `tests/api/test_openapi_contract.py` enforces this.
 - Run `./run_pipeline.sh verify` after any change touching `services/`.
 - Settings changes go through `config/settings.py` — no hardcoded parameters in pipelines or strategies.
