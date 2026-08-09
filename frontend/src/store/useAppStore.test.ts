@@ -9,14 +9,22 @@ beforeEach(() => {
 })
 
 describe('useAppStore — selections only', () => {
-  it('starts with a symbol and a range inside the stored data', () => {
+  it('defaults to the last twelve months, ending today', () => {
     const state = useAppStore.getState()
     expect(state.selectedSymbol).toBe('AAPL')
-    // The default window must end at the last stored bar, not today. The
-    // dataset ends 2025-07-15; a "last 12 months from today" default renders an
-    // empty chart and reads as a bug.
-    expect(state.endDate).toBe('2025-07-15')
+
+    // Asserted as a RELATIONSHIP, not a literal date. This used to pin
+    // '2025-07-15' because ingestion wrote to SQLite while the API read
+    // TimescaleDB, leaving the data thirteen months stale; that was fixed on
+    // 2026-08-09 and the default is now relative. A literal would make this
+    // test fail with the passage of time rather than with a code change.
+    const today = new Date().toISOString().slice(0, 10)
+    expect(state.endDate).toBe(today)
     expect(state.startDate < state.endDate).toBe(true)
+
+    const spanDays =
+      (Date.parse(state.endDate) - Date.parse(state.startDate)) / 86_400_000
+    expect(spanDays).toBe(365)
   })
 
   it('holds no server data', () => {

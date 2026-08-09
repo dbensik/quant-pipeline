@@ -915,7 +915,7 @@ export interface components {
              */
             caveat?: string | null;
             /** Equity Curve */
-            equity_curve?: components["schemas"]["api__routers__backtest__EquityPoint"][];
+            equity_curve?: components["schemas"]["EquityPoint"][];
             /** Trades */
             trades?: {
                 [key: string]: unknown;
@@ -930,7 +930,7 @@ export interface components {
                 [key: string]: unknown;
             };
             /** Equity Curve */
-            equity_curve?: components["schemas"]["api__routers__compare__EquityPoint"][];
+            equity_curve?: components["schemas"]["ComparisonEquityPoint"][];
         };
         /** CompareRequest */
         CompareRequest: {
@@ -1024,6 +1024,27 @@ export interface components {
                 [key: string]: string;
             }[];
         };
+        /**
+         * ComparisonEquityPoint
+         * @description A point on a comparison curve: time and total only.
+         *
+         *     NOT named `EquityPoint`. api/routers/backtest.py already has a class by
+         *     that name carrying six fields, and two Pydantic models sharing a class
+         *     name collide in the OpenAPI document — openapi-typescript disambiguates
+         *     them to `api__routers__backtest__EquityPoint` and
+         *     `api__routers__compare__EquityPoint`, which silently renamed the type the
+         *     frontend imported and broke `npm run build`. Same convention as
+         *     PortfolioEquityPoint in portfolio_backtest.py.
+         */
+        ComparisonEquityPoint: {
+            /**
+             * Time
+             * Format: date-time
+             */
+            time: string;
+            /** Total */
+            total: number;
+        };
         /** ComparisonRow */
         ComparisonRow: {
             /** Strategy Id */
@@ -1054,7 +1075,7 @@ export interface components {
             /** Caveat */
             caveat?: string | null;
             /** Equity Curve */
-            equity_curve?: components["schemas"]["api__routers__compare__EquityPoint"][];
+            equity_curve?: components["schemas"]["ComparisonEquityPoint"][];
         };
         /** CreatePortfolioRequest */
         CreatePortfolioRequest: {
@@ -1069,6 +1090,24 @@ export interface components {
             metadata?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /** EquityPoint */
+        EquityPoint: {
+            /**
+             * Time
+             * Format: date-time
+             */
+            time: string;
+            /** Total */
+            total: number;
+            /** Cash */
+            cash: number;
+            /** Holdings */
+            holdings: number;
+            /** Position */
+            position: number;
+            /** Signal */
+            signal: number;
         };
         /** Financials */
         Financials: {
@@ -2183,34 +2222,6 @@ export interface components {
             symbols: string[];
             /** Created At */
             created_at?: string | null;
-        };
-        /** EquityPoint */
-        api__routers__backtest__EquityPoint: {
-            /**
-             * Time
-             * Format: date-time
-             */
-            time: string;
-            /** Total */
-            total: number;
-            /** Cash */
-            cash: number;
-            /** Holdings */
-            holdings: number;
-            /** Position */
-            position: number;
-            /** Signal */
-            signal: number;
-        };
-        /** EquityPoint */
-        api__routers__compare__EquityPoint: {
-            /**
-             * Time
-             * Format: date-time
-             */
-            time: string;
-            /** Total */
-            total: number;
         };
     };
     responses: never;

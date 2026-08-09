@@ -59,13 +59,18 @@ interface AppState {
 }
 
 /**
- * Default window ends at the last stored bar (2025-07-15), not today. The
- * dataset's most recent bar predates the current date by roughly a year, so a
- * "last 12 months from today" default would render an empty chart and look like
- * a bug. Revisit whenever the ingest pipeline is brought current.
+ * The last twelve months, relative to today.
+ *
+ * This used to be pinned to '2025-07-15' — the newest bar in the database —
+ * because ingestion had been writing to SQLite while the API read TimescaleDB,
+ * so the data was thirteen months stale and a "last 12 months" default
+ * rendered an empty chart. That was fixed on 2026-08-09: /api/v1/ingest writes
+ * to TimescaleDB, and a full run brought 580 of 616 symbols current. The
+ * remaining stragglers are delisted or acquired tickers (HES, ANSS, WBA and
+ * others) that legitimately have no newer bars.
  */
-const DEFAULT_END: IsoDate = '2025-07-15'
-const DEFAULT_START: IsoDate = '2024-07-15'
+const DEFAULT_END: IsoDate = isoDaysAgo(0)
+const DEFAULT_START: IsoDate = isoDaysAgo(365)
 
 export const useAppStore = create<AppState>((set) => ({
   selectedSymbol: 'AAPL',

@@ -1,15 +1,18 @@
 /**
  * components/layout/AppLayout.tsx
- * App shell: header with API status, and a content slot.
+ * App shell: header with API status, primary navigation, and a content slot.
  *
- * Phase 4 — React frontend
+ * Phase 5 — React pages for the ported routers
  */
 
 import type { ReactNode } from 'react'
+import { NavLink } from 'react-router-dom'
 
 import { useHealth } from '@/api/queries'
 import { API_BASE_URL } from '@/api/client'
 import { Badge } from '@/components/ui/badge'
+import { routes } from '@/routes'
+import { cn } from '@/lib/utils'
 
 function ApiStatus() {
   const { data, isLoading, isError } = useHealth()
@@ -31,6 +34,35 @@ function ApiStatus() {
   )
 }
 
+function Navigation() {
+  return (
+    <nav className="border-b bg-muted/30">
+      <div className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-6">
+        {routes.map(({ path, label, icon: Icon }) => (
+          <NavLink
+            key={path}
+            to={path}
+            // `end` only on the index route, or every path would match it and
+            // "Chart & Backtest" would render active on every page.
+            end={path === '/'}
+            className={({ isActive }) =>
+              cn(
+                'flex shrink-0 items-center gap-2 border-b-2 px-3 py-2.5 text-sm transition-colors',
+                isActive
+                  ? 'border-primary font-medium text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-foreground',
+              )
+            }
+          >
+            <Icon className="h-4 w-4" />
+            {label}
+          </NavLink>
+        ))}
+      </div>
+    </nav>
+  )
+}
+
 export function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -41,12 +73,14 @@ export function AppLayout({ children }: { children: ReactNode }) {
               🚀 Quant Pipeline
             </h1>
             <p className="text-sm text-muted-foreground">
-              Research dashboard — React frontend (Phase 4)
+              Research dashboard
             </p>
           </div>
           <ApiStatus />
         </div>
       </header>
+
+      <Navigation />
 
       <main className="mx-auto max-w-7xl px-6 py-8">{children}</main>
     </div>

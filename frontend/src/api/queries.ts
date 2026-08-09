@@ -14,7 +14,7 @@
  * Phase 4 — React frontend
  */
 
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api, ApiError } from './client'
 import type { BacktestInput } from './client'
@@ -38,6 +38,7 @@ export const queryKeys = {
     end: string,
     params?: Record<string, number | string>,
   ) => ['signals', symbol, strategyId, start, end, params ?? {}] as const,
+  watchlists: (symbol?: string) => ['watchlists', { symbol }] as const,
 }
 
 /**
@@ -132,5 +133,49 @@ export function useSignals(
 export function useRunBacktest() {
   return useMutation({
     mutationFn: (request: BacktestInput) => api.runBacktest(request),
+  })
+}
+
+
+// ---------------------------------------------------------------------------
+// Watchlists
+// ---------------------------------------------------------------------------
+//
+// The first WRITE path in the frontend. Every earlier hook was read-only, so
+// this establishes the pattern the other CRUD pages copy: a mutation whose
+// onSuccess invalidates the list it changed.
+//
+// Without that invalidation the write succeeds and the UI keeps showing the
+// pre-write list — the frontend twin of the expire_on_commit=False bug that
+// made a watchlist save look like it had wiped the list on the backend.
+
+export function useWatchlists(symbol?: string) {
+  return useQuery({
+    queryKey: queryKeys.watchlists(symbol),
+    queryFn: () => api.listWatchlists({ symbol }),
+    staleTime: 30_000,
+  })
+}
+
+export function useSaveWatchlist() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ name, symbols }: { name: string; symbols: string[] }) =>
+      api.saveWatchlist(name, symbols),
+    onSuccess: () => {
+      // Every watchlists query, not just the unfiltered one: a save changes
+      // which lists contain a symbol, so `?symbol=` results go stale too.
+      void queryClient.invalidateQueries({ queryKey: ['watchlists'] })
+    },
+  })
+}
+
+export function useDeleteWatchlist() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (name: string) => api.deleteWatchlist(name),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['watchlists'] })
+    },
   })
 }

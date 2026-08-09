@@ -57,6 +57,23 @@ MAX_GRID_COMBINATIONS = 500
 # Models
 # ---------------------------------------------------------------------------
 
+class ComparisonEquityPoint(BaseModel):
+    """
+    A point on a comparison curve: time and total only.
+
+    NOT named `EquityPoint`. api/routers/backtest.py already has a class by
+    that name carrying six fields, and two Pydantic models sharing a class
+    name collide in the OpenAPI document — openapi-typescript disambiguates
+    them to `api__routers__backtest__EquityPoint` and
+    `api__routers__compare__EquityPoint`, which silently renamed the type the
+    frontend imported and broke `npm run build`. Same convention as
+    PortfolioEquityPoint in portfolio_backtest.py.
+    """
+
+    time: datetime
+    total: float
+
+
 class StrategyEntry(BaseModel):
     strategy_id: str
     params: Dict[str, Any] = Field(default_factory=dict)
@@ -92,11 +109,6 @@ class CompareRequest(BaseModel):
     include_equity_curves: bool = Field(default=True)
 
 
-class EquityPoint(BaseModel):
-    time: datetime
-    total: float
-
-
 class ComparisonRow(BaseModel):
     strategy_id: str
     strategy_name: str
@@ -105,13 +117,13 @@ class ComparisonRow(BaseModel):
     combinations_evaluated: int = 0
     metrics: Dict[str, Any]
     caveat: Optional[str] = None
-    equity_curve: List[EquityPoint] = Field(default_factory=list)
+    equity_curve: List[ComparisonEquityPoint] = Field(default_factory=list)
 
 
 class BenchmarkRow(BaseModel):
     symbol: str
     metrics: Dict[str, Any]
-    equity_curve: List[EquityPoint] = Field(default_factory=list)
+    equity_curve: List[ComparisonEquityPoint] = Field(default_factory=list)
 
 
 class CompareResponse(BaseModel):
@@ -138,11 +150,11 @@ class CompareResponse(BaseModel):
 # Work
 # ---------------------------------------------------------------------------
 
-def _curve(frame: Optional[pd.DataFrame]) -> List[EquityPoint]:
+def _curve(frame: Optional[pd.DataFrame]) -> List[ComparisonEquityPoint]:
     if frame is None or frame.empty or "total" not in frame.columns:
         return []
     return [
-        EquityPoint(time=index.to_pydatetime(), total=float(row["total"]))
+        ComparisonEquityPoint(time=index.to_pydatetime(), total=float(row["total"]))
         for index, row in frame.iterrows()
     ]
 

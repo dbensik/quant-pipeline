@@ -48,6 +48,7 @@ export type BacktestInput = Pick<
   'symbol' | 'strategy_id' | 'start' | 'end'
 > &
   Partial<Omit<BacktestRequest, 'symbol' | 'strategy_id' | 'start' | 'end'>>
+export type WatchlistOut = components['schemas']['WatchlistOut']
 export type SignalsResponse = components['schemas']['SignalsResponse']
 export type SignalPoint = components['schemas']['SignalPoint']
 
@@ -109,6 +110,32 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   return (await response.json()) as T
+}
+
+/**
+ * For 204 responses. `request` calls response.json(), which throws on an empty
+ * body — every DELETE in this API returns 204 with nothing.
+ */
+async function requestNoContent(path: string, init?: RequestInit): Promise<void> {
+  let response: Response
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      headers: { 'Content-Type': 'application/json' },
+      ...init,
+    })
+  } catch {
+    throw new ApiError(0, `Could not reach the API at ${API_BASE_URL}.`)
+  }
+  if (!response.ok) {
+    let detail = response.statusText
+    try {
+      const body = await response.json()
+      detail = typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail ?? body)
+    } catch {
+      /* empty or non-JSON body */
+    }
+    throw new ApiError(response.status, detail)
+  }
 }
 
 function qs(params: Record<string, string | number | boolean | undefined>): string {
@@ -180,5 +207,29 @@ export const api = {
         ? { ...rest, params: JSON.stringify(params) }
         : rest
     return request(`/api/v1/signals/${encodeURIComponent(symbol)}${qs(encoded)}`)
+  },
+
+  // -- watchlists ----------------------------------------------------------
+
+  listWatchlists(params: { symbol?: string } = {}): Promise<WatchlistOut[]> {
+    return request(`/api/v1/watchlists${qs(params)}`)
+  },
+
+  /**
+   * PUT, not POST: the endpoint replaces the whole list, so the same call
+   * creates a watchlist or overwrites one. Sending a partial list removes the
+   * symbols left out — that is the intent, matching the multiselect it drives.
+   */
+  saveWatchlist(name: string, symbols: string[]): Promise<WatchlistOut> {
+    return request(`/api/v1/watchlists/${encodeURIComponent(name)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ symbols }),
+    })
+  },
+
+  deleteWatchlist(name: string): Promise<void> {
+    return requestNoContent(`/api/v1/watchlists/${encodeURIComponent(name)}`, {
+      method: 'DELETE',
+    })
   },
 }
