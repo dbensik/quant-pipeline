@@ -49,6 +49,13 @@ export type BacktestInput = Pick<
 > &
   Partial<Omit<BacktestRequest, 'symbol' | 'strategy_id' | 'start' | 'end'>>
 export type WatchlistOut = components['schemas']['WatchlistOut']
+export type PortfolioSummary = components['schemas']['PortfolioSummary']
+export type PortfolioStateOut = components['schemas']['PortfolioStateOut']
+export type PositionOut = components['schemas']['PositionOut']
+export type TradeOut = components['schemas']['TradeOut']
+export type TradeIn = components['schemas']['TradeIn']
+export type RebalancePreview = components['schemas']['RebalancePreview']
+export type RebalanceOrder = components['schemas']['RebalanceOrder']
 export type SignalsResponse = components['schemas']['SignalsResponse']
 export type SignalPoint = components['schemas']['SignalPoint']
 
@@ -230,6 +237,77 @@ export const api = {
   deleteWatchlist(name: string): Promise<void> {
     return requestNoContent(`/api/v1/watchlists/${encodeURIComponent(name)}`, {
       method: 'DELETE',
+    })
+  },
+
+  // -- portfolios ----------------------------------------------------------
+
+  listPortfolios(): Promise<PortfolioSummary[]> {
+    return request('/api/v1/portfolios')
+  },
+
+  /**
+   * Derived state: cash, positions, P&L. Nothing here is stored — the trade
+   * log is, and the server computes the rest from it.
+   */
+  getPortfolio(
+    name: string,
+    params: { include_prices?: boolean } = {},
+  ): Promise<PortfolioStateOut> {
+    return request(`/api/v1/portfolios/${encodeURIComponent(name)}${qs(params)}`)
+  },
+
+  createPortfolio(body: {
+    name: string
+    initial_cash?: number
+  }): Promise<PortfolioSummary> {
+    return request('/api/v1/portfolios', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  },
+
+  deletePortfolio(name: string): Promise<void> {
+    return requestNoContent(`/api/v1/portfolios/${encodeURIComponent(name)}`, {
+      method: 'DELETE',
+    })
+  },
+
+  listTrades(name: string): Promise<TradeOut[]> {
+    return request(`/api/v1/portfolios/${encodeURIComponent(name)}/trades`)
+  },
+
+  /**
+   * `allow_overdraft` is a query parameter, not part of the body: it is a
+   * caller stance ("record this even though cash goes negative"), not a
+   * property of the trade.
+   */
+  addTrade(
+    name: string,
+    trade: TradeIn,
+    options: { allow_overdraft?: boolean } = {},
+  ): Promise<TradeOut> {
+    return request(
+      `/api/v1/portfolios/${encodeURIComponent(name)}/trades${qs(options)}`,
+      { method: 'POST', body: JSON.stringify(trade) },
+    )
+  },
+
+  deleteTrade(name: string, tradeId: string): Promise<void> {
+    return requestNoContent(
+      `/api/v1/portfolios/${encodeURIComponent(name)}/trades/${encodeURIComponent(tradeId)}`,
+      { method: 'DELETE' },
+    )
+  },
+
+  /** A PREVIEW — it returns orders, it does not record them. */
+  previewRebalance(
+    name: string,
+    body: { target_weights: Record<string, number>; minimum_order_value?: number },
+  ): Promise<RebalancePreview> {
+    return request(`/api/v1/portfolios/${encodeURIComponent(name)}/rebalance`, {
+      method: 'POST',
+      body: JSON.stringify(body),
     })
   },
 }

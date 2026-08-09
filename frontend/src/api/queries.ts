@@ -39,6 +39,10 @@ export const queryKeys = {
     params?: Record<string, number | string>,
   ) => ['signals', symbol, strategyId, start, end, params ?? {}] as const,
   watchlists: (symbol?: string) => ['watchlists', { symbol }] as const,
+  portfolios: () => ['portfolios'] as const,
+  portfolio: (name: string, withPrices: boolean) =>
+    ['portfolio', name, { withPrices }] as const,
+  trades: (name: string) => ['trades', name] as const,
 }
 
 /**
@@ -177,5 +181,104 @@ export function useDeleteWatchlist() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['watchlists'] })
     },
+  })
+}
+
+
+// ---------------------------------------------------------------------------
+// Portfolios
+// ---------------------------------------------------------------------------
+//
+// Writes invalidate BOTH the trade log and the derived state. Cash, positions
+// and P&L are computed from the trades, so adding one changes the state query
+// even though nothing wrote to it — invalidating only ['trades'] would leave
+// the summary showing pre-trade cash.
+
+export function usePortfolios() {
+  return useQuery({
+    queryKey: queryKeys.portfolios(),
+    queryFn: api.listPortfolios,
+    staleTime: 30_000,
+  })
+}
+
+export function usePortfolio(name: string | null, withPrices = true) {
+  return useQuery({
+    queryKey: queryKeys.portfolio(name ?? '', withPrices),
+    queryFn: () => api.getPortfolio(name as string, { include_prices: withPrices }),
+    enabled: Boolean(name),
+    retry: retryUnlessNotFound,
+  })
+}
+
+export function useTrades(name: string | null) {
+  return useQuery({
+    queryKey: queryKeys.trades(name ?? ''),
+    queryFn: () => api.listTrades(name as string),
+    enabled: Boolean(name),
+    retry: retryUnlessNotFound,
+  })
+}
+
+function invalidatePortfolio(queryClient: ReturnType<typeof useQueryClient>) {
+  void queryClient.invalidateQueries({ queryKey: ['portfolios'] })
+  void queryClient.invalidateQueries({ queryKey: ['portfolio'] })
+  void queryClient.invalidateQueries({ queryKey: ['trades'] })
+}
+
+export function useCreatePortfolio() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { name: string; initial_cash?: number }) =>
+      api.createPortfolio(body),
+    onSuccess: () => invalidatePortfolio(queryClient),
+  })
+}
+
+export function useDeletePortfolio() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (name: string) => api.deletePortfolio(name),
+    onSuccess: () => invalidatePortfolio(queryClient),
+  })
+}
+
+export function useAddTrade() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      name,
+      trade,
+      allowOverdraft,
+    }: {
+      name: string
+      trade: import('./client').TradeIn
+      allowOverdraft?: boolean
+    }) => api.addTrade(name, trade, { allow_overdraft: allowOverdraft }),
+    onSuccess: () => invalidatePortfolio(queryClient),
+  })
+}
+
+export function useDeleteTrade() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ name, tradeId }: { name: string; tradeId: string }) =>
+      api.deleteTrade(name, tradeId),
+    onSuccess: () => invalidatePortfolio(queryClient),
+  })
+}
+
+export function useRebalancePreview() {
+  // A mutation rather than a query: it is an explicit "compute this now"
+  // action with a body, and caching a preview across weight edits would show
+  // orders for weights the user has already changed.
+  return useMutation({
+    mutationFn: ({
+      name,
+      targetWeights,
+    }: {
+      name: string
+      targetWeights: Record<string, number>
+    }) => api.previewRebalance(name, { target_weights: targetWeights }),
   })
 }
