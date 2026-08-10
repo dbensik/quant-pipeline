@@ -226,6 +226,7 @@ class TimescaleMarketDataRepo:
             asset_class=row.asset_class,
             source=row.source,
             metadata=row.metadata_ or {},
+            delisted_at=row.delisted_at,
         )
 
     # ------------------------------------------------------------------

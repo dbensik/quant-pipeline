@@ -20,7 +20,7 @@ from core.corporate_actions import (
     STALE_AFTER,
     Split,
     detect_drift,
-    looks_delisted,
+    looks_unresolved,
     splits_since,
 )
 
@@ -97,40 +97,64 @@ def test_a_provider_failure_is_not_reported_as_drift():
 
 
 # ---------------------------------------------------------------------------
-# looks_delisted
+# looks_unresolved
 # ---------------------------------------------------------------------------
 
-def test_an_empty_fetch_with_a_stale_newest_bar_is_delisted():
+def test_an_empty_fetch_with_a_stale_newest_bar_is_unresolved():
     """
     Eleven symbols — ANSS, BK, CTRA, DAY, FI, HES, HOLX, IPG, K, MMC, WBA —
-    sat at 2025-07-15 after a full run, all acquired or taken private, all
-    reporting exactly what an up-to-date symbol reports.
+    sat at 2025-07-15 after a full run, all reporting exactly what an
+    up-to-date symbol reports.
+
+    They were NOT all "acquired or taken private", as this test used to claim.
+    Eight were delisted; BK, FI and MMC were renamed to BNY, FISV and MRSH and
+    are live S&P 500 constituents. Hence `unresolved`, not `delisted` — see
+    test_unresolved_does_not_mean_delisted below.
     """
-    assert looks_delisted(MIGRATION, fetched_rows=0, now=NOW) is True
+    assert looks_unresolved(MIGRATION, fetched_rows=0, now=NOW) is True
+
+
+def test_unresolved_does_not_mean_delisted():
+    """
+    The distinction this function CANNOT make, pinned so the name is not
+    quietly strengthened back into a claim about corporate status.
+
+    A rename and a delisting are indistinguishable here: both produce an empty
+    fetch against a stale bar. BK (renamed to BNY, still trading) and HES
+    (genuinely delisted 2025-07-18) are the same input to this function, so
+    they must produce the same output — the caller has to disambiguate.
+    """
+    renamed_but_live = MIGRATION      # BK, which became BNY
+    genuinely_delisted = MIGRATION    # HES, Form 25-NSE 2025-07-18
+    assert (
+        looks_unresolved(renamed_but_live, fetched_rows=0, now=NOW)
+        is looks_unresolved(genuinely_delisted, fetched_rows=0, now=NOW)
+        is True
+    )
 
 
 def test_an_empty_fetch_with_a_RECENT_newest_bar_is_just_current():
-    """The far more common case; it must not be labelled delisted."""
+    """The far more common case; it must not be labelled unresolved."""
     recent = NOW - timedelta(days=2)
-    assert looks_delisted(recent, fetched_rows=0, now=NOW) is False
+    assert looks_unresolved(recent, fetched_rows=0, now=NOW) is False
 
 
-def test_a_symbol_that_returned_rows_is_never_delisted():
-    assert looks_delisted(MIGRATION, fetched_rows=250, now=NOW) is False
+def test_a_symbol_that_returned_rows_is_never_unresolved():
+    assert looks_unresolved(MIGRATION, fetched_rows=250, now=NOW) is False
 
 
-def test_a_symbol_with_no_bars_at_all_is_not_delisted():
+def test_a_symbol_with_no_bars_at_all_is_not_unresolved():
     """That is "never backfilled", which is a different problem."""
-    assert looks_delisted(None, fetched_rows=0, now=NOW) is False
+    assert looks_unresolved(None, fetched_rows=0, now=NOW) is False
 
 
 def test_the_threshold_is_applied_at_its_boundary():
     just_inside = NOW - STALE_AFTER + timedelta(days=1)
     just_outside = NOW - STALE_AFTER - timedelta(days=1)
-    assert looks_delisted(just_inside, 0, NOW) is False
-    assert looks_delisted(just_outside, 0, NOW) is True
+    assert looks_unresolved(just_inside, 0, NOW) is False
+    assert looks_unresolved(just_outside, 0, NOW) is True
 
 
 def test_a_naive_timestamp_is_treated_as_utc():
     naive = MIGRATION.replace(tzinfo=None)
-    assert looks_delisted(naive, fetched_rows=0, now=NOW) is True
+    assert looks_unresolved(naive, fetched_rows=0, now=NOW) is True

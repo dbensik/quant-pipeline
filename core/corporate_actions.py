@@ -15,13 +15,23 @@ a -90% day, and nothing anywhere reported a problem.
 
 WHAT THIS MODULE DOES AND DOES NOT DO
     Does: tell you which symbols have a split newer than the last time their
-    series was restated, and which look delisted rather than merely current.
+    series was restated, and which the provider no longer resolves.
     Does not: fix anything. The fix is a full backfill, which is a write the
-    caller should choose to make.
+    caller should choose to make. Nor does it say WHY a symbol stopped
+    resolving — see `looks_unresolved`.
 
-    Renames are NOT handled. FI is Fiserv's post-rename ticker and FISV still
-    holds its history, but nothing in the provider says they are the same
-    company — a link column would be one nobody could populate. Open.
+    Renames are NOT handled, and on 2026-08-09 that gap bit: BK→BNY, FI→FISV
+    and MMC→MRSH were each flagged as delisted and lost 13 months of bars.
+    (Note FI/FISV runs both ways — Fiserv went FISV→FI in 2023 and back to
+    FISV in 2025. A rename is not one-way or permanent.)
+
+    A rename IS confirmable once you have a candidate: the two series differ by
+    a CONSTANT multiplicative factor, the dividend re-adjustment. Measured
+    ratio spread over 20 days: BK↔BNY 1.65e-07, FI↔FISV 0.0, MMC↔MRSH 1.67e-07,
+    against 2.16e-02 for the BK↔JPM control — five orders of magnitude. What is
+    still unsolved is GENERATING the candidate; the three above were found by
+    company-name search. So a `successor_id` column is now populatable by hand
+    and verifiable, but not yet discoverable automatically. Open.
 
 Pure of FastAPI and of the database, so the rules can be tested directly.
 
@@ -114,18 +124,35 @@ def detect_drift(
     )
 
 
-def looks_delisted(
+def looks_unresolved(
     newest_bar: Optional[datetime],
     fetched_rows: int,
     now: Optional[datetime] = None,
 ) -> bool:
     """
-    True when a fetch returning nothing means "no longer trades" rather than
-    "already current".
+    True when a fetch returning nothing means "the provider no longer serves
+    this symbol" rather than "already current".
 
-    Both cases report `written: 0`, which is why eleven acquired or
-    taken-private names (ANSS, BK, CTRA, DAY, FI, HES, HOLX, IPG, K, MMC, WBA)
-    sat at 2025-07-15 after a full run looking exactly like healthy symbols.
+    WHAT THIS DOES NOT TELL YOU: why. An unresolved symbol may be delisted, or
+    merely RENAMED. This function cannot distinguish them, and was previously
+    named `looks_delisted`, which asserted the stronger claim its evidence
+    could not support.
+
+    Measured 2026-08-09, the control that settles it — FRCB (seized 2023,
+    trading as a $0.0004 shell) returns 1255 rows from yfinance, while SIVBQ
+    (same event class) returns zero, and BK returned zero while being a live
+    S&P 500 constituent. Yahoo `/v8/finance/chart/BK` 404s byte-identically to
+    TWTR. So availability tracks whether the SYMBOL KEY still exists, not what
+    happened to the issuer. An empty result is a string-lookup miss, and a
+    corporate fact must not be inferred from one.
+
+    That mistake was live here: of the eleven symbols this flagged, eight were
+    genuinely delisted (ANSS 2025-07-17, HES 2025-07-18, WBA 2025-08-28,
+    IPG 2025-11-26, K 2025-12-11, DAY 2026-02-04, HOLX 2026-04-07,
+    CTRA 2026-05-19 — each confirmed against a Form 25-NSE, Form 15 or
+    exchange notice) but three were RENAMES: BK→BNY, FI→FISV, MMC→MRSH. Those
+    three are live constituents that sat 13 months without bars, marked dead.
+    See `research/delisting-findings-2026-08-09.md`.
 
     Deliberately conservative: it requires BOTH an empty fetch and a newest bar
     well in the past. A symbol that is genuinely current fetches nothing too,

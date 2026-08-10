@@ -30,6 +30,7 @@ class FakeReport:
     symbols = ["AAPL"]
     failed: list = []
     delisted: list = []
+    skipped_delisted: list = []
 
 
 @pytest.mark.asyncio
@@ -116,3 +117,34 @@ async def test_failed_symbols_produce_a_nonzero_exit():
         code = await run_pipeline.run(args(symbols=["NOPE"]))
 
     assert code == 1
+
+
+@pytest.mark.asyncio
+async def test_a_resume_over_the_registry_skips_flagged_symbols():
+    """
+    The daily cron passes no --symbols, so it resumes the whole registry and
+    must not re-ask the provider about symbols already known unresolvable.
+    """
+    with (
+        patch.object(run_pipeline, "ingest_symbols", new=AsyncMock(return_value=FakeReport())) as ingest,
+        patch.object(run_pipeline, "get_session"),
+        patch.object(run_pipeline, "_registered_symbols", new=AsyncMock(return_value=["AAPL"])),
+    ):
+        await run_pipeline.run(args())
+
+    assert ingest.await_args.kwargs["skip_delisted"] is True
+
+
+@pytest.mark.asyncio
+async def test_naming_symbols_on_the_command_line_disables_the_skip():
+    """
+    `--symbols BNY` after a rename repair must actually fetch BNY rather than
+    be silently dropped because the row is still flagged.
+    """
+    with (
+        patch.object(run_pipeline, "ingest_symbols", new=AsyncMock(return_value=FakeReport())) as ingest,
+        patch.object(run_pipeline, "get_session"),
+    ):
+        await run_pipeline.run(args(symbols=["BNY"]))
+
+    assert ingest.await_args.kwargs["skip_delisted"] is False

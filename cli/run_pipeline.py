@@ -86,6 +86,10 @@ async def run(args: argparse.Namespace) -> int:
             symbols=symbols,
             full_backfill=args.full_backfill,
             progress=progress,
+            # A resume over the whole registry skips symbols already flagged
+            # unresolved; naming symbols by hand does not. Asking for BNY
+            # explicitly and being silently skipped would be surprising.
+            skip_delisted=not args.symbols,
         )
 
     logger.info(
@@ -93,9 +97,17 @@ async def run(args: argparse.Namespace) -> int:
         report.written,
         len(report.symbols),
     )
+    if report.skipped_delisted:
+        logger.info(
+            "Skipped %d symbol(s) already flagged unresolved: %s",
+            len(report.skipped_delisted),
+            ", ".join(report.skipped_delisted),
+        )
     if report.delisted:
         logger.warning(
-            "Marked as no longer trading: %s", ", ".join(report.delisted)
+            "Newly unresolved at the provider (MAY BE RENAMES, not "
+            "delistings — check for a successor ticker): %s",
+            ", ".join(report.delisted),
         )
     if report.failed:
         logger.error("Failed: %s", ", ".join(report.failed))

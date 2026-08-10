@@ -36,7 +36,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional, Protocol
 
-from core.corporate_actions import looks_delisted
+from core.corporate_actions import looks_unresolved
 from core.models import Asset, MarketDataRecord, OHLCV, Timestamp
 
 logger = logging.getLogger(__name__)
@@ -73,9 +73,12 @@ class SymbolOutcome:
     error: Optional[str] = None
     first_bar: Optional[datetime] = None
     last_bar: Optional[datetime] = None
-    #: Set when an empty fetch plus a stale newest bar says "no longer trades"
-    #: rather than "already current" — the two were indistinguishable before.
+    #: Set when an empty fetch plus a stale newest bar says the provider no
+    #: longer serves this symbol, rather than "already current" — the two were
+    #: indistinguishable before. NOT proof of delisting: it may be a rename.
     delisted: bool = False
+    #: Set when the symbol was already flagged and this run did not re-fetch it.
+    skipped_delisted: bool = False
 
 
 @dataclass
@@ -96,6 +99,10 @@ class IngestReport:
     @property
     def delisted(self) -> List[str]:
         return [o.symbol for o in self.outcomes if o.delisted]
+
+    @property
+    def skipped_delisted(self) -> List[str]:
+        return [o.symbol for o in self.outcomes if o.skipped_delisted]
 
 
 def is_empty_bar(ohlcv: OHLCV) -> bool:
@@ -141,6 +148,7 @@ async def ingest_symbols(
     fetcher: Fetcher = default_fetcher,
     progress: Optional[Callable[[int, int, str], None]] = None,
     run_in_thread: Optional[Callable] = None,
+    skip_delisted: bool = True,
 ) -> IngestReport:
     """
     Fetch and persist bars for each symbol.
@@ -155,6 +163,10 @@ async def ingest_symbols(
         fetcher:       Injected so tests never reach the network.
         run_in_thread: Optional awaitable-returning wrapper for the blocking
                        fetch (FastAPI passes run_in_threadpool).
+        skip_delisted: Skip assets already flagged unresolved. Pass False when
+                       the caller named the symbols explicitly — skipping a
+                       symbol somebody asked for by name is the wrong default.
+                       Ignored when `full_backfill` is set, which repairs.
 
     Symbols are processed ONE AT A TIME rather than in one batched download.
     It is slower, but a symbol that fails cannot take the others with it, and
@@ -172,6 +184,35 @@ async def ingest_symbols(
             asset = await repo.find_asset(symbol)
             if asset is None:
                 outcome.error = "Not in the asset registry — add it first."
+                if progress:
+                    progress(index, total, symbol)
+                continue
+
+            # Already known unresolvable: don't re-ask the provider every run.
+            # Before this gate, eleven dead symbols each cost a 13-month fetch
+            # and an ERROR line every morning while the run still exited 0.
+            #
+            # Deliberately NOT applied when full_backfill is set: that is the
+            # repair path, and `mark_full_refresh` clears the flag. Skipping
+            # here would make a flagged symbol unrepairable through the CLI —
+            # which is exactly how BK/FI/MMC would have stayed broken.
+            if skip_delisted and not full_backfill and asset.delisted_at:
+                outcome.skipped_delisted = True
+                # Deliberately NOT "re-check with --full-backfill": a backfill
+                # re-asks the provider about the OLD ticker, which stays dead
+                # whether the cause was a delisting or a rename, so it can
+                # never surface a successor. Clearing this flag means finding
+                # the new ticker and renaming the asset row — how BK/FI/MMC
+                # were repaired on 2026-08-09.
+                logger.info(
+                    "%s: skipped, flagged unresolved at %s. If this was a "
+                    "RENAME, find the successor ticker and rename the asset "
+                    "row (bars follow asset_id); a backfill of %s alone will "
+                    "not find it.",
+                    symbol,
+                    asset.delisted_at.date().isoformat(),
+                    symbol,
+                )
                 if progress:
                     progress(index, total, symbol)
                 continue
@@ -232,10 +273,19 @@ async def ingest_symbols(
             if full_backfill and usable and hasattr(repo, "mark_full_refresh"):
                 await repo.mark_full_refresh(symbol, datetime.now(timezone.utc))
 
-            # An empty fetch is ambiguous on its own: already current, or no
-            # longer trading. Judged together with how old the newest bar is.
-            if not raw and looks_delisted(newest_stored, len(raw)):
+            # An empty fetch is ambiguous on its own: already current, or gone
+            # from the provider. Judged together with how old the newest bar is.
+            # "Gone from the provider" is NOT the same as delisted — it is also
+            # what a rename looks like, which is how three live S&P 500 names
+            # got marked dead. Hence the warning: this stamp needs a human.
+            if not raw and looks_unresolved(newest_stored, len(raw)):
                 outcome.delisted = True
+                logger.warning(
+                    "%s: unresolved at the provider — MAY BE A RENAME, not a "
+                    "delisting. Check for a successor ticker before trusting "
+                    "this flag (see core/corporate_actions.py).",
+                    symbol,
+                )
                 if hasattr(repo, "mark_delisted"):
                     await repo.mark_delisted(symbol, datetime.now(timezone.utc))
             if usable:

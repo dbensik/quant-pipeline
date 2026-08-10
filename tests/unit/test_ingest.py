@@ -352,3 +352,91 @@ async def test_written_counts_rows_the_database_accepted():
     )
     assert report.outcomes[0].fetched == 4
     assert report.outcomes[0].written == 2
+
+
+# ---------------------------------------------------------------------------
+# Skipping symbols already flagged unresolved
+# ---------------------------------------------------------------------------
+
+FLAGGED = datetime(2026, 8, 9, tzinfo=timezone.utc)
+
+
+def flagged_repo(delisted_at=FLAGGED):
+    """A registry whose one asset is already flagged unresolved."""
+    return RecordingRepo(
+        assets={
+            "WBA": Asset(
+                symbol="WBA",
+                asset_class="equity",
+                source="yfinance",
+                delisted_at=delisted_at,
+            )
+        }
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_flagged_symbol_is_not_re_fetched():
+    """
+    The bug this covers: nothing consulted `delisted_at`, so eleven known-dead
+    symbols each cost a 13-month provider round trip and an ERROR line every
+    morning — while the run still exited 0, so nothing reported it.
+
+    Asserting on the FETCHER, not on the report: the point is that the network
+    call does not happen, and a report field could be set either way.
+    """
+    repo = flagged_repo()
+    calls = []
+    report = await ingest_symbols(
+        repo, ["WBA"], fetcher=fetcher_for([bar("WBA", 0)], calls)
+    )
+    assert calls == []                      # the provider was never asked
+    assert repo.written == []
+    assert report.skipped_delisted == ["WBA"]
+    assert report.failed == []              # a skip is not a failure
+
+
+@pytest.mark.asyncio
+async def test_full_backfill_still_fetches_a_flagged_symbol():
+    """
+    The repair path must stay open. `mark_full_refresh` clears the flag, so if
+    a backfill skipped flagged assets a mislabelled symbol could never be
+    fixed through the CLI — which is precisely the state BK, FI and MMC were
+    in after being wrongly flagged as delisted rather than renamed.
+    """
+    repo = flagged_repo()
+    calls = []
+    report = await ingest_symbols(
+        repo,
+        ["WBA"],
+        full_backfill=True,
+        fetcher=fetcher_for([bar("WBA", 0)], calls),
+    )
+    assert len(calls) == 1
+    assert report.skipped_delisted == []
+    assert len(repo.written) == 1
+
+
+@pytest.mark.asyncio
+async def test_naming_a_symbol_explicitly_overrides_the_skip():
+    """`--symbols BNY` must not be silently ignored because BNY is flagged."""
+    repo = flagged_repo()
+    calls = []
+    report = await ingest_symbols(
+        repo, ["WBA"], fetcher=fetcher_for([bar("WBA", 0)], calls),
+        skip_delisted=False,
+    )
+    assert len(calls) == 1
+    assert report.skipped_delisted == []
+
+
+@pytest.mark.asyncio
+async def test_an_unflagged_symbol_is_still_fetched():
+    """Guards against the skip swallowing healthy symbols."""
+    repo = flagged_repo(delisted_at=None)
+    calls = []
+    report = await ingest_symbols(
+        repo, ["WBA"], fetcher=fetcher_for([bar("WBA", 0)], calls)
+    )
+    assert len(calls) == 1
+    assert report.skipped_delisted == []
