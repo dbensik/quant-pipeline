@@ -18,6 +18,16 @@ a different input contract and are exercised separately at the bottom.
 
 Any new BaseAlphaModel subclass with a default-constructible signature is
 picked up automatically via SINGLE_ASSET_STRATEGIES.
+
+FIXTURES ARE TIMEZONE-AWARE, DELIBERATELY. TimescaleDB returns tz-aware
+timestamps and `api/frames.py` builds strategy input straight from them, so a
+tz-naive fixture tests a frame shape production never produces. That gap was
+not theoretical: rebalance-date arithmetic that built its result via `.values`
+silently dropped the tz, and the resulting naive timestamps raised KeyError
+against the real index. It passed all 665 tests and failed on the first real
+backtest. With UTC fixtures the same bug fails six tests here.
+
+Keep new fixtures tz-aware; `test_fixtures_are_timezone_aware` enforces it.
 """
 
 import numpy as np
@@ -42,7 +52,7 @@ STRATEGY_IDS = [s[0] for s in SINGLE_ASSET_STRATEGIES]
 
 def _make_ohlcv(close: np.ndarray) -> pd.DataFrame:
     """Build a plausible OHLCV frame around a close series."""
-    idx = pd.bdate_range("2022-01-03", periods=len(close))
+    idx = pd.bdate_range("2022-01-03", periods=len(close), tz="UTC")
     close = pd.Series(close, index=idx)
     rng = np.random.default_rng(7)
     spread = np.abs(rng.normal(0, 0.005, len(close))) * close
@@ -155,7 +165,7 @@ def test_no_look_ahead(strategy_factory, fixture_name, request):
 
 def _make_wide_frame(n_assets: int = 3) -> pd.DataFrame:
     rng = np.random.default_rng(11)
-    idx = pd.bdate_range("2022-01-03", periods=N)
+    idx = pd.bdate_range("2022-01-03", periods=N, tz="UTC")
     data = {}
     for i in range(n_assets):
         drift = 0.0005 * (i + 1)
@@ -379,3 +389,25 @@ def test_every_registered_strategy_declares_a_wired_shape():
                 f"{spec.id} is multi-asset but declares per_symbol, which would "
                 "hand it each symbol's frame in isolation"
             )
+
+
+# ---------------------------------------------------------------------------
+# Fixture convention
+# ---------------------------------------------------------------------------
+
+def test_fixtures_are_timezone_aware():
+    """
+    Guards the convention rather than a strategy.
+
+    Strategy input in production comes from TimescaleDB via api/frames.py and is
+    tz-aware. A tz-naive fixture exercises a frame shape that never occurs, and
+    that is exactly how a rebalance-date bug survived the whole suite and then
+    raised KeyError on the first real backtest. If someone drops the tz from
+    these builders, the suite goes quietly back to testing the wrong thing —
+    so it fails here instead.
+    """
+    for name, frame in FIXTURES.items():
+        assert frame.index.tz is not None, f"OHLCV fixture {name!r} is tz-naive"
+
+    wide = _make_wide_frame(2)
+    assert wide.index.tz is not None, "wide fixture is tz-naive"

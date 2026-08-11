@@ -20,7 +20,7 @@ from execution.simulated_handler import SimulatedExecutionHandler
 @pytest.fixture(scope="module")
 def price_frame() -> pd.DataFrame:
     """A deterministic trending-then-reverting frame with real OHLCV columns."""
-    idx = pd.bdate_range("2021-01-04", periods=400)
+    idx = pd.bdate_range("2021-01-04", periods=400, tz="UTC")
     base = pd.Series(range(400), index=idx, dtype=float)
     close = 100 + (base * 0.15) + (base % 40) * 1.5
     return pd.DataFrame(

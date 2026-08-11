@@ -14,7 +14,7 @@ from analysis.principal_component_analyzer import PrincipalComponentAnalyzer
 
 def create_test_data(num_periods, num_assets, zero_var_cols=None):
     """Creates a sample DataFrame of asset returns."""
-    dates = pd.to_datetime(pd.date_range("2023-01-01", periods=num_periods, freq="D"))
+    dates = pd.to_datetime(pd.date_range("2023-01-01", periods=num_periods, freq="D", tz="UTC"))
     data = np.random.randn(num_periods, num_assets) * 0.01
     columns = [f"ASSET_{i}" for i in range(num_assets)]
     df = pd.DataFrame(data, index=dates, columns=columns)

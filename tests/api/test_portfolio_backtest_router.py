@@ -254,3 +254,71 @@ def test_a_cap_above_one_is_422(client: TestClient):
     """Above 1.0 is not "more permissive", it is meaningless — 1.0 is the max."""
     assert run(client, max_trade_risk_pct=1.5).status_code == 422
     assert run(client, max_portfolio_drawdown_pct=2.0).status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Allocation strategies, through the real router path
+# ---------------------------------------------------------------------------
+# These exercise the wide_per_asset shape end to end. It matters that they run
+# HERE rather than only in tests/test_strategy_contract.py: this conftest's
+# bars carry tz-AWARE timestamps, as TimescaleDB does, while the strategy
+# fixtures were tz-naive. A rebalance-date bug that dropped the timezone passed
+# every one of 665 strategy-level tests and raised KeyError on the first real
+# backtest. Both halves of that gap are now closed — the fixtures are tz-aware,
+# and these give the new strategies a tz-aware route through the router.
+
+def test_paired_switching_runs_through_the_router(client: TestClient):
+    body = run(
+        client,
+        strategy_id="paired_switching",
+        params={"lookback": 20, "rebalance_frequency": "ME"},
+        weights={"AAPL": 1.0, "BTC-USD": 1.0},
+    ).json()
+    assert body["strategy_name"] == "Paired Switching"
+    assert body["metrics"], "a run that produces no metrics has not run"
+
+
+def test_asset_class_trend_runs_through_the_router(client: TestClient):
+    body = run(
+        client,
+        strategy_id="asset_class_trend",
+        params={"window": 50, "rebalance_frequency": "ME"},
+    ).json()
+    assert body["strategy_name"] == "Asset Class Trend Following"
+    assert body["metrics"]
+
+
+def test_momentum_allocation_runs_through_the_router(client: TestClient):
+    body = run(
+        client,
+        strategy_id="momentum_allocation",
+        params={"lookback": 20, "top_n": 1, "rebalance_frequency": "ME"},
+    ).json()
+    assert body["strategy_name"] == "Momentum Asset Allocation"
+    assert body["metrics"]
+
+
+def test_paired_switching_requires_exactly_two_symbols(client: TestClient):
+    """Its own guard, surfaced as a 422 rather than a 500."""
+    response = run(
+        client,
+        symbols=["AAPL", "BTC-USD", "MSFT"],
+        strategy_id="paired_switching",
+        params={"lookback": 20, "rebalance_frequency": "ME"},
+    )
+    assert response.status_code == 422
+    assert "exactly two" in response.json()["detail"]
+
+
+def test_momentum_allocation_rejects_holding_every_sleeve(client: TestClient):
+    """
+    top_n == the number of sleeves means every sleeve is always held and the
+    ranking does nothing — a silently pointless backtest.
+    """
+    response = run(
+        client,
+        strategy_id="momentum_allocation",
+        params={"lookback": 20, "top_n": 2, "rebalance_frequency": "ME"},
+    )
+    assert response.status_code == 422
+    assert "top_n" in response.json()["detail"]

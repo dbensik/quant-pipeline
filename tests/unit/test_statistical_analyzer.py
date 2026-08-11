@@ -24,7 +24,7 @@ def analyzer() -> StatisticalAnalyzer:
 
 @pytest.fixture
 def index() -> pd.DatetimeIndex:
-    return pd.bdate_range("2023-01-01", periods=N)
+    return pd.bdate_range("2023-01-01", periods=N, tz="UTC")
 
 
 @pytest.fixture
