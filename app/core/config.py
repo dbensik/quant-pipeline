@@ -20,13 +20,20 @@ class Settings(BaseSettings):
     """
 
     # -- CORS ------------------------------------------------------------
-    # Comma-separated origins, e.g. "http://localhost:8501,https://app.example.com"
-    # 5173 is Vite's default dev port (Phase 4 React frontend) — without it every
-    # browser fetch fails CORS and reads as an API bug. 8501 is Streamlit, 3000 a
-    # common alternative dev port. 127.0.0.1 and localhost are distinct origins to
-    # a browser, so both spellings are listed.
+    # Comma-separated origins, e.g. "http://localhost:5174,https://app.example.com"
+    #
+    # 5174 is this project's Vite dev port — NOT Vite's 5173 default, which every
+    # other Vite project also takes. Must match `port` in frontend/vite.config.ts
+    # and QUANT_VITE_PORT in run_pipeline.sh; a drifting dev port shows up as a
+    # CORS failure that reads like an API bug. 127.0.0.1 and localhost are
+    # distinct origins to a browser, so both spellings are listed.
+    #
+    # 5173 is kept so a manually-started `vite` on its default still works.
+    # 8501 (Streamlit) was REMOVED on 2026-08-11: dashboard_app was deleted on
+    # 2026-08-09, and cfa-study-app is what actually runs on 8501 now — leaving
+    # it listed would have granted a different project's UI access to this API.
     cors_origins_str: str = (
-        "http://localhost:8501,http://127.0.0.1:8501,"
+        "http://localhost:5174,http://127.0.0.1:5174,"
         "http://localhost:5173,http://127.0.0.1:5173,"
         "http://localhost:3000"
     )

@@ -18,7 +18,12 @@ class ServiceConfig:
     
     # --- GraphQL Gateway Settings ---
     GRAPHQL_HOST = os.getenv("QUANT_GRAPHQL_HOST", "127.0.0.1")
-    GRAPHQL_PORT = int(os.getenv("QUANT_GRAPHQL_PORT", "8000"))
+    # 8002, not uvicorn's default 8000. Every Python web project on a dev
+    # machine wants 8000, so sitting there makes a collision certain — measured
+    # 2026-08-11, another project's uvicorn held it and this gateway silently
+    # never started. Must match run_pipeline.sh's default so `python
+    # verify_all.py` on its own points at the same place.
+    GRAPHQL_PORT = int(os.getenv("QUANT_GRAPHQL_PORT", "8002"))
     
     # --- Paths ---
     # Path to the immutable audit log file

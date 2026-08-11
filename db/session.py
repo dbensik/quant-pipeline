@@ -21,11 +21,16 @@ class Settings(BaseSettings):
     # Defaults match the local docker-compose timescaledb service, so importing
     # this module without a .env works out of the box for local development.
     # Override via .env (see .env.example) or real environment variables in prod.
+    #
+    # PORT 15432, not 5432: docker-compose publishes the container's 5432 on the
+    # host's 15432 so this project does not fight every other Postgres on the
+    # machine. Inside the compose network the host port is irrelevant and
+    # services address `timescaledb:5432` instead.
     DATABASE_URL: str = (
-        "postgresql+asyncpg://quant:quant@localhost:5432/quant_pipeline"
+        "postgresql+asyncpg://quant:quant@localhost:15432/quant_pipeline"
     )
     SYNC_DATABASE_URL: str = (
-        "postgresql://quant:quant@localhost:5432/quant_pipeline"  # Alembic only (sync driver)
+        "postgresql://quant:quant@localhost:15432/quant_pipeline"  # Alembic only (sync driver)
     )
 
     class Config:

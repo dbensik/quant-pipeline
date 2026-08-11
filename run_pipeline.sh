@@ -24,22 +24,54 @@ else
     exit 1
 fi
 
+# ---------------------------------------------------------------------------
+# Ports
+# ---------------------------------------------------------------------------
+# This project deliberately does NOT sit on the framework defaults. uvicorn
+# wants 8000, Vite wants 5173, Postgres wants 5432 — so does every other
+# Python/React project on this machine, which makes collisions certain rather
+# than unlucky. Measured 2026-08-11: siting-platform's uvicorn held 8000, so the
+# GraphQL gateway could not bind and `verify` failed an hour later with a 404
+# that looked like a code fault.
+#
+# Overridable per environment; `.env` is the place to do it. Keep this project
+# inside the 80xx block so a future project can claim its own.
+QUANT_GRAPHQL_PORT="${QUANT_GRAPHQL_PORT:-8002}"
+QUANT_REST_PORT="${QUANT_REST_PORT:-8001}"
+QUANT_VITE_PORT="${QUANT_VITE_PORT:-5174}"
+export QUANT_GRAPHQL_PORT QUANT_REST_PORT QUANT_VITE_PORT
+
+# Fail fast and say WHO holds the port. Without this a bound port surfaces much
+# later as a connection error or a 404 against a service that never started.
+require_free_port() {
+    local port="$1" label="$2" var="$3"
+    local pid
+    pid="$(lsof -nP -iTCP:"$port" -sTCP:LISTEN -t 2>/dev/null | head -1)"
+    if [ -n "$pid" ]; then
+        echo "ERROR: port $port ($label) is already in use by PID $pid:"
+        echo "       $(ps -p "$pid" -o command= 2>/dev/null | cut -c1-100)"
+        echo "  Fix: stop that process, or set $var in .env to a free port."
+        exit 1
+    fi
+}
+
 # Check if the first argument is "api" to run the API server
 if [ "$1" == "api" ] || [ "$1" == "gateway" ]; then
-    echo "--- Starting GraphQL Gateway... ---"
+    echo "--- Starting GraphQL Gateway on 127.0.0.1:$QUANT_GRAPHQL_PORT... ---"
     shift
-    # Run strawberry server (default port 8000)
-    strawberry dev services.graphql_gateway.schema --host 127.0.0.1 --port 8000
+    require_free_port "$QUANT_GRAPHQL_PORT" "GraphQL gateway" QUANT_GRAPHQL_PORT
+    strawberry dev services.graphql_gateway.schema --host 127.0.0.1 --port "$QUANT_GRAPHQL_PORT"
 elif [ "$1" == "rest" ] || [ "$1" == "fastapi" ]; then
-    echo "--- Starting FastAPI (REST + websockets) on 127.0.0.1:8001... ---"
+    echo "--- Starting FastAPI (REST + websockets) on 127.0.0.1:$QUANT_REST_PORT... ---"
     shift
-    uvicorn api.main:app --host 127.0.0.1 --port 8001 "$@"
+    require_free_port "$QUANT_REST_PORT" "FastAPI REST" QUANT_REST_PORT
+    uvicorn api.main:app --host 127.0.0.1 --port "$QUANT_REST_PORT" "$@"
 elif [ "$1" == "dashboard" ] || [ "$1" == "ui" ]; then
     # Was `streamlit run dashboard_app/dashboard.py` until 2026-08-09.
     # dashboard_app was deleted once every one of its features had a React
     # page; the UI is now the Vite dev server, which talks to the FastAPI
     # process above.
-    echo "--- Starting React dashboard (Vite) on localhost:5173... ---"
+    echo "--- Starting React dashboard (Vite) on localhost:$QUANT_VITE_PORT... ---"
     shift
     if [ ! -d "frontend/node_modules" ]; then
         echo "ERROR: frontend dependencies are not installed."
@@ -55,7 +87,14 @@ elif [ "$1" == "verify" ]; then
     python verify_all.py
 elif [ "$1" == "all" ]; then
     echo "--- Starting ALL Services (gRPC, GraphQL, FastAPI, React) + Verification ---"
-    
+
+    # Check every port BEFORE starting anything. Previously a bound port meant
+    # one service quietly failed to start and the failure surfaced minutes later
+    # as a 404 from `verify` — which reads as a code fault, not a port conflict.
+    require_free_port "$QUANT_GRAPHQL_PORT" "GraphQL gateway" QUANT_GRAPHQL_PORT
+    require_free_port "$QUANT_REST_PORT" "FastAPI REST" QUANT_REST_PORT
+    require_free_port "$QUANT_VITE_PORT" "Vite dev server" QUANT_VITE_PORT
+
     # Function to handle script exit (kill background processes)
     cleanup() {
         echo "Stopping all services..."
@@ -68,10 +107,10 @@ elif [ "$1" == "all" ]; then
     python -m services.grpc_service.server &
     
     echo "2. Starting GraphQL Gateway..."
-    strawberry dev services.graphql_gateway.schema --host 127.0.0.1 --port 8000 &
+    strawberry dev services.graphql_gateway.schema --host 127.0.0.1 --port "$QUANT_GRAPHQL_PORT" &
 
     echo "3. Starting FastAPI (REST + websockets)..."
-    uvicorn api.main:app --host 127.0.0.1 --port 8001 &
+    uvicorn api.main:app --host 127.0.0.1 --port "$QUANT_REST_PORT" &
 
     echo "4. Starting React dashboard (Vite)..."
     if [ -d "frontend/node_modules" ]; then

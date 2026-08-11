@@ -10,14 +10,43 @@ features was ported to a router and a React page. Do not reintroduce it.
 ```bash
 ./run_pipeline.sh all          # gRPC + GraphQL + FastAPI + React + verification
 ./run_pipeline.sh rest         # FastAPI only (REST + websockets, port 8001)
-./run_pipeline.sh dashboard    # React dev server only (port 5173)
-./run_pipeline.sh api          # GraphQL gateway only (port 8000) — NOT FastAPI
+./run_pipeline.sh dashboard    # React dev server only (port 5174)
+./run_pipeline.sh api          # GraphQL gateway only (port 8002) — NOT FastAPI
 ./run_pipeline.sh grpc         # gRPC service only
 python -m cli.run_pipeline     # ingest bars into TimescaleDB (same path as the API)
 ```
 
 `api`/`gateway` means the GraphQL gateway, not the REST API — a naming wart
 that predates FastAPI. Use `rest` for FastAPI.
+
+## Ports
+
+**This project deliberately avoids the framework defaults.** uvicorn wants
+8000, Vite wants 5173, Postgres wants 5432 — and so does every other
+Python/React project on this machine, which makes collisions certain rather
+than unlucky. On 2026-08-11 `siting-platform`'s uvicorn held 8000, so the
+GraphQL gateway never started and `verify` failed with a 404 that read as a
+code fault.
+
+| port | service | default it avoids | override |
+|---|---|---|---|
+| 8002 | GraphQL gateway | 8000 (uvicorn) | `QUANT_GRAPHQL_PORT` |
+| 8001 | FastAPI REST + WS | — | `QUANT_REST_PORT` |
+| 5174 | Vite dev server | 5173 (Vite) | `QUANT_VITE_PORT` |
+| 15432 | TimescaleDB, **host side only** | 5432 (Postgres) | edit `docker-compose.yml` |
+| 50051 | gRPC signal service | — | `QUANT_GRPC_PORT` |
+
+`run_pipeline.sh` checks each port is free before starting anything and names
+the process holding it. Without that, a bound port surfaced minutes later as a
+connection error against a service that had silently never started.
+
+Three places must agree on the Vite port or the browser gets a CORS failure
+that reads like an API bug: `frontend/vite.config.ts`, `QUANT_VITE_PORT`, and
+the allow-list in `app/core/config.py`.
+
+Only the DB's **host** port moved. Inside the compose network services still
+address `timescaledb:5432`, so container-to-container config is unchanged —
+but anything connecting from the host needs `localhost:15432`.
 
 Ingestion goes through `core/ingest.py`, reached by both `POST /api/v1/ingest`
 and `cli.run_pipeline`. The SQLite `PipelineOrchestrator` was deleted on

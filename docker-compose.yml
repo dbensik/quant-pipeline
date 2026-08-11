@@ -21,7 +21,16 @@ services:
       POSTGRES_PASSWORD: quant
       POSTGRES_DB: quant_pipeline
     ports:
-      - "5432:5432"
+      # HOST 15432, container 5432. Only the host side moves, so nothing inside
+      # the compose network changes — services still reach `timescaledb:5432`.
+      #
+      # Postgres' default 5432 is what every other project on this machine also
+      # publishes (siting-platform among them). A bind conflict is the GOOD
+      # outcome there; the bad one is this container being down while another
+      # project's Postgres holds 5432, so a connection string here silently
+      # reaches the wrong database. Different credentials are the only thing
+      # that made that fail loudly rather than quietly.
+      - "15432:5432"
     volumes:
       - timescaledb_data:/var/lib/postgresql/data
     healthcheck:
