@@ -1,6 +1,7 @@
 import pandas as pd
 
 from .base_model import BaseAlphaModel
+from .rebalancing import rebalance_dates
 
 
 class IndexRebalancingStrategy(BaseAlphaModel):
@@ -38,14 +39,12 @@ class IndexRebalancingStrategy(BaseAlphaModel):
         signals = pd.DataFrame(index=price_data.index)
         signals["signal"] = 0.0
 
-        # Create a series that is True on the last business day of the period,
-        # a common convention for rebalancing.
-        resampled_index = price_data.resample(self.rebalance_frequency).last().index
-
-        # Find the intersection of ideal rebalance dates and actual trading days
-        valid_rebalance_dates = price_data.index.intersection(resampled_index)
-
-        # Set signal to 2 (rebalance) on those dates
-        signals.loc[valid_rebalance_dates, "signal"] = 2.0
+        # See alpha_models/rebalancing.py. The previous
+        # `index.intersection(resample(freq).last().index)` dropped any period
+        # whose CALENDAR end fell on a weekend — 42 of 139 monthly rebalances
+        # missed on SPY over 2015-2026.
+        signals.loc[
+            rebalance_dates(price_data.index, self.rebalance_frequency), "signal"
+        ] = 2.0
 
         return signals

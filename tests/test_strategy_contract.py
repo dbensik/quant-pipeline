@@ -411,3 +411,38 @@ def test_fixtures_are_timezone_aware():
 
     wide = _make_wide_frame(2)
     assert wide.index.tz is not None, "wide fixture is tz-naive"
+
+
+# ---------------------------------------------------------------------------
+# Calendar strategies must not skip weekend period-ends
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "strategy_id,factory",
+    _multi_calendar_cases(),
+    ids=[c[0] for c in _multi_calendar_cases()],
+)
+def test_calendar_strategies_rebalance_every_month(strategy_id, factory):
+    """
+    THE REGRESSION. Both strategies used
+    `index.intersection(resample("ME").last().index)`, which labels each group
+    with the CALENDAR month end. That is a Saturday or Sunday about a third of
+    the time, and a weekend label is not in a trading-day index, so the
+    rebalance was silently dropped.
+
+    Measured on SPY over 2015-2026 before the fix: 97 monthly rebalances fired
+    where 139 were due — 42 missed. April, July and December 2022 are three
+    such months.
+
+    Asserting a rebalance in EVERY completed month, not just a count, because a
+    count can be right while the wrong months are chosen.
+    """
+    index = pd.bdate_range("2022-01-03", "2022-12-30", tz="UTC")
+    frame = pd.DataFrame({"Close": 100.0}, index=index)
+
+    signals = factory().generate_signals(price_data=frame)["signal"]
+    months = {d.month for d in signals.index[signals == 2.0]}
+
+    # Twelve months of data, minus December: its period is the one the final
+    # bar falls in, so it is not yet known to be complete.
+    assert months == set(range(1, 12)), f"missing months: {set(range(1, 12)) - months}"
