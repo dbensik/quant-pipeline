@@ -149,16 +149,50 @@ These are genuinely new capability — the pipeline has no multi-asset allocatio
 strategy today (`basket_trading` rebalances to *fixed* weights; it does not
 *choose* them). They need the per-asset weights contract, which is Phase 2.
 
-### Phase 2 — Ratify one multi-asset contract (the real prerequisite)
+### Phase 2 — Ratify the multi-asset contract (the real prerequisite)
 
-Unify shapes 2 and 3 above into one documented contract: `generate_signals()`
-returns a per-asset weights frame, columns matching input columns, continuous
-values in `[-1, 1]`. Extend the contract test to cover it — including the
-look-ahead check, which currently only runs against single-asset strategies.
+> **AMENDED 2026-08-10, after building it.** This section originally proposed
+> unifying the shapes into one contract with *continuous* weights in `[-1, 1]`.
+> That turned out to be both unnecessary and expensive, and was not built. See
+> "What was actually built" below. The original text is kept above the line
+> because the reasoning that replaced it is the useful part.
 
-This is the gating work for Phase 1 and for anything cross-sectional later. It
-is refactoring, not new strategy code, and it pays down debt the contract test
-already flags in a comment. Do not add a fourth shape.
+**Why continuous weights were wrong.** All three Phase 1 strategies need
+per-asset **±1**, not fractions: Paired Switching holds SPY *or* TLT; Asset
+Class Trend-Following is in-or-out per sleeve on a 10-month SMA; Momentum Asset
+Allocation holds the top N equally. Equal-weight sizing already comes from the
+caller's `weights` field, which defaults to equal-weight.
+
+**And it would have been expensive.** `weights` is a published API request
+field with validation, a response echo and tests; `PortfolioBacktester`
+interprets `1` / `-1` / `2` with different sizing paths. Making strategies emit
+weights means rewriting the execution loop and changing API semantics — a
+rewrite, not a refactor.
+
+**What was actually built.** The four real shapes are now *named and declared*
+rather than unified:
+
+| shape | in | out |
+|---|---|---|
+| `per_symbol` | one symbol's frame | one `signal` column, `{-1,0,1}` |
+| `wide_per_asset` | wide close frame | one position column per asset |
+| `wide_portfolio` | wide close frame | one `signal` column for the basket |
+| `calendar_shared` | DatetimeIndex only | rebalance schedule, `signal == 2` |
+
+`signal_shape` on `StrategySpec` replaces the hardcoded strategy-id sets that
+`_build_signals` dispatched on. **That was the actual Phase 1 blocker**, and it
+failed unsafely: an unlisted id fell through to the per-symbol branch and got
+each symbol's frame in isolation, so a cross-asset strategy would silently
+compare nothing and still return plausible numbers.
+
+Also done: the contract is documented on `BaseAlphaModel`; the **look-ahead
+check now runs against multi-asset strategies**, which it never had (all four
+pass, and the check was verified to catch a deliberately-peeking strategy); and
+`signal == 2` is pinned by an explicit test instead of being untested because it
+fell outside the single-asset assertion.
+
+A Phase 1 strategy now declares `signal_shape="wide_per_asset"` and needs no
+router change.
 
 ### Phase 3 — Crypto rebalancing premium (configuration, not code)
 

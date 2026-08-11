@@ -195,3 +195,187 @@ def test_pairs_trading_contract():
     assert signals.index.equals(wide.index)
     vals = set(pd.unique(signals.values.ravel())) - {np.nan}
     assert vals <= {-1, 0, 1, -1.0, 0.0, 1.0}, f"invalid position values: {vals}"
+
+
+# ---------------------------------------------------------------------------
+# Look-ahead, multi-asset
+# ---------------------------------------------------------------------------
+# Until now test_no_look_ahead parametrised over SINGLE_ASSET_STRATEGIES only,
+# so NONE of the four multi-asset strategies had ever been checked — and
+# look-ahead is the defect that makes a backtest meaningless rather than merely
+# wrong. `ml_random_forest` is in LOOK_AHEAD_XFAILS precisely because this check
+# catches it; the multi-asset strategies had no equivalent guard at all.
+#
+# Factories are explicit rather than spec.build() because
+# cointegrated_mean_reversion takes a `weights` dict that is not a ParamSpec and
+# so cannot be constructed from the registry — the caveat the registry records.
+
+def _multi_wide_cases():
+    """
+    (id, factory) for strategies whose input is a WIDE close frame.
+
+    Parameters are deliberately smaller than the production defaults so the
+    300-bar synthetic fixtures actually exercise them — asset_class_trend
+    defaults to a 200-bar average, which over 300 bars would leave almost no
+    decided rebalance dates and make these tests look green while asserting
+    nothing.
+    """
+    from alpha_models.asset_class_trend import AssetClassTrendFollowingStrategy
+    from alpha_models.cointegrated_mean_reversion import CointegratedMeanReversionStrategy
+    from alpha_models.momentum_allocation import MomentumAssetAllocationStrategy
+    from alpha_models.paired_switching import PairedSwitchingStrategy
+    from alpha_models.pairs_trading import PairsTradingStrategy
+
+    return [
+        ("pairs_trading", lambda: PairsTradingStrategy(window=20, threshold=1.5)),
+        (
+            "cointegrated_mean_reversion",
+            lambda: CointegratedMeanReversionStrategy(
+                weights={"ASSET0": 0.5, "ASSET1": 0.5}, window=20, threshold=1.0
+            ),
+        ),
+        (
+            "paired_switching",
+            lambda: PairedSwitchingStrategy(lookback=20, rebalance_frequency="ME"),
+        ),
+        (
+            "asset_class_trend",
+            lambda: AssetClassTrendFollowingStrategy(
+                window=50, rebalance_frequency="ME"
+            ),
+        ),
+        (
+            "momentum_allocation",
+            lambda: MomentumAssetAllocationStrategy(
+                lookback=20, top_n=1, rebalance_frequency="ME"
+            ),
+        ),
+    ]
+
+
+def _multi_calendar_cases():
+    """(id, factory) for strategies that read only the DatetimeIndex."""
+    from alpha_models.basket_trading import BasketTradingStrategy
+    from alpha_models.index_rebalancing import IndexRebalancingStrategy
+
+    return [
+        ("basket_trading", lambda: BasketTradingStrategy(rebalance_frequency="ME")),
+        ("index_rebalancing", lambda: IndexRebalancingStrategy(rebalance_frequency="ME")),
+    ]
+
+
+@pytest.mark.parametrize(
+    "strategy_id,factory", _multi_wide_cases(), ids=[c[0] for c in _multi_wide_cases()]
+)
+def test_no_look_ahead_multi_asset_wide(strategy_id, factory):
+    """
+    Signals up to time t must not change when bars after t are removed —
+    the same rule the single-asset suite enforces, on the wide contract.
+    """
+    wide = _make_wide_frame(2)
+
+    full = factory().generate_signals(price_data=wide.copy())
+    trunc = factory().generate_signals(price_data=wide.iloc[:-TRUNCATE].copy())
+
+    overlap = trunc.index[WARMUP:]
+    # wide_per_asset returns one column per asset; wide_portfolio returns
+    # 'signal'. Compare every column either way.
+    a = full.loc[overlap].fillna(0)
+    b = trunc.loc[overlap].fillna(0)
+    assert list(a.columns) == list(b.columns)
+    diff = (a != b)
+    assert not diff.to_numpy().any(), (
+        f"LOOK-AHEAD in {strategy_id}: removing the last {TRUNCATE} bars "
+        f"changed {int(diff.to_numpy().sum())} earlier signals"
+    )
+
+
+@pytest.mark.parametrize(
+    "strategy_id,factory",
+    _multi_calendar_cases(),
+    ids=[c[0] for c in _multi_calendar_cases()],
+)
+def test_no_look_ahead_multi_asset_calendar(strategy_id, factory):
+    """
+    A rebalance schedule is derived from the calendar, so truncating must not
+    move any rebalance date within the surviving window.
+
+    Compared over the FULL truncated index, with no warmup or final-period
+    carve-out — a calendar schedule has no rolling window to warm up, and both
+    strategies agree exactly over the whole overlap, so a carve-out would only
+    weaken the assertion. Verified non-vacuous against a strategy that anchors
+    its schedule to `price_data.index[-1]` instead of to calendar boundaries:
+    that one shifts 26 dates here and is caught.
+    """
+    df = FIXTURES["trend"]
+
+    full = factory().generate_signals(price_data=df.copy())["signal"]
+    trunc = factory().generate_signals(price_data=df.iloc[:-TRUNCATE].copy())["signal"]
+
+    overlap = trunc.index
+    a = full.loc[overlap].fillna(0)
+    b = trunc.loc[overlap].fillna(0)
+    diff = (a != b)
+    assert not diff.any(), (
+        f"LOOK-AHEAD in {strategy_id}: removing the last {TRUNCATE} bars "
+        f"changed {int(diff.sum())} earlier rebalance dates "
+        f"(first at {diff.idxmax()})"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Signal VALUES per declared shape
+# ---------------------------------------------------------------------------
+# test_signal_values_are_valid asserts {-1, 0, 1}, but only over
+# SINGLE_ASSET_STRATEGIES. basket_trading and index_rebalancing emit 2.0
+# ("rebalance to target weights"), which is outside that set and had therefore
+# never been asserted anywhere. These pin what each shape is allowed to emit,
+# so 2 is sanctioned deliberately rather than by omission.
+
+@pytest.mark.parametrize(
+    "strategy_id,factory", _multi_wide_cases(), ids=[c[0] for c in _multi_wide_cases()]
+)
+def test_wide_shapes_emit_only_directional_values(strategy_id, factory):
+    signals = factory().generate_signals(price_data=_make_wide_frame(2))
+    values = set(pd.unique(signals.values.ravel())) - {np.nan}
+    assert values <= {-1, 0, 1, -1.0, 0.0, 1.0}, (
+        f"{strategy_id} emitted {values - {-1, 0, 1, -1.0, 0.0, 1.0}}"
+    )
+
+
+@pytest.mark.parametrize(
+    "strategy_id,factory",
+    _multi_calendar_cases(),
+    ids=[c[0] for c in _multi_calendar_cases()],
+)
+def test_calendar_shape_emits_the_rebalance_code(strategy_id, factory):
+    """
+    2.0 means "rebalance to target weights" and is read as such by
+    PortfolioBacktester.run. It is NOT a directional signal, and must never be
+    mixed with -1/1 — the backtester's `signal == 2` branch sizes to
+    target_weights while `signal == 1` opens a new position instead.
+    """
+    signals = factory().generate_signals(price_data=FIXTURES["trend"])["signal"]
+    values = set(signals.dropna().unique())
+    assert values <= {0, 2, 0.0, 2.0}, f"{strategy_id} emitted {values}"
+    assert 2.0 in values, "a rebalance schedule that never rebalances is broken"
+
+
+def test_every_registered_strategy_declares_a_wired_shape():
+    """
+    The router dispatches on signal_shape. A spec carrying a shape the router
+    does not implement would silently fall through to the per-symbol branch —
+    the exact failure the id-dispatch version had.
+    """
+    wired = {"per_symbol", "wide_per_asset", "wide_portfolio", "calendar_shared"}
+    for spec in registry.all_strategies():
+        assert spec.signal_shape in wired, f"{spec.id}: unwired shape"
+        if spec.input_contract == "single":
+            assert spec.signal_shape == "per_symbol", (
+                f"{spec.id} is single-asset but declares {spec.signal_shape}"
+            )
+        else:
+            assert spec.signal_shape != "per_symbol", (
+                f"{spec.id} is multi-asset but declares per_symbol, which would "
+                "hand it each symbol's frame in isolation"
+            )

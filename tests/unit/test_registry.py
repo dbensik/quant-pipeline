@@ -92,6 +92,12 @@ def test_multi_asset_strategies_are_flagged():
         "cointegrated_mean_reversion",
         "basket_trading",
         "index_rebalancing",
+        # Asset allocation — these choose which sleeves to hold, so they must
+        # receive a wide frame. Mislabelled 'single' they would be handed one
+        # symbol at a time and could not compare anything.
+        "paired_switching",
+        "asset_class_trend",
+        "momentum_allocation",
     }
 
 

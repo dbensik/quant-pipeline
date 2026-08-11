@@ -100,33 +100,50 @@ def _build_signals(
     price_data: Dict[str, pd.DataFrame],
 ) -> Dict[str, pd.DataFrame]:
     """
-    Multi-asset strategies do NOT share one input contract, so signals are
-    built per strategy — ported from the Streamlit AnalysisController, which
+    Multi-asset strategies do NOT share one output shape, so signals are
+    assembled per shape — ported from the Streamlit AnalysisController, which
     dispatched on isinstance.
 
-    Dispatch is on the registry id rather than the class, so this module never
-    imports a strategy type.
+    Dispatch is on `spec.signal_shape`, declared in the registry. It used to be
+    hardcoded sets of strategy ids right here, which meant a new multi-asset
+    strategy could not work without editing this router — and worse, failed
+    UNSAFELY: an unlisted id fell through to the per-symbol branch and was
+    handed each symbol's own frame in isolation, so a cross-asset strategy
+    would silently compare nothing and still return plausible numbers.
     """
-    if spec.id in {"pairs_trading", "cointegrated_mean_reversion"}:
-        # Both consume a WIDE frame of closes, one column per symbol.
+    shape = spec.signal_shape
+
+    if shape == "wide_per_asset":
+        # Wide frame in, one position column per asset out. Split into the
+        # per-ticker dict the PortfolioBacktester consumes.
         wide = frames_to_wide_close(price_data).dropna()
         signals = model.generate_signals(wide)
-        if spec.id == "pairs_trading":
-            return {
-                column: signals[[column]].rename(columns={column: "signal"})
-                for column in signals.columns
-            }
-        # Cointegrated trades the basket as a single unit.
-        return {"Portfolio": signals}
+        return {
+            column: signals[[column]].rename(columns={column: "signal"})
+            for column in signals.columns
+        }
 
-    if spec.id in {"basket_trading", "index_rebalancing"}:
+    if shape == "wide_portfolio":
+        # Wide frame in, one 'signal' column for the basket as a single unit.
+        wide = frames_to_wide_close(price_data).dropna()
+        return {"Portfolio": model.generate_signals(wide)}
+
+    if shape == "calendar_shared":
         # Rebalance schedules depend only on the calendar, so any constituent's
         # frame gives the dates; every symbol then shares them.
         any_frame = next(iter(price_data.values()))
         rebalance = model.generate_signals(any_frame)
         return {symbol: rebalance for symbol in price_data}
 
-    # Fallback: per-symbol signals from each symbol's own frame.
+    # per_symbol: each symbol's own frame produces its own signal.
+    #
+    # UNREACHABLE from the route as it stands — this function has one caller and
+    # the route 422s anything whose input_contract is not "multi" before getting
+    # here, and test_every_registered_strategy_declares_a_wired_shape forbids a
+    # multi-asset spec from declaring per_symbol. It is kept as the safety net
+    # for a future misdeclaration, which is precisely the case that used to be
+    # silent: under id-dispatch an unlisted strategy landed here and was handed
+    # each symbol's frame in isolation.
     return {
         symbol: model.generate_signals(frame) for symbol, frame in price_data.items()
     }

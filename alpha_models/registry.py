@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Literal, Optional, Type
 
 from alpha_models.base_model import BaseAlphaModel
+from alpha_models.asset_class_trend import AssetClassTrendFollowingStrategy
 from alpha_models.atr_breakout import ATRBreakoutStrategy
 from alpha_models.basket_trading import BasketTradingStrategy
 from alpha_models.buy_and_hold import BuyAndHoldStrategy
@@ -31,7 +32,9 @@ from alpha_models.cointegrated_mean_reversion import CointegratedMeanReversionSt
 from alpha_models.index_rebalancing import IndexRebalancingStrategy
 from alpha_models.mean_reversion import MeanReversionStrategy
 from alpha_models.ml_random_forest import RandomForestStrategy
+from alpha_models.momentum_allocation import MomentumAssetAllocationStrategy
 from alpha_models.moving_average_crossover import MovingAverageCrossoverStrategy
+from alpha_models.paired_switching import PairedSwitchingStrategy
 from alpha_models.pairs_trading import PairsTradingStrategy
 from alpha_models.push_response_strategy import PushResponseStrategy
 from alpha_models.rsi_strategy import RSIStrategy
@@ -74,6 +77,33 @@ class StrategySpec:
     # a wide frame of several symbols and have a different input contract — the
     # backtest router must not hand them a single-symbol DataFrame.
     input_contract: Literal["single", "multi"] = "single"
+
+    # HOW this strategy's output is assembled into the per-ticker dict the
+    # PortfolioBacktester consumes. `input_contract` says whether a wide frame
+    # goes IN; this says what shape comes OUT, and they are not the same
+    # question — all four multi-asset strategies share input_contract="multi"
+    # while returning three different output shapes.
+    #
+    # This was previously hardcoded as sets of strategy ids inside
+    # api/routers/portfolio_backtest.py::_build_signals. Declaring it here is
+    # what lets a new multi-asset strategy work without editing a router — and
+    # the old arrangement failed UNSAFELY: an unlisted id fell through to the
+    # per_symbol fallback and was handed each symbol's own frame in isolation,
+    # so a cross-asset strategy silently compared nothing and still produced
+    # plausible numbers.
+    #
+    #   per_symbol       one frame per symbol in, one 'signal' column out each.
+    #                    Every single-asset strategy.
+    #   wide_per_asset   wide frame in, ONE POSITION COLUMN PER ASSET out, no
+    #                    'signal' column. Split into the per-ticker dict.
+    #                    pairs_trading; the shape allocation strategies want.
+    #   wide_portfolio   wide frame in, ONE 'signal' column for the basket as a
+    #                    single unit. Filed under the "Portfolio" key.
+    #   calendar_shared  only the DatetimeIndex is read; emits a rebalance
+    #                    schedule every symbol shares. Uses signal == 2.
+    signal_shape: Literal[
+        "per_symbol", "wide_per_asset", "wide_portfolio", "calendar_shared"
+    ] = "per_symbol"
 
     # Non-empty when a strategy is known to be unsound. Surfaced through the API
     # so a consumer can warn rather than silently trusting the numbers.
@@ -232,6 +262,7 @@ _SPECS: List[StrategySpec] = [
             ParamSpec("threshold", "float", 2.0, "Z-score threshold", "Spread std devs to trigger", 0.1, 10.0),
         ],
         input_contract="multi",
+        signal_shape="wide_per_asset",
     ),
     StrategySpec(
         id="cointegrated_mean_reversion",
@@ -243,6 +274,7 @@ _SPECS: List[StrategySpec] = [
             ParamSpec("threshold", "float", 2.0, "Z-score threshold", "Std devs to trigger", 0.1, 10.0),
         ],
         input_contract="multi",
+        signal_shape="wide_portfolio",
         caveat="Requires a `weights` dict that this registry cannot default; not constructible from the API yet.",
     ),
     StrategySpec(
@@ -262,6 +294,7 @@ _SPECS: List[StrategySpec] = [
             ),
         ],
         input_contract="multi",
+        signal_shape="calendar_shared",
     ),
     StrategySpec(
         id="index_rebalancing",
@@ -275,6 +308,88 @@ _SPECS: List[StrategySpec] = [
             ),
         ],
         input_contract="multi",
+        signal_shape="calendar_shared",
+    ),
+    # --- Asset allocation ---------------------------------------------------
+    # These three CHOOSE which sleeves to hold, which is what separates them
+    # from basket_trading: that rebalances to weights the caller fixed, these
+    # decide membership. All emit `wide_per_asset`, so they need no router
+    # change — the point of declaring signal_shape in Phase 2.
+    StrategySpec(
+        id="paired_switching",
+        display_name="Paired Switching",
+        cls=PairedSwitchingStrategy,
+        description=(
+            "Hold whichever of two assets had the better trailing return, "
+            "reassessed each quarter. Classically equities vs bonds."
+        ),
+        params=[
+            ParamSpec(
+                "lookback", "int", 63, "Lookback window",
+                "Bars in the trailing-return comparison; 63 ≈ one quarter", 2, 756,
+            ),
+            ParamSpec(
+                "rebalance_frequency", "str", "QE", "Rebalance frequency",
+                "W, ME (month end), QE (quarter end) or YE",
+            ),
+        ],
+        input_contract="multi",
+        signal_shape="wide_per_asset",
+        caveat=(
+            "Trades exactly two symbols, and only one leg is ever held — so the "
+            "API's equal-weight default leaves it 50% in cash. Pass weights of "
+            "1.0 per symbol to be fully invested."
+        ),
+        default_grid={"lookback": [21, 63, 126, 252]},
+    ),
+    StrategySpec(
+        id="asset_class_trend",
+        display_name="Asset Class Trend Following",
+        cls=AssetClassTrendFollowingStrategy,
+        description=(
+            "Hold each sleeve while it trades above its own long moving "
+            "average, otherwise hold cash. Judged per sleeve, not ranked."
+        ),
+        params=[
+            ParamSpec(
+                "window", "int", 200, "Moving average window",
+                "Bars per sleeve's average; 200 ≈ the classic 10-month rule", 2, 756,
+            ),
+            ParamSpec(
+                "rebalance_frequency", "str", "ME", "Rebalance frequency",
+                "W, ME (month end), QE (quarter end) or YE",
+            ),
+        ],
+        input_contract="multi",
+        signal_shape="wide_per_asset",
+        default_grid={"window": [50, 100, 200, 300]},
+    ),
+    StrategySpec(
+        id="momentum_allocation",
+        display_name="Momentum Asset Allocation",
+        cls=MomentumAssetAllocationStrategy,
+        description=(
+            "Hold the strongest `top_n` sleeves by trailing return, reassessed "
+            "monthly. Rotates between asset classes rather than de-risking."
+        ),
+        params=[
+            ParamSpec(
+                "lookback", "int", 126, "Lookback window",
+                "Bars in the trailing-return ranking; 126 ≈ six months", 2, 756,
+            ),
+            ParamSpec(
+                "top_n", "int", 2, "Sleeves held",
+                "How many of the supplied sleeves to hold; must be fewer than "
+                "the number supplied", 1, 20,
+            ),
+            ParamSpec(
+                "rebalance_frequency", "str", "ME", "Rebalance frequency",
+                "W, ME (month end), QE (quarter end) or YE",
+            ),
+        ],
+        input_contract="multi",
+        signal_shape="wide_per_asset",
+        default_grid={"lookback": [63, 126, 252], "top_n": [1, 2, 3]},
     ),
 ]
 

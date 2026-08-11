@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 def test_lists_every_registered_strategy(client: TestClient):
     body = client.get("/api/v1/strategies").json()
     assert body["count"] == len(body["strategies"])
-    assert body["count"] == 12  # 8 single-asset + 4 multi-asset
+    assert body["count"] == 15  # 8 single-asset + 7 multi-asset
 
 
 def test_single_contract_filter(client: TestClient):
@@ -35,6 +35,9 @@ def test_multi_contract_filter(client: TestClient):
         "cointegrated_mean_reversion",
         "basket_trading",
         "index_rebalancing",
+        "paired_switching",
+        "asset_class_trend",
+        "momentum_allocation",
     }
 
 
