@@ -173,3 +173,82 @@ def test_unknown_universe_source_is_422(client: TestClient):
 
 def test_universe_source_is_required(client: TestClient):
     assert client.get(f"{BASE}/universe").status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Asset registration — accepted asset classes
+# ---------------------------------------------------------------------------
+
+class _FakeResult:
+    """Enough of a SQLAlchemy Result for add_asset's "not found" branch."""
+
+    def unique(self):
+        return self
+
+    def scalars(self):
+        return self
+
+    def first(self):
+        return None
+
+
+class _FakeSession:
+    """
+    Stands in for Depends(get_db).
+
+    Unlike every other test in this file, POST /assets genuinely USES its
+    session — it selects, adds and commits. The module docstring's "the session
+    is lazy so these need no Docker" does not hold here, and a first version of
+    this test wrote SPY to the real TimescaleDB. That is the exact hidden
+    dependency the note above test_too_many_symbols_is_422 warns about.
+    """
+
+    def __init__(self):
+        self.added = []
+
+    async def execute(self, _stmt):
+        return _FakeResult()
+
+    def add(self, row):
+        self.added.append(row)
+
+    async def commit(self):
+        pass
+
+
+def test_etf_is_an_accepted_asset_class(client: TestClient):
+    """
+    'etf' is deliberately NOT filed under 'equity'. An ETF does not leave an
+    index, so it carries no survivorship bias — which is why asset-allocation
+    strategies are backtestable here when cross-sectional equity ones are not
+    (membership history is 2 days deep and cannot be backdated). Filing SPY as
+    an equity would place it in any cross-sectional stock ranking.
+    """
+    from api.dependencies import get_db
+
+    fake = _FakeSession()
+    client.app.dependency_overrides[get_db] = lambda: fake
+    try:
+        response = client.post(
+            f"{BASE}/assets", json={"symbol": "SPY", "asset_class": "etf"}
+        )
+    finally:
+        client.app.dependency_overrides.pop(get_db, None)
+
+    assert response.status_code == 201, response.text
+    assert response.json() == {
+        "symbol": "SPY",
+        "asset_class": "etf",
+        "source": "yfinance",
+        "created": True,
+    }
+    assert [r.asset_class for r in fake.added] == ["etf"]
+
+
+def test_an_unknown_asset_class_is_still_rejected(client: TestClient):
+    """The guard must stay a closed set, not become a free-text column."""
+    response = client.post(
+        f"{BASE}/assets", json={"symbol": "SPY", "asset_class": "mutual_fund"}
+    )
+    assert response.status_code == 422
+    assert "mutual_fund" in response.json()["detail"]

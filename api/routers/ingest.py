@@ -100,7 +100,7 @@ class IngestStatus(BaseModel):
 
 class AddAssetRequest(BaseModel):
     symbol: str = Field(min_length=1)
-    asset_class: str = Field(default="equity", description="equity | crypto")
+    asset_class: str = Field(default="equity", description="equity | crypto | etf")
     source: str = Field(default="yfinance")
 
 
@@ -263,10 +263,18 @@ async def add_asset(
     Pipeline" button, and making a repeat press an error would be unhelpful.
     """
     symbol = request.symbol.upper().strip()
-    if request.asset_class not in ("equity", "crypto"):
+    # 'etf' is a separate class from 'equity' on purpose. An ETF does not leave
+    # an index, so it carries no survivorship bias — which is exactly why
+    # asset-allocation strategies are backtestable here when cross-sectional
+    # equity ones are not. Filing SPY as an equity would put it into any
+    # cross-sectional stock ranking and destroy that distinction.
+    if request.asset_class not in ("equity", "crypto", "etf"):
         raise HTTPException(
             status_code=422,
-            detail=f"asset_class must be 'equity' or 'crypto'; got {request.asset_class!r}.",
+            detail=(
+                "asset_class must be 'equity', 'crypto' or 'etf'; "
+                f"got {request.asset_class!r}."
+            ),
         )
 
     existing = await session.execute(
