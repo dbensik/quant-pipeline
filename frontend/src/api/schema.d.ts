@@ -817,7 +817,7 @@ export interface components {
             symbol: string;
             /**
              * Asset Class
-             * @description equity | crypto
+             * @description equity | crypto | etf
              * @default equity
              */
             asset_class: string;
@@ -1510,6 +1510,18 @@ export interface components {
              */
             target_volatility: number;
             /**
+             * Max Trade Risk Pct
+             * @description Cap on a single BUY as a fraction of total equity. The default 0.02 scales every purchase to 2%, which makes `weights` inert above 2% and leaves a portfolio ~98% in cash: measured over 2015-2026, paired switching ran 49 trades at 1.9% average exposure for +1.03%, versus the same 49 trades at 95.7% exposure for +48.49% uncapped. Pass 1.0 to size purely from `weights`.
+             * @default 0.02
+             */
+            max_trade_risk_pct: number;
+            /**
+             * Max Portfolio Drawdown Pct
+             * @description Drawdown from the high-water mark at which new BUYs stop. NOT recoverable: the high-water mark only rises, and a portfolio that cannot buy cannot recover, so once tripped it halts buying for the rest of the run. Measured over 2015-2026, paired switching sat 0% invested from 2023 onward with a perfectly flat equity curve (standard deviation 0.0000, zero new highs). Pass 1.0 to disable.
+             * @default 0.2
+             */
+            max_portfolio_drawdown_pct: number;
+            /**
              * Include Risk
              * @description Compute VaR/CVaR on the resulting returns
              * @default true
@@ -1556,6 +1568,10 @@ export interface components {
             initial_capital: number;
             /** Seed */
             seed: number | null;
+            /** Max Trade Risk Pct */
+            max_trade_risk_pct: number;
+            /** Max Portfolio Drawdown Pct */
+            max_portfolio_drawdown_pct: number;
             /** Metrics */
             metrics: {
                 [key: string]: unknown;

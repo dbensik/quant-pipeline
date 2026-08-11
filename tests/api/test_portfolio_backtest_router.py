@@ -187,3 +187,70 @@ def test_unknown_param_name_is_rejected_not_ignored(client: TestClient):
     response = run(client, strategy_id="pairs_trading", params={"windwo": 5})
     assert response.status_code == 422
     assert "Unknown parameter" in response.json()["detail"]
+
+
+# ---------------------------------------------------------------------------
+# Risk limits
+# ---------------------------------------------------------------------------
+# These two dominate the metrics and were previously unreachable from the API,
+# so a portfolio backtest reported the risk manager's behaviour rather than the
+# strategy's: max_trade_risk_pct=0.02 scales every buy to 2% of equity, and
+# max_portfolio_drawdown_pct=0.20 halts buying permanently once tripped.
+
+def test_risk_limits_default_to_the_previous_hardcoded_values(client: TestClient):
+    """
+    Backward compatibility is the point of exposing rather than changing them:
+    an existing request must return exactly what it returned before, so no
+    saved result in results/ is retroactively invalidated.
+    """
+    body = run(client).json()
+    assert body["max_trade_risk_pct"] == 0.02
+    assert body["max_portfolio_drawdown_pct"] == 0.20
+
+
+def test_risk_limits_are_echoed_so_a_result_is_interpretable(client: TestClient):
+    """
+    Same reason `weights` is echoed. Metrics produced under a 2% cap and under
+    no cap differ by an order of magnitude, so a stored result without these is
+    not interpretable.
+    """
+    body = run(client, max_trade_risk_pct=1.0, max_portfolio_drawdown_pct=1.0).json()
+    assert body["max_trade_risk_pct"] == 1.0
+    assert body["max_portfolio_drawdown_pct"] == 1.0
+
+
+def test_risk_limits_reach_the_risk_manager(monkeypatch, client: TestClient):
+    """
+    Asserting on the OBJECT the backtester is handed, not on the echo — the
+    echo would pass even if the values were dropped on the way through, which
+    is exactly the bug worth guarding.
+    """
+    import backtesting.risk_manager as rm
+
+    captured = {}
+    original = rm.PortfolioRiskManager
+
+    def spy(**kwargs):
+        captured.update(kwargs)
+        return original(**kwargs)
+
+    monkeypatch.setattr(rm, "PortfolioRiskManager", spy)
+
+    run(client, max_trade_risk_pct=0.5, max_portfolio_drawdown_pct=0.9)
+
+    assert captured == {
+        "max_trade_risk_pct": 0.5,
+        "max_portfolio_drawdown_pct": 0.9,
+    }
+
+
+def test_a_zero_or_negative_cap_is_422(client: TestClient):
+    """A 0% cap would size every trade to nothing and report a flat curve."""
+    assert run(client, max_trade_risk_pct=0).status_code == 422
+    assert run(client, max_portfolio_drawdown_pct=-0.1).status_code == 422
+
+
+def test_a_cap_above_one_is_422(client: TestClient):
+    """Above 1.0 is not "more permissive", it is meaningless — 1.0 is the max."""
+    assert run(client, max_trade_risk_pct=1.5).status_code == 422
+    assert run(client, max_portfolio_drawdown_pct=2.0).status_code == 422

@@ -60,6 +60,38 @@ class PortfolioBacktestRequest(BaseModel):
     )
     enable_vol_targeting: bool = Field(default=False)
     target_volatility: float = Field(default=0.15, gt=0)
+
+    # Both default to PortfolioRiskManager's own defaults, so an existing
+    # request returns exactly what it returned before. They are exposed because
+    # those defaults dominate the result and were previously unreachable — a
+    # backtest was reporting the risk manager's behaviour, not the strategy's.
+    max_trade_risk_pct: float = Field(
+        default=0.02,
+        gt=0,
+        le=1.0,
+        description=(
+            "Cap on a single BUY as a fraction of total equity. The default "
+            "0.02 scales every purchase to 2%, which makes `weights` inert "
+            "above 2% and leaves a portfolio ~98% in cash: measured over "
+            "2015-2026, paired switching ran 49 trades at 1.9% average "
+            "exposure for +1.03%, versus the same 49 trades at 95.7% exposure "
+            "for +48.49% uncapped. Pass 1.0 to size purely from `weights`."
+        ),
+    )
+    max_portfolio_drawdown_pct: float = Field(
+        default=0.20,
+        gt=0,
+        le=1.0,
+        description=(
+            "Drawdown from the high-water mark at which new BUYs stop. NOT "
+            "recoverable: the high-water mark only rises, and a portfolio that "
+            "cannot buy cannot recover, so once tripped it halts buying for the "
+            "rest of the run. Measured over 2015-2026, paired switching sat 0% "
+            "invested from 2023 onward with a perfectly flat equity curve "
+            "(standard deviation 0.0000, zero new highs). Pass 1.0 to disable."
+        ),
+    )
+
     include_risk: bool = Field(
         default=True, description="Compute VaR/CVaR on the resulting returns"
     )
@@ -82,6 +114,10 @@ class PortfolioBacktestResponse(BaseModel):
     weights: Dict[str, float] = Field(description="Weights actually used")
     initial_capital: float
     seed: Optional[int]
+    # Echoed for the same reason as `weights`: these dominate the metrics, so a
+    # saved result is not interpretable without knowing what they were.
+    max_trade_risk_pct: float
+    max_portfolio_drawdown_pct: float
     metrics: Dict[str, Any]
     risk_metrics: Dict[str, Any] = Field(
         default_factory=dict, description="VaR/CVaR etc., empty when not requested"
@@ -158,6 +194,7 @@ def _run_sync(
 ) -> tuple:
     """CPU-bound half: signals, backtest, metrics, risk."""
     from backtesting.portfolio_backtester import PortfolioBacktester
+    from backtesting.risk_manager import PortfolioRiskManager
 
     signals_data = _build_signals(spec, model, price_data)
 
@@ -166,6 +203,12 @@ def _run_sync(
         enable_vol_targeting=request.enable_vol_targeting,
         target_volatility=request.target_volatility,
         seed=request.seed,
+        # Constructed explicitly rather than letting PortfolioBacktester build a
+        # default one, so the limits that shaped the result are the caller's.
+        risk_manager=PortfolioRiskManager(
+            max_trade_risk_pct=request.max_trade_risk_pct,
+            max_portfolio_drawdown_pct=request.max_portfolio_drawdown_pct,
+        ),
     )
     portfolio, _holdings = backtester.run(price_data, signals_data, weights)
     metrics = backtester.get_performance_metrics()
@@ -320,6 +363,8 @@ async def run_portfolio_backtest(
         weights=weights,
         initial_capital=request.initial_capital,
         seed=request.seed,
+        max_trade_risk_pct=request.max_trade_risk_pct,
+        max_portfolio_drawdown_pct=request.max_portfolio_drawdown_pct,
         metrics={k: _json_safe(v) for k, v in (metrics or {}).items()},
         risk_metrics={k: _json_safe(v) for k, v in (risk or {}).items()},
         caveat=spec.caveat,
