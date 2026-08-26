@@ -105,8 +105,21 @@ async def snapshot(indexes: list[str], dry_run: bool) -> int:
         logger.warning("Failed: %s", ", ".join(failed))
     logger.info("Snapshotted %d of %d index(es).", succeeded, len(indexes))
 
-    # Non-zero only when nothing worked; one moved page should not page anyone.
-    return 0 if succeeded else 1
+    # ANY failure is non-zero. This deliberately reverses the original rule
+    # ("non-zero only when nothing worked; one moved page should not page
+    # anyone"), which was reasonable for an ordinary job and wrong for this one.
+    #
+    # Snapshots CANNOT BE BACKDATED — a missed index-day is gone permanently, and
+    # point-in-time membership is the entire reason this script exists. So a
+    # partial success is not a partial success; it is silent, unrecoverable data
+    # loss that looks identical to a clean run.
+    #
+    # It already happened: Wikipedia dropped the constituents table from the
+    # DJIA page, dow_jones returned empty from 2026-08-16, and this returned 0
+    # every morning for ten days while logging "Snapshotted 2 of 3". Nothing
+    # surfaced it. The cost of a noisy exit is one line in a log; the cost of a
+    # quiet one is history you cannot reconstruct.
+    return 1 if failed else 0
 
 
 def main() -> int:

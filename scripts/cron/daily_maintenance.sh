@@ -108,6 +108,19 @@ fi
 
 log "=== daily maintenance finished (exit $STATUS) ==="
 
+# Surface a failure where a human will actually see it.
+#
+# A non-zero exit is necessary but not sufficient: under cron it went to
+# /dev/null, and under launchd it goes to a log nobody opens. dow_jones failed
+# every morning from 2026-08-16 and the only trace was one line in a 20k-line
+# file. Since a missed snapshot is unrecoverable, the failure has to interrupt.
+#
+# Skipped when stdout is a terminal, so running this by hand does not fire a
+# notification at the person who just ran it and is already reading the output.
+if [ "$STATUS" -ne 0 ] && [ ! -t 1 ]; then
+    osascript -e 'display notification "Snapshot or ingest failed - see logs/daily_maintenance.log. Missed index-days cannot be backdated." with title "quant-pipeline daily maintenance"' >/dev/null 2>&1 || true
+fi
+
 # Keep the log from growing without bound; 30 days is plenty to notice a
 # pattern of failures.
 if [ -f "$LOG_FILE" ]; then

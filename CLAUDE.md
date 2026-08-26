@@ -59,14 +59,36 @@ says which symbols have drifted.
 ## Scheduled
 
 ```bash
-crontab -l                                  # 06:00 daily
+launchctl print gui/$(id -u)/com.dbensik.quant-pipeline.daily-maintenance
+scripts/launchd/install.sh                  # (re)install after editing the plist
 scripts/cron/daily_maintenance.sh           # ingest, then snapshot indexes
 tail -f logs/daily_maintenance.log
 ```
 
+**launchd, not cron, since 2026-08-25.** cron only fires if the machine is
+awake at the scheduled minute and never catches up. Measured: the job did not
+run at all from 2026-08-18 to 2026-08-24 — seven consecutive days, no log lines
+at all, because the Mac was asleep at 06:00. launchd's `StartCalendarInterval`
+runs a missed job on next wake. `install.sh` removes the crontab entry, because
+two schedules would race for the lock file and the loser logs "SKIPPED: a run is
+already in progress", which reads like a bug.
+
 Ingest runs before the snapshot so a name that joined an index today already
 has bars. The job is single-instance (lock file) and aborts with one clear
 line if TimescaleDB is unreachable, rather than two stack traces.
+
+**A partial snapshot exits non-zero and posts a notification.** Until
+2026-08-25 `scripts/snapshot_universes.py` returned 0 whenever *any* index
+succeeded, on the reasoning that one moved page should not page anyone. That is
+wrong for un-backdatable data: Wikipedia dropped the constituents table from the
+DJIA page on 2026-08-16, `dow_jones` returned empty every morning, the job
+logged "Snapshotted 2 of 3" and exited 0, and ten index-days were lost before
+anyone looked. Any failure is now non-zero, and the wrapper raises a macOS
+notification when it is not attached to a terminal.
+
+**Known broken: `dow_jones`.** The DJIA Wikipedia page no longer carries a
+constituents table, so the scrape returns empty and the snapshot correctly
+refuses to record it. Needs a new source — it is not a column tweak.
 
 **Universe snapshots cannot be backdated.** A missed day is a permanent gap in
 point-in-time membership, and membership is what makes survivorship-free

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Daily maintenance: ingest bars, then snapshot index membership.
+
+  WHY LAUNCHD AND NOT CRON.
+  cron only fires if the machine is awake at the scheduled minute. It does not
+  catch up. Measured on this machine: the 06:00 job did not run at all from
+  2026-08-18 to 2026-08-24 — seven consecutive days — because the Mac was
+  asleep. Nothing logged, because nothing ran.
+
+  That is unusually expensive here. Universe snapshots CANNOT BE BACKDATED, so
+  every skipped morning is a permanent hole in point-in-time membership, which
+  is the whole reason the job exists.
+
+  launchd's StartCalendarInterval runs a missed job when the machine next wakes,
+  which is exactly the behaviour this needs.
+
+  INSTALL (see scripts/launchd/install.sh, which also removes the crontab entry
+  so the two cannot both fire):
+      launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/<this file>
+  UNINSTALL:
+      launchctl bootout gui/$(id -u)/com.dbensik.quant-pipeline.daily-maintenance
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.dbensik.quant-pipeline.daily-maintenance</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/dannybensik/PycharmProjects/quant-pipeline/scripts/cron/daily_maintenance.sh</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key><integer>6</integer>
+        <key>Minute</key><integer>0</integer>
+    </dict>
+
+    <!-- false on purpose: loading the agent (login, reinstall) must not trigger
+         an unscheduled run. Missed-run catch-up is StartCalendarInterval's job,
+         not RunAtLoad's. -->
+    <key>RunAtLoad</key>
+    <false/>
+
+    <!-- The script writes its own timestamped log; these capture anything that
+         escapes it, which is where an environment problem would show up. A
+         launchd agent does not inherit a login shell's PATH. -->
+    <key>StandardOutPath</key>
+    <string>/Users/dannybensik/PycharmProjects/quant-pipeline/logs/launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/dannybensik/PycharmProjects/quant-pipeline/logs/launchd.err.log</string>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/dannybensik/PycharmProjects/quant-pipeline</string>
+
+    <!-- The script resolves its own venv, but a sane PATH keeps the failure
+         mode legible if that ever changes. -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+</dict>
+</plist>

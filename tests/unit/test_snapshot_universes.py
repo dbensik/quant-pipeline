@@ -91,9 +91,20 @@ def test_one_broken_source_does_not_stop_the_others():
         {"sp500": ["AAPL"], "nasdaq100": [], "dow_jones": ["MMM"]},
         ["sp500", "nasdaq100", "dow_jones"],
     )
+    # The valuable half, unchanged: a broken source must not prevent the healthy
+    # ones from being recorded. Their snapshots are un-backdatable too.
     assert [name for name, _ in repo.recorded] == ["sp500", "dow_jones"]
-    # Partial success is success: one moved page should not look like an outage.
-    assert code == 0
+
+    # But the run is NOT a success. This assertion was `code == 0` until
+    # 2026-08-25, on the reasoning that "partial success is success: one moved
+    # page should not look like an outage."
+    #
+    # It looked exactly like an outage, and nobody noticed for ten days.
+    # Wikipedia dropped the constituents table from the DJIA page on 2026-08-16;
+    # dow_jones returned empty every morning; this exited 0 each time. Because
+    # snapshots cannot be backdated, those ten index-days are gone for good.
+    # A partial run is silent, permanent data loss — it must exit non-zero.
+    assert code == 1
 
 
 def test_a_raising_source_is_caught():
