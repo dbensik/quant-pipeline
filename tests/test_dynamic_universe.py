@@ -17,8 +17,17 @@ def test_get_sp500_tickers_success(mocker, universe_fetcher):
     """
     Tests that get_tickers('sp500') correctly parses a mocked HTML response.
     """
-    # 1. Arrange: Set up the mock environment with realistic HTML
-    mock_html_content = """
+    # 1. Arrange: Set up the mock environment with realistic HTML.
+    #
+    # The first three rows are the ones under test: they cover both shapes the
+    # real page uses, a linked symbol and a bare one. The filler exists purely
+    # so the row COUNT is plausible — since 2026-08-25 a scrape returning far
+    # fewer names than the index holds is discarded rather than trusted, and a
+    # three-row S&P 500 was never a realistic fixture anyway.
+    filler = "".join(
+        f"<tr><td>FILL{i}</td><td>Filler {i}</td></tr>" for i in range(497)
+    )
+    mock_html_content = f"""
     <html>
         <body>
             <table id="constituents">
@@ -27,6 +36,7 @@ def test_get_sp500_tickers_success(mocker, universe_fetcher):
                     <tr><td><a href="#">AAPL</a></td><td>Apple Inc.</td></tr>
                     <tr><td>MSFT</td><td>Microsoft</td></tr>
                     <tr><td><a href="#">AMZN</a></td><td>Amazon</td></tr>
+                    {filler}
                 </tbody>
             </table>
         </body>
@@ -43,8 +53,9 @@ def test_get_sp500_tickers_success(mocker, universe_fetcher):
 
     # 3. Assert: The test should now pass
     assert isinstance(tickers, list)
-    assert len(tickers) == 3
-    assert tickers == ["AAPL", "MSFT", "AMZN"]
+    assert len(tickers) == 500
+    # Both markup shapes parse, which is what this test is actually for.
+    assert tickers[:3] == ["AAPL", "MSFT", "AMZN"]
 
 
 def test_get_tickers_request_fails(mocker, universe_fetcher):
@@ -183,3 +194,66 @@ def test_dow_jones_blank_rows_are_dropped_before_counting(mocker, universe_fetch
     """
     mocker.patch("pandas.read_html", return_value=_dow_table(DOW_30 + [float("nan")]))
     assert universe_fetcher.get_tickers("dow_jones") == DOW_30
+
+
+# ---------------------------------------------------------------------------
+# S&P 500 plausibility range
+# ---------------------------------------------------------------------------
+
+from config.settings import SP500_EXPECTED_RANGE
+
+
+def _sp500_html(n):
+    rows = "".join(f"<tr><td>T{i}</td><td>Co {i}</td></tr>" for i in range(n))
+    return (
+        '<html><body><table id="constituents"><tbody>'
+        "<tr><th>Symbol</th><th>Security</th></tr>" + rows + "</tbody></table></body></html>"
+    )
+
+
+def _mock_sp500(mocker, n):
+    resp = Mock()
+    resp.status_code = 200
+    resp.text = _sp500_html(n)
+    mocker.patch("requests.Session.get", return_value=resp)
+
+
+def test_a_truncated_sp500_scrape_is_rejected(mocker, universe_fetcher):
+    """
+    The failure this exists for. An empty scrape is already refused by the
+    caller; a HALF-READ one is not — 250 names looks like a healthy snapshot,
+    gets recorded, and silently drops half the index from point-in-time
+    membership. Membership cannot be backdated, so that is unrecoverable.
+    """
+    _mock_sp500(mocker, 250)
+    assert universe_fetcher.get_tickers("sp500") == []
+
+
+def test_an_implausibly_large_sp500_scrape_is_rejected(mocker, universe_fetcher):
+    """Too many means a different table was matched — the Russell, say."""
+    _mock_sp500(mocker, 900)
+    assert universe_fetcher.get_tickers("sp500") == []
+
+
+def test_the_real_world_count_is_comfortably_inside_the_range(
+    mocker, universe_fetcher
+):
+    """
+    503 is what the live page returns today: the index targets 500 COMPANIES
+    but lists more SECURITIES, because a few have two share classes (GOOG/GOOGL,
+    FOX/FOXA, NWS/NWSA). A check that rejected the actual current value would be
+    deleted within a day, so pin it.
+    """
+    _mock_sp500(mocker, 503)
+    assert len(universe_fetcher.get_tickers("sp500")) == 503
+
+
+def test_the_range_bounds_themselves_are_inclusive(mocker, universe_fetcher):
+    """Guards an off-by-one that would reject a legitimate edge count."""
+    low, high = SP500_EXPECTED_RANGE
+    for n in (low, high):
+        _mock_sp500(mocker, n)
+        assert len(universe_fetcher.get_tickers("sp500")) == n, f"rejected {n}"
+    for n in (low - 1, high + 1):
+        _mock_sp500(mocker, n)
+        assert universe_fetcher.get_tickers("sp500") == [], f"accepted {n}"

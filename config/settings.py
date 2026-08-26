@@ -53,6 +53,19 @@ URL_DOWJONES_CONSTITUENTS = "https://www.slickcharts.com/dowjones"
 #: on the page. A short read is the dangerous case: it looks like a valid
 #: snapshot and quietly drops constituents from point-in-time membership.
 DOWJONES_EXPECTED_COUNT = 30
+
+#: The S&P 500 needs a RANGE, not an exact count. It targets 500 COMPANIES but
+#: lists more SECURITIES, because a few companies have two share classes in the
+#: index (GOOG/GOOGL, FOX/FOXA, NWS/NWSA); the scrape returns 503 today and has
+#: sat at 500-505 for years. Committee changes are one or two names at a time,
+#: so anything outside this band is a structural change in the source rather
+#: than index turnover.
+#:
+#: Wide on purpose. The failure being caught is a scrape that returns a wrong
+#: SHAPE — a handful of rows, or half the table — not a legitimate reconstitution.
+#: A band tight enough to catch a 2% miss would false-positive on real changes,
+#: and a check that cries wolf gets deleted.
+SP500_EXPECTED_RANGE = (480, 520)
 URL_NASDAQ100_WIKIPEDIA = "https://en.wikipedia.org/wiki/Nasdaq-100"
 URL_COINGECKO_API = "https://api.coingecko.com/api/v3/coins/markets"
 

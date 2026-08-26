@@ -10,11 +10,42 @@ from config.settings import (
     URL_COINGECKO_API,
     DOWJONES_EXPECTED_COUNT,
     URL_DOWJONES_CONSTITUENTS,
+    SP500_EXPECTED_RANGE,
     URL_NASDAQ100_WIKIPEDIA,
     URL_SP500_WIKIPEDIA,
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _implausible(name: str, tickers: list, low: int, high: int, source: str) -> bool:
+    """
+    True when a constituent count cannot be right, so the caller should discard.
+
+    WHY THIS EXISTS. An EMPTY scrape is already safe — snapshot_universes refuses
+    to record it, because claiming an index has no members is worse than
+    recording nothing. A WRONG-BUT-NONEMPTY scrape is not: 28 Dow tickers or 120
+    S&P names looks exactly like a healthy snapshot, gets written, and quietly
+    corrupts point-in-time membership with nothing in the log.
+
+    That distinction is the point. Discarding costs one index-day — bad, but
+    visible, and now a non-zero exit. Recording a wrong list corrupts history
+    silently, and snapshots cannot be backdated to repair it.
+
+    Bounds are deliberately loose: they catch a changed source shape, not index
+    turnover. A check that fires on legitimate reconstitution gets ignored, then
+    deleted.
+    """
+    count = len(tickers)
+    if low <= count <= high:
+        return False
+    expected = f"{low}" if low == high else f"{low}-{high}"
+    logger.error(
+        "%s scrape returned %d tickers, expected %s (%s). Refusing to report a "
+        "constituent list that cannot be right.",
+        name, count, expected, source,
+    )
+    return True
 
 
 class DynamicUniverse:
@@ -96,6 +127,11 @@ class DynamicUniverse:
                 for row in table.find_all("tr")[1:]
                 if row.find("td")
             ]
+            if _implausible(
+                "S&P 500", tickers, *SP500_EXPECTED_RANGE, URL_SP500_WIKIPEDIA
+            ):
+                return []
+
             logger.info(f"Successfully fetched {len(tickers)} S&P 500 tickers.")
             return tickers
         except requests.exceptions.RequestException as e:
@@ -147,14 +183,11 @@ class DynamicUniverse:
             # the dangerous case: unlike an empty result it looks like a healthy
             # snapshot, and would quietly drop constituents from point-in-time
             # membership with nothing to indicate it.
-            if len(tickers) != DOWJONES_EXPECTED_COUNT:
-                logger.error(
-                    "Dow Jones scrape returned %d tickers, expected %d (%s). "
-                    "Refusing to report a constituent list that cannot be right.",
-                    len(tickers),
-                    DOWJONES_EXPECTED_COUNT,
-                    URL_DOWJONES_CONSTITUENTS,
-                )
+            if _implausible(
+                "Dow Jones", tickers,
+                DOWJONES_EXPECTED_COUNT, DOWJONES_EXPECTED_COUNT,
+                URL_DOWJONES_CONSTITUENTS,
+            ):
                 return []
 
             logger.info(f"Successfully fetched {len(tickers)} Dow Jones tickers.")

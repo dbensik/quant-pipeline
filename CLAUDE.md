@@ -92,12 +92,23 @@ with no table at all — the source moved, so no amount of parsing would have
 helped. Constituents now come from `URL_DOWJONES_CONSTITUENTS` in
 `config/settings.py`.
 
-The scrape is checked against `DOWJONES_EXPECTED_COUNT = 30`: the Dow is thirty
-stocks by definition, so any other number means the wrong table was parsed. A
-SHORT read is the case worth guarding — unlike an empty one it looks like a
-healthy snapshot, and would quietly drop constituents from membership. DIA ETF
-holdings pages were rejected as a source for exactly this reason: they paginate
-at 25 rows.
+**Every scrape is checked against a plausible count** (`_implausible()` in
+`data_pipeline/dynamic_universe.py`) — `DOWJONES_EXPECTED_COUNT = 30` exactly,
+`SP500_EXPECTED_RANGE = (480, 520)`. The Dow is thirty stocks by definition; the
+S&P needs a range because it targets 500 *companies* but lists more
+*securities* (GOOG/GOOGL, FOX/FOXA, NWS/NWSA), so 503 today.
+
+A SHORT read is the case worth guarding. An empty one is already safe — the
+caller refuses to record it, since claiming an index has no members is worse
+than recording nothing. But 28 Dow tickers or 250 S&P names looks exactly like a
+healthy snapshot, gets written, and quietly corrupts point-in-time membership.
+Discarding costs one visible index-day; recording a wrong list corrupts history
+that cannot be backdated. DIA ETF holdings pages were rejected as a Dow source
+for exactly this reason: they paginate at 25 rows.
+
+Bounds are loose on purpose — they catch a changed source shape, not index
+turnover. A check that fires on legitimate reconstitution gets ignored, then
+deleted.
 
 **Universe snapshots cannot be backdated.** A missed day is a permanent gap in
 point-in-time membership, and membership is what makes survivorship-free
