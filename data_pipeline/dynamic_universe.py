@@ -8,7 +8,8 @@ from bs4 import BeautifulSoup
 # --- Centralized Configuration Import ---
 from config.settings import (
     URL_COINGECKO_API,
-    URL_DOWJONES_WIKIPEDIA,
+    DOWJONES_EXPECTED_COUNT,
+    URL_DOWJONES_CONSTITUENTS,
     URL_NASDAQ100_WIKIPEDIA,
     URL_SP500_WIKIPEDIA,
 )
@@ -105,24 +106,57 @@ class DynamicUniverse:
             return []
 
     def _fetch_dow_jones_tickers(self) -> List[str]:
-        """Scrapes the Wikipedia page for Dow Jones Industrial Average constituents."""
+        """
+        Fetch the 30 DJIA constituents.
+
+        NOT from Wikipedia. That page carried a components table until about
+        2026-08-16 and then became a navbox with no table at all, so the scrape
+        returned empty every morning for ten days. Because universe snapshots
+        cannot be backdated, those ten index-days are permanently lost. The
+        source moved rather than the parsing breaking, so a column tweak would
+        not have helped.
+
+        Returns [] on ANY problem, which the caller treats as a failed source
+        and refuses to record — an empty snapshot would assert the index has no
+        members, which is worse than no snapshot at all.
+        """
         try:
             # storage_options, because pd.read_html makes its own request and
             # never sees self.session's headers.
             tables = pd.read_html(
-                URL_DOWJONES_WIKIPEDIA, storage_options=self.session.headers
+                URL_DOWJONES_CONSTITUENTS, storage_options=self.session.headers
             )
             dow_table = next((tbl for tbl in tables if "Symbol" in tbl.columns), None)
             if dow_table is None:
                 logger.error(
-                    "Could not find a table with 'Symbol' column for Dow Jones."
+                    "Could not find a table with a 'Symbol' column at %s. The "
+                    "source page has changed shape — this needs a human, not a "
+                    "retry.",
+                    URL_DOWJONES_CONSTITUENTS,
                 )
                 return []
 
             tickers = [
-                str(ticker).split(":")[-1].strip()
+                str(ticker).split(":")[-1].strip().upper()
                 for ticker in dow_table["Symbol"].tolist()
+                if str(ticker).strip() and str(ticker).lower() != "nan"
             ]
+
+            # The Dow is 30 stocks by definition, so anything else means the
+            # scrape picked up the wrong table or a partial one. A SHORT read is
+            # the dangerous case: unlike an empty result it looks like a healthy
+            # snapshot, and would quietly drop constituents from point-in-time
+            # membership with nothing to indicate it.
+            if len(tickers) != DOWJONES_EXPECTED_COUNT:
+                logger.error(
+                    "Dow Jones scrape returned %d tickers, expected %d (%s). "
+                    "Refusing to report a constituent list that cannot be right.",
+                    len(tickers),
+                    DOWJONES_EXPECTED_COUNT,
+                    URL_DOWJONES_CONSTITUENTS,
+                )
+                return []
+
             logger.info(f"Successfully fetched {len(tickers)} Dow Jones tickers.")
             return tickers
         except Exception as e:

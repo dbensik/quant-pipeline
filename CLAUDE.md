@@ -86,9 +86,18 @@ logged "Snapshotted 2 of 3" and exited 0, and ten index-days were lost before
 anyone looked. Any failure is now non-zero, and the wrapper raises a macOS
 notification when it is not attached to a terminal.
 
-**Known broken: `dow_jones`.** The DJIA Wikipedia page no longer carries a
-constituents table, so the scrape returns empty and the snapshot correctly
-refuses to record it. Needs a new source — it is not a column tweak.
+**`dow_jones` does not come from Wikipedia** (fixed 2026-08-25). That page
+carried a components table until roughly 2026-08-16 and then became a navbox
+with no table at all — the source moved, so no amount of parsing would have
+helped. Constituents now come from `URL_DOWJONES_CONSTITUENTS` in
+`config/settings.py`.
+
+The scrape is checked against `DOWJONES_EXPECTED_COUNT = 30`: the Dow is thirty
+stocks by definition, so any other number means the wrong table was parsed. A
+SHORT read is the case worth guarding — unlike an empty one it looks like a
+healthy snapshot, and would quietly drop constituents from membership. DIA ETF
+holdings pages were rejected as a source for exactly this reason: they paginate
+at 25 rows.
 
 **Universe snapshots cannot be backdated.** A missed day is a permanent gap in
 point-in-time membership, and membership is what makes survivorship-free

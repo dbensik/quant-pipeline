@@ -35,7 +35,24 @@ RESULTS_DIR = ROOT_DIR / "results"
 # --- API & Data Source URLs ---
 # Centralizing URLs makes them easy to update if they change.
 URL_SP500_WIKIPEDIA = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+# The DJIA constituents are NOT scraped from Wikipedia. That page carried a
+# components table until roughly 2026-08-16, when it became a navbox with no
+# table at all; the scrape returned empty every morning for ten days and those
+# index-days are gone, because snapshots cannot be backdated. Kept here only so
+# the next person does not rediscover the dead end.
 URL_DOWJONES_WIKIPEDIA = "https://en.wikipedia.org/wiki/Dow_Jones_Industrial_Average"
+
+# Replacement source, adopted 2026-08-25. Publishes all 30 constituents in one
+# table with a clean Symbol column — no pagination, unlike the DIA ETF holdings
+# pages, which truncate at 25 rows and would silently under-report.
+URL_DOWJONES_CONSTITUENTS = "https://www.slickcharts.com/dowjones"
+
+#: The DJIA is 30 stocks BY DEFINITION — that is what makes it the "Dow 30".
+#: No other index here has so exact an invariant, and it is the cheapest
+#: possible check that a scrape returned the index rather than some other table
+#: on the page. A short read is the dangerous case: it looks like a valid
+#: snapshot and quietly drops constituents from point-in-time membership.
+DOWJONES_EXPECTED_COUNT = 30
 URL_NASDAQ100_WIKIPEDIA = "https://en.wikipedia.org/wiki/Nasdaq-100"
 URL_COINGECKO_API = "https://api.coingecko.com/api/v3/coins/markets"
 

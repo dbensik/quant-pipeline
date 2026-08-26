@@ -113,3 +113,73 @@ def test_get_unsupported_source(universe_fetcher):
 
     # 2. Assert
     assert tickers == []
+
+
+# ---------------------------------------------------------------------------
+# Dow Jones
+# ---------------------------------------------------------------------------
+# The DJIA scrape moved off Wikipedia on 2026-08-25. The page had carried a
+# components table until roughly 2026-08-16, then became a navbox with no table
+# at all — so this returned empty every morning for ten days and those
+# index-days are permanently lost, because snapshots cannot be backdated.
+
+import pandas as pd
+
+DOW_30 = [
+    "AAPL", "AMGN", "AMZN", "AXP", "BA", "CAT", "CRM", "CSCO", "CVX", "DIS",
+    "GOOGL", "GS", "HD", "HON", "IBM", "JNJ", "JPM", "KO", "MCD", "MMM",
+    "MRK", "MSFT", "NKE", "NVDA", "PG", "SHW", "TRV", "UNH", "V", "WMT",
+]
+
+
+def _dow_table(symbols):
+    return [pd.DataFrame({"Company": [f"Co {s}" for s in symbols], "Symbol": symbols})]
+
+
+def test_dow_jones_returns_all_thirty(mocker, universe_fetcher):
+    mocker.patch("pandas.read_html", return_value=_dow_table(DOW_30))
+    assert universe_fetcher.get_tickers("dow_jones") == DOW_30
+
+
+def test_a_short_dow_scrape_is_rejected(mocker, universe_fetcher):
+    """
+    THE DANGEROUS CASE, and the reason for the count check.
+
+    An EMPTY result is already handled — the caller refuses to record it. A
+    SHORT result is worse: 28 tickers looks exactly like a healthy snapshot, so
+    two constituents would silently vanish from point-in-time membership with
+    nothing in the log to say so. The Dow is 30 by definition, so any other
+    number means the wrong table was parsed.
+    """
+    mocker.patch("pandas.read_html", return_value=_dow_table(DOW_30[:28]))
+    assert universe_fetcher.get_tickers("dow_jones") == []
+
+
+def test_an_over_long_dow_scrape_is_rejected(mocker, universe_fetcher):
+    """Too many means a different table was matched — equally not the Dow."""
+    mocker.patch("pandas.read_html", return_value=_dow_table(DOW_30 + ["EXTRA"]))
+    assert universe_fetcher.get_tickers("dow_jones") == []
+
+
+def test_dow_jones_missing_symbol_column_is_empty_not_an_exception(
+    mocker, universe_fetcher
+):
+    """
+    Exactly what happened when the page changed: no 'Symbol' column anywhere.
+    Must degrade to [] so the caller records nothing, rather than raising and
+    taking the other indexes down with it.
+    """
+    mocker.patch(
+        "pandas.read_html",
+        return_value=[pd.DataFrame({"Year": [2026], "Closing value": [1.0]})],
+    )
+    assert universe_fetcher.get_tickers("dow_jones") == []
+
+
+def test_dow_jones_blank_rows_are_dropped_before_counting(mocker, universe_fetcher):
+    """
+    A trailing NaN row would make 30 real tickers count as 31 and be rejected,
+    turning a cosmetic parsing artifact into a failed index-day.
+    """
+    mocker.patch("pandas.read_html", return_value=_dow_table(DOW_30 + [float("nan")]))
+    assert universe_fetcher.get_tickers("dow_jones") == DOW_30
