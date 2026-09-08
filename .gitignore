@@ -50,9 +50,16 @@ coverage.xml
 .ipynb_checkpoints
 
 # --- IDE / Editor specific ---
-.idea/          # PyCharm
-.vscode/        # VSCode
-*.iml           # IntelliJ
+# NOTE: git only treats `#` as a comment at the START of a line. A trailing
+# comment is part of the pattern, so `.idea/          # PyCharm` matched
+# nothing and PyCharm config was tracked for months, surfacing as permanent
+# working-tree noise. Keep comments on their own lines.
+# PyCharm
+.idea/
+# VSCode
+.vscode/
+# IntelliJ
+*.iml
 *.suo
 *.ntvs*
 *.njsproj

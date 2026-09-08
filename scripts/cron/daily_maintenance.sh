@@ -83,6 +83,12 @@ except OSError as exc:
 PYCHECK
 then
     log "ABORTED: database unreachable — nothing was ingested or snapshotted."
+    # Notify HERE, not at the bottom. This path exits before the notification
+    # block below ever runs, so until 2026-09-07 the likeliest failure this job
+    # has — Docker down at 06:00 — was the one failure it could not report.
+    # Measured cost: 2026-08-28 to 08-31, four consecutive mornings aborted
+    # here, four index-days lost that cannot be backdated, and nothing said so.
+    [ -t 1 ] || osascript -e 'display notification "daily maintenance ABORTED: database unreachable. Missed index-days cannot be backdated." with title "quant-pipeline daily maintenance"' >/dev/null 2>&1 || true
     exit 1
 fi
 
