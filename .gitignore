@@ -114,3 +114,4 @@ PROJECT.md
 archive/
 # Scheduled-job logs
 logs/
+*.log
