@@ -1,349 +1,92 @@
 # Quant Pipeline
 
-Quant Pipeline is an end-to-end modular framework for developing, backtesting, and deploying systematic trading strategies using both traditional and machine learning approaches.
+An end-to-end framework for systematic trading research: ingest market data into TimescaleDB, run strategies through one backtesting contract, screen and analyze a universe, and drive all of it from a FastAPI backend and a React dashboard. Signals can be served over gRPC and GraphQL with Ed25519 signatures and an append-only audit log.
 
-## Overview
+Built and maintained by one person as a working research tool, not a product. It runs every day on a schedule; the parts that don't work yet are listed under [Status](#status) rather than hidden.
 
-**Quant Pipeline** 
-The project is organized into several key components:
+## What it does
 
-- **Alpha Models (alpha_models/):**  
-  Contains traditional strategy modules. This folder includes:
-  - `index_rebalancing.py`: Placeholder for an Index Rebalancing Strategy.
-  - `pairs_trading.py`: Placeholder for a Pairs Trading Strategy.
-  - `basket_trading.py`: Placeholder for a Basket Trading Strategy.
+| Area | What's there |
+|---|---|
+| **Data** | Daily bars for the S&P 500, Dow, Nasdaq 100, and top-100 crypto universes via yfinance, written to TimescaleDB through one ingestion path (`core/ingest.py`) shared by the API and the CLI. Incremental updates by default; `--full-backfill` rewrites a series when yfinance re-adjusts it for splits, and `GET /api/v1/ingest/health` reports which symbols have drifted. |
+| **Strategies** | 18 modules in `alpha_models/` behind a single `BaseAlphaModel` contract and a registry: moving-average crossover, mean reversion, cointegrated mean reversion, pairs trading, paired switching, trend following, ATR breakout, RSI, momentum allocation, basket trading, index rebalancing, asset-class trend, buy-and-hold, a random-forest model, and others. |
+| **Backtesting** | Equity curve against buy-and-hold, CAGR, Sharpe, max drawdown, Calmar, trade log; parameter grid search and portfolio-weight optimization; strategy comparison on one symbol. Live progress over a websocket. |
+| **Screening and statistics** | Momentum and low-volatility screeners over a universe; ADF, cointegration, and PCA on the Statistics page. |
+| **Portfolios and watchlists** | Saved in the database, with a trade log and derived P&L. |
+| **Research** | Company profiles, financials, and news per symbol. |
+| **Serving** | gRPC `SignalService`, a GraphQL gateway in front of it, SHA-256 payload hashing and Ed25519 signing, and a hash-chained `audit_log.json`. `./run_pipeline.sh verify` checks the chain. |
+| **Testing** | `tests/test_strategy_contract.py` runs every registered strategy over synthetic trend, mean-reverting, flat, and gap fixtures and asserts output shape, valid signal values, and no look-ahead: signals at *t* must not change when future bars are removed. 116 checks, and new strategies are covered automatically. |
+| **Operations** | A launchd job (`scripts/launchd/`) ingests and snapshots index constituents daily, is single-instance, catches up after the Mac was asleep, and posts a notification on a partial run instead of a stack trace. |
 
-- **API Layer (api_layer/):**  
-  *Legacy/Deprecated*. Contains serialization helpers (`DataSerializer`). The REST API has been superseded by the `services/graphql_gateway`.
+## Quick start
 
-- **Backtesting (backtesting/):**  
-  Contains the backtesting framework (e.g., `backtester.py`) to simulate historical performance of the strategies.
+Requires Python 3.11, [Poetry](https://python-poetry.org/), Node for the dashboard, and Docker for TimescaleDB.
 
-- **CLI (cli/):**  
-  Contains the CLI runner (`run_pipeline.py`) to execute the complete pipeline from the command line.
-
-- **API (api/):**  
-  FastAPI backend — the REST and websocket surface the dashboard reads.
-  - `routers/`: one module per feature (ohlcv, backtest, compare, optimize,
-    screeners, statistics, portfolios, watchlists, research, ingest, results).
-  - `upstream.py`: the only module that reaches the network (yfinance).
-
-- **Frontend (frontend/):**  
-  React dashboard (Vite, TanStack Query, Tailwind/shadcn).
-  - `routes.tsx`: declares the pages once, for both the router and the nav bar.
-  - `api/schema.d.ts`: generated from the live OpenAPI document — never edited
-    by hand (`npm run gen:api`).
-
-- **Data Pipeline (data_pipeline/):**  
-  Contains the core functionality for fetching and cleaning market data.
-  - `__init__.py`: Package initializer.
-  - `data_pipeline.py`: Defines the `DataPipeline` class for data fetching, cleaning, and saving.
-
-- **Data (data/):**  
-  An optional folder for storing additional data files if needed.
-
-- **Machine Learning Models (ml_models/):**  
-  Contains machine learning components for predictive modeling:
-  - `eda.py`: Updated module to load data from CSV or the database and perform EDA.
-  - `model_training.py`: Contains routines for training and evaluating ML models.
-  - `signal_generation.py`: Converts model outputs into actionable trading signals.
-
-- **Notebooks (notebooks/):**  
-  Contains Jupyter notebooks for interactive work and research:
-  - `01_data_collection_and_cleaning.ipynb`: Notebook for data fetching and cleaning.
-  - `02_alpha_research.ipynb`: Notebook for alpha research and signal generation.
-
-- **Project Setup Files:**
-  - `pyproject.toml`: PEP 517 configuration and the authoritative Poetry dependency list.
-  - `.env.example`: Template for the TimescaleDB connection URLs — copy to `.env`.
-  - `setup.py`: Setup script for packaging the project.
-  - `.gitignore`: Specifies files and directories to exclude from version control.
-
-- **Database:**
-  - `quant_pipeline.db`: The SQLite database file (created at runtime).
-
-- **Services (services/):**
-  New 3-layer architecture components:
-  - `proto/`: Protobuf definitions for gRPC.
-  - `grpc_service/`: High-performance signal generation service.
-  - `graphql_gateway/`: GraphQL API for flexible querying.
-  - `crypto/`: Cryptographic signing and audit logging.
-
-- **Tests (tests/):**  
-  An optional folder for unit tests to ensure your code behaves as expected.
-
-
-## Folder Structure
-```
-quant-pipeline/
-├── alpha_models/                               # Traditional strategy modules
-│   ├── __init__.py                             # Package initializer
-│   ├── base_model.py                           # Base class for all models
-│   ├── basket_trading.py                       # Basket Trading Strategy
-│   ├── buy_and_hold.py                         # Buy and Hold Strategy
-│   ├── index_rebalancing.py                    # Index Rebalancing Strategy
-│   ├── mean_reversion.py                       # Mean Reversion Strategy
-│   ├── moving_average_crossover.py             # Moving Average Crossover Strategy
-│   ├── pairs_trading.py                        # New file for Pairs Trading Strategy
-│   └── trend_following.py                      # Trend Following Strategy
-├── api_layer/                                  # API Layer
-│   ├── main.py                                 # FastAPI Application
-├── backtesting/                                # Backtesting framework
-│   ├── __init__.py                             # Package initializer
-│   ├── backtester.py                           # Backtester class
-│   └── parameter_generator.py                  # Parameter generator for backtesting
-├── cli/                                        # Command-line interface
-│   ├── __init__.py                             # Package initializer
-│   └── run_pipeline.py                         # CLI runner to execute the pipeline
-├── config/                                     # Configuration files
-│   ├── __init__.py                             # Package initializer
-│   └── settings.py                             # Centralized settings
-├── api/                                        # FastAPI backend (routers, upstream gateway)
-├── frontend/                                   # React dashboard (Vite + TanStack Query)
-├── data/                                       # Folder for storing additional data files
-│   └── universe.csv                            # Universe data
-├── data_pipeline/                              # Core data pipeline functionality
-│   ├── __init__.py                             # Package initializer
-│   ├── crypto_pipeline.py                      # CryptoPipline class
-│   ├── data_enricher.py                        # DataEnricher class
-│   ├── dynamic_universe.py                     # DynamicUniverse class
-│   ├── equity_pipeline.py                      # EquityPipeline class
-│   ├── fundamental_pipeline.py                 # FundamentalPipeline class
-│   ├── time_series_normalizer.py               # TimeSeriesNormalizer class
-│   └── universe_fetcher.py                     # UniverseFetcher class
-├── ml_models/                                  # Machine learning components
-│   ├── __init__.py                             # Package initializer
-│   ├── eda.py                                  # Updated to load data from CSV or DB
-│   ├── model_training.py                       # Contains model training routines
-│   └── signal_generation.py                    # Converts model outputs to trading signals
-├── notebooks/                                  # Jupyter notebooks for interactive work
-│   ├── 01_data_collection_and_cleaning.ipynb   # Notebook for data fetching and cleaning
-│   └── 02_alpha_research.ipynp                 # Notebook for alpha and signal generation research
-├── screeners/                                  # Folder for screeners
-│   ├── init.py                                 # Package initializer
-│   ├── base_screener.py                        # Base class for all screeners
-│   ├── low_volatility_screener.py              # Low Volatility Screener
-│   ├── momentum_screener.py                    # Momentum Screener
-│   └── screener_pipeline.py                    # Screnner Pipeline
-├── services/                                   # 3-Layer Architecture Services
-│   ├── crypto/                                 # Cryptography & Audit Log
-│   ├── graphql_gateway/                        # GraphQL API Gateway
-│   ├── grpc_service/                           # gRPC Signal Service
-│   └── proto/                                  # Protobuf definitions
-│── tests/                                      # Unit tests for your project
-│   ├── __init__.py                             # Package initializer
-│   ├── __main__.py                             # Entry point for unit tests
-│   ├── test_dynamic_universe.py                # Unit tests for DynamicUniverse
-│   └── test_pipeline_orchestrator.py           # Unit tests for PipelineOrchestrator
-├── CHANGELOG.md                                # Changelog
-├── alembic.ini                                 # Alembic config for the TimescaleDB schema
-├── pyproject.toml                              # PEP 517 config + Poetry dependencies
-├── quant_pipeline.db                           # SQLite database
-├── README.md                                   # This file
-├── run_pipeline.sh                             # Main orchestration script
-├── verify_all.py                               # Verification script for 3-Layer Arch
-└── setup.py                                    # Setup script for packaging the project
-```
-
----
-
-## Getting Started
-
-### Prerequisites
-
-Python 3.11 and [Poetry](https://python-poetry.org/) (authoritative since 2026-07-31; `environment.yml` and the conda-based setup have been retired).
-
-## Installation
-
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/your-username/quant-pipeline.git
-   cd quant-pipeline
-   ```
-
-2. **Install dependencies:**
-   ```bash
-   poetry install
-   ```
-
-`run_pipeline.sh` activates the Poetry environment automatically and exits with instructions if it isn't set up.
-
-## Usage
-
-### 1. Run Everything (Recommended)
-Start the Dashboard, API, and gRPC service, plus run verification checks in one command:
 ```bash
-./run_pipeline.sh all
+git clone git@github.com:dbensik/quant-pipeline.git
+cd quant-pipeline
+poetry install
+cp .env.example .env          # TimescaleDB URLs; the defaults match docker-compose
+docker compose up -d timescaledb
+./run_pipeline.sh all         # gRPC + GraphQL + FastAPI + React + verification
 ```
-*Press `Ctrl+C` to stop all services.*
 
-### 2. Manual/Individual Commands
+Then open the dashboard at <http://localhost:5174> and the REST docs at <http://127.0.0.1:8001/api/v1/docs>. On the **Data** page, run an ingest (or `POST /api/v1/ingest`) to load bars.
 
-**Run Data Pipeline:**
+Individual services:
+
 ```bash
-./run_pipeline.sh
+./run_pipeline.sh rest         # FastAPI only (REST + websockets, port 8001)
+./run_pipeline.sh dashboard    # React dev server only (port 5174)
+./run_pipeline.sh api          # GraphQL gateway only (port 8002) — not FastAPI
+./run_pipeline.sh grpc         # gRPC signal service (port 50051)
+./run_pipeline.sh verify       # audit-chain and integration checks
+python -m cli.run_pipeline     # ingest from the command line (same path as the API)
 ```
 
-**Start API Server:**
-```bash
-./run_pipeline.sh api
+`run_pipeline.sh` activates the Poetry environment itself, checks that every port is free before starting anything, and names the process holding a port that isn't. The ports deliberately avoid the framework defaults (8000, 5173, 5432) because every other project on a developer's machine uses those; see the table in `CLAUDE.md` for the overrides.
+
+## A typical session
+
+1. **Ingest** on the Data page. Incremental by default; the health endpoint tells you when a full backfill is warranted.
+2. **Chart and backtest** a symbol: pick a strategy, set parameters and a date range, run, and read the equity curve, KPIs, and trade log.
+3. **Compare** several strategies on the same symbol, or **Optimize** a parameter grid or portfolio weights.
+4. **Screen** the universe (momentum, low volatility) and save the result as a watchlist to backtest against.
+5. **Save** the run and reload it later without re-simulating.
+
+## Layout
+
+```
+alpha_models/      strategies (one class each), base_model.py, registry.py
+backtesting/       backtester and parameter generator
+core/              ingestion path shared by the API and CLI
+data_pipeline/     universe fetchers, equity/crypto/fundamental pipelines, normalizer
+screeners/         momentum and low-volatility screeners over a universe
+ml_models/         EDA, training, signal generation
+api/               FastAPI backend: one router per feature; upstream.py is the only module that touches the network
+frontend/          React dashboard (Vite, TanStack Query, Tailwind/shadcn); api/schema.d.ts is generated from OpenAPI
+services/          gRPC signal service, GraphQL gateway, protobufs, signing and audit log
+cli/               run_pipeline.py
+scripts/launchd/   daily maintenance job and installer
+tests/             strategy contract harness, unit tests, API tests
+alembic.ini, db/   TimescaleDB schema and migrations
+run_pipeline.sh    orchestration: activates Poetry, checks ports, starts services
 ```
 
-**Start Dashboard:**
-```bash
-./run_pipeline.sh dashboard
-```
+## Status
 
-**Start gRPC Server:**
-```bash
-./run_pipeline.sh grpc
-```
+Honest accounting, kept current in `CHANGELOG.md`:
 
-**Run Verification:**
-```bash
-./run_pipeline.sh verify
-```
+- `ml_random_forest` trains on full history and then predicts historically, so its backtests are invalid until it is rewritten walk-forward. The contract harness pins this as an expected failure so it cannot be mistaken for a working model.
+- `PairsTradingStrategy` returns per-leg position columns instead of a `signal` column. It works with the portfolio backtester, is pinned by a test, and should be unified with the contract.
+- `api_layer/` is legacy. Its `DataSerializer` is still imported; the REST API it once held was replaced by `api/` (FastAPI) and the GraphQL gateway.
+- The Streamlit dashboard was removed in August 2026 after every feature was ported to a React page. Do not look for it.
+- The SQLite database (`quant_pipeline.db`) is the legacy store from the 0.1.0 release. Nothing reads it any more; TimescaleDB is the source of truth.
 
-### Workflow
+## Contributing
 
-1.  **Start the backend**: `./run_pipeline.sh rest` (FastAPI on 127.0.0.1:8001).
-    Interactive docs at <http://127.0.0.1:8001/api/v1/docs>.
-2.  **Start the dashboard**: `./run_pipeline.sh dashboard` (React on
-    localhost:5173). `./run_pipeline.sh all` starts both plus gRPC and the
-    GraphQL gateway.
-3.  **Refresh the data**: on the **Data** page, or `POST /api/v1/ingest`. This
-    writes TimescaleDB; `cli.run_pipeline` writes the legacy SQLite database
-    that nothing reads any more.
-4.  **Chart & Backtest**: pick a symbol and strategy, adjust parameters, and
-    run — with live progress over the websocket.
-5.  **Go further**: **Compare** ranks several strategies on one symbol,
-    **Optimize** grid-searches parameters or portfolio weights, **Screeners**
-    filters the universe, **Statistics** runs ADF/cointegration/PCA,
-    **Portfolios** keeps a trade log with derived P&L, and **Research** shows
-    profiles, financials and news.
+Fork and open a pull request. New strategies should subclass `BaseAlphaModel` and register themselves; the contract harness will pick them up and tell you if they peek at the future.
 
-## 3-Layer Architecture (gRPC, GraphQL, Crypto)
-We have integrated a verifiable signal generation architecture:
+## License
 
-1.  **Core Services (gRPC)**: 
-    - High-performance, typed service (`SignalService`).
-    - Generates trading signals using strategies (e.g., Mean Reversion).
-2.  **Gateway (GraphQL)**: 
-    - Flexible query interface for clients.
-    - Connects to the gRPC backend.
-3.  **Crypto & Audit**:
-    - **Signing**: All signals are signed using Ed25519.
-    - **Hashing**: Payloads are hashed with SHA256.
-    - **Audit Log**: An append-only log (`audit_log.json`) chains hashes to create a verifiable history of all generated signals.
-
-Verify the integrity of the system at any time by running:
-```bash
-./run_pipeline.sh verify
-```
-
-## Detailed Workflows
-
-This section provides step-by-step instructions for the primary features of the Quant Pipeline dashboard.
-
-### 1. Running the Data Pipeline
-
-The data pipeline is the foundation of the framework. You have two primary modes for running it.
-
-#### Full Backfill (Initial Setup)
-
-This mode downloads the entire available price history for all assets in your defined universe. It should be run the first time you set up the project or if you need to perform a complete data refresh.
-
-#### Incremental Update (Daily Use)
-
-This mode is much faster and only fetches data from the last recorded date in your database up to the present. This is the command you should run daily to keep your data current.
-
-### 2. Managing Watchlists
-
-Watchlists allow you to create and track custom groups of assets.
-#### 1. Create a Watchlist: 
-- In the dashboard sidebar, navigate to the "Watchlist" section.
-- Click "Create New Watchlist".
-- Enter a unique name (e.g., "My Favorite Tech Stocks").
-- Type in the tickers you want to include (e.g., `AAPL`, `MSFT`, `GOOGL`).
-- Click "Save Watchlist".
-
-#### 2. Edit a Watchlist:
-- Select an existing watchlist from the dropdown menu.
-- The current list of tickers will appear.
-- Add or remove tickers as needed.
-- Click "Update Watchlist" to save your changes.
- 
-#### 3. Delete a Watchlist:
-- Select the watchlist you wish to remove.
-- Click the "Delete Watchlist" button and confirm the action.
-
-`A demonstration of creating, editing, and deleting a watchlist. !`
-
-Watchlist Management GIF
-
-### 3. Managing Portfolios
-The portfolio feature allows you to construct and track hypothetical portfolios based on 
-specific asset allocations.
-#### 1. Create a Portfolio:
-- Navigate to the "Portfolio" tab.
-- Click "Create New Portfolio".
-- Provide a name and set the initial virtual capital (e.g., $100,000).
-- Add assets from your universe and assign them a target weight (e.g., `SPY` at 60%, `BND` at 40%).
-- Click "Save Portfolio".
-#### 2. Edit or Rebalance a Portfolio:
-- Load an existing portfolio from the dropdown.
-- Adjust the target weights of the assets.
-- Click the "Rebalance" or "Update Portfolio" button to apply the changes.
-#### 3. Delete a Portfolio:
-- Select the portfolio you want to remove and click the "Delete" button.
-
-`A view of the portfolio creation and management tab. !`
-
-Portfolio Management Screenshot
-
-### 4. Using the Screener
-Screeners help you filter the entire investment universe down to a small list of assets that meet specific criteria.
-#### 1. Run a Screen:
-- Go to the "Screener" tab in the dashboard.
-- From the dropdown, select a screener type (e.g., "Momentum Screener").
-- Choose the universe to run the screen on (e.g., "S&P 500").
-- Click "Run Screener".
-
-#### 2. Use the Results:
-- The screener will output a table of assets that passed the filter.-
-- You can typically save this list directly as a new watchlist, which you can then use for backtesting.
-
-`The screener tab showing results for a momentum screen. !`
-
-Screener Results Screenshot
-
-### 5. Running a Backtest
-This is the core analytical feature, allowing you to simulate a strategy's performance on historical data.
-#### 1. Set Up the Backtest:
-- Navigate to the main "Backtest" or "Analysis" tab.
-- Select Assets: Choose a universe, a saved watchlist, or enter individual tickers to test on.
-- Select Strategy: Pick a trading strategy from the dropdown (e.g., "Moving Average Crossover").
-- Configure Parameters: Adjust the strategy's parameters, such as the moving average windows (e.g., 50 for the short window, 200 for the long window).
-- Set Date Range: Define the start and end dates for the simulation.
-#### 2. Execute and Analyze:
-- Click the "Run Backtest" button.
-- The results will be displayed across several tabs:
-  - Portfolio: An equity curve chart comparing your strategy to a "Buy and Hold" benchmark.
-  - Statistics: A table of key performance indicators (KPIs) like CAGR, Sharpe Ratio, Max Drawdown, and Calmar Ratio.
-  - Trades: A detailed log of every trade executed during the backtest.
-#### 3. Save and Load Results:
-- After a run, click "Save Results" and provide a name to store the backtest configuration and results.
-- You can reload any saved run from the "Load Saved Results" dropdown to instantly view its performance without re-running the simulation.
-
-`A complete workflow showing the backtesting process from setup to analysis. !`
- 
-Backtesting Workflow GIF
-
-### **Contributing**
-
-Feel free to fork the repository and submit pull requests for improvements, bug fixes, or additional features.
-
-### **License**
-
-[MIT License](https://opensource.org/license/mit)
-    
+[MIT](https://opensource.org/license/mit)
