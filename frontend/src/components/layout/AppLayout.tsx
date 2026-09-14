@@ -10,6 +10,7 @@ import { NavLink } from 'react-router-dom'
 
 import { useHealth } from '@/api/queries'
 import { API_BASE_URL } from '@/api/client'
+import { DataFreshnessBadge } from '@/components/layout/DataFreshnessBadge'
 import { Badge } from '@/components/ui/badge'
 import { routes } from '@/routes'
 import { cn } from '@/lib/utils'
@@ -76,7 +77,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
               Research dashboard
             </p>
           </div>
-          <ApiStatus />
+          <div className="flex items-center gap-2">
+            <DataFreshnessBadge />
+            <ApiStatus />
+          </div>
         </div>
       </header>
 

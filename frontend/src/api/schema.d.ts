@@ -668,6 +668,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ingest/freshness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How old the stored price data is
+         * @description One database round trip, no network. Cheap enough to poll from a badge.
+         *
+         *     Distinct from GET /health, which is the corporate-actions drift check and
+         *     makes one provider call per symbol. This answers a different question:
+         *     not "are the bars adjusted correctly" but "are there any recent bars".
+         */
+        get: operations["data_freshness_api_v1_ingest_freshness_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/ingest/health": {
         parameters: {
             query?: never;
@@ -871,6 +895,23 @@ export interface components {
              */
             last_bar?: string | null;
         };
+        /** AssetFreshness */
+        AssetFreshness: {
+            /** Symbol */
+            symbol: string;
+            /** Asset Class */
+            asset_class: string;
+            /**
+             * Last Bar
+             * @description Newest stored bar; null if the asset has no bars
+             */
+            last_bar?: string | null;
+            /**
+             * Age Days
+             * @description Calendar days from last_bar to as_of; null if no bars
+             */
+            age_days?: number | null;
+        };
         /** AssetListResponse */
         AssetListResponse: {
             /** Count */
@@ -1033,6 +1074,25 @@ export interface components {
             /** Equity Curve */
             equity_curve?: components["schemas"]["ComparisonEquityPoint"][];
         };
+        /** ClassFreshness */
+        ClassFreshness: {
+            /** Asset Class */
+            asset_class: string;
+            /**
+             * Assets
+             * @description Registered, not delisted
+             */
+            assets: number;
+            /** With Bars */
+            with_bars: number;
+            /** Newest Bar */
+            newest_bar?: string | null;
+            /**
+             * Stale
+             * @description Assets with no bar newer than max_age_days
+             */
+            stale: number;
+        };
         /** CompareRequest */
         CompareRequest: {
             /** Symbol */
@@ -1191,6 +1251,55 @@ export interface components {
             metadata?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /**
+         * DataFreshnessResponse
+         * @description How old the stored price data is — the number that was silent for a year.
+         *
+         *     Price data ended 2025-07-15 for twelve months while every backtest ran on
+         *     it without complaint, then the 06:00 job aborted four mornings running in
+         *     2026-08 and nothing on screen changed. This is the surface that makes
+         *     both visible: the dashboard renders `newest_bar` on every page.
+         */
+        DataFreshnessResponse: {
+            /**
+             * As Of
+             * Format: date-time
+             * @description Server clock (UTC) when computed
+             */
+            as_of: string;
+            /**
+             * Max Age Days
+             * @description Threshold used for `stale` counts
+             */
+            max_age_days: number;
+            /**
+             * Newest Bar
+             * @description MAX(time) over the whole store
+             */
+            newest_bar?: string | null;
+            /**
+             * Age Days
+             * @description Calendar days from newest_bar to as_of
+             */
+            age_days?: number | null;
+            /**
+             * Assets
+             * @description Registered assets, excluding delisted
+             */
+            assets: number;
+            /**
+             * Stale
+             * @description Of those, how many are stale or have no bars
+             */
+            stale: number;
+            /** By Class */
+            by_class: components["schemas"]["ClassFreshness"][];
+            /**
+             * Stale Assets
+             * @description The stale ones, oldest first, capped by `limit`
+             */
+            stale_assets: components["schemas"]["AssetFreshness"][];
         };
         /** DataHealthResponse */
         DataHealthResponse: {
@@ -3842,6 +3951,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AssetOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    data_freshness_api_v1_ingest_freshness_get: {
+        parameters: {
+            query?: {
+                /** @description An asset whose newest bar is older than this many calendar days counts as stale. 5 tolerates a weekend plus a Monday holiday on a daily equity series; a sixth day means an ingest was missed. */
+                max_age_days?: number;
+                /** @description Cap on stale_assets */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataFreshnessResponse"];
                 };
             };
             /** @description Validation Error */

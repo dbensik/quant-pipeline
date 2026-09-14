@@ -54,6 +54,9 @@ export type IngestStatus = components['schemas']['IngestStatus']
 export type SymbolResult = components['schemas']['SymbolResult']
 export type AssetOut = components['schemas']['AssetOut']
 export type UniverseResponse = components['schemas']['UniverseResponse']
+export type DataFreshnessResponse = components['schemas']['DataFreshnessResponse']
+export type ClassFreshness = components['schemas']['ClassFreshness']
+export type AssetFreshness = components['schemas']['AssetFreshness']
 export type ResultSummary = components['schemas']['ResultSummary']
 export type ScreenerSchema = components['schemas']['ScreenerSchema']
 export type ScreenerListResponse = components['schemas']['ScreenerListResponse']
@@ -329,6 +332,14 @@ export const api = {
 
   ingestStatus(): Promise<IngestStatus> {
     return request('/api/v1/ingest/status')
+  },
+
+  /**
+   * How old the stored bars are. One DB round trip server-side, so it is
+   * cheap enough for the header badge to poll.
+   */
+  dataFreshness(params: { max_age_days?: number; limit?: number } = {}): Promise<DataFreshnessResponse> {
+    return request(`/api/v1/ingest/freshness${qs(params)}`)
   },
 
   runIngest(body: {

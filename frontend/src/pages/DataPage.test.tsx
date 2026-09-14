@@ -44,8 +44,26 @@ const REPORT = {
   ],
 }
 
+const FRESHNESS = {
+  as_of: '2026-09-14T13:00:00Z',
+  max_age_days: 5,
+  newest_bar: '2026-09-13T00:00:00Z',
+  age_days: 1,
+  assets: 612,
+  stale: 21,
+  by_class: [
+    { asset_class: 'crypto', assets: 96, with_bars: 95, newest_bar: '2026-09-13T00:00:00Z', stale: 21 },
+    { asset_class: 'equity', assets: 505, with_bars: 505, newest_bar: '2026-09-11T00:00:00Z', stale: 0 },
+  ],
+  stale_assets: [
+    { symbol: 'PUMP-USD', asset_class: 'crypto', last_bar: null, age_days: null },
+    { symbol: 'TAO-USD', asset_class: 'crypto', last_bar: '2022-03-18T00:00:00Z', age_days: 1645 },
+  ],
+}
+
 beforeEach(() => {
   vi.spyOn(api, 'listWatchlists').mockResolvedValue([] as never)
+  vi.spyOn(api, 'dataFreshness').mockResolvedValue(FRESHNESS as never)
   vi.spyOn(api, 'ingestStatus').mockResolvedValue({
     running: false,
     started_at: null,
@@ -224,5 +242,53 @@ describe('DataPage — index constituents', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'sp500' }))
 
     expect(await screen.findByText(/Could not fetch the sp500/)).toBeInTheDocument()
+  })
+})
+
+describe('DataPage — data freshness', () => {
+  it('shows the newest bar, per-class rows and the stale names', async () => {
+    renderPage(<DataPage />)
+    const card = await screen.findByTestId('freshness-card')
+    // Headline plus the crypto row — the same date, rendered twice on purpose.
+    expect(await screen.findAllByText('2026-09-13')).toHaveLength(2)
+    expect(card).toHaveAttribute('data-tone', 'ok')
+    // Per-class table: the equity row carries Friday's date, crypto carries 21 stale.
+    expect(screen.getByText('2026-09-11')).toBeInTheDocument()
+    expect(screen.getByText(/21 of 612 assets have no bar/)).toBeInTheDocument()
+    // Stale names, with "none" for a name that was registered but never ingested.
+    expect(screen.getByText('PUMP-USD')).toBeInTheDocument()
+    expect(screen.getByText('none')).toBeInTheDocument()
+    expect(screen.getByText('1645d')).toBeInTheDocument()
+  })
+
+  it('goes red when the whole store is older than the threshold', async () => {
+    vi.spyOn(api, 'dataFreshness').mockResolvedValue({
+      ...FRESHNESS,
+      newest_bar: '2026-09-06T00:00:00Z',
+      age_days: 8,
+    } as never)
+    renderPage(<DataPage />)
+    const card = await screen.findByTestId('freshness-card')
+    await waitFor(() => expect(card).toHaveAttribute('data-tone', 'stale'))
+    expect(screen.getByText(/8 days old/)).toBeInTheDocument()
+  })
+
+  it('says so when the freshness call fails', async () => {
+    vi.spyOn(api, 'dataFreshness').mockRejectedValue(new ApiError(0, 'down'))
+    renderPage(<DataPage />)
+    expect(
+      await screen.findByText(/Could not read the newest stored bar/),
+    ).toBeInTheDocument()
+  })
+
+  it('refreshes the freshness card after an ingest', async () => {
+    const fresh = vi.spyOn(api, 'dataFreshness').mockResolvedValue(FRESHNESS as never)
+    vi.spyOn(api, 'runIngest').mockResolvedValue(REPORT as never)
+    renderPage(<DataPage />)
+    await screen.findByTestId('freshness-card')
+    const before = fresh.mock.calls.length
+    await userEvent.click(await screen.findByRole('button', { name: 'Ingest everything' }))
+    // Invalidation, not a cached read: new bars change the newest-bar date.
+    await waitFor(() => expect(fresh.mock.calls.length).toBeGreaterThan(before))
   })
 })

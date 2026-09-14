@@ -12,9 +12,10 @@
 
 import { useState } from 'react'
 
-import type { ApiError, SymbolResult } from '@/api/client'
+import type { ApiError, DataFreshnessResponse, SymbolResult } from '@/api/client'
 import {
   useAddAsset,
+  useDataFreshness,
   useIngestStatus,
   useRunIngest,
   useUniverse,
@@ -33,6 +34,7 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { isoDate, summariseDataAge } from '@/lib/dataAge'
 
 const SOURCES = ['sp500', 'dow_jones', 'nasdaq100', 'top_100_crypto'] as const
 
@@ -64,6 +66,109 @@ function Outcome({ result }: { result: SymbolResult }) {
   )
 }
 
+function FreshnessCard({
+  data,
+  error,
+  isLoading,
+}: {
+  data: DataFreshnessResponse | undefined
+  error: unknown
+  isLoading: boolean
+}) {
+  const summary = summariseDataAge(data, error)
+  return (
+    <Card data-testid="freshness-card" data-tone={isLoading ? 'loading' : summary.tone}>
+      <CardHeader>
+        <CardTitle className="text-base">Data freshness</CardTitle>
+        <CardDescription>
+          The newest stored bar per asset class. Stale means no bar in the
+          last {data?.max_age_days ?? 5} calendar days; the 06:00 launchd job
+          should keep every live name inside that window.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground">Checking…</p>
+        ) : !data ? (
+          <Alert variant="destructive">
+            <AlertDescription>{summary.detail}</AlertDescription>
+          </Alert>
+        ) : (
+          <>
+            <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1">
+              <span className="text-2xl font-semibold tabular-nums">
+                {isoDate(data.newest_bar)}
+              </span>
+              <span
+                className={
+                  summary.tone === 'ok' ? 'text-sm text-muted-foreground' : 'text-sm text-red-600'
+                }
+              >
+                {summary.detail}
+              </span>
+            </div>
+            <table className="w-full text-sm">
+              <thead className="text-left text-xs text-muted-foreground">
+                <tr>
+                  <th className="pb-1 pr-4 font-medium">Class</th>
+                  <th className="pb-1 pr-4 text-right font-medium">Assets</th>
+                  <th className="pb-1 pr-4 text-right font-medium">With bars</th>
+                  <th className="pb-1 pr-4 font-medium">Newest bar</th>
+                  <th className="pb-1 text-right font-medium">Stale</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.by_class.map((row) => (
+                  <tr key={row.asset_class} className="border-b last:border-0">
+                    <td className="py-1.5 pr-4 font-medium">{row.asset_class}</td>
+                    <td className="py-1.5 pr-4 text-right tabular-nums">{row.assets}</td>
+                    <td className="py-1.5 pr-4 text-right tabular-nums">{row.with_bars}</td>
+                    <td className="py-1.5 pr-4 tabular-nums">{isoDate(row.newest_bar)}</td>
+                    <td
+                      className={
+                        row.stale > 0
+                          ? 'py-1.5 text-right tabular-nums text-red-600'
+                          : 'py-1.5 text-right tabular-nums'
+                      }
+                    >
+                      {row.stale}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {data.stale_assets.length > 0 ? (
+              <div>
+                <p className="mb-1 text-xs text-muted-foreground">
+                  Stale assets, oldest first
+                  {data.stale > data.stale_assets.length
+                    ? ` (showing ${data.stale_assets.length} of ${data.stale})`
+                    : ''}
+                  . A name with no bar was registered but never ingested.
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {data.stale_assets.map((a) => (
+                    <Badge
+                      key={a.symbol}
+                      variant="outline"
+                      title={a.last_bar ? `Last bar ${isoDate(a.last_bar)}` : 'No bars stored'}
+                    >
+                      {a.symbol}
+                      <span className="text-muted-foreground">
+                        {a.age_days == null ? 'none' : `${a.age_days}d`}
+                      </span>
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 export function DataPage() {
   const ingest = useRunIngest()
   const addAsset = useAddAsset()
@@ -76,6 +181,7 @@ export function DataPage() {
   const [source, setSource] = useState<string | null>(null)
 
   const status = useIngestStatus(ingest.isPending)
+  const freshness = useDataFreshness()
   const universe = useUniverse(source)
 
   const list = symbols
@@ -94,6 +200,12 @@ export function DataPage() {
       />
 
       <div className="space-y-6">
+        <FreshnessCard
+          data={freshness.data}
+          error={freshness.error}
+          isLoading={freshness.isLoading}
+        />
+
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Ingest price bars</CardTitle>

@@ -47,6 +47,7 @@ export const queryKeys = {
   financials: (symbol: string, quarterly: boolean) =>
     ['financials', symbol, { quarterly }] as const,
   news: (source: Record<string, unknown>) => ['news', source] as const,
+  dataFreshness: () => ['data-freshness'] as const,
 }
 
 /**
@@ -420,6 +421,23 @@ export function useIngestStatus(enabled: boolean) {
   })
 }
 
+/**
+ * Age of the newest stored bar, rendered in the header on every page.
+ *
+ * Refetched on an interval rather than only on mount: the badge exists so a
+ * dead 06:00 job is noticed by whoever has the dashboard open, and a tab
+ * left open overnight is exactly the viewer that would otherwise keep showing
+ * yesterday's green.
+ */
+export function useDataFreshness() {
+  return useQuery({
+    queryKey: queryKeys.dataFreshness(),
+    queryFn: () => api.dataFreshness(),
+    refetchInterval: 5 * 60_000,
+    staleTime: 60_000,
+  })
+}
+
 export function useRunIngest() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -430,6 +448,8 @@ export function useRunIngest() {
       void queryClient.invalidateQueries({ queryKey: ['ohlcv'] })
       void queryClient.invalidateQueries({ queryKey: ['assets'] })
       void queryClient.invalidateQueries({ queryKey: ['ingest-status'] })
+      // ...and the data-age badge, which is derived from the newest bar.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.dataFreshness() })
     },
   })
 }
@@ -440,6 +460,8 @@ export function useAddAsset() {
     mutationFn: api.addAsset,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['assets'] })
+      // A newly registered asset has no bars yet, so it is stale by definition.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.dataFreshness() })
     },
   })
 }

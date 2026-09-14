@@ -21,10 +21,11 @@ Phase 2 — TimescaleDB Schema & Repository Layer
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Optional
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,6 +36,24 @@ from db.models import AssetORM, MarketDataORM
 # ---------------------------------------------------------------------------
 # Protocol — the interface every storage backend must satisfy
 # ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class AssetLastBar:
+    """
+    The newest stored bar for one registered asset — the unit of the
+    freshness surface (GET /api/v1/ingest/freshness).
+
+    `last_bar` is None for an asset that is registered but has no bars at all,
+    which is a distinct condition from "stale": the former never ingested, the
+    latter stopped. `delisted_at` travels with it so the caller can exclude
+    names that are legitimately frozen rather than counting them as stale.
+    """
+
+    symbol: str
+    asset_class: str
+    last_bar: Optional[datetime]
+    delisted_at: Optional[datetime] = None
+
 
 class MarketDataRepository:
     """
@@ -80,6 +99,16 @@ class MarketDataRepository:
         self, symbol: str, asset_class: Optional[str] = None
     ) -> Optional[Asset]:
         """Return the registered Asset for *symbol*, or None if unknown."""
+        ...
+
+    async def latest_bars(self) -> List[AssetLastBar]:
+        """
+        Newest stored bar for EVERY registered asset, in one round trip.
+
+        The freshness surface needs the whole registry at once; asking
+        find_asset + fetch_range per symbol would be ~600 queries for a badge
+        that renders on every page load.
+        """
         ...
 
 
@@ -228,6 +257,36 @@ class TimescaleMarketDataRepo:
             metadata=row.metadata_ or {},
             delisted_at=row.delisted_at,
         )
+
+    async def latest_bars(self) -> List[AssetLastBar]:
+        """
+        One aggregate over market_data, outer-joined so an asset with no bars
+        still appears (last_bar=None). The whole store at ~900k rows answers
+        in well under a second; measured 2026-09-14 against the live database
+        before this was wired to a badge that every page renders.
+        """
+        stmt = (
+            select(
+                AssetORM.symbol,
+                AssetORM.asset_class,
+                AssetORM.delisted_at,
+                func.max(MarketDataORM.time),
+            )
+            .select_from(AssetORM)
+            .outerjoin(MarketDataORM, MarketDataORM.asset_id == AssetORM.id)
+            .group_by(AssetORM.id, AssetORM.symbol, AssetORM.asset_class, AssetORM.delisted_at)
+            .order_by(AssetORM.symbol)
+        )
+        rows = (await self.session.execute(stmt)).all()
+        return [
+            AssetLastBar(
+                symbol=symbol,
+                asset_class=asset_class,
+                last_bar=last_bar,
+                delisted_at=delisted_at,
+            )
+            for symbol, asset_class, delisted_at, last_bar in rows
+        ]
 
     # ------------------------------------------------------------------
     # Private helpers

@@ -35,7 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.ingest import IngestReport, ingest_symbols, job
 from db.models import AssetORM
-from db.repositories.market_data import TimescaleMarketDataRepo
+from db.repositories.market_data import AssetLastBar, TimescaleMarketDataRepo
 
 from api.dependencies import get_db, get_fetcher, get_market_data_repo
 
@@ -143,6 +143,52 @@ class UniverseResponse(BaseModel):
     source: str
     symbols: List[str]
     count: int
+
+
+class AssetFreshness(BaseModel):
+    symbol: str
+    asset_class: str
+    last_bar: Optional[datetime] = Field(
+        default=None, description="Newest stored bar; null if the asset has no bars"
+    )
+    age_days: Optional[int] = Field(
+        default=None,
+        description="Calendar days from last_bar to as_of; null if no bars",
+    )
+
+
+class ClassFreshness(BaseModel):
+    asset_class: str
+    assets: int = Field(description="Registered, not delisted")
+    with_bars: int
+    newest_bar: Optional[datetime] = None
+    stale: int = Field(description="Assets with no bar newer than max_age_days")
+
+
+class DataFreshnessResponse(BaseModel):
+    """
+    How old the stored price data is — the number that was silent for a year.
+
+    Price data ended 2025-07-15 for twelve months while every backtest ran on
+    it without complaint, then the 06:00 job aborted four mornings running in
+    2026-08 and nothing on screen changed. This is the surface that makes
+    both visible: the dashboard renders `newest_bar` on every page.
+    """
+
+    as_of: datetime = Field(description="Server clock (UTC) when computed")
+    max_age_days: int = Field(description="Threshold used for `stale` counts")
+    newest_bar: Optional[datetime] = Field(
+        default=None, description="MAX(time) over the whole store"
+    )
+    age_days: Optional[int] = Field(
+        default=None, description="Calendar days from newest_bar to as_of"
+    )
+    assets: int = Field(description="Registered assets, excluding delisted")
+    stale: int = Field(description="Of those, how many are stale or have no bars")
+    by_class: List[ClassFreshness]
+    stale_assets: List[AssetFreshness] = Field(
+        description="The stale ones, oldest first, capped by `limit`"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -303,6 +349,105 @@ async def add_asset(
         asset_class=request.asset_class,
         source=request.source,
         created=True,
+    )
+
+
+def _age_days(as_of: datetime, when: Optional[datetime]) -> Optional[int]:
+    """Calendar days between two instants, on their UTC dates."""
+    if when is None:
+        return None
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    return (as_of.date() - when.astimezone(timezone.utc).date()).days
+
+
+def summarise_freshness(
+    rows: List[AssetLastBar], as_of: datetime, max_age_days: int, limit: int
+) -> DataFreshnessResponse:
+    """
+    Pure: the shape of the response given what the repository returned.
+
+    Delisted assets are excluded from every count. They are legitimately
+    frozen; counting them would keep the badge red for a reason nobody can
+    act on, which is how a warning gets ignored and then removed.
+    """
+    live = [r for r in rows if r.delisted_at is None]
+    newest = max((r.last_bar for r in live if r.last_bar is not None), default=None)
+
+    def is_stale(r: AssetLastBar) -> bool:
+        age = _age_days(as_of, r.last_bar)
+        return age is None or age > max_age_days
+
+    stale_rows = [r for r in live if is_stale(r)]
+    # Oldest first: no bars at all sorts before any dated bar, because "never
+    # ingested" is the worse condition.
+    stale_rows.sort(
+        key=lambda r: (r.last_bar is not None, -(_age_days(as_of, r.last_bar) or 0))
+    )
+
+    by_class: List[ClassFreshness] = []
+    for asset_class in sorted({r.asset_class for r in live}):
+        members = [r for r in live if r.asset_class == asset_class]
+        dated = [r.last_bar for r in members if r.last_bar is not None]
+        by_class.append(
+            ClassFreshness(
+                asset_class=asset_class,
+                assets=len(members),
+                with_bars=len(dated),
+                newest_bar=max(dated, default=None),
+                stale=sum(1 for r in members if is_stale(r)),
+            )
+        )
+
+    return DataFreshnessResponse(
+        as_of=as_of,
+        max_age_days=max_age_days,
+        newest_bar=newest,
+        age_days=_age_days(as_of, newest),
+        assets=len(live),
+        stale=len(stale_rows),
+        by_class=by_class,
+        stale_assets=[
+            AssetFreshness(
+                symbol=r.symbol,
+                asset_class=r.asset_class,
+                last_bar=r.last_bar,
+                age_days=_age_days(as_of, r.last_bar),
+            )
+            for r in stale_rows[:limit]
+        ],
+    )
+
+
+@router.get(
+    "/freshness",
+    response_model=DataFreshnessResponse,
+    summary="How old the stored price data is",
+)
+async def data_freshness(
+    max_age_days: int = Query(
+        default=5,
+        ge=1,
+        le=365,
+        description=(
+            "An asset whose newest bar is older than this many calendar days "
+            "counts as stale. 5 tolerates a weekend plus a Monday holiday on a "
+            "daily equity series; a sixth day means an ingest was missed."
+        ),
+    ),
+    limit: int = Query(default=50, ge=1, le=MAX_SYMBOLS, description="Cap on stale_assets"),
+    repo: TimescaleMarketDataRepo = Depends(get_market_data_repo),
+) -> DataFreshnessResponse:
+    """
+    One database round trip, no network. Cheap enough to poll from a badge.
+
+    Distinct from GET /health, which is the corporate-actions drift check and
+    makes one provider call per symbol. This answers a different question:
+    not "are the bars adjusted correctly" but "are there any recent bars".
+    """
+    rows = await repo.latest_bars()
+    return summarise_freshness(
+        rows, as_of=datetime.now(timezone.utc), max_age_days=max_age_days, limit=limit
     )
 
 

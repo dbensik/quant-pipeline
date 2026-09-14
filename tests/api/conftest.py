@@ -42,6 +42,7 @@ from api.upstream import YFinanceGateway, get_upstream
 from api.main import app
 from core.models import OHLCV, Asset, MarketDataRecord, Timestamp
 from core.portfolio import Portfolio, Trade
+from db.repositories.market_data import AssetLastBar
 from db.repositories.universe import Membership, Snapshot
 from db.repositories.watchlists import Watchlist
 
@@ -185,6 +186,26 @@ class FakeRepo:
                 continue
             if start <= record.ohlcv.timestamp.utc <= end:
                 out.append(record)
+        return out
+
+    async def latest_bars(self) -> List[AssetLastBar]:
+        """
+        Derived from the same fixture series the other methods serve, so a
+        freshness test cannot pass against a canned date the bars contradict.
+        EMPTY-USD is registered with no bars and so reports last_bar=None.
+        """
+        out = []
+        for symbol, asset in KNOWN_ASSETS.items():
+            records = self.data.get(symbol, [])
+            last = max((r.ohlcv.timestamp.utc for r in records), default=None)
+            out.append(
+                AssetLastBar(
+                    symbol=symbol,
+                    asset_class=asset.asset_class,
+                    last_bar=last,
+                    delisted_at=asset.delisted_at,
+                )
+            )
         return out
 
 
