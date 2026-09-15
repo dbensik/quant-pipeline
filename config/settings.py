@@ -69,6 +69,28 @@ SP500_EXPECTED_RANGE = (480, 520)
 URL_NASDAQ100_WIKIPEDIA = "https://en.wikipedia.org/wiki/Nasdaq-100"
 URL_COINGECKO_API = "https://api.coingecko.com/api/v3/coins/markets"
 
+# --- Option chain capture (scripts/capture_option_chains.py) ---
+# yfinance serves only TODAY's chain, so the archive can only grow forward: a
+# weekday the capture does not run is missing for good, at any price. Capture
+# first, schema second — raw vendor frames go to dated Parquet with provenance
+# columns only, and loading them into a table is a later, re-runnable step.
+
+#: Small on purpose. Grow deliberately — a <=120 DTE SPY chain is ~19 expiries
+#: and several thousand rows per day.
+OPTION_CAPTURE_TICKERS = ("SPY", "QQQ", "IWM", "TQQQ", "AAPL", "NVDA")
+
+#: Expiries further out than this many calendar days are not fetched.
+OPTION_CAPTURE_MAX_DTE = 120
+
+#: A ticker's whole capture below this many contracts is a failed read, not a
+#: thin chain — the smallest here (TQQQ) returns hundreds. Catches the SHAPE
+#: failure (Yahoo returning an empty or truncated chain), not market activity.
+OPTION_CAPTURE_MIN_ROWS = 20
+
+#: data/ is gitignored. This directory is the asset — see the as-built for the
+#: fact that it currently has exactly one copy.
+OPTION_CHAIN_ARCHIVE_DIR = ROOT_DIR / "data" / "option_chains"
+
 # --- Quant Pipeline REST API (Phase 3) ---
 # The dashboard reads prices through the FastAPI service by default as of the
 # Phase 3 cutover (2026-08-07). Set QUANT_USE_API=0 to fall back to reading

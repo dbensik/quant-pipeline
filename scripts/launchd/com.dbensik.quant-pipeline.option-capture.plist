@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Option chain capture: snapshot today's chains to data/option_chains/, raw.
+
+  WHY 15:45 AND 17:00, WEEKDAYS.
+  15:45 is live quotes with tight spreads, fifteen minutes before the close.
+  17:00 is the safety net: the script skips any ticker already written today,
+  so on a normal day the second fire costs nothing, and after a failed or
+  half-finished 15:45 run it completes the day. Weekday 1-5 is Monday-Friday
+  (launchd: 0 and 7 are both Sunday). Holidays are handled in the script,
+  which refuses a chain whose newest daily bar is not today.
+
+  launchd coalesces missed fires: a Mac asleep through both runs fires ONCE on
+  wake. If that wake is after midnight the script refuses (wrong trade date)
+  and notifies. That day is lost, visibly.
+
+  WHY THIS MATTERS. yfinance serves only the current chain. A day not
+  captured is missing for good. This job was recorded as "delivered
+  2026-08-03" and was never installed; about 30 trading days went missing
+  before anyone checked on 2026-09-14.
+
+  INSTALL:    scripts/launchd/install.sh com.dbensik.quant-pipeline.option-capture
+  UNINSTALL:  launchctl bootout gui/$(id -u)/com.dbensik.quant-pipeline.option-capture
+              rm ~/Library/LaunchAgents/com.dbensik.quant-pipeline.option-capture.plist
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.dbensik.quant-pipeline.option-capture</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/dannybensik/PycharmProjects/quant-pipeline/scripts/cron/option_capture.sh</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>15</integer><key>Minute</key><integer>45</integer></dict>
+        <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>17</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>15</integer><key>Minute</key><integer>45</integer></dict>
+        <dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>17</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>15</integer><key>Minute</key><integer>45</integer></dict>
+        <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>17</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>15</integer><key>Minute</key><integer>45</integer></dict>
+        <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>17</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>15</integer><key>Minute</key><integer>45</integer></dict>
+        <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>17</integer><key>Minute</key><integer>0</integer></dict>
+    </array>
+
+    <!-- false on purpose: a login or reinstall must not trigger a capture.
+         A pre-open run would write stale quotes; the trade-date gate refuses
+         most of those, but not triggering them is simpler than refusing them. -->
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/dannybensik/PycharmProjects/quant-pipeline/logs/option_capture.launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/dannybensik/PycharmProjects/quant-pipeline/logs/option_capture.launchd.err.log</string>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/dannybensik/PycharmProjects/quant-pipeline</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+</dict>
+</plist>

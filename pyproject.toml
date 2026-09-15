@@ -60,7 +60,8 @@ dependencies = [
     "grpcio (>=1.83.0,<2.0.0)",
     "grpcio-tools (>=1.83.0,<2.0.0)",
     "strawberry-graphql[cli] (>=0.323.2,<0.324.0)",
-    "lxml (>=6.1.1,<7.0.0)"
+    "lxml (>=6.1.1,<7.0.0)",
+    "pyarrow (>=25.0.1,<26.0.0)"
 
 ]
 

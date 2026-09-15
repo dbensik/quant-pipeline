@@ -1,6 +1,11 @@
 #!/bin/bash
 #
-# Install the daily-maintenance launchd agent, replacing the crontab entry.
+# Install a launchd agent from this directory.
+#
+#   scripts/launchd/install.sh                                            # daily maintenance (default)
+#   scripts/launchd/install.sh com.dbensik.quant-pipeline.option-capture  # option chain capture
+#
+# For daily maintenance it also removes the old crontab entry.
 #
 # Both must never be active at once: two runs at 06:00 would race for the same
 # lock file, and the loser logs "SKIPPED: a run is already in progress" — which
@@ -9,7 +14,7 @@
 # Idempotent. Safe to re-run after editing the plist.
 set -uo pipefail
 
-LABEL="com.dbensik.quant-pipeline.daily-maintenance"
+LABEL="${1:-com.dbensik.quant-pipeline.daily-maintenance}"
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 SRC="$ROOT/scripts/launchd/$LABEL.plist"
 DEST="$HOME/Library/LaunchAgents/$LABEL.plist"
@@ -36,13 +41,14 @@ else
 fi
 
 # Remove the crontab line, keeping every other entry and all comments.
-if crontab -l 2>/dev/null | grep -q "daily_maintenance.sh"; then
+# Only daily maintenance ever had one.
+if [ "$LABEL" = "com.dbensik.quant-pipeline.daily-maintenance" ] && crontab -l 2>/dev/null | grep -q "daily_maintenance.sh"; then
     crontab -l 2>/dev/null \
         | grep -v "^[^#]*daily_maintenance.sh" \
         > /tmp/crontab.new.$$
     crontab /tmp/crontab.new.$$ && rm -f /tmp/crontab.new.$$
     echo "removed    crontab entry (launchd now owns the 06:00 schedule)"
-else
+elif [ "$LABEL" = "com.dbensik.quant-pipeline.daily-maintenance" ]; then
     echo "no active crontab entry to remove"
 fi
 
