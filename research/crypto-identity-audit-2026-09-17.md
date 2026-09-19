@@ -269,3 +269,75 @@ Query the state at any time with:
 SELECT metadata->>'identity_status' AS status, count(*)
 FROM assets WHERE asset_class='crypto' GROUP BY 1 ORDER BY 2 DESC;
 ```
+
+
+---
+
+# Cleanup, stage 1 (2026-09-19)
+
+## Done: the 17 wrong assets are empty
+
+`DELETE 20431` — every bar belonging to the 17 symbols whose recorded verdict
+is `wrong_asset`. Backed up first to
+`archive/wrong-asset-bars-2026-09-19.csv` (2.7MB, gitignored), which carries
+the intended `coingecko_id` alongside each row. The bars are also trivially
+re-fetchable from Yahoo under the same ticker — they are the substituting
+token's real history.
+
+**Correction to an earlier figure in this file: 20,431 bars, not 27,076.**
+That larger number came from a hand-written list of 22 symbols that included
+the 4 SUSPECT and TON-USD. The recorded `wrong_asset` set is 17 symbols.
+
+State now:
+
+| identity | assets | bars |
+|---|---|---|
+| match | 55 | 113,234 |
+| unverifiable | 23 | 27,950 |
+| suspect | 4 | 2,088 |
+| **wrong_asset** | **17** | **0** |
+
+The asset rows were kept, not dropped: each holds the `coingecko_id` it should
+have been, and the ingest gate stops anything refilling them with the wrong
+coin. They are a clean "known empty, known wrong source" state, ready for a
+price source keyed by id.
+
+## Stop: a numeric rule CANNOT finish this job
+
+Symbols with an impossible one-day move fell from 35 to 21. The remaining 21
+are **a mix of genuine corruption and real market history**, and that is the
+finding that matters:
+
+| symbol | identity | worst | verdict |
+|---|---|---|---|
+| TIA-USD | match | 680,637x | corrupt (verified at provider) |
+| USDE-USD | match | 2,121x | corrupt — a STABLECOIN; provider now serves nothing at all |
+| METH-USD | unverifiable | 1,021,281x | almost certainly the wrong asset (Mirrored Ether vs Mantle Staked Ether) |
+| TON-USD | unverifiable | 90x, 40 days | almost certainly wrong ("TON Token" vs Toncoin) |
+| OP-USD | match | 2,001x | pre-launch junk before Optimism listed |
+| WLD-USD | match | 312x | oscillating 2.3x/0.4x, mixed data |
+| **AAVE-USD** | match | **103x** | **REAL** — 2020-10-03, consistent with the 100:1 LEND->AAVE migration. Needs confirming, but it is a redenomination, not a defect |
+| **DOGE-USD** | match | **4.6x** | **REAL** — 2021-01-28 is the actual squeeze; 2021-04-16 the April rally. Both present at the provider |
+| SHIB, BONK, KAS, HBAR, GT, FIL, OKB | match | 2-5x | plausibly real; crypto does this |
+
+So **no threshold separates these.** 100% would delete the real Dogecoin
+squeeze. Even 10x — the `implausible_jump` setting, chosen to sit above
+ordinary crypto violence — would delete AAVE's token migration. A
+redenomination is a corporate action, and this project already knows that a
+constant multiplicative step is exactly what one looks like.
+
+This is the same shape as the delisting work: the numbers narrow the field to
+a handful, and each survivor needs a per-symbol judgement against a source.
+Stage 2 is that triage, not a bigger DELETE.
+
+## Recommended stage 2, in order
+
+1. **METH-USD and TON-USD** — widen the CoinGecko reference until they are
+   provable, then treat as wrong assets. Highest confidence, cleanest fix.
+2. **USDE-USD** — a stablecoin with 7 impossible days whose provider now
+   returns nothing. Decide whether to keep any of it.
+3. **TIA / OP / WLD** — correctly identified coins with corrupt segments.
+   Needs a rule for trimming a bad segment without opening a hole, which
+   `find_successors.py` already shows is dangerous to get wrong.
+4. **Leave AAVE and DOGE alone.** Record why, so the next sweep does not
+   re-raise them.
