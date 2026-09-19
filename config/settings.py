@@ -69,6 +69,39 @@ SP500_EXPECTED_RANGE = (480, 520)
 URL_NASDAQ100_WIKIPEDIA = "https://en.wikipedia.org/wiki/Nasdaq-100"
 URL_COINGECKO_API = "https://api.coingecko.com/api/v3/coins/markets"
 
+# --- Crypto identity (core/crypto_identity.py) ---
+#
+# A TICKER IS NOT AN IDENTIFIER. CoinGecko's "mnt" is Mantle; Yahoo's MNT-USD
+# is a micro-cap called MINTY. Audited 2026-09-17: 22 of 99 crypto assets held
+# a different token's entire history, 27,076 bars — Uniswap served as "UNICORN
+# Token", Aptos as "Apricot Finance", Sui as "Salmonation".
+
+#: Above this ratio between the reference price and the provider's, the two are
+#: not the same asset. Deliberately tight: a quote taken minutes apart moves
+#: fractions of a percent, and the real substitutions are not marginal — the
+#: SMALLEST wrong-asset gap measured was 2x (PEPE vs PEPEGOLD) and the largest
+#: 1.4e11 (SPX6900 vs SPEXY). Nothing observed sits between 1.5 and 2.
+CRYPTO_PRICE_GAP_TOLERANCE = 1.5
+
+#: Price alone CANNOT settle a stablecoin: every stablecoin is $1, so BUIDL
+#: (BlackRock) and BUIDL (DFOhub) have a gap of ~1.0 while being unrelated.
+#: For those the name is the only signal, and a name mismatch there means
+#: "a human must look", not "wrong" — because a legitimate alias looks
+#: identical to a substitution. LEO Token really is named UNUS SED LEO.
+
+# --- Bar plausibility (core/ingest.py) ---
+#: A one-day move beyond this multiple is FLAGGED, never dropped. Yahoo's own
+#: TIA-USD closes 0.0105 then 7149.41 (680,637x) on 2024-03-26 — verified
+#: present at the provider, not an ingest fault.
+#:
+#: Flagged rather than rejected on purpose. An all-NULL bar carries no
+#: information and is dropped; a 10x move carries plenty — either the provider
+#: is wrong or something real happened, and crypto genuinely does 10x in a day
+#: (BONK, WIF and FARTCOIN are all in this universe). Dropping the spike would
+#: also leave the NEXT day's move impossible, trading one bad bar for another,
+#: and would open a hole indistinguishable from a provider outage.
+MAX_DAILY_MOVE_MULTIPLE = 10.0
+
 # --- Option chain capture (scripts/capture_option_chains.py) ---
 # yfinance serves only TODAY's chain, so the archive can only grow forward: a
 # weekday the capture does not run is missing for good, at any price. Capture

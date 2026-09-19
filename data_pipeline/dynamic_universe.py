@@ -218,8 +218,76 @@ class DynamicUniverse:
             logger.error(f"Could not fetch NASDAQ-100 tickers: {e}")
             return []
 
+    def fetch_crypto_references(self, pages: int = 2) -> List["CoinReference"]:
+        """
+        The top coins WITH their stable ids, names and prices.
+
+        A sibling of `_fetch_top_100_crypto_tickers`, not a replacement: that
+        method returns List[str] and `get_tickers()` feeds
+        `scripts/snapshot_universes.py`, a daily job that now exits non-zero on
+        partial failure. Changing its shape to fix an identity bug would risk
+        the point-in-time membership record, which cannot be backdated.
+
+        WHY THIS EXISTS. The symbol-only path throws away exactly the fields
+        that identify a coin. CoinGecko's `id` ("mantle") is stable; its
+        SYMBOL ("mnt") is not unique across providers, and Yahoo's MNT-USD is
+        a micro-cap called MINTY. See core/crypto_identity.py.
+
+        `pages` is the reference breadth, 100 coins each. Two pages leaves 26
+        of our 99 assets with no reference at all — mostly liquid-staking
+        derivatives sitting below the top 200 — and those can only be recorded
+        as unverified. Widen it to shrink that bucket.
+        """
+        from core.crypto_identity import CoinReference
+
+        references: List[CoinReference] = []
+        for page in range(1, pages + 1):
+            params = {
+                "vs_currency": "usd",
+                "order": "market_cap_desc",
+                "per_page": 100,
+                "page": page,
+                "sparkline": "false",
+            }
+            try:
+                response = self.session.get(
+                    URL_COINGECKO_API, params=params, timeout=self.timeout
+                )
+                response.raise_for_status()
+                data = response.json()
+            except requests.exceptions.RequestException as e:
+                logger.error("CoinGecko page %d failed: %s", page, e)
+                break
+            if not data:
+                break
+            for item in data:
+                symbol = (item.get("symbol") or "").upper()
+                coin_id = item.get("id")
+                if not symbol or not coin_id:
+                    continue
+                references.append(
+                    CoinReference(
+                        coingecko_id=coin_id,
+                        symbol=symbol,
+                        name=item.get("name") or "",
+                        price=item.get("current_price"),
+                    )
+                )
+        logger.info("Fetched %d crypto references.", len(references))
+        return references
+
     def _fetch_top_100_crypto_tickers(self) -> List[str]:
-        """Fetches the top 100 cryptocurrencies by market cap from CoinGecko."""
+        """
+        Fetches the top 100 cryptocurrencies by market cap from CoinGecko.
+
+        RETURNS SYMBOLS ONLY, and that is the known weakness: a symbol is not
+        an identifier across providers, so `SYM-USD` may resolve at the price
+        provider to an entirely different coin (22 of 99 did, audited
+        2026-09-17). Callers that need to KNOW what they are registering must
+        use `fetch_crypto_references` and check with `core/crypto_identity.py`.
+        The signature stays as-is because `get_tickers()` and the daily
+        snapshot job depend on it.
+        """
         params = {
             "vs_currency": "usd",
             "order": "market_cap_desc",
