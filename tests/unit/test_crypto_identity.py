@@ -159,3 +159,29 @@ def test_price_gap_is_orientation_independent():
 def test_describe_names_the_verdict():
     text = check("UNI-USD", "Uniswap", 7.24, "UNICORN Token", 0.0001475).describe()
     assert "WRONG_ASSET" in text and "UNICORN" in text
+
+
+# ---------------------------------------------------------------------------
+# index_by_symbol — CoinGecko's own symbols are not unique either
+# ---------------------------------------------------------------------------
+
+def test_a_symbol_collision_keeps_the_larger_coin():
+    """
+    `/coins/markets` is ordered by market cap, so the FIRST occurrence is the
+    bigger coin. A plain dict comprehension keeps the last, which would make a
+    micro-cap the reference and verify every symbol against the wrong truth —
+    a bug that does not error, it just answers a different question.
+    """
+    from core.crypto_identity import index_by_symbol
+
+    big = CoinReference("usdf-big", "USDF", "Real USDF", 1.00)
+    small = CoinReference("usdf-small", "USDF", "Imposter USDF", 0.0001)
+    assert index_by_symbol([big, small])["USDF"] is big
+    # and the ordering is what decides it, not the names
+    assert index_by_symbol([small, big])["USDF"] is small
+
+
+def test_indexing_an_empty_reference_set_is_empty():
+    from core.crypto_identity import index_by_symbol
+
+    assert index_by_symbol([]) == {}

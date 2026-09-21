@@ -83,6 +83,46 @@ URL_COINGECKO_API = "https://api.coingecko.com/api/v3/coins/markets"
 #: 1.4e11 (SPX6900 vs SPEXY). Nothing observed sits between 1.5 and 2.
 CRYPTO_PRICE_GAP_TOLERANCE = 1.5
 
+#: Symbols whose reference coin cannot be found by market-cap paging, mapped
+#: to their stable CoinGecko id. Two distinct reasons, both measured
+#: 2026-09-20 and neither fixable by asking for more pages:
+#:
+#:   METH-USD  `mantle-staked-ether` has market_cap_rank = None. The
+#:             /coins/markets endpoint is ORDERED BY market cap, so an
+#:             unranked coin appears on no page at all, ever.
+#:
+#:   TON-USD   Toncoin has been RENAMED. CoinGecko id `the-open-network` now
+#:             carries the symbol GRAM ("Gram (prev. Toncoin)", rank 30), so
+#:             a lookup keyed on "TON" finds nothing however deep it pages.
+#:             A crypto ticker rename, the same shape as BK->BNY.
+#:
+#: An entry here asserts only WHICH COIN WE MEANT. It does not assert that the
+#: price provider serves it — that is exactly what the audit then checks, and
+#: both of these turned out to be wrong assets (261x and 1.6e4x gaps).
+#: Pause between CoinGecko calls. The free tier rate-limits, and the failure
+#: is SILENT in the way that matters: `fetch_crypto_references` stops early and
+#: returns a SHORTER reference set, so symbols simply become UNVERIFIABLE
+#: rather than erroring. Measured 2026-09-20 — an un-paced 4-page run returned
+#: 200 coins instead of 400 and dropped both id overrides, which read as "these
+#: coins do not exist" rather than "we were throttled".
+COINGECKO_REQUEST_DELAY_SECONDS = 2.0
+
+#: Retries for a 429 from CoinGecko, with exponential backoff between them.
+#: Worth retrying rather than failing soft: a throttled reference lookup makes
+#: a coin look ABSENT, and absent means UNVERIFIABLE — an answer that is wrong
+#: in a way nobody can see. Better to wait than to record a false verdict.
+COINGECKO_MAX_RETRIES = 4
+
+#: First backoff after a 429, doubling each retry. CoinGecko's free-tier window
+#: is about a minute, so starting at the 2s inter-request delay exhausts four
+#: attempts in 14s and still fails. Measured 2026-09-20.
+COINGECKO_THROTTLE_BACKOFF_SECONDS = 15.0
+
+CRYPTO_ID_OVERRIDES = {
+    "TON-USD": "the-open-network",
+    "METH-USD": "mantle-staked-ether",
+}
+
 #: Price alone CANNOT settle a stablecoin: every stablecoin is $1, so BUIDL
 #: (BlackRock) and BUIDL (DFOhub) have a gap of ~1.0 while being unrelated.
 #: For those the name is the only signal, and a name mismatch there means

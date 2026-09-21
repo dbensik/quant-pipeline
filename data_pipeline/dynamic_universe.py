@@ -218,6 +218,44 @@ class DynamicUniverse:
             logger.error(f"Could not fetch NASDAQ-100 tickers: {e}")
             return []
 
+    def _coingecko_get(self, params: dict):
+        """
+        One CoinGecko call, retrying a 429 with exponential backoff.
+
+        A throttled call must NOT fail soft. `fetch_crypto_references` swallowing
+        a 429 is what produced a bad audit on 2026-09-20: the reference set came
+        back short, so `mantle-staked-ether` and `the-open-network` read as
+        coins that do not exist, and both symbols were recorded UNVERIFIABLE
+        when they are in fact wrong assets. "We were throttled" and "this coin
+        is not in the reference set" must never look the same.
+        """
+        import time
+
+        from config.settings import (
+            COINGECKO_MAX_RETRIES,
+            COINGECKO_THROTTLE_BACKOFF_SECONDS,
+        )
+
+        wait = COINGECKO_THROTTLE_BACKOFF_SECONDS
+        for attempt in range(1, COINGECKO_MAX_RETRIES + 1):
+            response = self.session.get(
+                URL_COINGECKO_API, params=params, timeout=self.timeout
+            )
+            if response.status_code != 429:
+                response.raise_for_status()
+                return response.json()
+            if attempt == COINGECKO_MAX_RETRIES:
+                break
+            logger.warning(
+                "CoinGecko throttled (429); waiting %.0fs (attempt %d/%d)",
+                wait, attempt, COINGECKO_MAX_RETRIES,
+            )
+            time.sleep(wait)
+            wait *= 2
+        raise requests.exceptions.RequestException(
+            f"CoinGecko still throttling after {COINGECKO_MAX_RETRIES} attempts"
+        )
+
     def fetch_crypto_references(self, pages: int = 2) -> List["CoinReference"]:
         """
         The top coins WITH their stable ids, names and prices.
@@ -240,8 +278,17 @@ class DynamicUniverse:
         """
         from core.crypto_identity import CoinReference
 
+        import time
+
+        from config.settings import COINGECKO_REQUEST_DELAY_SECONDS
+
         references: List[CoinReference] = []
         for page in range(1, pages + 1):
+            if page > 1:
+                # The free tier throttles, and a throttled page does not raise
+                # loudly — it just shortens the reference set, which downstream
+                # reads as "this coin does not exist".
+                time.sleep(COINGECKO_REQUEST_DELAY_SECONDS)
             params = {
                 "vs_currency": "usd",
                 "order": "market_cap_desc",
@@ -250,11 +297,7 @@ class DynamicUniverse:
                 "sparkline": "false",
             }
             try:
-                response = self.session.get(
-                    URL_COINGECKO_API, params=params, timeout=self.timeout
-                )
-                response.raise_for_status()
-                data = response.json()
+                data = self._coingecko_get(params)
             except requests.exceptions.RequestException as e:
                 logger.error("CoinGecko page %d failed: %s", page, e)
                 break
@@ -275,6 +318,45 @@ class DynamicUniverse:
                 )
         logger.info("Fetched %d crypto references.", len(references))
         return references
+
+    def fetch_crypto_references_by_id(self, coin_ids) -> List["CoinReference"]:
+        """
+        References for specific CoinGecko ids, bypassing market-cap paging.
+
+        Needed because `fetch_crypto_references` walks /coins/markets, which is
+        ORDERED BY market cap: a coin with `market_cap_rank = None` is on no
+        page at all, so no amount of paging reaches it. Measured 2026-09-20 —
+        `mantle-staked-ether` is unranked, and `the-open-network` now carries
+        the symbol GRAM after Toncoin's rename, so neither is findable by
+        symbol however deep you page.
+        """
+        from core.crypto_identity import CoinReference
+
+        import time
+
+        from config.settings import COINGECKO_REQUEST_DELAY_SECONDS
+
+        coin_ids = list(coin_ids)
+        if not coin_ids:
+            return []
+        time.sleep(COINGECKO_REQUEST_DELAY_SECONDS)
+        try:
+            data = self._coingecko_get(
+                {"vs_currency": "usd", "ids": ",".join(coin_ids)}
+            )
+        except requests.exceptions.RequestException as e:
+            logger.error("CoinGecko id lookup failed: %s", e)
+            return []
+        return [
+            CoinReference(
+                coingecko_id=item["id"],
+                symbol=(item.get("symbol") or "").upper(),
+                name=item.get("name") or "",
+                price=item.get("current_price"),
+            )
+            for item in data
+            if item.get("id")
+        ]
 
     def _fetch_top_100_crypto_tickers(self) -> List[str]:
         """

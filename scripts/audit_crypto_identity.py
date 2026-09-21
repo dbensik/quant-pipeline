@@ -51,6 +51,7 @@ from core.crypto_identity import (  # noqa: E402
     ProviderQuote,
     verify_identity,
 )
+from config.settings import CRYPTO_ID_OVERRIDES  # noqa: E402
 from db.models import AssetORM  # noqa: E402
 from db.session import get_session  # noqa: E402
 
@@ -86,28 +87,80 @@ async def main(argv: list[str] | None = None) -> int:
                         help="CoinGecko pages of 100 coins to use as reference")
     parser.add_argument("--write", action="store_true",
                         help="record the verdicts on the asset rows")
+    parser.add_argument("--symbols", nargs="*",
+                        help="audit only these symbols instead of every crypto asset")
+    parser.add_argument("--allow-partial", action="store_true",
+                        help="write even if the reference fetch came back short")
     args = parser.parse_args(argv)
 
     from data_pipeline.dynamic_universe import DynamicUniverse
 
-    references = {r.symbol: r for r in
-                  DynamicUniverse().fetch_crypto_references(pages=args.pages)}
-    if not references:
+    universe = DynamicUniverse()
+    ranked = universe.fetch_crypto_references(pages=args.pages)
+    if not ranked:
         logger.error("No CoinGecko reference data — cannot verify anything.")
         return 1
 
+    # KEEP THE FIRST, not the last. /coins/markets is ordered by market cap and
+    # CoinGecko's own symbols are not unique (USDF, USDA and PC0000023 each
+    # appear twice in the top 400), so a plain dict comprehension would let the
+    # SMALLER coin win and silently verify against the wrong reference.
+    references = {}
+    for reference in ranked:
+        references.setdefault(reference.symbol, reference)
+
+    # Symbols no amount of paging can reach: unranked coins appear on no page,
+    # and a renamed coin no longer answers to the old symbol.
+    overrides = {}
+    if CRYPTO_ID_OVERRIDES:
+        by_id = {r.coingecko_id: r for r in
+                 universe.fetch_crypto_references_by_id(CRYPTO_ID_OVERRIDES.values())}
+        for symbol, coin_id in CRYPTO_ID_OVERRIDES.items():
+            if coin_id in by_id:
+                overrides[symbol] = by_id[coin_id]
+            else:
+                logger.warning("override %s -> %s returned nothing", symbol, coin_id)
+    logger.info("Reference set: %d ranked coins, %d override(s).",
+                len(references), len(overrides))
+
+    # REFUSE TO WRITE FROM A SHORT REFERENCE SET. CoinGecko throttles, and a
+    # throttled page does not raise — it just shortens the reference, so coins
+    # that were provably WRONG_ASSET come back UNVERIFIABLE and the write
+    # DOWNGRADES verdicts that were already correct. Caught on 2026-09-20 with
+    # a run that had 200 of 400 references and was seconds from committing.
+    expected = args.pages * 100
+    complete = len(ranked) >= expected
+    if not complete:
+        logger.warning(
+            "Reference fetch returned %d of an expected %d coins — almost "
+            "certainly throttled. Verdicts computed from this are NOT "
+            "trustworthy: a missing reference reads as UNVERIFIABLE.",
+            len(ranked), expected,
+        )
+        if args.write and not args.allow_partial:
+            logger.error(
+                "Refusing to --write from a partial reference set. Re-run "
+                "later, or pass --allow-partial if you accept the downgrade."
+            )
+            return 1
+
     async with get_session() as session:
-        assets = (await session.execute(
-            select(AssetORM.id, AssetORM.symbol, AssetORM.metadata_)
-            .where(AssetORM.asset_class == "crypto")
-            .order_by(AssetORM.symbol)
-        )).all()
+        query = (select(AssetORM.id, AssetORM.symbol, AssetORM.metadata_)
+                 .where(AssetORM.asset_class == "crypto")
+                 .order_by(AssetORM.symbol))
+        if args.symbols:
+            wanted = [s.upper() for s in args.symbols]
+            query = query.where(AssetORM.symbol.in_(wanted))
+        assets = (await session.execute(query)).all()
+        if not assets:
+            logger.error("No matching crypto assets.")
+            return 1
 
         checks = []
         for index, (asset_id, symbol, meta) in enumerate(assets, 1):
             base = symbol.removesuffix("-USD")
-            check = verify_identity(symbol, references.get(base),
-                                    provider_quote(symbol))
+            reference = overrides.get(symbol) or references.get(base)
+            check = verify_identity(symbol, reference, provider_quote(symbol))
             checks.append((asset_id, symbol, meta or {}, check))
             if index % 25 == 0:
                 logger.info("  ...%d/%d", index, len(assets))
@@ -135,7 +188,7 @@ async def main(argv: list[str] | None = None) -> int:
         now = datetime.now(timezone.utc).isoformat()
         for asset_id, symbol, meta, check in checks:
             base = symbol.removesuffix("-USD")
-            reference = references.get(base)
+            reference = overrides.get(symbol) or references.get(base)
             patch = dict(meta)
             patch[META_IDENTITY_STATUS] = check.status.value
             patch[META_IDENTITY_CHECKED_AT] = now

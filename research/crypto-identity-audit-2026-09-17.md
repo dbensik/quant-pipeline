@@ -341,3 +341,63 @@ Stage 2 is that triage, not a bigger DELETE.
    `find_successors.py` already shows is dangerous to get wrong.
 4. **Leave AAVE and DOGE alone.** Record why, so the next sweep does not
    re-raise them.
+
+
+---
+
+# Cleanup, stage 2 — METH-USD and TON-USD (2026-09-20)
+
+Both confirmed WRONG_ASSET and cleared: **`DELETE 2264`** (TON-USD 2213 bars,
+METH-USD 51). Appended to `archive/wrong-asset-bars-2026-09-19.csv`.
+`wrong_asset` is now 19 assets / 0 bars.
+
+## Why widening the reference set could never have worked
+
+The plan was "widen CoinGecko until they are provable". That was wrong for
+both, for two different structural reasons:
+
+- **`mantle-staked-ether` has `market_cap_rank = None`.** `/coins/markets` is
+  ORDERED BY market cap, so an unranked coin is on no page at all, ever. No
+  depth of paging reaches it.
+- **Toncoin has been RENAMED.** CoinGecko id `the-open-network` now carries the
+  symbol **GRAM** — "Gram (prev. Toncoin)", rank 30 — so a lookup keyed on
+  "TON" finds nothing however deep you page. A crypto ticker rename, the same
+  shape as BK->BNY, and the second rename this session has turned up.
+
+The fix is lookup by stable id, not more pages: `CRYPTO_ID_OVERRIDES` in
+`config/settings.py` plus `fetch_crypto_references_by_id`. Verdicts:
+
+```
+METH-USD  WRONG_ASSET  'Mantle Staked Ether' vs 'Mirrored Ether'   1.6e4x
+TON-USD   WRONG_ASSET  'Gram (prev. Toncoin)' vs 'TON Token'         261x
+```
+
+## Three defects this exposed in the audit itself
+
+1. **A throttled fetch looked like a missing coin.** CoinGecko 429s, and
+   `fetch_crypto_references` swallowed it and returned a SHORT list — so
+   `mantle-staked-ether` read as "does not exist" and both symbols were
+   recorded UNVERIFIABLE when they are wrong assets. Now retried with
+   exponential backoff starting at 15s, because the free-tier window is about
+   a minute and a 2s seed exhausted four attempts in 14s.
+
+2. **`--write` would commit verdicts from a partial reference set.** A run
+   holding 200 of 400 references was seconds from committing when it was
+   killed; it would have DOWNGRADED correct WRONG_ASSET verdicts to
+   UNVERIFIABLE, because a missing reference and a missing coin are
+   indistinguishable downstream. The audit now refuses to write a short
+   reference set unless `--allow-partial` is passed, and `--symbols` allows a
+   targeted run that needs only one page.
+
+3. **CoinGecko's own symbols are not unique.** USDF, USDA and PC0000023 each
+   appear twice in the top 400. The reference map kept the LAST occurrence,
+   letting the smaller coin become ground truth — a bug that never errors, it
+   just quietly answers a different question. `index_by_symbol` now keeps the
+   highest market cap, with a test.
+
+## Where the remaining 19 stand
+
+Unchanged in character from stage 1: still a MIX, still not separable by a
+threshold. AAVE-USD (103x, the LEND->AAVE redenomination) and DOGE-USD (4.6x,
+the 2021 squeeze) remain REAL and must not be touched. The corrupt ones are
+TIA-USD, USDE-USD, OP-USD, WLD-USD, and the unverifiable BSC/FTN/LBTC/JITOSOL.

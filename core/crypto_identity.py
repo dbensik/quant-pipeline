@@ -232,3 +232,23 @@ def metadata_allows_ingest(metadata: Optional[dict]) -> bool:
     if status is None:
         return True
     return IdentityCheck(symbol="", status=status).safe_to_ingest
+
+
+def index_by_symbol(references: "list[CoinReference]") -> dict:
+    """
+    Map symbol -> reference, keeping the HIGHEST market cap on a collision.
+
+    CoinGecko's own symbols are not unique: USDF, USDA and PC0000023 each
+    appear twice in the top 400 (measured 2026-09-20). `/coins/markets` is
+    ordered by market cap, so the first occurrence is the larger coin — and a
+    plain `{r.symbol: r for r in refs}` keeps the LAST, letting the smaller
+    coin become the reference and silently verifying every symbol against the
+    wrong ground truth.
+
+    The bug being guarded is subtle in exactly the wrong way: it would not
+    error, it would just quietly answer a different question.
+    """
+    out: dict = {}
+    for reference in references:
+        out.setdefault(reference.symbol, reference)
+    return out
