@@ -106,10 +106,11 @@ async def run(args: argparse.Namespace) -> int:
         )
     if report.skipped_identity:
         logger.warning(
-            "Skipped %d symbol(s) whose recorded identity says the provider "
-            "serves a DIFFERENT asset under that ticker: %s. Fix the mapping "
-            "and re-verify (scripts/audit_crypto_identity.py); a backfill will "
-            "not clear this.",
+            "Skipped %d symbol(s) recorded as unsafe to fetch — a wrong "
+            "asset, an unresolved identity, or an unusable history: %s. The "
+            "per-symbol warning above gives the reason for each. Re-verify "
+            "with scripts/audit_crypto_identity.py; a backfill will not clear "
+            "this.",
             len(report.skipped_identity),
             ", ".join(report.skipped_identity),
         )

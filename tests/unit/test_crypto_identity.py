@@ -185,3 +185,64 @@ def test_indexing_an_empty_reference_set_is_empty():
     from core.crypto_identity import index_by_symbol
 
     assert index_by_symbol([]) == {}
+
+
+# ---------------------------------------------------------------------------
+# data quality — a second, independent axis
+# ---------------------------------------------------------------------------
+
+def test_an_unusable_series_is_blocked_even_when_the_identity_matches():
+    """
+    USDE-USD is the case that forced this axis. The ticker really IS Ethena
+    USDe — a correct MATCH — but 90 of its 531 stored bars fell outside USDe's
+    all-time range of $0.929486-$1.034. A right ticker can carry a fabricated
+    series, so identity alone cannot gate ingestion.
+    """
+    from core.crypto_identity import metadata_allows_ingest
+
+    assert metadata_allows_ingest({"identity_status": "match"}) is True
+    assert metadata_allows_ingest(
+        {"identity_status": "match", "data_quality": "unusable"}
+    ) is False
+
+
+def test_an_unrecognised_quality_value_does_not_block():
+    """Consistent with identity: someone else's metadata is not a verdict."""
+    from core.crypto_identity import metadata_allows_ingest
+
+    assert metadata_allows_ingest(
+        {"identity_status": "match", "data_quality": "probably fine"}
+    ) is True
+
+
+def test_the_block_reason_names_the_actual_cause():
+    """
+    The gate's first message asserted the wrong cause: it told the operator
+    "the provider serves a different asset" for USDE-USD, whose identity is a
+    correct MATCH and whose problem is a fabricated history. A confident wrong
+    reason is exactly what sends the next person down the wrong path.
+    """
+    from core.crypto_identity import ingest_block_reason
+
+    quality = ingest_block_reason(
+        {"identity_status": "match", "data_quality": "unusable",
+         "data_quality_reason": "90 of 531 bars outside all-time range"}
+    )
+    assert "unusable" in quality
+    assert "Identity is not the problem" in quality
+    assert "different asset" not in quality
+
+    wrong = ingest_block_reason({"identity_status": "wrong_asset"})
+    assert "DIFFERENT asset" in wrong
+
+    suspect = ingest_block_reason({"identity_status": "suspect"})
+    assert "unresolved" in suspect
+    assert "DIFFERENT asset" not in suspect
+
+
+def test_nothing_to_explain_when_ingestion_is_allowed():
+    from core.crypto_identity import ingest_block_reason
+
+    assert ingest_block_reason({}) is None
+    assert ingest_block_reason({"identity_status": "match"}) is None
+    assert ingest_block_reason({"identity_status": "unverifiable"}) is None

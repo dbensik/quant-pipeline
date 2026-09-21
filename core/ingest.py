@@ -38,7 +38,7 @@ from typing import Any, Callable, Dict, List, Optional, Protocol
 
 from config.settings import MAX_DAILY_MOVE_MULTIPLE
 from core.corporate_actions import looks_unresolved
-from core.crypto_identity import metadata_allows_ingest, recorded_status
+from core.crypto_identity import ingest_block_reason, metadata_allows_ingest
 from core.models import Asset, MarketDataRecord, OHLCV, Timestamp
 
 logger = logging.getLogger(__name__)
@@ -290,13 +290,11 @@ async def ingest_symbols(
             if skip_unsafe_identity and not metadata_allows_ingest(asset.metadata):
                 outcome.skipped_identity = True
                 logger.warning(
-                    "%s: skipped — recorded identity is %s. The provider serves "
-                    "a different asset under this ticker, so a fetch would add "
-                    "more of the wrong coin's history. Re-verify with "
-                    "scripts/audit_crypto_identity.py after fixing the mapping; "
+                    "%s: skipped — %s. Re-verify with "
+                    "scripts/audit_crypto_identity.py once the cause is fixed; "
                     "a backfill will NOT clear this.",
                     symbol,
-                    getattr(recorded_status(asset.metadata), "value", "unsafe"),
+                    ingest_block_reason(asset.metadata) or "recorded as unsafe",
                 )
                 if progress:
                     progress(index, total, symbol)

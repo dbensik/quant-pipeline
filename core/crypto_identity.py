@@ -55,6 +55,19 @@ META_VERIFIED_NAME = "verified_name"
 META_IDENTITY_STATUS = "identity_status"
 META_IDENTITY_CHECKED_AT = "identity_checked_at"
 
+#: A SECOND, independent axis. Identity answers "is this the coin we meant";
+#: data quality answers "is the history usable". They genuinely diverge:
+#: USDE-USD is a correct MATCH — Yahoo's quote really is Ethena USDe — while
+#: its stored history had 90 of 531 bars outside USDe's all-time range, and
+#: the provider now serves no history at all to refetch. A right ticker can
+#: carry a fabricated series.
+META_DATA_QUALITY = "data_quality"
+META_DATA_QUALITY_REASON = "data_quality_reason"
+META_DATA_QUALITY_CHECKED_AT = "data_quality_checked_at"
+
+#: Value of META_DATA_QUALITY meaning "do not fetch this again".
+QUALITY_UNUSABLE = "unusable"
+
 
 class Identity(str, Enum):
     """What we are entitled to say about a symbol."""
@@ -218,16 +231,27 @@ def recorded_status(metadata: Optional[dict]) -> Optional[Identity]:
 
 def metadata_allows_ingest(metadata: Optional[dict]) -> bool:
     """
-    Whether a recorded verdict permits fetching this symbol.
+    Whether recorded metadata permits fetching this symbol. TWO reasons block.
 
     Absence of a verdict permits: 516 equities and 11 ETFs carry no identity
     metadata, and a gate that treated "unchecked" as "unsafe" would stop the
     entire daily run the day it shipped.
 
-    Only a RECORDED wrong_asset or suspect blocks. unverifiable passes — it is
-    absence of evidence (a coin below the reference set), not evidence of a
-    substitution.
+    1. IDENTITY — a recorded wrong_asset or suspect. unverifiable passes: it is
+       absence of evidence (a coin below the reference set), not evidence of a
+       substitution.
+
+    2. DATA QUALITY — a series marked unusable, even when the identity is a
+       correct MATCH. USDE-USD is the case that forced this axis to exist: the
+       ticker really is Ethena USDe, but 90 of its 531 stored bars fell outside
+       USDe's all-time range. Yahoo serves no history for it today, so nothing
+       would be refetched right now — but if the provider ever restores that
+       series, a backfill would import the same fabricated bars, and the
+       identity check would wave it through because the identity was never
+       the problem.
     """
+    if (metadata or {}).get(META_DATA_QUALITY) == QUALITY_UNUSABLE:
+        return False
     status = recorded_status(metadata)
     if status is None:
         return True
@@ -252,3 +276,37 @@ def index_by_symbol(references: "list[CoinReference]") -> dict:
     for reference in references:
         out.setdefault(reference.symbol, reference)
     return out
+
+
+def ingest_block_reason(metadata: Optional[dict]) -> Optional[str]:
+    """
+    WHY this symbol must not be fetched, in words, or None if it may be.
+
+    Exists because the gate's first log line asserted the wrong cause. It said
+    "the provider serves a different asset under this ticker" for USDE-USD,
+    whose identity is a correct MATCH and whose problem is a fabricated
+    history. A blocked symbol with a misleading explanation is worse than no
+    message: the whole point of this work is that a confident wrong reason is
+    what sends the next person down the wrong path.
+    """
+    meta = metadata or {}
+    if meta.get(META_DATA_QUALITY) == QUALITY_UNUSABLE:
+        why = meta.get(META_DATA_QUALITY_REASON)
+        return (
+            "its stored history is marked unusable"
+            + (f" ({why})" if why else "")
+            + ". Identity is not the problem; refetching would re-import the "
+            "same bad bars"
+        )
+    status = recorded_status(metadata)
+    if status is None or IdentityCheck(symbol="", status=status).safe_to_ingest:
+        return None
+    if status is Identity.WRONG_ASSET:
+        return (
+            "the provider serves a DIFFERENT asset under this ticker, so a "
+            "fetch would add more of the wrong coin's history"
+        )
+    return (
+        "its identity is unresolved (prices agree but names do not), so it is "
+        "not yet known which asset this ticker serves"
+    )

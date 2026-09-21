@@ -401,3 +401,84 @@ Unchanged in character from stage 1: still a MIX, still not separable by a
 threshold. AAVE-USD (103x, the LEND->AAVE redenomination) and DOGE-USD (4.6x,
 the 2021 squeeze) remain REAL and must not be touched. The corrupt ones are
 TIA-USD, USDE-USD, OP-USD, WLD-USD, and the unverifiable BSC/FTN/LBTC/JITOSOL.
+
+
+---
+
+# Cleanup, stage 3 — USDE-USD (2026-09-21)
+
+**`DELETE 531`**, all of it. Backed up to
+`archive/usde-unusable-bars-2026-09-21.csv`.
+
+## This one is NOT an identity failure
+
+USDE-USD's identity is a correct **MATCH** — Yahoo's quote really is Ethena
+USDe ($1.009 against CoinGecko's $0.9998), and the name agrees. The identity
+layer was right. The HISTORY was fabricated anyway.
+
+Ground truth, from CoinGecko's coin endpoint (all-time, so not subject to the
+free tier's 365-day history cap): **USDe has never traded outside
+$0.929486 - $1.034** (ATL 2024-10-03, ATH 2025-12-09, rank 25).
+
+Against that, our 531 stored bars held **90 impossible ones (16.9%)** — 69
+below the all-time low, 21 above the all-time high — **spread across every
+quarter**:
+
+| quarter | bars | impossible |
+|---|---|---|
+| 2023 Q2 | 68 | 16 |
+| 2023 Q4 | 32 | 11 |
+| 2024 Q1 | 91 | 3 |
+| 2024 Q2 | 91 | 4 |
+| 2024 Q3 | 92 | 25 |
+| 2024 Q4 | 92 | 22 |
+| 2025 Q1 | 20 | 9 |
+
+The lowest stored close is **$0.000021**, for a dollar-pegged stablecoin.
+
+**The all-time low also proves the early data is not USDe.** If USDe had ever
+traded at $0.000021, its ATL would be $0.000021, not $0.929486. So the series
+is at least two instruments stitched together — the TIA-USD pattern again.
+
+## Why all 531 rather than the 90
+
+Deleting only the impossible bars would leave holes whose SEAMS are still
+impossible: take out the $0.000021 bar and the days either side still imply a
+move no stablecoin made. That is the same trap documented for TIA-USD — one
+bad bar traded for another, plus a hole indistinguishable from an outage.
+There is no clean segment to preserve: every quarter from 2023 Q2 on is
+affected, and the remaining 441 bars cannot be verified against anything,
+because Yahoo now serves **zero** history rows for the symbol and CoinGecko's
+free tier caps history at 365 days, which does not reach 2023-2025.
+
+## A second axis on the asset: data quality
+
+Identity answers "is this the coin we meant". Data quality answers "is the
+history usable". USDE-USD proves they diverge, so `assets.metadata` now
+carries `data_quality`, `data_quality_reason` and `data_quality_checked_at`
+beside the identity keys, and the ingest gate blocks on EITHER.
+
+Nothing would be refetched today — Yahoo has no history to give — but if the
+provider ever restores that series, a backfill would re-import the same
+fabricated bars and the identity check would wave it through, because the
+identity was never the problem.
+
+## The gate was telling operators the wrong thing
+
+Wiring this exposed a real defect in the previous stage. Blocked on data
+quality, the gate logged:
+
+> USDE-USD: skipped — recorded identity is match. **The provider serves a
+> different asset under this ticker** ...
+
+which is false. `ingest_block_reason` now states the actual cause per symbol:
+
+```
+USDE-USD: skipped — its stored history is marked unusable (90 of 531 bars
+  outside USDe all-time range ...). Identity is not the problem; refetching
+  would re-import the same bad bars.
+UNI-USD:  skipped — the provider serves a DIFFERENT asset under this ticker ...
+```
+
+A confident wrong reason is worse than no message. It is the failure mode this
+entire body of work exists to correct, and it had reappeared in the fix.
