@@ -559,3 +559,52 @@ TIA-USD is off the impossible-move list entirely. Remaining:
 
 OP-USD looks like the same single-splice shape as TIA and should be the next
 one; it is a trim, not a clearance.
+
+
+---
+
+# Cleanup, stage 5 — OP-USD (2026-09-22)
+
+**`DELETE 206`**, prefix only, 1447 bars kept. Backed up to
+`archive/op-pre-2022-10-06-bars.csv`. The TIA-USD shape exactly, and the
+method transferred without modification.
+
+Optimism's true all-time range is **$0.080689 - $4.84** (CoinGecko, rank 152).
+Our 1653 bars ran $0.000320 - $4.7033 — the top is fine, the bottom is not.
+**206 bars (12.5%) below the all-time low, ALL of them in one prefix.**
+
+The splice is one day, and the prefix is a dead stub rather than a series:
+
+```
+2022-10-01 .. 10-05   0.000425   (flat, five identical closes)
+2022-10-06            0.850509   <- 2001x
+```
+
+A frozen repeated close is the same shape as the EQR stub found in the
+corporate-actions work — a provider serving a placeholder under a key nothing
+trades on.
+
+Kept segment verified against `coins/optimism/market_chart`: **362 overlapping
+days, median stored/CoinGecko ratio 0.9933**. After the trim the series runs
+$0.0820 - $4.7033, entirely inside the true range, with the low a whisker
+above the real all-time low.
+
+`history_valid_from = 2022-10-06` recorded. Verified live: `--full-backfill
+OP-USD` fetched **1447** records, not eleven years.
+
+## Crypto after five stages
+
+| stage | symbol | action | bars |
+|---|---|---|---|
+| 1 | 17 wrong assets | cleared | -20,431 |
+| 2 | METH, TON | cleared | -2,264 |
+| 3 | USDE | cleared | -531 |
+| 4 | TIA | trimmed | -1,105 |
+| 5 | OP | trimmed | -206 |
+
+Worst remaining move is now **312x (WLD-USD)**, down from 680,637x. WLD is the
+natural next one — an oscillating 2.3x/0.4x pattern rather than a single
+splice, so it may be neither a trim nor a clearance.
+
+**Do not touch AAVE-USD (103x, the LEND->AAVE redenomination) or
+DOGE/SHIB/BONK/KAS (3-5x).** Those are real.
