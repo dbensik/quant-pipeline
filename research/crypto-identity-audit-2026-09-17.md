@@ -482,3 +482,80 @@ UNI-USD:  skipped — the provider serves a DIFFERENT asset under this ticker ..
 
 A confident wrong reason is worse than no message. It is the failure mode this
 entire body of work exists to correct, and it had reappeared in the fix.
+
+
+---
+
+# Cleanup, stage 4 — TIA-USD (2026-09-21)
+
+**`DELETE 1105`**, the contaminated PREFIX only. 561 bars kept. Backed up to
+`archive/tia-pre-2025-03-09-bars.csv`.
+
+The first of these that had a segment worth saving, and the first where the
+work was a trim rather than a clearance.
+
+## Two instruments spliced at a single date
+
+Celestia's true all-time range is **$0.279235 - $20.85** (CoinGecko, rank
+121). Our 1666 stored bars ran $0.001253 - $7,149.42, with **1104 (66.3%)
+outside the real range**. By year:
+
+| year | bars | impossible | stored range |
+|---|---|---|---|
+| 2022 | 307 | 306 | 0.0034 - 0.30 |
+| 2023 | 365 | 365 | 0.0013 - 0.03 |
+| 2024 | 366 | 366 | 0.0023 - 7149.42 |
+| 2025 | 365 | 67 | 0.0056 - 3.71 |
+| 2026 | 263 | **0** | 0.285 - 0.61 |
+
+The splice is a single day:
+
+```
+2025-03-08   0.006994
+2025-03-09   3.025053     <- 432x, the instrument changes here
+```
+
+Before it, a micro-cap trading around a cent. After it, Celestia.
+
+## The kept segment is VERIFIED, not assumed
+
+CoinGecko's free tier caps history at 365 days — which for once overlaps.
+Comparing our post-splice bars against `coins/celestia/market_chart` over
+**361 shared days**: median stored/CoinGecko ratio **0.9808**. The kept
+segment really is Celestia.
+
+That is why this is a trim and USDE-USD was a clearance: there, corruption was
+scattered through every quarter with nothing verifiable left; here it is one
+clean prefix, and the remainder can be checked against an independent source.
+
+## A trim does not stay trimmed by itself
+
+Deleting the prefix is not durable. The provider still serves those bars,
+`--full-backfill` starts at 2015, and the identity gate does **not** block
+TIA-USD because its identity is a correct MATCH. One backfill would have put
+all 1105 back.
+
+So a cleaned asset now records `history_valid_from`, and `core/ingest.py`
+honours it two ways: the fetch window is clamped to it, and any bar that comes
+back earlier anyway is refused and counted (`skipped_before_floor`). Both are
+mutation-tested — removing either one fails its own test.
+
+Verified live: `--full-backfill TIA-USD` fetched **561** records, not eleven
+years, and the series was unchanged.
+
+## Where this leaves crypto
+
+TIA-USD is off the impossible-move list entirely. Remaining:
+
+| symbol | identity | worst | note |
+|---|---|---|---|
+| OP-USD | match | 2001x | pre-launch junk, same prefix shape |
+| WLD-USD | match | 312x | oscillating 2.3x/0.4x |
+| BSC-USD | unverifiable | 9x | 9 days |
+| USDS-USD | suspect | 11x | stablecoin, identity unresolved |
+| FTN/LBTC/JITOSOL | unverifiable | 3-4x | |
+| **AAVE-USD** | match | **103x** | **REAL** — LEND->AAVE redenomination |
+| **DOGE/SHIB/BONK/KAS** | match | 3-5x | **REAL** — leave alone |
+
+OP-USD looks like the same single-splice shape as TIA and should be the next
+one; it is a trim, not a clearance.

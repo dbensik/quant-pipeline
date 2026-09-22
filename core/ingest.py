@@ -84,6 +84,9 @@ class SymbolOutcome:
     #: Set when a RECORDED identity verdict says this ticker is not the asset
     #: we meant, so it was not fetched. See core/crypto_identity.py.
     skipped_identity: bool = False
+    #: Bars refused because they predate the asset's recorded history floor —
+    #: a contaminated prefix that was deliberately removed.
+    skipped_before_floor: int = 0
     #: Bars whose move from the previous bar is beyond MAX_DAILY_MOVE_MULTIPLE.
     #: Counted and reported, never dropped — see `implausible_jump`. Yahoo's
     #: own TIA-USD closes 0.0105 then 7149.41 on 2024-03-26.
@@ -170,6 +173,36 @@ def implausible_jump(
         return False
     hi, lo = max(previous_close, close), min(previous_close, close)
     return (hi / lo) > limit
+
+
+#: Asset metadata key: the earliest date whose bars belong to THIS instrument.
+META_HISTORY_VALID_FROM = "history_valid_from"
+
+
+def history_floor(metadata: Optional[Dict[str, Any]]) -> Optional[datetime]:
+    """
+    The earliest date whose bars belong to this instrument, if recorded.
+
+    WHY THIS IS NEEDED. Trimming a contaminated prefix is not durable on its
+    own: the provider still serves those bars. TIA-USD's first 1105 bars were a
+    micro-cap — every close below Celestia's all-time low, then a 432x jump on
+    2025-03-09 — and they were deleted. But `--full-backfill` starts at
+    DEFAULT_BACKFILL_START (2015), Yahoo happily returns the micro-cap again,
+    and the identity gate does NOT block it, because the identity is a correct
+    MATCH. One backfill would silently undo the repair.
+
+    So a cleaned asset records where its real history begins, and ingestion
+    refuses to write before it.
+    """
+    raw = (metadata or {}).get(META_HISTORY_VALID_FROM)
+    if not raw:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(raw))
+    except ValueError:
+        logger.warning("Unparseable %s: %r", META_HISTORY_VALID_FROM, raw)
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
 def retag(record: MarketDataRecord, asset_class: str, source: str) -> MarketDataRecord:
@@ -314,6 +347,13 @@ async def ingest_symbols(
                     )
                 )
 
+            # A cleaned asset knows where its real history starts. Clamp the
+            # window rather than trusting the provider not to serve the
+            # contaminated prefix again.
+            floor = history_floor(asset.metadata)
+            if floor is not None and window_start < floor:
+                window_start = floor
+
             if window_start >= end:
                 # Already current. Not an error, and not a fetch.
                 if progress:
@@ -332,6 +372,12 @@ async def ingest_symbols(
             for record in raw:
                 if is_empty_bar(record.ohlcv):
                     outcome.skipped_empty += 1
+                    continue
+                # Belt and braces: a provider may return bars earlier than the
+                # window it was asked for, and those are exactly the ones a
+                # cleaned asset must never see again.
+                if floor is not None and record.ohlcv.timestamp.utc < floor:
+                    outcome.skipped_before_floor += 1
                     continue
                 usable.append(retag(record, asset.asset_class, asset.source))
 

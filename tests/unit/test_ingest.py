@@ -17,6 +17,7 @@ import pytest
 from core.ingest import (
     DEFAULT_BACKFILL_START,
     IngestJob,
+    history_floor,
     implausible_jump,
     ingest_symbols,
     is_empty_bar,
@@ -639,3 +640,75 @@ async def test_an_unrecognised_verdict_is_not_a_verdict():
     repo = identity_repo("banana")
     await ingest_symbols(repo, ["UNI-USD"], fetcher=fetcher_for([bar("UNI-USD", 0)]))
     assert len(repo.written) == 1
+
+
+# ---------------------------------------------------------------------------
+# History floor — trimming a contaminated prefix has to STAY trimmed
+#
+# TIA-USD's first 1105 bars were a micro-cap: every close below Celestia's
+# all-time low of $0.279235, then a 432x jump on 2025-03-09. They were deleted.
+# But the provider still serves them, --full-backfill starts at 2015, and the
+# identity gate does NOT block the symbol because its identity is a correct
+# MATCH. Without a floor, one backfill silently undoes the repair.
+# ---------------------------------------------------------------------------
+
+FLOOR_META = {"history_valid_from": "2024-01-03"}
+
+
+def floor_repo():
+    return RecordingRepo(assets={
+        "TIA-USD": Asset(symbol="TIA-USD", asset_class="crypto",
+                         source="yfinance", metadata=dict(FLOOR_META)),
+    })
+
+
+def test_history_floor_is_read_from_metadata():
+    assert history_floor({}) is None
+    assert history_floor(None) is None
+    assert history_floor(FLOOR_META) == datetime(2024, 1, 3, tzinfo=timezone.utc)
+
+
+def test_an_unparseable_floor_is_ignored_not_fatal():
+    """Someone else's metadata must not stop ingestion."""
+    assert history_floor({"history_valid_from": "whenever"}) is None
+
+
+@pytest.mark.asyncio
+async def test_bars_before_the_floor_are_refused_even_on_a_backfill():
+    """
+    THE regression. A backfill asks from 2015; the provider returns the
+    contaminated prefix; without this the deleted bars come straight back.
+    """
+    repo = floor_repo()
+    report = await ingest_symbols(
+        repo, ["TIA-USD"], full_backfill=True,
+        fetcher=fetcher_for([bar("TIA-USD", i, close=1.0 + i) for i in range(6)]),
+    )
+    # START is 2024-01-01, so days 0 and 1 precede the 2024-01-03 floor.
+    assert report.outcomes[0].skipped_before_floor == 2
+    assert len(repo.written) == 4
+    assert all(r.ohlcv.timestamp.utc >= datetime(2024, 1, 3, tzinfo=timezone.utc)
+               for r in repo.written)
+
+
+@pytest.mark.asyncio
+async def test_the_fetch_window_itself_is_clamped_to_the_floor():
+    """Cheaper than filtering afterwards, and it is what the live run showed:
+    a full backfill of TIA-USD asked for 561 records, not eleven years."""
+    repo = floor_repo()
+    calls = []
+    await ingest_symbols(
+        repo, ["TIA-USD"], full_backfill=True, fetcher=fetcher_for([], calls)
+    )
+    assert calls[0][1] == "2024-01-03"
+
+
+@pytest.mark.asyncio
+async def test_an_asset_with_no_floor_is_unaffected():
+    """516 equities carry no floor; they must fetch their whole history."""
+    repo = RecordingRepo()
+    calls = []
+    await ingest_symbols(
+        repo, ["AAPL"], full_backfill=True, fetcher=fetcher_for([], calls)
+    )
+    assert calls[0][1] == DEFAULT_BACKFILL_START.strftime("%Y-%m-%d")
