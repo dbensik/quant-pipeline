@@ -40,11 +40,14 @@ decides. `scripts/audit_crypto_identity.py` wires it up.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
 from config.settings import CRYPTO_PRICE_GAP_TOLERANCE
+
+logger = logging.getLogger(__name__)
 
 #: Keys written into `assets.metadata` (jsonb, so no migration). Named here
 #: once because the re-ingest of the wrong assets, and any later audit, have to
@@ -309,4 +312,38 @@ def ingest_block_reason(metadata: Optional[dict]) -> Optional[str]:
     return (
         "its identity is unresolved (prices agree but names do not), so it is "
         "not yet known which asset this ticker serves"
+    )
+
+
+def apply_identity_override(
+    check: IdentityCheck, override: Optional[str]
+) -> IdentityCheck:
+    """
+    Replace a computed verdict with one a human settled, keeping the evidence.
+
+    Needed because the audit recomputes from name and price on every run: a
+    verdict recorded by hand is silently reverted the next time it runs, and
+    the two stablecoins resolved by bounds evidence would flip back to SUSPECT
+    for ever.
+
+    Only SUSPECT can be overridden. A MATCH or a WRONG_ASSET rests on a
+    decisive price gap that no stored opinion should be able to talk it out of,
+    and UNVERIFIABLE means there was no reference at all — overriding that
+    would be asserting a comparison nobody made.
+    """
+    if override is None or check.status is not Identity.SUSPECT:
+        return check
+    try:
+        resolved = Identity(override)
+    except ValueError:
+        logger.warning("Ignoring unrecognised identity override %r", override)
+        return check
+    # The measured numbers are kept: the override changes the conclusion, not
+    # the evidence it was drawn from.
+    return IdentityCheck(
+        symbol=check.symbol,
+        status=resolved,
+        reference_name=check.reference_name,
+        provider_name=check.provider_name,
+        price_gap=check.price_gap,
     )

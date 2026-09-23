@@ -118,6 +118,29 @@ COINGECKO_MAX_RETRIES = 4
 #: attempts in 14s and still fails. Measured 2026-09-20.
 COINGECKO_THROTTLE_BACKOFF_SECONDS = 15.0
 
+#: Identity verdicts a HUMAN has settled on evidence the automated check
+#: cannot see. Without this the audit would recompute SUSPECT from name and
+#: price on every run and silently undo the decision.
+#:
+#: Both entries below were resolved by `audit_crypto_bounds.py`: price at a
+#: point cannot separate two $1 stablecoins, but a price HISTORY can, because
+#: a coin cannot have traded before it existed.
+#:
+#:   BUIDL-USD  763 of 792 bars (96.3%) outside BlackRock BUIDL's all-time
+#:              range, earliest violations 2020 — years before the fund.
+#:              Yahoo serves DFOhub.
+#:   USDS-USD   67 of 1091 bars outside USDS's range, violations dating from
+#:              2020-02. Yahoo serves "Stably USD".
+#:
+#: Deliberately NOT a threshold rule. USDS violates on 6.1% of bars and BUIDL
+#: on 96.3%; any percentage that promotes the first is arbitrary enough to
+#: misfire elsewhere. What settles both is the DATE of the violations, which
+#: is a judgement about each coin's history rather than a number.
+CRYPTO_IDENTITY_OVERRIDES = {
+    "BUIDL-USD": "wrong_asset",
+    "USDS-USD": "wrong_asset",
+}
+
 CRYPTO_ID_OVERRIDES = {
     "TON-USD": "the-open-network",
     "METH-USD": "mantle-staked-ether",

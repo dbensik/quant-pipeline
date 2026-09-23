@@ -246,3 +246,59 @@ def test_nothing_to_explain_when_ingestion_is_allowed():
     assert ingest_block_reason({}) is None
     assert ingest_block_reason({"identity_status": "match"}) is None
     assert ingest_block_reason({"identity_status": "unverifiable"}) is None
+
+
+# ---------------------------------------------------------------------------
+# Settled overrides — a human decision the audit must not recompute away
+# ---------------------------------------------------------------------------
+
+def suspect(symbol="BUIDL-USD"):
+    return check(symbol, "BlackRock USD Institutional", 1.0, "DFOhub", 0.708)
+
+
+def test_a_settled_override_replaces_a_suspect_verdict():
+    """
+    Without this the audit recomputes from name and price every run, and the
+    two stablecoins resolved by bounds evidence flip back to SUSPECT for ever.
+    """
+    from core.crypto_identity import apply_identity_override
+
+    resolved = apply_identity_override(suspect(), "wrong_asset")
+    assert resolved.status is Identity.WRONG_ASSET
+    assert not resolved.safe_to_ingest
+
+
+def test_an_override_keeps_the_evidence_it_was_drawn_from():
+    """The override changes the conclusion, not the measurements."""
+    from core.crypto_identity import apply_identity_override
+
+    original = suspect()
+    resolved = apply_identity_override(original, "wrong_asset")
+    assert resolved.price_gap == original.price_gap
+    assert resolved.reference_name == original.reference_name
+    assert resolved.provider_name == original.provider_name
+
+
+def test_only_suspect_can_be_overridden():
+    """
+    A MATCH or a WRONG_ASSET rests on a decisive price gap, and no stored
+    opinion should talk it out of that. UNVERIFIABLE had no reference at all,
+    so overriding it would assert a comparison nobody made.
+    """
+    from core.crypto_identity import apply_identity_override
+
+    match = check("BTC-USD", "Bitcoin", 76677.0, "Bitcoin", 76677.0)
+    assert apply_identity_override(match, "wrong_asset").status is Identity.MATCH
+
+    wrong = check("UNI-USD", "Uniswap", 7.24, "UNICORN Token", 0.0001475)
+    assert apply_identity_override(wrong, "match").status is Identity.WRONG_ASSET
+
+    unver = verify_identity("RETH-USD", None, ProviderQuote("Rocket Pool ETH", 1.0))
+    assert apply_identity_override(unver, "match").status is Identity.UNVERIFIABLE
+
+
+def test_an_unrecognised_override_is_ignored():
+    from core.crypto_identity import apply_identity_override
+
+    assert apply_identity_override(suspect(), "banana").status is Identity.SUSPECT
+    assert apply_identity_override(suspect(), None).status is Identity.SUSPECT

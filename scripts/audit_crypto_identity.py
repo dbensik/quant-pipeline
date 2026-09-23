@@ -49,9 +49,13 @@ from core.crypto_identity import (  # noqa: E402
     META_VERIFIED_NAME,
     Identity,
     ProviderQuote,
+    apply_identity_override,
     verify_identity,
 )
-from config.settings import CRYPTO_ID_OVERRIDES  # noqa: E402
+from config.settings import (  # noqa: E402
+    CRYPTO_ID_OVERRIDES,
+    CRYPTO_IDENTITY_OVERRIDES,
+)
 from db.models import AssetORM  # noqa: E402
 from db.session import get_session  # noqa: E402
 
@@ -161,6 +165,20 @@ async def main(argv: list[str] | None = None) -> int:
             base = symbol.removesuffix("-USD")
             reference = overrides.get(symbol) or references.get(base)
             check = verify_identity(symbol, reference, provider_quote(symbol))
+            settled = CRYPTO_IDENTITY_OVERRIDES.get(symbol)
+            if settled and check.status is not Identity.SUSPECT:
+                # Say so rather than silently ignoring it: an override that no
+                # longer applies is a stale human decision, worth noticing.
+                logger.warning(
+                    "%s: override says %s but the computed verdict is %s — "
+                    "override NOT applied (only SUSPECT can be overridden).",
+                    symbol, settled, check.status.value,
+                )
+            before = check.status
+            check = apply_identity_override(check, settled)
+            if check.status is not before:
+                logger.info("%s: %s -> %s by settled override.",
+                            symbol, before.value, check.status.value)
             checks.append((asset_id, symbol, meta or {}, check))
             if index % 25 == 0:
                 logger.info("  ...%d/%d", index, len(assets))

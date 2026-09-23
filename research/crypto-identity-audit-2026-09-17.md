@@ -796,3 +796,64 @@ actually wrong with it.
 
 **Worst remaining one-day move across all crypto is now 11.1x (USDS-USD)**,
 down from 680,637x — and USDS is a SUSPECT identity, not a bar defect.
+
+
+---
+
+# BUIDL-USD and USDS-USD reclassified WRONG_ASSET (2026-09-22)
+
+## A hand-edit would not have survived
+
+`audit_crypto_identity.py --write` recomputes every verdict from name and
+price on each run. Editing `identity_status` in the database would have been
+reverted the next time it ran, and both symbols would flip back to SUSPECT for
+ever.
+
+So the decision lives in `CRYPTO_IDENTITY_OVERRIDES` (`config/settings.py`),
+applied by `apply_identity_override`, which **only ever overrides SUSPECT**. A
+MATCH or a WRONG_ASSET rests on a decisive price gap that no stored opinion
+should talk it out of, and UNVERIFIABLE means there was no reference at all —
+overriding that would assert a comparison nobody made. The override also keeps
+the measured evidence: it changes the conclusion, not the numbers it was drawn
+from. An override that no longer applies is logged rather than ignored,
+because a stale human decision is worth noticing.
+
+## The evidence, and why it is not a threshold
+
+SUSPECT exists because price AT A POINT cannot separate two $1 stablecoins.
+Price HISTORY can, because **a coin cannot have traded before it existed**:
+
+| symbol | reference | provider | bars outside range | earliest violation |
+|---|---|---|---|---|
+| BUIDL-USD | BlackRock BUIDL | DFOhub | 763 of 792 (96.3%) | 2020-06 |
+| USDS-USD | USDS | Stably USD | 67 of 1091 (6.1%) | 2020-02 |
+
+Neither BlackRock's fund nor Sky's USDS existed in 2020.
+
+**Deliberately not automated as a percentage rule.** USDS violates on 6.1% of
+bars and BUIDL on 96.3%; any threshold that promotes the first is arbitrary
+enough to misfire elsewhere. What settles both is the DATE of the violations —
+a judgement about each coin's history, not a number.
+
+## Bounds split the SUSPECT cohort rather than dissolving it
+
+Of the four SUSPECT stablecoins, bounds condemned two and **cleared the other
+two**: USD1-USD and USDTB-USD came back CLEAN, every bar inside range. They
+stay SUSPECT, which is the honest answer — their names disagree with the
+reference but nothing in their price history contradicts them.
+
+That is the result worth having. The evidence resolved half the cohort on its
+merits instead of sweeping all four into one bucket.
+
+## State
+
+    match         55 assets   111,050 bars
+    unverifiable  21 assets    25,735 bars
+    wrong_asset   21 assets     1,883 bars   <- the two just reclassified
+    suspect        2 assets       205 bars
+
+The gate now blocks both symbols from ingestion. **But this is the first time
+`wrong_asset` holds any bars** — the other nineteen are at zero. Those 1,883
+bars are a different company's prices and any crypto screen still consumes
+them; clearing them is the obvious next step and a destructive one, so it is
+not taken here.
