@@ -673,3 +673,77 @@ crypto universe, rather than being re-derived by hand per symbol. It would also
 catch contamination that never produces a big day-over-day jump — a wholly
 wrong series at a plausible-looking level, which is exactly what the 17 wrong
 assets were.
+
+
+---
+
+# The bounds check, automated (2026-09-22)
+
+`core/price_bounds.py` + `scripts/audit_crypto_bounds.py`. The test that
+decided stages 3-6, now run over the whole universe in one pass instead of
+being re-derived by hand per symbol.
+
+## Why this test and not a jump threshold
+
+The question is not "is this move large" but **"has this asset ever been worth
+that"**. Only bounds answer it, and the two cases that prove it cannot be done
+with a multiplier are both from this cleanup:
+
+- AAVE-USD moved **102.9x** in a day and the move is CORRECT — the 100:1
+  LEND->AAVE redenomination.
+- USDE-USD moved **2,121x** and was fabricated — a dollar-pegged stablecoin.
+
+Bounds also catch what a jump test *structurally cannot see*: a wholly wrong
+series with **no jump in it at all**, sitting at a plausible-looking level.
+That is precisely what the seventeen wrong assets were.
+
+Four verdicts: CLEAN, TRIM (violations form a contiguous prefix — the TIA/OP/
+WLD shape, so the cut date is reported), UNUSABLE (every bar violates),
+SCATTERED (violations throughout, so no single cut works — USDe's shape, and
+removing bars piecemeal leaves seams that are still impossible).
+
+One CoinGecko call covers the universe: `/coins/markets` carries `ath` and
+`atl` and takes up to 250 ids, which matters because that API throttles hard.
+
+## Results over 99 crypto assets
+
+**55 CLEAN and now positively verified** — not "no alarm raised", but every bar
+inside the coin's published all-time range.
+
+**AAVE-USD: TRIM at 2020-10-03, one bar.** `2020-10-02 = $0.516571` is a
+pre-redenomination LEND price sitting in an AAVE series.
+
+**This corrects an earlier call in this file.** Stages 1-6 repeatedly said
+"leave AAVE alone, the 102.9x is real". Half right: it is not corruption, and
+it must not be deleted as such. But the single LEND-priced bar still
+manufactures a 102.9x return **no holder ever experienced** — holders received
+1 AAVE per 100 LEND and their value was unchanged. It is the same class of
+defect as unadjusted split drift, and a day-over-day rule could never have
+distinguished it, because the size of the move is exactly what made it look
+legitimate. Suggested, not applied.
+
+**BUIDL-USD: SCATTERED, 763 of 792 bars (96.3%) outside range.**
+**USDS-USD: SCATTERED, 67 of 1091 (6.1%), violations dating from 2020.**
+Both are the SUSPECT stablecoins, where price alone could not separate an
+alias from a substitution. Bounds are independent corroboration that these are
+the wrong assets: BlackRock's BUIDL did not exist in 2020, and 96% of a series
+cannot sit outside its own range.
+
+**21 have no bars** — the cleared wrong assets. Reported separately rather than
+counted CLEAN, because an empty series is vacuously inside any range; calling
+them clean would be true and useless.
+
+**20 have no CoinGecko id**, so nothing to check against: the UNVERIFIABLE
+cohort, mostly liquid-staking derivatives below the reference set. Reference
+coverage remains the binding constraint, exactly as it was for identity.
+
+## What it deliberately does not do
+
+`--write` records `bounds_status`, `bounds_checked_at` and, for a TRIM,
+`bounds_suggested_valid_from` — a **suggestion**. `history_valid_from` is what
+ingestion obeys, and setting it means deleting bars, which stays a human
+decision. The script never deletes and never changes what ingestion fetches.
+
+It also skips bars before an existing `history_valid_from`: those were already
+deliberately removed, and judging a series on history someone has explicitly
+disowned would re-raise closed findings.

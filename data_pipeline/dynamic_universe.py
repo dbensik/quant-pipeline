@@ -358,6 +358,40 @@ class DynamicUniverse:
             if item.get("id")
         ]
 
+    def fetch_crypto_bounds_by_id(self, coin_ids) -> List["CoinBounds"]:
+        """
+        All-time low and high for specific CoinGecko ids, in ONE request.
+
+        `/coins/markets` carries `atl` and `ath` alongside the price and
+        accepts up to 250 ids, so the whole crypto universe costs a single
+        call rather than one per coin — which matters, because this API
+        throttles hard and a per-coin loop would spend most of its time in
+        backoff.
+        """
+        from core.price_bounds import CoinBounds
+
+        coin_ids = [c for c in coin_ids if c]
+        if not coin_ids:
+            return []
+        out: List[CoinBounds] = []
+        for start in range(0, len(coin_ids), 250):
+            batch = coin_ids[start : start + 250]
+            try:
+                data = self._coingecko_get(
+                    {"vs_currency": "usd", "ids": ",".join(batch), "per_page": 250}
+                )
+            except requests.exceptions.RequestException as e:
+                logger.error("CoinGecko bounds lookup failed: %s", e)
+                continue
+            for item in data:
+                low, high = item.get("atl"), item.get("ath")
+                if not item.get("id") or not low or not high or low <= 0:
+                    continue
+                out.append(
+                    CoinBounds(coingecko_id=item["id"], low=float(low), high=float(high))
+                )
+        return out
+
     def _fetch_top_100_crypto_tickers(self) -> List[str]:
         """
         Fetches the top 100 cryptocurrencies by market cap from CoinGecko.
