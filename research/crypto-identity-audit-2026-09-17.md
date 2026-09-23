@@ -747,3 +747,52 @@ decision. The script never deletes and never changes what ingestion fetches.
 It also skips bars before an existing `history_valid_from`: those were already
 deliberately removed, and judging a series on history someone has explicitly
 disowned would re-raise closed findings.
+
+
+---
+
+# AAVE-USD trimmed (2026-09-22) — and the check had a blind spot
+
+**`DELETE 2`**, cut at **2020-10-04**, not the 2020-10-03 the bounds check
+first suggested. 2179 bars remain.
+
+## The suggestion was one bar short
+
+Inspecting before applying showed the cut date was wrong:
+
+```
+            open      high      low       close     vol
+2020-10-02  0.0000    0.5166    0.0000    0.5166    0      <- LEND stub
+2020-10-03  0.5238   65.3059    0.5238   53.1515    0      <- STRADDLES, 124.7x range
+2020-10-04 53.1799   55.0704   50.6890   52.6750    0      <- clean AAVE
+```
+
+2020-10-03 opens and lows on the **old LEND basis** and highs and closes on
+the **new AAVE basis**. Its CLOSE is perfectly in range, so a close-only check
+called it clean and proposed cutting at that very bar — which would have left
+a phantom **124.7x intraday range** as the first bar of the series, poisoning
+every range, ATR and candlestick consumer while the close series looked fine.
+
+`check_bounds` now judges `low` and `high` as well as `close` (zero treated as
+an absent price, not a claim the asset was worthless), and the script passes
+them. With the full range the verdict moves to **trim at 2020-10-04**, and a
+test pins both answers so the regression cannot come back.
+
+This is the second time a check in this work asserted something its evidence
+did not support. The fix is the same each time: make the test look at what it
+was actually claiming to judge.
+
+## Result
+
+AAVE-USD now runs 2020-10-04 onward, $27.72 - $632.27, entirely inside its
+published range, **worst intraday ratio 2.5** (was 124.7). `history_valid_from`
+is set and survived a `--full-backfill`.
+
+And the 102.9x close-to-close move is gone — a return **no holder ever
+earned**, since they received 1 AAVE per 100 LEND and their value was
+unchanged. It was never corruption, which is why six rounds of day-over-day
+scanning kept correctly declining to delete it and never noticed what was
+actually wrong with it.
+
+**Worst remaining one-day move across all crypto is now 11.1x (USDS-USD)**,
+down from 680,637x — and USDS is a SUSPECT identity, not a bar defect.

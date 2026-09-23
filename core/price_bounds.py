@@ -93,28 +93,48 @@ class BoundsReport:
         return head + (f". e.g. {sample}" if sample else ".")
 
 
+def _prices(bar: Tuple) -> List[float]:
+    """Every price in a bar: (date, close) or (date, close, low, high).
+
+    Zero and None are dropped rather than judged. A stub bar carries open=0
+    and low=0, and a zero is an absent price, not a claim that the asset was
+    worthless."""
+    return [p for p in bar[1:] if p]
+
+
 def check_bounds(
     symbol: str,
-    bars: Sequence[Tuple[date, float]],
+    bars: Sequence[Tuple],
     bounds: CoinBounds,
     tolerance: float = BOUNDS_TOLERANCE,
 ) -> BoundsReport:
     """
     Classify a stored series against the range the asset has really traded in.
 
-    `bars` is (date, close), in any order — it is sorted here, because judging
-    "is this a prefix" against fetch order rather than date order would invent
-    splices that the series does not contain.
+    `bars` is `(date, close)` or `(date, close, low, high)`, in any order — it
+    is sorted here, because judging "is this a prefix" against fetch order
+    rather than date order would invent splices the series does not contain.
+
+    PASS LOW AND HIGH WHEN YOU HAVE THEM. A close-only check cannot see a bar
+    that STRADDLES a redenomination, and that bar is exactly the one left
+    behind by a naive cut. Measured on AAVE-USD: 2020-10-03 opened at $0.5238
+    on the old LEND basis and closed at $53.15 on the new AAVE basis — a
+    124.7x intraday range. Its close is in range, so close-only judged it
+    clean and proposed cutting at that very bar, which would have made a
+    phantom 124.7x high/low the first bar of the series.
     """
-    ordered = sorted(bars)
+    ordered = sorted(bars, key=lambda b: b[0])
     if not ordered:
         return BoundsReport(symbol, Bounds.CLEAN)
 
     low, high = bounds.widened(tolerance)
-    flags = [not (low <= price <= high) for _, price in ordered]
+    flags = [
+        any(not (low <= p <= high) for p in _prices(bar)) if _prices(bar) else False
+        for bar in ordered
+    ]
     outside = sum(flags)
 
-    closes = [p for _, p in ordered]
+    closes = [bar[1] for bar in ordered]
     report = BoundsReport(
         symbol=symbol,
         verdict=Bounds.CLEAN,
@@ -122,7 +142,7 @@ def check_bounds(
         outside=outside,
         lowest=min(closes),
         highest=max(closes),
-        examples=[(d, p) for (d, p), bad in zip(ordered, flags) if bad][:5],
+        examples=[(bar[0], bar[1]) for bar, bad in zip(ordered, flags) if bad][:5],
     )
     if outside == 0:
         return report

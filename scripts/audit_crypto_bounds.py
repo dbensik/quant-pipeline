@@ -107,12 +107,17 @@ async def main(argv: list[str] | None = None) -> int:
                     unpriced.append(symbol)
                     continue
                 floor = history_floor(meta)
-                stmt = (select(MarketDataORM.time, MarketDataORM.close)
+                # low and high as well as close: a bar that STRADDLES a
+                # redenomination has an in-range close and an absurd intraday
+                # range, and a close-only check proposes cutting at that very
+                # bar. See AAVE-USD 2020-10-03.
+                stmt = (select(MarketDataORM.time, MarketDataORM.close,
+                               MarketDataORM.low, MarketDataORM.high)
                         .where(MarketDataORM.asset_id == asset_id))
                 if floor is not None:
                     stmt = stmt.where(MarketDataORM.time >= floor)
-                bars = [(t.date(), float(c))
-                        for t, c in (await session.execute(stmt)).all() if c]
+                bars = [(t.date(), float(c), float(lo or 0), float(hi or 0))
+                        for t, c, lo, hi in (await session.execute(stmt)).all() if c]
                 reports.append(
                     (asset_id, meta, check_bounds(symbol, bars, bound))
                 )

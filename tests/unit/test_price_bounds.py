@@ -122,3 +122,55 @@ def test_bars_are_judged_in_date_order():
 
 def test_an_empty_series_is_clean_not_an_error():
     assert check_bounds("EMPTY", [], CELESTIA).verdict is Bounds.CLEAN
+
+
+# ---------------------------------------------------------------------------
+# Straddle bars — why low and high must be checked, not just close
+# ---------------------------------------------------------------------------
+
+AAVE = CoinBounds("aave", 26.02, 661.69)
+
+#: The real AAVE-USD bars around the 100:1 LEND->AAVE redenomination, as
+#: (date, close, low, high). 2020-10-03 opens on the OLD basis and closes on
+#: the NEW one — a 124.7x intraday range, with a close that is perfectly in
+#: range.
+REDENOMINATION = [
+    (date(2020, 10, 2), 0.5166, 0.0, 0.5166),
+    (date(2020, 10, 3), 53.1515, 0.5238, 65.3059),
+    (date(2020, 10, 4), 52.6750, 50.6890, 55.0704),
+    (date(2020, 10, 5), 53.2192, 49.7879, 55.1124),
+]
+
+
+def test_a_straddle_bar_is_caught_only_when_low_and_high_are_checked():
+    """
+    THE case. Close-only proposes cutting AT the straddle bar, leaving a
+    phantom 124.7x high/low as the first bar of the series — poisoning every
+    range, ATR and candlestick consumer while the close series looks fine.
+    """
+    with_range = check_bounds("AAVE-USD", REDENOMINATION, AAVE)
+    assert with_range.verdict is Bounds.TRIM
+    assert with_range.valid_from == date(2020, 10, 4)
+    assert with_range.outside == 2
+
+    close_only = check_bounds(
+        "AAVE-USD", [(d, c) for d, c, _, _ in REDENOMINATION], AAVE
+    )
+    assert close_only.valid_from == date(2020, 10, 3)  # one bar short
+
+
+def test_a_zero_price_is_absent_not_worthless():
+    """
+    Stub bars carry open=0 and low=0. A zero is a missing price, not a claim
+    that the asset traded at nothing, so it must not be judged as a violation
+    on its own — 2020-10-02 is caught by its CLOSE being 0.5166.
+    """
+    only_zeros = [(date(2020, 10, 4), 52.675, 0.0, 0.0)]
+    assert check_bounds("AAVE-USD", only_zeros, AAVE).verdict is Bounds.CLEAN
+
+
+def test_close_only_bars_still_work():
+    """The two-tuple form stays valid; most callers have only closes."""
+    assert check_bounds("X", [(date(2024, 1, 1), 100.0)], AAVE).verdict is (
+        Bounds.CLEAN
+    )
