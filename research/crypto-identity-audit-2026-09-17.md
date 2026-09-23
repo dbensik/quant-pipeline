@@ -857,3 +857,56 @@ The gate now blocks both symbols from ingestion. **But this is the first time
 bars are a different company's prices and any crypto screen still consumes
 them; clearing them is the obvious next step and a destructive one, so it is
 not taken here.
+
+
+---
+
+# BUIDL-USD and USDS-USD cleared (2026-09-23) — crypto cleanup complete
+
+**`DELETE 1883`** (BUIDL 792, USDS 1091), appended to
+`archive/wrong-asset-bars-2026-09-19.csv`. `wrong_asset` is back to 21 assets
+and **0 bars**, consistent with the other nineteen.
+
+The bounds keys were dropped from both rows at the same time: they described a
+series that no longer exists, and the other nineteen carry no bounds verdict
+either (they were already empty when that check ran). `identity_status` plus
+the documented override in `CRYPTO_IDENTITY_OVERRIDES` remain the durable
+explanation for why these rows are empty.
+
+## Final state
+
+    match         55 assets   111,050 bars
+    unverifiable  21 assets    25,735 bars
+    suspect        2 assets       205 bars
+    wrong_asset   21 assets         0 bars
+
+**Worst one-day move anywhere in crypto: 9.0x (BSC-USD).** It began at
+680,637x.
+
+Nothing on the remaining list is known to be wrong:
+
+| symbol | identity | worst | reading |
+|---|---|---|---|
+| BSC-USD | unverifiable | 9.0x | no reference — outside CoinGecko's top 400 |
+| SHIB / DOGE | match | 5.3x / 4.6x | REAL — the 2021 squeezes |
+| FTN / LBTC / JITOSOL | unverifiable | 3-4x | no reference |
+| BONK / KAS / OKB / FIL / HBAR / GT | match | 2-3x | plausible crypto moves |
+
+Every `match` on that list has passed the bounds check: every bar inside the
+coin's published all-time range. The only real unknowns are the UNVERIFIABLE
+cohort, and they are unknown for one structural reason — **no reference exists
+to check them against**, mostly liquid-staking derivatives below CoinGecko's
+top 400.
+
+## What would actually move the needle now
+
+Reference coverage, not more cleanup. 21 assets carry no `coingecko_id`, so
+neither the identity check nor the bounds check can say anything about them.
+CoinGecko has ids for most (`stETH`, `wstETH`, `rETH`, `weETH`, `cbBTC` all
+exist there); they are simply unranked, which is the same structural gap that
+hid `mantle-staked-ether`. The fix is the one already built —
+`CRYPTO_ID_OVERRIDES` plus `fetch_crypto_references_by_id` — applied to the
+remaining 21 rather than to two.
+
+That is a mapping exercise, not an investigation, and it would let both checks
+finally cover 100% of the universe instead of 79%.
