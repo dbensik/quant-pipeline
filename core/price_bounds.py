@@ -159,3 +159,78 @@ def check_bounds(
     else:
         report.verdict = Bounds.SCATTERED
     return report
+
+
+#: A high above this multiple of the bar's own body is a bad tick. Measured
+#: 2026-09-23: real ones sit at 2.08x (wstETH), 2.35x (USDC), 2.75x (WBTC) and
+#: 3.66x (DAI) — the last two on assets that CANNOT move that way, a wrapped
+#: BTC and a dollar peg. The widest legitimate high in the same scan was 1.46x.
+EXTREME_HIGH_RATIO = 2.0
+
+#: The low side needs a FAR wider threshold, and this is the correction that
+#: matters. A symmetric 2x flagged ONDO, RENDER, TIA, WIF and WLD all wicking
+#: to 0.31-0.48x of their close on 2025-10-10 — five unrelated alts on ONE day,
+#: which is a liquidation cascade, not provider noise. Deleting those would
+#: have destroyed real market history, the same mistake nearly made with
+#: AAVE's redenomination.
+#:
+#: A tenth of the body is a 90% intraday round-trip. Nothing in a genuine
+#: crash came close: the deepest real wick measured was 0.31x. What it still
+#: catches is SEI at 0.045x — 22x below its own close — and every zero.
+EXTREME_LOW_RATIO = 10.0
+
+
+def has_bad_extremes(
+    close: Optional[float],
+    low: Optional[float],
+    high: Optional[float],
+    open_: Optional[float] = None,
+    high_ratio: float = EXTREME_HIGH_RATIO,
+    low_ratio: float = EXTREME_LOW_RATIO,
+) -> bool:
+    """
+    True when a bar's close is sound but its high or low cannot be.
+
+    JUDGED AGAINST THE BAR'S OWN BODY, not the asset's all-time range. An
+    earlier version used bounds and was wrong twice over: it flagged CRO at a
+    high 1.14x its close and ETC at 1.31x, ordinary moves that merely grazed
+    CoinGecko's recorded high — a figure drawn from a different exchange set
+    than the bar. Judging against the bar's own open and close needs no
+    reference data, so this covers equities and ETFs too.
+
+    THE THRESHOLDS ARE ASYMMETRIC ON PURPOSE. A market can crash 60% intraday
+    and recover; it cannot double and retrace. A symmetric rule flagged five
+    unrelated alts wicking to ~0.4x on 2025-10-10, which is a liquidation
+    cascade rather than bad data.
+
+    Genuinely wrong, measured: DAI showed a high of $3.67 on a dollar-pegged
+    stablecoin that closed at $1.00, WBTC a high of $162,188 on a bar that
+    closed at $59,079, and WETH a low of exactly 0.0 on a day it closed at
+    $4,241.
+
+    A zero or negative extreme is always bad: a bar that closed at $4,241 did
+    not also trade at nothing, so the zero is a wrong number, not a missing one.
+
+    Close-to-close returns are unaffected by any of this, which is why six
+    rounds of cleanup never saw it. Anything reading the range is wrong.
+    """
+    if close is None or close != close or close <= 0:
+        return False
+    body = [p for p in (open_, close) if p and p == p and p > 0]
+    top, bottom = max(body), min(body)
+    for extreme in (low, high):
+        if extreme is None:
+            # ABSENT, not wrong. A null extreme is either a bar that never had
+            # one or one this repair has already nulled — and reporting a
+            # repaired bar as still broken makes the scan non-idempotent, which
+            # is how a fix comes to look like it never worked.
+            continue
+        if extreme != extreme or extreme <= 0:
+            # A zero is a WRONG number rather than a missing one: a bar that
+            # closed at $4,241 did not also trade at nothing.
+            return True
+    if high is not None and high > top * high_ratio:
+        return True
+    if low is not None and low < bottom / low_ratio:
+        return True
+    return False

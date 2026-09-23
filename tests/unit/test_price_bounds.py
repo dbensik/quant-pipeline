@@ -15,6 +15,7 @@ from core.price_bounds import (
     Bounds,
     CoinBounds,
     check_bounds,
+    has_bad_extremes,
 )
 
 DAY0 = date(2024, 1, 1)
@@ -174,3 +175,90 @@ def test_close_only_bars_still_work():
     assert check_bounds("X", [(date(2024, 1, 1), 100.0)], AAVE).verdict is (
         Bounds.CLEAN
     )
+
+
+# ---------------------------------------------------------------------------
+# has_bad_extremes — a sound close with a corrupt high or low
+#
+# Judged against the bar's OWN body. An earlier version used the asset's
+# all-time range and was wrong: it flagged ordinary intraday moves that merely
+# grazed CoinGecko's recorded high, which is drawn from a different exchange
+# set than the bar.
+# ---------------------------------------------------------------------------
+
+def test_a_stablecoin_high_of_three_dollars_is_a_bad_tick():
+    """DAI 2021-11-16: closed at 1.0012 with a high of 3.6684 — 3.66x."""
+    assert has_bad_extremes(1.0012, 0.9910, 3.6684, 1.0009) is True
+
+
+def test_wbtc_high_of_162k_on_a_59k_close_is_a_bad_tick():
+    assert has_bad_extremes(59078.88, 58289.18, 162188.25, 63446.02) is True
+
+
+def test_a_zero_low_beside_a_four_thousand_dollar_close_is_a_bad_tick():
+    """
+    WETH 2021-11-16: close 4241.88, low exactly 0.0. A bar that closed at
+    $4,241 did not also trade at nothing, so the zero is a WRONG number rather
+    than a missing one.
+    """
+    assert has_bad_extremes(4241.88, 0.0, 33329.43, 4583.28) is True
+
+
+def test_an_ordinary_intraday_move_is_NOT_a_bad_tick():
+    """
+    THE false positives that killed the first version. Both grazed their
+    coin's recorded all-time high and are perfectly normal bars.
+    """
+    # CRO 2021-11-24: high 1.14x the close.
+    assert has_bad_extremes(0.848222, 0.839875, 0.969806, 0.86) is False
+    # ETC 2021-05-06: high 1.31x, low 0.65x — a violent but real day.
+    assert has_bad_extremes(134.102, 87.6428, 176.1577, 130.0) is False
+
+
+def test_a_sound_bar_is_left_alone():
+    assert has_bad_extremes(1.0002, 0.9955, 1.0065, 1.0007) is False
+
+
+def test_a_missing_close_is_not_judged():
+    assert has_bad_extremes(None, 1.0, 2.0, 1.0) is False
+    assert has_bad_extremes(float("nan"), 1.0, 2.0, 1.0) is False
+
+
+def test_a_liquidation_cascade_is_NOT_a_bad_tick():
+    """
+    THE correction. 2025-10-10 saw ONDO, RENDER, TIA, WIF and WLD all wick to
+    0.31-0.48x of their close. Five unrelated alts on one day is a real
+    cascade, and a symmetric threshold would have deleted genuine history —
+    the same mistake nearly made with AAVE's redenomination.
+    """
+    assert has_bad_extremes(0.694529, 0.33155, 0.901145, 0.70) is False   # ONDO 0.48x
+    assert has_bad_extremes(2.2775, 0.715719, 3.335158, 2.30) is False    # RENDER 0.31x
+
+
+def test_a_low_far_beyond_any_crash_is_still_caught():
+    """SEI 2023-08-15: low 0.00799 against a 0.1776 close — 22x below."""
+    assert has_bad_extremes(0.177638, 0.007989, 0.208617, 0.18) is True
+
+
+def test_the_thresholds_are_asymmetric_and_sit_in_the_measured_gaps():
+    """
+    A market can crash 60% intraday and recover; it cannot double and retrace.
+    Real bad highs reach 2.08x, the widest legitimate high seen was 1.46x. The
+    deepest REAL wick was 0.31x, so the low threshold must be far looser.
+    """
+    from core.price_bounds import EXTREME_HIGH_RATIO, EXTREME_LOW_RATIO
+
+    assert 1.5 < EXTREME_HIGH_RATIO < 2.05
+    assert EXTREME_LOW_RATIO > 3.0
+
+
+def test_an_already_nulled_extreme_is_not_flagged_again():
+    """
+    IDEMPOTENCY. The repair nulls high and low, so the next scan sees None
+    there. Treating that as a defect reports repaired bars as still broken —
+    which is how a fix comes to look like it never worked. A None is absent;
+    only a zero is wrong.
+    """
+    assert has_bad_extremes(59078.88, None, None, 63446.02) is False
+    assert has_bad_extremes(59078.88, None, 162188.25, 63446.02) is True
+    assert has_bad_extremes(59078.88, 0.0, None, 63446.02) is True

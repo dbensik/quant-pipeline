@@ -993,3 +993,62 @@ close is a different kind of repair from anything done so far.
 
     identity + bounds now cover   97 of 99 crypto assets
     unreferenceable                2 (FTN-USD, IP-USD)
+
+
+---
+
+# Bad-tick extremes repaired (2026-09-23)
+
+**38 bars across 12 symbols** had a sound close and a corrupt high or low.
+High and low nulled; **no close changed, no bar deleted.** Backed up to
+`archive/bad-extreme-bars-before-2026-09-23.csv`.
+
+## Null rather than clamp
+
+The true extremes are unrecoverable — no arithmetic gets the real intraday
+range back from garbage. Clamping to the open/close envelope would put a
+plausible-looking number in the database that nobody could later tell from a
+real one. NULL says "unknown", which is true.
+
+The frontend already handles it: `candlestickData.ts` drops bars without a
+complete OHLC quartet and COUNTS them as `droppedIncomplete`, precisely so a
+candle view showing fewer bars than the line view does not look like a
+rendering bug. 392 migrated rows were already this shape; there are now 430.
+Its 12 tests still pass.
+
+## The detector was wrong twice, and the data said so both times
+
+**First version judged extremes against the asset's ALL-TIME RANGE.** It
+flagged CRO at a high 1.14x its close and ETC at 1.31x — ordinary intraday
+moves that merely grazed CoinGecko's recorded high, a figure drawn from a
+different exchange set than the bar. Judging an extreme against its own open
+and close needs no reference data at all, which is also why this now covers
+equities and ETFs.
+
+**Second version used a SYMMETRIC 2x threshold.** It flagged ONDO, RENDER,
+TIA, WIF and WLD all wicking to 0.31-0.48x of their close on **2025-10-10** —
+five unrelated alts on one day, which is a liquidation cascade, not provider
+noise. A symmetric rule would have deleted real market history: the AAVE
+mistake again, one step from being repeated.
+
+So the thresholds are asymmetric, because a market can crash 60% intraday and
+recover but cannot double and retrace:
+
+    high > 2.0x the bar's body      real: 2.08x - 3.66x; widest legitimate 1.46x
+    low  < body / 10                real: SEI at 0.045x; deepest real wick 0.31x
+    any extreme <= 0                always wrong
+
+## And it flagged its own repairs
+
+The first `--apply` worked, then the rescan still reported 38 bars — a nulled
+extreme tripped the "missing" branch. A None is ABSENT (a bar that never had
+one, or one already repaired); only a zero is WRONG. Without that distinction
+a fix looks like it never worked. Rescan now returns zero.
+
+## Still outstanding
+
+**BSC-USD (2456 bars), LBTC-USD (1960) and CBBTC-USD (183)** — the three wrong
+assets found by the id mapping — still hold 4,599 bars between them. They were
+skipped by this repair, since nulling two extremes in a series where every bar
+belongs to another coin is meaningless work that also makes the series look
+tended-to. Clearing them, as the other 21 were cleared, is the open item.
