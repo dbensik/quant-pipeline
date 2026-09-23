@@ -608,3 +608,68 @@ splice, so it may be neither a trim nor a clearance.
 
 **Do not touch AAVE-USD (103x, the LEND->AAVE redenomination) or
 DOGE/SHIB/BONK/KAS (3-5x).** Those are real.
+
+
+---
+
+# Cleanup, stage 6 — WLD-USD (2026-09-22), and where this stops
+
+**`DELETE 503`**, prefix only, 1147 bars kept. Backed up to
+`archive/wld-pre-2023-08-02-bars.csv`.
+
+I expected this one to need a different technique — its 2.3x/0.4x oscillation
+across separate days looked like interleaved bad bars rather than a prefix,
+which would have hit the seam problem. **That was wrong.** The oscillation sits
+entirely inside the prefix, and WLD is the same single splice as TIA and OP.
+
+Worldcoin's true range is **$0.229961 - $11.74** (rank 57). Of 1650 bars, 503
+sat below the all-time low and **zero impossible bars fall after 2023-08-02**.
+The two segments are even separated by an 11-day hole — last junk bar
+2023-07-22, real WLD resumes 2023-08-02 — which is `max_gap`'s signal showing
+up again, on an asset whose identity was never in question.
+
+Kept segment verified against `coins/worldcoin-wld/market_chart`: 362
+overlapping days, median ratio **0.9963**. Range after the trim is
+$0.2344 - $11.6924, inside the true range at both ends.
+
+## The severe corruption is gone
+
+| stage | symbol(s) | action | bars |
+|---|---|---|---|
+| 1 | 17 wrong assets | cleared | -20,431 |
+| 2 | METH, TON | cleared | -2,264 |
+| 3 | USDE | cleared | -531 |
+| 4 | TIA | trimmed | -1,105 |
+| 5 | OP | trimmed | -206 |
+| 6 | WLD | trimmed | -503 |
+
+**Worst remaining one-day move is 102.9x — AAVE-USD, which is REAL** (the
+100:1 LEND->AAVE redenomination). Everything above 11x is now either genuine
+market history or an identity question already recorded. From 680,637x to
+"the largest anomaly is a real corporate action" in six stages.
+
+## Why per-symbol triage should stop here
+
+The remaining list is no longer about corrupt bars:
+
+- **Real, leave alone:** AAVE (102.9x), SHIB (5.3x), DOGE (4.6x), BONK, KAS,
+  OKB, FIL, GT, HBAR (2-3x). Crypto does this.
+- **Identity unresolved:** USDS-USD and BUIDL-USD (SUSPECT — stablecoins,
+  where price cannot separate an alias from a substitution), and BSC-USD,
+  FTN-USD, LBTC-USD, JITOSOL-USD (UNVERIFIABLE — outside the reference set).
+
+Those need identity work, not bar surgery, and the identity layer already
+knows it cannot settle them alone.
+
+## The technique that did the work should be automated
+
+Every one of stages 3-6 was decided by the same cheap test: **compare stored
+bars against the coin's CoinGecko all-time high and low.** It is decisive in a
+way a day-over-day threshold never was — it cleared AAVE's 102.9x as real and
+condemned USDe's 2,121x, which no single multiplier could have separated.
+
+That belongs in a script beside `audit_crypto_identity.py`, run over the whole
+crypto universe, rather than being re-derived by hand per symbol. It would also
+catch contamination that never produces a big day-over-day jump — a wholly
+wrong series at a plausible-looking level, which is exactly what the 17 wrong
+assets were.
