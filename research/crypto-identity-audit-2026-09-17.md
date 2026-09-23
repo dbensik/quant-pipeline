@@ -910,3 +910,86 @@ remaining 21 rather than to two.
 
 That is a mapping exercise, not an investigation, and it would let both checks
 finally cover 100% of the universe instead of 79%.
+
+
+---
+
+# Mapping the unranked coins (2026-09-23) — coverage 79% -> 98%
+
+18 of the 20 unmapped assets now carry a `coingecko_id`, resolved from
+CoinGecko's full **21,382-coin index** rather than from market-cap paging,
+which structurally cannot reach an unranked coin.
+
+Where a symbol had several candidates the largest by market cap wins, and the
+margin was decisive every time — WBTC $10.1B against $635M for the next (an
+Arbitrum bridge wrapper), WETH $5.75B against $1.4B, wstETH $12.9B against
+$216M. The also-rans are chain-specific bridge wrappers, not the token.
+
+**BSC-USD is the original bug in miniature.** Its CoinGecko symbol is literally
+`bsc-usd`, so stripping "-USD" to get a base symbol leaves "BSC", which
+resolves to a $119k micro-cap called Binance Super Cycle. Looked up by the full
+symbol it is `binance-bridged-usdt-bnb-smart-chain`.
+
+## Three new wrong assets, invisible until now
+
+| symbol | we meant | Yahoo serves | gap |
+|---|---|---|---|
+| CBBTC-USD | Coinbase Wrapped BTC | cbBTC | **5.0e9x** |
+| LBTC-USD | Lombard BTC | Lightning Bitcoin | **1.7e6x** |
+| BSC-USD | Binance Bridged USDT | BowsCoin | 1,586x |
+
+None could have been found before: with no reference, they were UNVERIFIABLE,
+and UNVERIFIABLE passes the ingest gate. Coverage was not a tidiness exercise.
+
+## The mapping broke three assets, and that is worth recording
+
+SUSPECT **blocks ingestion**. Mapping ids turned SOLVBTC, WSTETH and JLP from
+UNVERIFIABLE (allowed) into SUSPECT (blocked) — so an improvement in coverage
+silently stopped three legitimate assets from updating. Caught by running the
+ingest immediately after.
+
+All three are one asset written two ways, prices agreeing within 0.5%:
+
+    SOLVBTC   "Solv Protocol BTC" vs "SolvBTC"                   1.005x
+    WSTETH    "Wrapped stETH"     vs "Lido wstETH"               1.003x
+    JLP       "Jupiter Perpetuals Liquidity Provider Token"
+                                  vs "Jupiter Perps LP"          1.000x
+
+The matcher uses containment after dropping noise words, which cannot see an
+abbreviation ("Perps") or a concatenation ("SolvBTC"). **Loosening it was
+rejected**: at a ~1x price gap the name is the ONLY signal, and that is exactly
+where a looser match would start waving through real substitutions like
+BUIDL/DFOhub. Settled as `match` in `CRYPTO_IDENTITY_OVERRIDES` instead — a
+narrow matcher plus explicit, auditable human decisions.
+
+## Two left unmapped, on purpose
+
+- **FTN-USD** — "Fasttoken" appears NOWHERE in the 21,382-coin index: zero hits
+  on symbol, name or id. It was top-100 when registered, so it has been
+  delisted from the reference itself. Nothing to check against.
+- **IP-USD** — the only lead is id `story-2`, now "Data Network" (symbol DATA,
+  rank 332). Story Protocol's ticker was IP and CoinGecko keeps an id across a
+  rename, which is how `the-open-network` still holds Toncoin's history under
+  GRAM. But that is an inference from an ID STRING with no name or price
+  agreeing — the exact mistake this subsystem exists to correct.
+
+## A new defect class: bad high/low ticks
+
+The wider bounds run surfaced **83 bars across 20 symbols whose high or low is
+implausible while the CLOSE is correct** — e.g. 2021-11-16 DAI high 3.67 on a
+$1 stablecoin, USDC high 2.35, WBTC high 162,188 (above its own all-time high),
+WETH high 33,329 with low 0.0000.
+
+Only 2021-11-16 hits more than two symbols, so this is scattered provider
+noise rather than one bad day. It is invisible to a close-only check and was
+found only because low/high judging was added for the AAVE redenomination.
+
+Not repaired: closes are sound, so close-to-close returns are unaffected, but
+any range-based calculation (ATR, true range, candlesticks, intraday
+volatility) is wrong on those bars. Nulling the extremes while keeping the
+close is a different kind of repair from anything done so far.
+
+## Coverage
+
+    identity + bounds now cover   97 of 99 crypto assets
+    unreferenceable                2 (FTN-USD, IP-USD)
