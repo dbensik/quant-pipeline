@@ -31,6 +31,11 @@ class FakeReport:
     failed: list = []
     delisted: list = []
     skipped_delisted: list = []
+    #: Mirrors IngestReport. A symbol whose recorded identity says the provider
+    #: serves a different asset is skipped, and one carrying an implausible
+    #: jump is reported — both get a line in the CLI summary.
+    skipped_identity: list = []
+    implausible: list = []
 
 
 @pytest.mark.asyncio

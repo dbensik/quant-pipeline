@@ -17,6 +17,8 @@ import pytest
 from core.ingest import (
     DEFAULT_BACKFILL_START,
     IngestJob,
+    history_floor,
+    implausible_jump,
     ingest_symbols,
     is_empty_bar,
     retag,
@@ -440,3 +442,273 @@ async def test_an_unflagged_symbol_is_still_fetched():
     )
     assert len(calls) == 1
     assert report.skipped_delisted == []
+
+
+# ---------------------------------------------------------------------------
+# Implausible jumps — FLAGGED, never dropped
+#
+# The measured case: Yahoo's own TIA-USD closes 0.0105 on 2024-03-25 and
+# 7149.41 on 2024-03-26 — 680,637x — then 298.86, then 0.0131. Verified
+# present at the provider, so this is not an ingest fault. 35 of 99 crypto
+# series carry moves like it.
+# ---------------------------------------------------------------------------
+
+def test_the_tia_spike_is_implausible():
+    assert implausible_jump(0.0105, 7149.415) is True
+
+
+def test_a_real_crypto_rally_is_not_flagged():
+    """
+    Crypto genuinely doubles in a day; BONK, WIF and FARTCOIN are all in this
+    universe. The threshold has to sit above ordinary violence or it fires on
+    real data and gets switched off.
+    """
+    assert implausible_jump(1.00, 2.50) is False
+    assert implausible_jump(1.00, 9.00) is False
+
+
+def test_the_threshold_is_symmetric():
+    """A 20x crash is exactly as impossible as a 20x rally."""
+    assert implausible_jump(100.0, 5.0) is True
+    assert implausible_jump(5.0, 100.0) is True
+
+
+def test_missing_or_nonsense_prices_cannot_be_implausible():
+    assert implausible_jump(None, 5.0) is False
+    assert implausible_jump(5.0, None) is False
+    assert implausible_jump(float("nan"), 5.0) is False
+    assert implausible_jump(0.0, 5.0) is False
+    assert implausible_jump(-1.0, 5.0) is False
+
+
+@pytest.mark.asyncio
+async def test_implausible_bars_are_counted_AND_STILL_WRITTEN():
+    """
+    The distinction from `is_empty_bar`, and the whole point.
+
+    An all-NULL bar carries no information, so it is dropped. A 680,637x move
+    carries plenty — either the provider is wrong or something real happened —
+    so it is counted and kept. Dropping it would also be self-defeating:
+    remove the spike from 0.0105 -> 7149.41 -> 298.86 and the remaining
+    0.0105 -> 298.86 is still impossible, trading one bad bar for another,
+    while the hole left behind is indistinguishable from a provider outage.
+    """
+    repo = RecordingRepo()
+    report = await ingest_symbols(
+        repo,
+        ["BTC-USD"],
+        fetcher=fetcher_for([
+            bar("BTC-USD", 0, close=0.0105),
+            bar("BTC-USD", 1, close=7149.415),
+            bar("BTC-USD", 2, close=298.86),
+        ]),
+    )
+    outcome = report.outcomes[0]
+    assert outcome.implausible_jumps == 2      # into the spike and out of it
+    assert outcome.skipped_empty == 0          # not confused with empty bars
+    assert len(repo.written) == 3              # NOTHING was dropped
+    assert outcome.written == 3
+
+
+@pytest.mark.asyncio
+async def test_a_clean_series_reports_no_jumps():
+    repo = RecordingRepo()
+    report = await ingest_symbols(
+        repo,
+        ["AAPL"],
+        fetcher=fetcher_for([bar("AAPL", i, close=100.0 + i) for i in range(4)]),
+    )
+    assert report.outcomes[0].implausible_jumps == 0
+
+
+@pytest.mark.asyncio
+async def test_jumps_are_judged_in_date_order_not_fetch_order():
+    """
+    A provider that returns bars out of order would otherwise manufacture
+    jumps that the series does not contain.
+    """
+    repo = RecordingRepo()
+    shuffled = [bar("AAPL", 2, close=102.0), bar("AAPL", 0, close=100.0),
+                bar("AAPL", 1, close=101.0)]
+    report = await ingest_symbols(repo, ["AAPL"], fetcher=fetcher_for(shuffled))
+    assert report.outcomes[0].implausible_jumps == 0
+
+
+# ---------------------------------------------------------------------------
+# Identity gate — a ticker is not an identifier
+#
+# Audited 2026-09-17: 22 of 99 crypto assets held a DIFFERENT coin's entire
+# history, 27,076 bars. Yahoo's MNT-USD is a micro-cap called MINTY; Uniswap
+# was stored as UNICORN Token. Every daily run appended more of it.
+# ---------------------------------------------------------------------------
+
+def identity_repo(status):
+    """A repo whose one crypto asset carries `status` as its recorded verdict."""
+    meta = {"identity_status": status} if status else {}
+    return RecordingRepo(assets={
+        "UNI-USD": Asset(symbol="UNI-USD", asset_class="crypto",
+                         source="yfinance", metadata=meta),
+    })
+
+
+@pytest.mark.asyncio
+async def test_a_wrong_asset_is_not_fetched():
+    repo = identity_repo("wrong_asset")
+    calls = []
+    report = await ingest_symbols(
+        repo, ["UNI-USD"], fetcher=fetcher_for([bar("UNI-USD", 0)], calls)
+    )
+    assert report.outcomes[0].skipped_identity is True
+    assert report.skipped_identity == ["UNI-USD"]
+    assert calls == []            # the provider was never asked
+    assert repo.written == []     # and nothing was stored
+
+
+@pytest.mark.asyncio
+async def test_a_suspect_asset_is_not_fetched():
+    """
+    SUSPECT is a live question, not a clearance — the stablecoins where price
+    cannot distinguish BlackRock's BUIDL from DFOhub's.
+    """
+    repo = identity_repo("suspect")
+    await ingest_symbols(repo, ["UNI-USD"], fetcher=fetcher_for([bar("UNI-USD", 0)]))
+    assert repo.written == []
+
+
+@pytest.mark.asyncio
+async def test_a_verified_asset_is_fetched_normally():
+    repo = identity_repo("match")
+    await ingest_symbols(repo, ["UNI-USD"], fetcher=fetcher_for([bar("UNI-USD", 0)]))
+    assert len(repo.written) == 1
+
+
+@pytest.mark.asyncio
+async def test_unverifiable_is_allowed_through():
+    """
+    Absence of evidence, not evidence of substitution: 23 coins sit below the
+    reference set. Blocking them would drop real data for no finding.
+    """
+    repo = identity_repo("unverifiable")
+    await ingest_symbols(repo, ["UNI-USD"], fetcher=fetcher_for([bar("UNI-USD", 0)]))
+    assert len(repo.written) == 1
+
+
+@pytest.mark.asyncio
+async def test_an_unchecked_asset_is_never_blocked():
+    """
+    THE REGRESSION THAT WOULD STOP THE DAILY RUN. 516 equities and 11 ETFs
+    carry no identity metadata at all. Treating "unchecked" as "unsafe" would
+    halt the entire pipeline the day this shipped.
+    """
+    repo = RecordingRepo()  # AAPL, no metadata
+    await ingest_symbols(repo, ["AAPL"], fetcher=fetcher_for([bar("AAPL", 0)]))
+    assert len(repo.written) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_backfill_does_NOT_bypass_the_identity_gate():
+    """
+    The asymmetry with `skip_delisted`, and the whole reason the gate exists.
+
+    A full backfill REPAIRS a stale adjustment or a wrongly-flagged symbol, so
+    it deliberately ignores the delisted gate. It cannot repair a wrong asset:
+    refetching UNI-USD imports more UNICORN Token. Letting a backfill through
+    here would reintroduce exactly the 27,076 bars this is meant to stop.
+    """
+    repo = identity_repo("wrong_asset")
+    await ingest_symbols(
+        repo, ["UNI-USD"], full_backfill=True,
+        fetcher=fetcher_for([bar("UNI-USD", 0)]),
+    )
+    assert repo.written == []
+
+
+@pytest.mark.asyncio
+async def test_the_gate_can_be_overridden_explicitly():
+    """An operator who has fixed the mapping by hand needs a way through."""
+    repo = identity_repo("wrong_asset")
+    await ingest_symbols(
+        repo, ["UNI-USD"], skip_unsafe_identity=False,
+        fetcher=fetcher_for([bar("UNI-USD", 0)]),
+    )
+    assert len(repo.written) == 1
+
+
+@pytest.mark.asyncio
+async def test_an_unrecognised_verdict_is_not_a_verdict():
+    """Someone else's metadata must not silently block ingestion."""
+    repo = identity_repo("banana")
+    await ingest_symbols(repo, ["UNI-USD"], fetcher=fetcher_for([bar("UNI-USD", 0)]))
+    assert len(repo.written) == 1
+
+
+# ---------------------------------------------------------------------------
+# History floor — trimming a contaminated prefix has to STAY trimmed
+#
+# TIA-USD's first 1105 bars were a micro-cap: every close below Celestia's
+# all-time low of $0.279235, then a 432x jump on 2025-03-09. They were deleted.
+# But the provider still serves them, --full-backfill starts at 2015, and the
+# identity gate does NOT block the symbol because its identity is a correct
+# MATCH. Without a floor, one backfill silently undoes the repair.
+# ---------------------------------------------------------------------------
+
+FLOOR_META = {"history_valid_from": "2024-01-03"}
+
+
+def floor_repo():
+    return RecordingRepo(assets={
+        "TIA-USD": Asset(symbol="TIA-USD", asset_class="crypto",
+                         source="yfinance", metadata=dict(FLOOR_META)),
+    })
+
+
+def test_history_floor_is_read_from_metadata():
+    assert history_floor({}) is None
+    assert history_floor(None) is None
+    assert history_floor(FLOOR_META) == datetime(2024, 1, 3, tzinfo=timezone.utc)
+
+
+def test_an_unparseable_floor_is_ignored_not_fatal():
+    """Someone else's metadata must not stop ingestion."""
+    assert history_floor({"history_valid_from": "whenever"}) is None
+
+
+@pytest.mark.asyncio
+async def test_bars_before_the_floor_are_refused_even_on_a_backfill():
+    """
+    THE regression. A backfill asks from 2015; the provider returns the
+    contaminated prefix; without this the deleted bars come straight back.
+    """
+    repo = floor_repo()
+    report = await ingest_symbols(
+        repo, ["TIA-USD"], full_backfill=True,
+        fetcher=fetcher_for([bar("TIA-USD", i, close=1.0 + i) for i in range(6)]),
+    )
+    # START is 2024-01-01, so days 0 and 1 precede the 2024-01-03 floor.
+    assert report.outcomes[0].skipped_before_floor == 2
+    assert len(repo.written) == 4
+    assert all(r.ohlcv.timestamp.utc >= datetime(2024, 1, 3, tzinfo=timezone.utc)
+               for r in repo.written)
+
+
+@pytest.mark.asyncio
+async def test_the_fetch_window_itself_is_clamped_to_the_floor():
+    """Cheaper than filtering afterwards, and it is what the live run showed:
+    a full backfill of TIA-USD asked for 561 records, not eleven years."""
+    repo = floor_repo()
+    calls = []
+    await ingest_symbols(
+        repo, ["TIA-USD"], full_backfill=True, fetcher=fetcher_for([], calls)
+    )
+    assert calls[0][1] == "2024-01-03"
+
+
+@pytest.mark.asyncio
+async def test_an_asset_with_no_floor_is_unaffected():
+    """516 equities carry no floor; they must fetch their whole history."""
+    repo = RecordingRepo()
+    calls = []
+    await ingest_symbols(
+        repo, ["AAPL"], full_backfill=True, fetcher=fetcher_for([], calls)
+    )
+    assert calls[0][1] == DEFAULT_BACKFILL_START.strftime("%Y-%m-%d")

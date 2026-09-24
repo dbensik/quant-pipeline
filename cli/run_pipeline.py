@@ -36,6 +36,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from config.settings import MAX_DAILY_MOVE_MULTIPLE  # noqa: E402
 from core.ingest import ingest_symbols  # noqa: E402
 from db.repositories.market_data import TimescaleMarketDataRepo  # noqa: E402
 from db.session import get_session  # noqa: E402
@@ -102,6 +103,24 @@ async def run(args: argparse.Namespace) -> int:
             "Skipped %d symbol(s) already flagged unresolved: %s",
             len(report.skipped_delisted),
             ", ".join(report.skipped_delisted),
+        )
+    if report.skipped_identity:
+        logger.warning(
+            "Skipped %d symbol(s) recorded as unsafe to fetch — a wrong "
+            "asset, an unresolved identity, or an unusable history: %s. The "
+            "per-symbol warning above gives the reason for each. Re-verify "
+            "with scripts/audit_crypto_identity.py; a backfill will not clear "
+            "this.",
+            len(report.skipped_identity),
+            ", ".join(report.skipped_identity),
+        )
+    if report.implausible:
+        logger.warning(
+            "Stored bars moving more than %gx in a day for %d symbol(s): %s. "
+            "Kept, not dropped — usually the PROVIDER serving a mixed series.",
+            MAX_DAILY_MOVE_MULTIPLE,
+            len(report.implausible),
+            ", ".join(report.implausible),
         )
     if report.delisted:
         logger.warning(

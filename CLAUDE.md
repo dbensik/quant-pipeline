@@ -183,7 +183,13 @@ For the TimescaleDB layer, copy `.env.example` → `.env`; without it, `db/sessi
 
 - `data_pipeline/` — `EquityPipeline`, `CryptoPipeline`, `FundamentalPipeline`, `DynamicUniverse`, `DataEnricher`; legacy fetchers still used for universe listings
 - `core/ingest.py` — THE write path: fetch via adapters, persist via the repository into TimescaleDB
-- `core/corporate_actions.py` — split-adjustment drift and delisting detection
+- `core/corporate_actions.py` — split-adjustment drift, delisting detection,
+  and rename/successor detection (`scripts/find_successors.py` proposes, never
+  writes). A rename is ONE instrument re-keyed and shows a constant old/new
+  ratio; a merger or acquisition genuinely ends the target and correctly finds
+  nothing. Threshold is `1e-4`, not `1e-2` — merger arbitrage pins a target to
+  its acquirer at ~4.6e-03 before a deal closes, which a loose threshold calls
+  a rename. See `research/corporate-actions-findings-2026-09-15.md`.
 - `alpha_models/` — Strategy classes (Moving Average Crossover, Mean Reversion, Trend Following, Pairs Trading, etc.) all inherit from `base_model.py`
 - `backtesting/backtester.py` — Simulates strategy on historical data; produces equity curves and KPIs
 - `screeners/` — Filter universe by criteria (momentum, low volatility); output feeds into watchlists

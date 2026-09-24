@@ -69,6 +69,174 @@ SP500_EXPECTED_RANGE = (480, 520)
 URL_NASDAQ100_WIKIPEDIA = "https://en.wikipedia.org/wiki/Nasdaq-100"
 URL_COINGECKO_API = "https://api.coingecko.com/api/v3/coins/markets"
 
+# --- Crypto identity (core/crypto_identity.py) ---
+#
+# A TICKER IS NOT AN IDENTIFIER. CoinGecko's "mnt" is Mantle; Yahoo's MNT-USD
+# is a micro-cap called MINTY. Audited 2026-09-17: 22 of 99 crypto assets held
+# a different token's entire history, 27,076 bars — Uniswap served as "UNICORN
+# Token", Aptos as "Apricot Finance", Sui as "Salmonation".
+
+#: Above this ratio between the reference price and the provider's, the two are
+#: not the same asset. Deliberately tight: a quote taken minutes apart moves
+#: fractions of a percent, and the real substitutions are not marginal — the
+#: SMALLEST wrong-asset gap measured was 2x (PEPE vs PEPEGOLD) and the largest
+#: 1.4e11 (SPX6900 vs SPEXY). Nothing observed sits between 1.5 and 2.
+CRYPTO_PRICE_GAP_TOLERANCE = 1.5
+
+#: Symbols whose reference coin cannot be found by market-cap paging, mapped
+#: to their stable CoinGecko id. Two distinct reasons, both measured
+#: 2026-09-20 and neither fixable by asking for more pages:
+#:
+#:   METH-USD  `mantle-staked-ether` has market_cap_rank = None. The
+#:             /coins/markets endpoint is ORDERED BY market cap, so an
+#:             unranked coin appears on no page at all, ever.
+#:
+#:   TON-USD   Toncoin has been RENAMED. CoinGecko id `the-open-network` now
+#:             carries the symbol GRAM ("Gram (prev. Toncoin)", rank 30), so
+#:             a lookup keyed on "TON" finds nothing however deep it pages.
+#:             A crypto ticker rename, the same shape as BK->BNY.
+#:
+#: An entry here asserts only WHICH COIN WE MEANT. It does not assert that the
+#: price provider serves it — that is exactly what the audit then checks, and
+#: both of these turned out to be wrong assets (261x and 1.6e4x gaps).
+#: Pause between CoinGecko calls. The free tier rate-limits, and the failure
+#: is SILENT in the way that matters: `fetch_crypto_references` stops early and
+#: returns a SHORTER reference set, so symbols simply become UNVERIFIABLE
+#: rather than erroring. Measured 2026-09-20 — an un-paced 4-page run returned
+#: 200 coins instead of 400 and dropped both id overrides, which read as "these
+#: coins do not exist" rather than "we were throttled".
+COINGECKO_REQUEST_DELAY_SECONDS = 2.0
+
+#: Retries for a 429 from CoinGecko, with exponential backoff between them.
+#: Worth retrying rather than failing soft: a throttled reference lookup makes
+#: a coin look ABSENT, and absent means UNVERIFIABLE — an answer that is wrong
+#: in a way nobody can see. Better to wait than to record a false verdict.
+COINGECKO_MAX_RETRIES = 4
+
+#: First backoff after a 429, doubling each retry. CoinGecko's free-tier window
+#: is about a minute, so starting at the 2s inter-request delay exhausts four
+#: attempts in 14s and still fails. Measured 2026-09-20.
+COINGECKO_THROTTLE_BACKOFF_SECONDS = 15.0
+
+#: Identity verdicts a HUMAN has settled on evidence the automated check
+#: cannot see. Without this the audit would recompute SUSPECT from name and
+#: price on every run and silently undo the decision.
+#:
+#: Both entries below were resolved by `audit_crypto_bounds.py`: price at a
+#: point cannot separate two $1 stablecoins, but a price HISTORY can, because
+#: a coin cannot have traded before it existed.
+#:
+#:   BUIDL-USD  763 of 792 bars (96.3%) outside BlackRock BUIDL's all-time
+#:              range, earliest violations 2020 — years before the fund.
+#:              Yahoo serves DFOhub.
+#:   USDS-USD   67 of 1091 bars outside USDS's range, violations dating from
+#:              2020-02. Yahoo serves "Stably USD".
+#:
+#: Deliberately NOT a threshold rule. USDS violates on 6.1% of bars and BUIDL
+#: on 96.3%; any percentage that promotes the first is arbitrary enough to
+#: misfire elsewhere. What settles both is the DATE of the violations, which
+#: is a judgement about each coin's history rather than a number.
+CRYPTO_IDENTITY_OVERRIDES = {
+    "BUIDL-USD": "wrong_asset",
+    "USDS-USD": "wrong_asset",
+    # --- Settled 2026-09-23, the opposite direction. ---
+    # Mapping CoinGecko ids onto the unranked tokens turned three of them
+    # SUSPECT, which BLOCKS INGESTION — so a mapping intended to improve
+    # coverage silently stopped three legitimate assets from updating. All
+    # three are the same asset written two ways, with prices agreeing to
+    # within 0.5%:
+    #
+    #   SOLVBTC-USD  "Solv Protocol BTC"  vs "SolvBTC"          gap 1.005x
+    #   WSTETH-USD   "Wrapped stETH"      vs "Lido wstETH"      gap 1.003x
+    #                (wstETH IS Lido's wrapped stETH)
+    #   JLP-USD      "Jupiter Perpetuals Liquidity Provider Token"
+    #                                     vs "Jupiter Perps LP" gap 1.000x
+    #
+    # The name matcher uses containment after dropping noise words, which
+    # cannot see an abbreviation ("Perps" for "Perpetuals") or a concatenation
+    # ("SolvBTC" for "Solv BTC"). Loosening it was rejected: for a ~1x price
+    # gap the NAME IS THE ONLY SIGNAL, and that is precisely where a looser
+    # match would start waving through real substitutions like BUIDL/DFOhub.
+    # Better a narrow matcher plus explicit human decisions than a broad one
+    # nobody can audit.
+    "SOLVBTC-USD": "match",
+    "WSTETH-USD": "match",
+    "JLP-USD": "match",
+}
+
+CRYPTO_ID_OVERRIDES = {
+    "TON-USD": "the-open-network",
+    "METH-USD": "mantle-staked-ether",
+    # --- Mapped 2026-09-23 from CoinGecko's full 21,382-coin index. ---
+    # These are all UNRANKED (liquid-staking and wrapped tokens sit below the
+    # top 400 by market cap) so /coins/markets paging reaches none of them, the
+    # same structural gap that hid mantle-staked-ether.
+    #
+    # Where a symbol had several candidates, the largest by market cap wins,
+    # and the margin was decisive every time: WBTC $10.1B vs $635M for the next
+    # (an Arbitrum bridge wrapper), WETH $5.75B vs $1.4B, wstETH $12.9B vs
+    # $216M. The rest of each symbol's candidates are chain-specific bridge
+    # wrappers, not the canonical token.
+    "BNSOL-USD": "binance-staked-sol",
+    "CBBTC-USD": "coinbase-wrapped-btc",
+    "EZETH-USD": "renzo-restaked-eth",
+    "JITOSOL-USD": "jito-staked-sol",
+    "JLP-USD": "jupiter-perpetuals-liquidity-provider-token",
+    "LBTC-USD": "lombard-staked-btc",
+    "OSETH-USD": "stakewise-v3-oseth",
+    "RETH-USD": "rocket-pool-eth",
+    "RSETH-USD": "kelp-dao-restaked-eth",
+    "SOLVBTC-USD": "solv-btc",
+    "STETH-USD": "staked-ether",
+    "SUSDE-USD": "ethena-staked-usde",
+    "USDT0-USD": "usdt0",
+    "WBTC-USD": "wrapped-bitcoin",
+    "WEETH-USD": "wrapped-eeth",
+    "WETH-USD": "weth",
+    "WSTETH-USD": "wrapped-steth",
+    # BSC-USD is the case the original bug was built on. Its CoinGecko symbol
+    # is literally "bsc-usd", so stripping "-USD" to get a base symbol leaves
+    # "BSC" — which resolves to a $119k micro-cap called Binance Super Cycle.
+    # Looked up by the FULL symbol instead.
+    "BSC-USD": "binance-bridged-usdt-bnb-smart-chain",
+    #
+    # DELIBERATELY NOT MAPPED — an entry here asserts which coin we meant, and
+    # neither of these can be asserted:
+    #
+    #   FTN-USD   "Fasttoken" appears NOWHERE in CoinGecko's index: zero hits
+    #             on symbol, name or id across all 21,382 coins. It was in the
+    #             top 100 when registered, so it has been delisted from the
+    #             reference entirely. Nothing to check against.
+    #
+    #   IP-USD    The only lead is CoinGecko id `story-2`, now named "Data
+    #             Network" with symbol DATA (rank 332). Story Protocol's ticker
+    #             was IP and CoinGecko keeps an id across a rename — which is
+    #             how the-open-network still holds Toncoin's history under the
+    #             symbol GRAM. But that is an inference from an ID STRING, with
+    #             no name or price agreeing, and asserting a coin's identity
+    #             from a string is the exact mistake this whole subsystem
+    #             exists to correct. Left unverifiable on purpose.
+}
+
+#: Price alone CANNOT settle a stablecoin: every stablecoin is $1, so BUIDL
+#: (BlackRock) and BUIDL (DFOhub) have a gap of ~1.0 while being unrelated.
+#: For those the name is the only signal, and a name mismatch there means
+#: "a human must look", not "wrong" — because a legitimate alias looks
+#: identical to a substitution. LEO Token really is named UNUS SED LEO.
+
+# --- Bar plausibility (core/ingest.py) ---
+#: A one-day move beyond this multiple is FLAGGED, never dropped. Yahoo's own
+#: TIA-USD closes 0.0105 then 7149.41 (680,637x) on 2024-03-26 — verified
+#: present at the provider, not an ingest fault.
+#:
+#: Flagged rather than rejected on purpose. An all-NULL bar carries no
+#: information and is dropped; a 10x move carries plenty — either the provider
+#: is wrong or something real happened, and crypto genuinely does 10x in a day
+#: (BONK, WIF and FARTCOIN are all in this universe). Dropping the spike would
+#: also leave the NEXT day's move impossible, trading one bad bar for another,
+#: and would open a hole indistinguishable from a provider outage.
+MAX_DAILY_MOVE_MULTIPLE = 10.0
+
 # --- Option chain capture (scripts/capture_option_chains.py) ---
 # yfinance serves only TODAY's chain, so the archive can only grow forward: a
 # weekday the capture does not run is missing for good, at any price. Capture

@@ -36,7 +36,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional, Protocol
 
+from config.settings import MAX_DAILY_MOVE_MULTIPLE
 from core.corporate_actions import looks_unresolved
+from core.crypto_identity import ingest_block_reason, metadata_allows_ingest
 from core.models import Asset, MarketDataRecord, OHLCV, Timestamp
 
 logger = logging.getLogger(__name__)
@@ -79,6 +81,16 @@ class SymbolOutcome:
     delisted: bool = False
     #: Set when the symbol was already flagged and this run did not re-fetch it.
     skipped_delisted: bool = False
+    #: Set when a RECORDED identity verdict says this ticker is not the asset
+    #: we meant, so it was not fetched. See core/crypto_identity.py.
+    skipped_identity: bool = False
+    #: Bars refused because they predate the asset's recorded history floor —
+    #: a contaminated prefix that was deliberately removed.
+    skipped_before_floor: int = 0
+    #: Bars whose move from the previous bar is beyond MAX_DAILY_MOVE_MULTIPLE.
+    #: Counted and reported, never dropped — see `implausible_jump`. Yahoo's
+    #: own TIA-USD closes 0.0105 then 7149.41 on 2024-03-26.
+    implausible_jumps: int = 0
 
 
 @dataclass
@@ -104,6 +116,19 @@ class IngestReport:
     def skipped_delisted(self) -> List[str]:
         return [o.symbol for o in self.outcomes if o.skipped_delisted]
 
+    @property
+    def skipped_identity(self) -> List[str]:
+        return [o.symbol for o in self.outcomes if o.skipped_identity]
+
+    @property
+    def implausible(self) -> List[str]:
+        """Symbols carrying at least one bar beyond MAX_DAILY_MOVE_MULTIPLE.
+
+        Reported, not acted on: the bars were stored. A quiet counter on an
+        outcome nobody prints is how 35 corrupt crypto series went two years
+        without anyone noticing."""
+        return [o.symbol for o in self.outcomes if o.implausible_jumps]
+
 
 def is_empty_bar(ohlcv: OHLCV) -> bool:
     """
@@ -116,6 +141,68 @@ def is_empty_bar(ohlcv: OHLCV) -> bool:
     """
     values = (ohlcv.open, ohlcv.high, ohlcv.low, ohlcv.close)
     return all(v is None or v != v for v in values)
+
+
+def implausible_jump(
+    previous_close: Optional[float],
+    close: Optional[float],
+    limit: float = MAX_DAILY_MOVE_MULTIPLE,
+) -> bool:
+    """
+    True when one bar to the next moves by more than `limit` times.
+
+    FLAGGED, NEVER DROPPED — the opposite of `is_empty_bar` above, and
+    deliberately so. An all-NULL bar carries no information, so discarding it
+    loses nothing. A 680,637x move carries a great deal: either the provider is
+    wrong or something real happened, and crypto genuinely does 10x in a day
+    (BONK, WIF and FARTCOIN are all in this universe).
+
+    Dropping it would also be self-defeating. Yahoo's TIA-USD runs
+    0.0105 -> 7149.41 -> 298.86; remove the spike and 0.0105 -> 298.86 is still
+    impossible, so one bad bar has been traded for another. And the hole left
+    behind is indistinguishable from a provider outage — a shape this project
+    has already spent a day diagnosing once (PARA's 388-day gap).
+
+    So this counts and reports. The decision stays with a human.
+    """
+    if previous_close is None or close is None:
+        return False
+    if previous_close != previous_close or close != close:  # NaN
+        return False
+    if previous_close <= 0 or close <= 0:
+        return False
+    hi, lo = max(previous_close, close), min(previous_close, close)
+    return (hi / lo) > limit
+
+
+#: Asset metadata key: the earliest date whose bars belong to THIS instrument.
+META_HISTORY_VALID_FROM = "history_valid_from"
+
+
+def history_floor(metadata: Optional[Dict[str, Any]]) -> Optional[datetime]:
+    """
+    The earliest date whose bars belong to this instrument, if recorded.
+
+    WHY THIS IS NEEDED. Trimming a contaminated prefix is not durable on its
+    own: the provider still serves those bars. TIA-USD's first 1105 bars were a
+    micro-cap — every close below Celestia's all-time low, then a 432x jump on
+    2025-03-09 — and they were deleted. But `--full-backfill` starts at
+    DEFAULT_BACKFILL_START (2015), Yahoo happily returns the micro-cap again,
+    and the identity gate does NOT block it, because the identity is a correct
+    MATCH. One backfill would silently undo the repair.
+
+    So a cleaned asset records where its real history begins, and ingestion
+    refuses to write before it.
+    """
+    raw = (metadata or {}).get(META_HISTORY_VALID_FROM)
+    if not raw:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(raw))
+    except ValueError:
+        logger.warning("Unparseable %s: %r", META_HISTORY_VALID_FROM, raw)
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
 def retag(record: MarketDataRecord, asset_class: str, source: str) -> MarketDataRecord:
@@ -149,6 +236,7 @@ async def ingest_symbols(
     progress: Optional[Callable[[int, int, str], None]] = None,
     run_in_thread: Optional[Callable] = None,
     skip_delisted: bool = True,
+    skip_unsafe_identity: bool = True,
 ) -> IngestReport:
     """
     Fetch and persist bars for each symbol.
@@ -167,6 +255,10 @@ async def ingest_symbols(
                        the caller named the symbols explicitly — skipping a
                        symbol somebody asked for by name is the wrong default.
                        Ignored when `full_backfill` is set, which repairs.
+        skip_unsafe_identity:
+                       Skip assets whose RECORDED identity verdict says the
+                       ticker is not the asset we meant. Unlike skip_delisted
+                       this is NOT ignored by full_backfill — see the gate.
 
     Symbols are processed ONE AT A TIME rather than in one batched download.
     It is slower, but a symbol that fails cannot take the others with it, and
@@ -217,6 +309,30 @@ async def ingest_symbols(
                     progress(index, total, symbol)
                 continue
 
+            # A ticker is not an identifier. Yahoo's MNT-USD is a micro-cap
+            # called MINTY; Mantle is elsewhere. 22 of 99 crypto assets held a
+            # different coin's entire history (27,076 bars) before this gate,
+            # and every daily run appended more of it.
+            #
+            # DELIBERATELY NOT BYPASSED BY full_backfill — the opposite of the
+            # delisted gate above, and the asymmetry is the point. A backfill
+            # REPAIRS a stale-adjustment or a wrongly-flagged symbol, so it must
+            # reach those. It cannot repair a wrong asset: refetching UNI-USD
+            # just imports more UNICORN Token. The only way past this gate is to
+            # fix the mapping and re-verify, which flips the recorded verdict.
+            if skip_unsafe_identity and not metadata_allows_ingest(asset.metadata):
+                outcome.skipped_identity = True
+                logger.warning(
+                    "%s: skipped — %s. Re-verify with "
+                    "scripts/audit_crypto_identity.py once the cause is fixed; "
+                    "a backfill will NOT clear this.",
+                    symbol,
+                    ingest_block_reason(asset.metadata) or "recorded as unsafe",
+                )
+                if progress:
+                    progress(index, total, symbol)
+                continue
+
             newest_stored = await _newest_bar(repo, symbol)
 
             window_start = start
@@ -230,6 +346,13 @@ async def ingest_symbols(
                         else DEFAULT_BACKFILL_START
                     )
                 )
+
+            # A cleaned asset knows where its real history starts. Clamp the
+            # window rather than trusting the provider not to serve the
+            # contaminated prefix again.
+            floor = history_floor(asset.metadata)
+            if floor is not None and window_start < floor:
+                window_start = floor
 
             if window_start >= end:
                 # Already current. Not an error, and not a fetch.
@@ -250,7 +373,32 @@ async def ingest_symbols(
                 if is_empty_bar(record.ohlcv):
                     outcome.skipped_empty += 1
                     continue
+                # Belt and braces: a provider may return bars earlier than the
+                # window it was asked for, and those are exactly the ones a
+                # cleaned asset must never see again.
+                if floor is not None and record.ohlcv.timestamp.utc < floor:
+                    outcome.skipped_before_floor += 1
+                    continue
                 usable.append(retag(record, asset.asset_class, asset.source))
+
+            # Plausibility is judged on the fetched run of bars, in date
+            # order — the cheap check that would have surfaced 35 corrupt
+            # crypto series on the day they were ingested instead of two
+            # years later.
+            in_order = sorted(usable, key=lambda r: r.ohlcv.timestamp.utc)
+            for earlier, later in zip(in_order, in_order[1:]):
+                if implausible_jump(earlier.ohlcv.close, later.ohlcv.close):
+                    outcome.implausible_jumps += 1
+            if outcome.implausible_jumps:
+                logger.warning(
+                    "%s: %d bar(s) move more than %gx from the previous bar. "
+                    "Stored anyway — this is usually the PROVIDER serving a "
+                    "wrong or mixed series, not a fetch fault. Check identity "
+                    "before trusting this symbol (core/crypto_identity.py).",
+                    symbol,
+                    outcome.implausible_jumps,
+                    MAX_DAILY_MOVE_MULTIPLE,
+                )
 
             # replace=full_backfill. An incremental run writes only new dates,
             # so DO NOTHING is right and cheap. A full backfill exists to

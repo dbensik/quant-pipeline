@@ -1,0 +1,695 @@
+[
+ {
+  "symbol": "AAVE-USD",
+  "cg_name": "Aave",
+  "cg_price": 130.8,
+  "y_name": "Aave",
+  "y_price": 130.65
+ },
+ {
+  "symbol": "ADA-USD",
+  "cg_name": "Cardano",
+  "cg_price": 0.209889,
+  "y_name": "Cardano",
+  "y_price": 0.21018
+ },
+ {
+  "symbol": "ALGO-USD",
+  "cg_name": "Algorand",
+  "cg_price": 0.091713,
+  "y_name": "Algorand",
+  "y_price": 0.09225
+ },
+ {
+  "symbol": "APT-USD",
+  "cg_name": "Aptos",
+  "cg_price": 0.617519,
+  "y_name": "Apricot Finance",
+  "y_price": 0.00013111407
+ },
+ {
+  "symbol": "ARB-USD",
+  "cg_name": "Arbitrum",
+  "cg_price": 0.198816,
+  "y_name": "ARbit",
+  "y_price": 0.0006290288
+ },
+ {
+  "symbol": "ATOM-USD",
+  "cg_name": "Cosmos Hub",
+  "cg_price": 1.59,
+  "y_name": "Cosmos",
+  "y_price": 1.5847
+ },
+ {
+  "symbol": "AVAX-USD",
+  "cg_name": "Avalanche",
+  "cg_price": 7.69,
+  "y_name": "Avalanche",
+  "y_price": 7.686
+ },
+ {
+  "symbol": "BCH-USD",
+  "cg_name": "Bitcoin Cash",
+  "cg_price": 235.99,
+  "y_name": "Bitcoin Cash",
+  "y_price": 236.4
+ },
+ {
+  "symbol": "BGB-USD",
+  "cg_name": "Bitget Token",
+  "cg_price": 1.93,
+  "y_name": "Bitget Token",
+  "y_price": 1.9261117
+ },
+ {
+  "symbol": "BNB-USD",
+  "cg_name": "BNB",
+  "cg_price": 743.95,
+  "y_name": "BNB",
+  "y_price": 745.37
+ },
+ {
+  "symbol": "BNSOL-USD",
+  "cg_name": null,
+  "cg_price": null,
+  "y_name": "Binance Staked SOL",
+  "y_price": 115.58065
+ },
+ {
+  "symbol": "BONK-USD",
+  "cg_name": "Bonk",
+  "cg_price": 2.75e-06,
+  "y_name": "Bonk",
+  "y_price": 2.75e-06
+ },
+ {
+  "symbol": "BSC-USD",
+  "cg_name": null,
+  "cg_price": null,
+  "y_name": "BowsCoin",
+  "y_price": 0.0006306102
+ },
+ {
+  "symbol": "BTC-USD",
+  "cg_name": "Bitcoin",
+  "cg_price": 76614,
+  "y_name": "Bitcoin",
+  "y_price": 76699.99
+ },
+ {
+  "symbol": "BUIDL-USD",
+  "cg_name": "BlackRock USD Institutional Digital Liquidity Fund",
+  "cg_price": 1.0,
+  "y_name": "DFOhub",
+  "y_price": 0.7083606
+ },
+ {
+  "symbol": "CBBTC-USD",
+  "cg_name": null,
+  "cg_price": null,
+  "y_name": "cbBTC",
+  "y_price": 1.7311706e-05
+ },
+ {
+  "symbol": "CRO-USD",
+  "cg_name": "Cronos",
+  "cg_price": 0.058183,
+  "y_name": "Cronos",
+  "y_price": 0.05799
+ },
+ {
+  "symbol": "DAI-USD",
+  "cg_name": "Dai",
+  "cg_price": 0.999981,
+  "y_name": "Dai",
+  "y_price": 0.99976
+ },
+ {
+  "symbol": "DOGE-USD",
+  "cg_name": "Dogecoin",
+  "cg_price": 0.082336,
+  "y_name": "Dogecoin",
+  "y_price": 0.08239
+ },
+ {
+  "symbol": "DOT-USD",
+  "cg_name": "Polkadot",
+  "cg_price": 1.11,
+  "y_name": "Polkadot",
+  "y_price": 1.1188
+ },
+ {
+  "symbol": "ENA-USD",
+  "cg_name": "Ethena",
+  "cg_price": 0.160608,
+  "y_name": "Ethena",
+  "y_price": 0.16072
+ },
+ {
+  "symbol": "ETC-USD",
+  "cg_name": "Ethereum Classic",
+  "cg_price": 7.61,
+  "y_name": "Ethereum Classic",
+  "y_price": 7.606
+ },
+ {
+  "symbol": "ETH-USD",
+  "cg_name": "Ethereum",
+  "cg_price": 2452.88,
+  "y_name": "Ethereum",
+  "y_price": 2454.39
+ },
+ {
+  "symbol": "EZETH-USD",
+  "cg_name": null,
+  "cg_price": null,
+  "y_name": "Renzo Restaked ETH",
+  "y_price": 2651.5386
+ },
+ {
+  "symbol": "FARTCOIN-USD",
+  "cg_name": null,
+  "cg_price": null,
+  "y_name": "Fartcoin",
+  "y_price": 0.1491
+ },
+ {
+  "symbol": "FDUSD-USD",
+  "cg_name": "First Digital USD",
+  "cg_price": 0.997927,
+  "y_name": "First Digital",
+  "y_price": 0.9977947
+ },
+ {
+  "symbol": "FET-USD",
+  "cg_name": "Artificial Superintelligence Alliance",
+  "cg_price": 0.17796,
+  "y_name": "Artificial Superintelligence Alliance",
+  "y_price": 0.17857
+ },
+ {
+  "symbol": "FIL-USD",
+  "cg_name": "Filecoin",
+  "cg_price": 0.856806,
+  "y_name": "Filecoin",
+  "y_price": 0.8576
+ },
+ {
+  "symbol": "FLR-USD",
+  "cg_name": "Flare",
+  "cg_price": 0.00641371,
+  "y_name": "Flare",
+  "y_price": 0.006407
+ },
+ {
+  "symbol": "FTN-USD",
+  "cg_name": null,
+  "cg_price": null,
+  "y_name": "Fasttoken",
+  "y_price": 1.3425685
+ },
+ {
+  "symbol": "GT-USD",
+  "cg_name": "Gate",
+  "cg_price": 9.41,
+  "y_name": "GateToken",
+  "y_price": 9.402599
+ },
+ {
+  "symbol": "HBAR-USD",
+  "cg_name": "Hedera",
+  "cg_price": 0.075153,
+  "y_name": "Hedera",
+  "y_price": 0.07522
+ },
+ {
+  "symbol": "HYPE-USD",
+  "cg_name": "Hyperliquid",
+  "cg_price": 86.67,
+  "y_name": "Supreme Finance",
+  "y_price": 5.4038096e-06
+ },
+ {
+  "symbol": "ICP-USD",
+  "cg_name": "Internet Computer",
+  "cg_price": 2.69,
+  "y_name": "Internet Computer",
+  "y_price": 2.6884
+ },
+ {
+  "symbol": "INJ-USD",
+  "cg_name": "Injective",
+  "cg_price": 5.75,
+  "y_name": "Injective",
+  "y_price": 5.772
+ },
+ {
+  "symbol": "IP-USD",
+  "cg_name": null,
+  "cg_price": null,
+  "y_name": "TRUMP IP",
+  "y_price": 0.18263
+ },
+ {
+  "symbol": "JITOSOL-USD",
+  "cg_name": null,
+  "cg_price": null,
+  "y_name": "Jito Staked SOL",
+  "y_price": 132.95
+ },
+ {
+  "symbol": "JLP-USD",
+  "cg_name": null,
+  "cg_price": null,
+  "y_name": "Jupiter Perps LP",
+  "y_price": 4.423597
+ },
+ {
+  "symbol": "JUP-USD",
+  "cg_name": "Jupiter",
+  "cg_price": 0.241699,
+  "y_name": "Jupiter",
+  "y_price": 0.0002966437
+ },
+ {
+  "symbol": "KAS-USD",
+  "cg_name": "Kaspa",
+  "cg_price": 0.03396949,
+  "y_name": "Kaspa",
+  "y_price": 0.033972938
+ },
+ {
+  "symbol": "KCS-USD",
+  "cg_name": "KuCoin",
+  "cg_price": 7.09,
+  "y_name": "KuCoin Token",
+  "y_price": 7.088023
+ },
+ {
+  "symbol": "LBTC-USD",
+  "cg_name": null,
+  "cg_price": null,
+  "y_name": "Lightning Bitcoin",
+  "y_price": 0.05220723
+ },
+ {
+  "symbol": "LEO-USD",
+  "cg_name": "LEO Token",
+  "cg_price": 8.89,
+  "y_name": "UNUS SED LEO",
+  "y_price": 8.893011
+ },
+ {
+  "symbol": "LINK-USD",
+  "cg_name": "Chainlink",
+  "cg_price": 11.53,
+  "y_name": "Chainlink",
+  "y_price": 11.533
+ },
+ {
+  "symbol": "LTC-USD",
+  "cg_name": "Litecoin",
+  "cg_price": 54.35,
+  "y_name": "Litecoin",
+  "y_price": 54.329
+ },
+ {
+  "symbol": "METH-USD",
+  "cg_name": null,
+  "cg_price": null,
+  "y_name": "Mirrored Ether",
+  "y_price": 0.18472934
+ },
+ {
+  "symbol": "MNT-USD",
+  "cg_name": "Mantle",
+  "cg_price": 0.568378,
+  "y_name": "MINTY",
+  "y_price": 0.00019319051
+ },
+ {
+  "symbol": "NEAR-USD",
+  "cg_name": "NEAR Protocol",
+  "cg_price": 3.23,
+  "y_name": "NEAR Protocol",
+  "y_price": 3.21
+ },
+ {
+  "symbol": "NEXO-USD",
+  "cg_name": "NEXO",
+  "cg_price": 0.811728,
+  "y_name": "Nexo",
+  "y_price": 0.8115593
+ },
+ {
+  "symbol": "OKB-USD",
+  "cg_name": "OKB",
+  "cg_price": 112.32,
+  "y_name": "OKB",
+  "y_price": 112.311386
+ },
+ {
+  "symbol": "ONDO-USD",
+  "cg_name": "Ondo",
+  "cg_price": 0.384552,
+  "y_name": "Ondo",
+  "y_price": 0.38401
+ },
+ {
+  "symbol": "OP-USD",
+  "cg_name": "Optimism",
+  "cg_price": 0.103984,
+  "y_name": "Optimism",
+  "y_price": 0.10422
+ },
+ {
+  "symbol": "OSETH-USD",
+  "cg_name": null,
+  "cg_price": null,
+  "y_name": "StakeWise Staked ETH",
+  "y_price": 2626.1003
+ },
+ {
+  "symbol": "PENGU-USD",
+  "cg_name": "Pudgy Penguins",
+  "cg_price": 0.00746104,
+  "y_name": "Pengu",
+  "y_price": 5.0495334e-11
+ },
+ {
+  "symbol": "PEPE-USD",
+  "cg_name": "Pepe",
+  "cg_price": 3.65e-06,
+  "y_name": "PEPEGOLD",
+  "y_price": 6.1956575e-06
+ },
+ {
+  "symbol": "PI-USD",
+  "cg_name": "Pi Network",
+  "cg_price": 0.083871,
+  "y_name": "Plian",
+  "y_price": 0.002050101
+ },
+ {
+  "symbol": "POL-USD",
+  "cg_name": "POL (ex-MATIC)",
+  "cg_price": 0.097991,
+  "y_name": "Proof Of Liquidity",
+  "y_price": 0.008241397
+ },
+ {
+  "symbol": "PUMP-USD",
+  "cg_name": "Pump.fun",
+  "cg_price": 0.00405291,
+  "y_name": null,
+  "y_price": null
+ },
+ {
+  "symbol": "QNT-USD",
+  "cg_name": "Quant",
+  "cg_price": 61.93,
+  "y_name": "Quant",
+  "y_price": 61.8
+ },
+ {
+  "symbol": "RENDER-USD",
+  "cg_name": "Render",
+  "cg_price": 1.51,
+  "y_name": "Render",
+  "y_price": 1.5056
+ },
+ {
+  "symbol": "RETH-USD",
+  "cg_name": null,
+  "cg_price": null,
+  "y_name": "Rocket Pool ETH",
+  "y_price": 2868.223
+ },
+ {
+  "symbol": "RSETH-USD",
+  "cg_name": null,
+  "cg_price": null,
+  "y_name": "Kelp DAO Restaked ETH",
+  "y_price": 2600.0566
+ },
+ {
+  "symbol": "S-USD",
+  "cg_name": null,
+  "cg_price": null,
+  "y_name": "Holdenomics",
+  "y_price": 6.6413186e-08
+ },
+ {
+  "symbol": "SEI-USD",
+  "cg_name": "Sei",
+  "cg_price": 0.04477371,
+  "y_name": "Sei",
+  "y_price": 0.04485
+ },
+ {
+  "symbol": "SHIB-USD",
+  "cg_name": "Shiba Inu",
+  "cg_price": 5.26e-06,
+  "y_name": "Shiba Inu",
+  "y_price": 5.25e-06
+ },
+ {
+  "symbol": "SKY-USD",
+  "cg_name": "Sky",
+  "cg_price": 0.059558,
+  "y_name": "Skycoin",
+  "y_price": 0.014116621
+ },
+ {
+  "symbol": "SOL-USD",
+  "cg_name": "Solana",
+  "cg_price": 102.18,
+  "y_name": "Solana",
+  "y_price": 102.38
+ },
+ {
+  "symbol": "SOLVBTC-USD",
+  "cg_name": null,
+  "cg_price": null,
+  "y_name": "SolvBTC",
+  "y_price": 76590.17
+ },
+ {
+  "symbol": "SPX-USD",
+  "cg_name": "SPX6900",
+  "cg_price": 0.468899,
+  "y_name": "SPEXY",
+  "y_price": 3.3545014e-12
+ },
+ {
+  "symbol": "STETH-USD",
+  "cg_name": null,
+  "cg_price": null,
+  "y_name": "Lido Staked ETH",
+  "y_price": 2454.497
+ },
+ {
+  "symbol": "STX-USD",
+  "cg_name": "Stacks",
+  "cg_price": 0.257887,
+  "y_name": "Stox",
+  "y_price": 0.0028344663
+ },
+ {
+  "symbol": "SUI-USD",
+  "cg_name": "Sui",
+  "cg_price": 0.760572,
+  "y_name": "Salmonation",
+  "y_price": 0.0003001941
+ },
+ {
+  "symbol": "SUSDE-USD",
+  "cg_name": null,
+  "cg_price": null,
+  "y_name": "Ethena Stakede",
+  "y_price": 1.2478077
+ },
+ {
+  "symbol": "TAO-USD",
+  "cg_name": "Bittensor",
+  "cg_price": 236.36,
+  "y_name": "Together As One",
+  "y_price": 1.2702465e-07
+ },
+ {
+  "symbol": "TIA-USD",
+  "cg_name": "Celestia",
+  "cg_price": 0.365523,
+  "y_name": "Celestia",
+  "y_price": 0.3647
+ },
+ {
+  "symbol": "TON-USD",
+  "cg_name": null,
+  "cg_price": null,
+  "y_name": "TON Token",
+  "y_price": 0.0051227477
+ },
+ {
+  "symbol": "TRUMP-USD",
+  "cg_name": null,
+  "cg_price": null,
+  "y_name": "FreeTrump",
+  "y_price": 0.00030202811
+ },
+ {
+  "symbol": "TRX-USD",
+  "cg_name": "TRON",
+  "cg_price": 0.335286,
+  "y_name": "TRON",
+  "y_price": 0.33523157
+ },
+ {
+  "symbol": "UNI-USD",
+  "cg_name": "Uniswap",
+  "cg_price": 7.98,
+  "y_name": "UNICORN Token",
+  "y_price": 0.0001626423
+ },
+ {
+  "symbol": "USD1-USD",
+  "cg_name": "USD1",
+  "cg_price": 0.999149,
+  "y_name": "Currency One",
+  "y_price": 1.0010353
+ },
+ {
+  "symbol": "USDC-USD",
+  "cg_name": "USDC",
+  "cg_price": 0.999587,
+  "y_name": "USDC",
+  "y_price": 0.9998805
+ },
+ {
+  "symbol": "USDE-USD",
+  "cg_name": "Ethena USDe",
+  "cg_price": 0.999129,
+  "y_name": "USDe",
+  "y_price": 1.009221
+ },
+ {
+  "symbol": "USDS-USD",
+  "cg_name": "USDS",
+  "cg_price": 0.999793,
+  "y_name": "Stably",
+  "y_price": 1.0250196
+ },
+ {
+  "symbol": "USDT-USD",
+  "cg_name": "Tether",
+  "cg_price": 0.999208,
+  "y_name": "Tethert",
+  "y_price": 0.99909
+ },
+ {
+  "symbol": "USDT0-USD",
+  "cg_name": null,
+  "cg_price": null,
+  "y_name": "USDT0",
+  "y_price": 0.9992107
+ },
+ {
+  "symbol": "USDTB-USD",
+  "cg_name": "USDtb",
+  "cg_price": 0.999051,
+  "y_name": "USDG (ysec.finance)",
+  "y_price": 0.99992543
+ },
+ {
+  "symbol": "VET-USD",
+  "cg_name": "VeChain",
+  "cg_price": 0.00738142,
+  "y_name": "VeChain",
+  "y_price": 0.007405
+ },
+ {
+  "symbol": "VIRTUAL-USD",
+  "cg_name": "Virtuals Protocol",
+  "cg_price": 0.626591,
+  "y_name": "Virtuals Protocol",
+  "y_price": 0.6277785
+ },
+ {
+  "symbol": "WBT-USD",
+  "cg_name": "WhiteBIT Coin",
+  "cg_price": 78.91,
+  "y_name": "WhiteBIT Coin",
+  "y_price": 78.99552
+ },
+ {
+  "symbol": "WBTC-USD",
+  "cg_name": null,
+  "cg_price": null,
+  "y_name": "Wrapped Bitcoin",
+  "y_price": 76602.64
+ },
+ {
+  "symbol": "WEETH-USD",
+  "cg_name": null,
+  "cg_price": null,
+  "y_name": "Wrapped eETH",
+  "y_price": 2705.047
+ },
+ {
+  "symbol": "WETH-USD",
+  "cg_name": null,
+  "cg_price": null,
+  "y_name": "WETH",
+  "y_price": 2453.3416
+ },
+ {
+  "symbol": "WIF-USD",
+  "cg_name": "dogwifhat",
+  "cg_price": 0.188602,
+  "y_name": "dogwifhat",
+  "y_price": 0.18862
+ },
+ {
+  "symbol": "WLD-USD",
+  "cg_name": "Worldcoin",
+  "cg_price": 0.398988,
+  "y_name": "Worldcoin",
+  "y_price": 0.4018
+ },
+ {
+  "symbol": "WSTETH-USD",
+  "cg_name": null,
+  "cg_price": null,
+  "y_name": "Lido wstETH",
+  "y_price": 3051.1826
+ },
+ {
+  "symbol": "XDC-USD",
+  "cg_name": "XDC Network",
+  "cg_price": 0.0271107,
+  "y_name": "XDC Network",
+  "y_price": 0.027089024
+ },
+ {
+  "symbol": "XLM-USD",
+  "cg_name": "Stellar",
+  "cg_price": 0.184235,
+  "y_name": "Stellar",
+  "y_price": 0.184287
+ },
+ {
+  "symbol": "XMR-USD",
+  "cg_name": "Monero",
+  "cg_price": 518.78,
+  "y_name": "Monero",
+  "y_price": 518.9318
+ },
+ {
+  "symbol": "XRP-USD",
+  "cg_name": "XRP",
+  "cg_price": 1.3,
+  "y_name": "XRP",
+  "y_price": 1.3039
+ }
+]
