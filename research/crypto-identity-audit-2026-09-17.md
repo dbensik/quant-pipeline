@@ -1052,3 +1052,57 @@ assets found by the id mapping — still hold 4,599 bars between them. They were
 skipped by this repair, since nulling two extremes in a series where every bar
 belongs to another coin is meaningless work that also makes the series look
 tended-to. Clearing them, as the other 21 were cleared, is the open item.
+
+
+---
+
+# BSC, LBTC and CBBTC cleared (2026-09-24) — crypto is done
+
+**`DELETE 4599`** (BSC-USD 2456, LBTC-USD 1960, CBBTC-USD 183), appended to
+`archive/wrong-asset-bars-2026-09-19.csv`. Bounds keys dropped, as for
+BUIDL/USDS. **All 24 wrong assets now hold zero bars.**
+
+These three were only findable once ids were mapped: with no reference they
+were UNVERIFIABLE, and UNVERIFIABLE passes the ingest gate. They had been
+accumulating another coin's prices daily.
+
+## Final state
+
+    match         70 assets   130,864 bars
+    unverifiable   3 assets     1,460 bars
+    suspect        2 assets       205 bars
+    wrong_asset   24 assets         0 bars
+
+    wrong assets still holding bars ........ 0
+    bars with a corrupt extreme ............ 0
+    worst one-day move anywhere ............ 5.3x
+
+**The worst remaining anomaly in the entire crypto universe is SHIB at 5.3x
+and DOGE at 4.6x — both the real 2021 squeezes.** It began at 680,637x.
+
+Nothing left is known to be wrong:
+
+- **70 MATCH**, each verified on name AND price against CoinGecko, and each
+  passing the all-time-bounds check.
+- **3 UNVERIFIABLE** — FTN-USD (absent from all 21,382 CoinGecko coins),
+  IP-USD (only lead is an id-string inference), PUMP-USD (the provider serves
+  no quote). Unknown rather than wrong, and honestly labelled.
+- **2 SUSPECT** — USD1-USD and USDTB-USD, stablecoins whose names disagree
+  with the reference while their price history does not contradict them.
+  Bounds cleared both, so the evidence genuinely stops short of a verdict.
+
+## What was built, not just cleaned
+
+The repairs are one-offs; these are not:
+
+| | |
+|---|---|
+| `core/crypto_identity.py` | is this the coin we meant — four verdicts |
+| `core/price_bounds.py` | has this asset ever been worth that, and are its extremes possible |
+| `core/ingest.py` gate | refuses a wrong asset, an unusable series, or a bar before a cleaned floor |
+| `scripts/audit_crypto_identity.py` | verify identity, record verdicts |
+| `scripts/audit_crypto_bounds.py` | verify ranges, suggest cuts |
+| `scripts/repair_bad_extremes.py` | null impossible highs and lows |
+
+The daily run can no longer import a wrong coin, a backfill can no longer undo
+a trim, and both checks cover 97 of 99 assets.
