@@ -87,6 +87,9 @@ class SymbolOutcome:
     #: Bars refused because they predate the asset's recorded history floor —
     #: a contaminated prefix that was deliberately removed.
     skipped_before_floor: int = 0
+    #: Bars refused because they postdate the asset's history ceiling — the
+    #: ticker was delisted and something else now trades under it.
+    skipped_after_ceiling: int = 0
     #: Bars whose move from the previous bar is beyond MAX_DAILY_MOVE_MULTIPLE.
     #: Counted and reported, never dropped — see `implausible_jump`. Yahoo's
     #: own TIA-USD closes 0.0105 then 7149.41 on 2024-03-26.
@@ -178,6 +181,14 @@ def implausible_jump(
 #: Asset metadata key: the earliest date whose bars belong to THIS instrument.
 META_HISTORY_VALID_FROM = "history_valid_from"
 
+#: And the first date whose bars no longer do. The mirror image, and needed for
+#: a different event: a ticker that is DELISTED and later REASSIGNED. Measured
+#: on PARA — Paramount Global filed a Form 25-NSE on 2025-08-07, and from
+#: 2026-08-07 the key serves an unrelated penny stock. The good history is a
+#: prefix and the contamination a suffix, which is exactly what a floor cannot
+#: express.
+META_HISTORY_VALID_UNTIL = "history_valid_until"
+
 
 def history_floor(metadata: Optional[Dict[str, Any]]) -> Optional[datetime]:
     """
@@ -201,6 +212,31 @@ def history_floor(metadata: Optional[Dict[str, Any]]) -> Optional[datetime]:
         parsed = datetime.fromisoformat(str(raw))
     except ValueError:
         logger.warning("Unparseable %s: %r", META_HISTORY_VALID_FROM, raw)
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def history_ceiling(metadata: Optional[Dict[str, Any]]) -> Optional[datetime]:
+    """
+    The first date whose bars no longer belong to this instrument.
+
+    `delisted_at` alone is not enough to make a delisting stick. The routine
+    skip gate honours it, but `--full-backfill` deliberately IGNORES that gate,
+    because a backfill is the repair path for a symbol wrongly flagged. So a
+    single backfill of a delisted-and-reassigned ticker re-imports the
+    successor's prices, and the identity gate does not stop it either — for an
+    equity there is no reference to check against.
+
+    A ceiling is checked by ingestion itself, so it holds whatever the caller
+    asks for.
+    """
+    raw = (metadata or {}).get(META_HISTORY_VALID_UNTIL)
+    if not raw:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(raw))
+    except ValueError:
+        logger.warning("Unparseable %s: %r", META_HISTORY_VALID_UNTIL, raw)
         return None
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
@@ -354,7 +390,15 @@ async def ingest_symbols(
             if floor is not None and window_start < floor:
                 window_start = floor
 
-            if window_start >= end:
+            # And where its real history STOPS. A delisted ticker that was
+            # later reassigned keeps serving prices — they just belong to
+            # somebody else now.
+            ceiling = history_ceiling(asset.metadata)
+            window_end = end
+            if ceiling is not None and window_end > ceiling:
+                window_end = ceiling
+
+            if window_start >= window_end:
                 # Already current. Not an error, and not a fetch.
                 if progress:
                     progress(index, total, symbol)
@@ -363,7 +407,7 @@ async def ingest_symbols(
             call = lambda: fetcher(  # noqa: E731 — bound per iteration
                 [symbol],
                 window_start.strftime("%Y-%m-%d"),
-                end.strftime("%Y-%m-%d"),
+                window_end.strftime("%Y-%m-%d"),
             )
             raw = await run_in_thread(call) if run_in_thread else call()
 
@@ -378,6 +422,9 @@ async def ingest_symbols(
                 # cleaned asset must never see again.
                 if floor is not None and record.ohlcv.timestamp.utc < floor:
                     outcome.skipped_before_floor += 1
+                    continue
+                if ceiling is not None and record.ohlcv.timestamp.utc >= ceiling:
+                    outcome.skipped_after_ceiling += 1
                     continue
                 usable.append(retag(record, asset.asset_class, asset.source))
 

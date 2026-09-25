@@ -305,9 +305,13 @@ def ingest_block_reason(metadata: Optional[dict]) -> Optional[str]:
     if status is None or IdentityCheck(symbol="", status=status).safe_to_ingest:
         return None
     if status is Identity.WRONG_ASSET:
+        # "asset", not "coin": the gate covers equities too. PARA is a stock
+        # whose ticker was reassigned after Paramount Global delisted, and
+        # telling an operator about "the wrong coin" there is the same species
+        # of confidently-wrong message this module keeps having to correct.
         return (
             "the provider serves a DIFFERENT asset under this ticker, so a "
-            "fetch would add more of the wrong coin's history"
+            "fetch would add more of the wrong asset's history"
         )
     return (
         "its identity is unresolved (prices agree but names do not), so it is "
