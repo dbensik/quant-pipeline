@@ -17,6 +17,7 @@ import pytest
 from core.ingest import (
     DEFAULT_BACKFILL_START,
     IngestJob,
+    history_ceiling,
     history_floor,
     implausible_jump,
     ingest_symbols,
@@ -712,3 +713,84 @@ async def test_an_asset_with_no_floor_is_unaffected():
         repo, ["AAPL"], full_backfill=True, fetcher=fetcher_for([], calls)
     )
     assert calls[0][1] == DEFAULT_BACKFILL_START.strftime("%Y-%m-%d")
+
+
+# ---------------------------------------------------------------------------
+# History ceiling — a delisted ticker that was later REASSIGNED
+#
+# PARA's shape. Paramount Global filed a Form 25-NSE on 2025-08-07; from
+# 2026-08-07 the key serves an unrelated penny stock at $1.76. The good
+# history is a PREFIX and the contamination a SUFFIX, which is exactly what a
+# floor cannot express.
+# ---------------------------------------------------------------------------
+
+CEILING_META = {"history_valid_until": "2024-01-04"}
+
+
+def ceiling_repo():
+    return RecordingRepo(assets={
+        "PARA": Asset(symbol="PARA", asset_class="equity",
+                      source="yfinance", metadata=dict(CEILING_META)),
+    })
+
+
+def test_history_ceiling_is_read_from_metadata():
+    assert history_ceiling({}) is None
+    assert history_ceiling(CEILING_META) == datetime(2024, 1, 4, tzinfo=timezone.utc)
+
+
+def test_an_unparseable_ceiling_is_ignored_not_fatal():
+    assert history_ceiling({"history_valid_until": "soon"}) is None
+
+
+@pytest.mark.asyncio
+async def test_bars_after_the_ceiling_are_refused_even_on_a_backfill():
+    """
+    THE regression, and why `delisted_at` alone is not enough: the routine
+    skip gate honours it, but --full-backfill deliberately IGNORES that gate
+    because a backfill is the repair path for a wrongly-flagged symbol. So one
+    backfill re-imports the successor's prices, and the identity gate does not
+    stop an equity either — there is no reference to check it against.
+    """
+    repo = ceiling_repo()
+    report = await ingest_symbols(
+        repo, ["PARA"], full_backfill=True,
+        fetcher=fetcher_for([bar("PARA", i, close=10.0 + i) for i in range(6)]),
+    )
+    # START is 2024-01-01, so days 3..5 fall on or after the 2024-01-04 ceiling.
+    assert report.outcomes[0].skipped_after_ceiling == 3
+    assert len(repo.written) == 3
+    assert all(r.ohlcv.timestamp.utc < datetime(2024, 1, 4, tzinfo=timezone.utc)
+               for r in repo.written)
+
+
+@pytest.mark.asyncio
+async def test_the_fetch_window_end_is_clamped_to_the_ceiling():
+    repo = ceiling_repo()
+    calls = []
+    await ingest_symbols(
+        repo, ["PARA"], full_backfill=True, fetcher=fetcher_for([], calls)
+    )
+    assert calls[0][2] == "2024-01-04"
+
+
+@pytest.mark.asyncio
+async def test_a_ceiling_already_passed_means_no_fetch_at_all():
+    """Once the window starts after the ceiling there is nothing legitimate
+    left to ask for, and the provider must not be called."""
+    repo = ceiling_repo()
+    calls = []
+    await ingest_symbols(
+        repo, ["PARA"], start=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        fetcher=fetcher_for([bar("PARA", 0)], calls),
+    )
+    assert calls == []
+    assert repo.written == []
+
+
+@pytest.mark.asyncio
+async def test_an_asset_with_no_ceiling_is_unaffected():
+    repo = RecordingRepo()
+    calls = []
+    await ingest_symbols(repo, ["AAPL"], fetcher=fetcher_for([], calls))
+    assert calls and calls[0][2] != ""

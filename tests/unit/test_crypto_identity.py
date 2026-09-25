@@ -234,6 +234,8 @@ def test_the_block_reason_names_the_actual_cause():
 
     wrong = ingest_block_reason({"identity_status": "wrong_asset"})
     assert "DIFFERENT asset" in wrong
+    # The gate covers equities: PARA is a stock whose ticker was reassigned.
+    assert "coin" not in wrong
 
     suspect = ingest_block_reason({"identity_status": "suspect"})
     assert "unresolved" in suspect
