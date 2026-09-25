@@ -591,3 +591,32 @@ def test_clearing_one_break_does_not_silence_another():
     )
     assert remaining is not None
     assert remaining.at == first[0]
+
+
+# ---------------------------------------------------------------------------
+# missing_sessions — a hole inside a series
+# ---------------------------------------------------------------------------
+
+from core.corporate_actions import missing_sessions  # noqa: E402
+
+
+def test_a_lost_session_inside_the_span_is_found():
+    """EIX's shape: 08-27 and 08-31 held, the Friday between them lost."""
+    calendar = [date(2026, 8, 26), date(2026, 8, 27), date(2026, 8, 28), date(2026, 8, 31)]
+    held = [date(2026, 8, 26), date(2026, 8, 27), date(2026, 8, 31)]
+    assert missing_sessions(held, calendar) == [date(2026, 8, 28)]
+
+
+def test_sessions_outside_the_span_are_not_holes():
+    """Before the first bar is pre-listing; after the last is staleness."""
+    calendar = [date(2026, 9, d) for d in (1, 2, 3, 4, 8)]
+    assert missing_sessions([date(2026, 9, 2), date(2026, 9, 3)], calendar) == []
+
+
+def test_weekends_and_holidays_are_not_holes_when_absent_from_the_calendar():
+    calendar = [date(2026, 9, 4), date(2026, 9, 8)]  # Labor Day 09-07 closed
+    assert missing_sessions([date(2026, 9, 4), date(2026, 9, 8)], calendar) == []
+
+
+def test_an_empty_series_has_no_holes():
+    assert missing_sessions([], [date(2026, 9, 4)]) == []

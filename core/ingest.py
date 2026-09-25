@@ -36,7 +36,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional, Protocol
 
-from config.settings import MAX_DAILY_MOVE_MULTIPLE
+from config.settings import INGEST_OVERLAP_DAYS, MAX_DAILY_MOVE_MULTIPLE
 from core.corporate_actions import looks_unresolved
 from core.crypto_identity import ingest_block_reason, metadata_allows_ingest
 from core.models import Asset, MarketDataRecord, OHLCV, Timestamp
@@ -72,6 +72,9 @@ class SymbolOutcome:
     fetched: int = 0
     written: int = 0
     skipped_empty: int = 0
+    #: Bars inserted BEHIND the newest stored bar — holes the overlap window
+    #: found and filled. Non-zero means a previous run lost a day.
+    filled: int = 0
     error: Optional[str] = None
     first_bar: Optional[datetime] = None
     last_bar: Optional[datetime] = None
@@ -131,6 +134,14 @@ class IngestReport:
         outcome nobody prints is how 35 corrupt crypto series went two years
         without anyone noticing."""
         return [o.symbol for o in self.outcomes if o.implausible_jumps]
+
+    @property
+    def filled(self) -> Dict[str, int]:
+        """Symbols whose missing bars the overlap window refilled, and how many.
+
+        Each one is a day an earlier run lost. Before the overlap, 463 equities
+        lost 2026-08-28 and nothing said so for a month."""
+        return {o.symbol: o.filled for o in self.outcomes if o.filled}
 
 
 def is_empty_bar(ohlcv: OHLCV) -> bool:
@@ -280,8 +291,9 @@ async def ingest_symbols(
     Args:
         repo:          A MarketDataRepository.
         start/end:     Explicit window. When `start` is omitted the window
-                       begins the day after the symbol's newest stored bar,
-                       so a routine run fetches only what is missing.
+                       begins INGEST_OVERLAP_DAYS before the symbol's newest
+                       stored bar, so a routine run also refills any day an
+                       earlier run lost. Existing bars are never rewritten.
         full_backfill: Ignore stored history and start from
                        DEFAULT_BACKFILL_START.
         fetcher:       Injected so tests never reach the network.
@@ -404,6 +416,19 @@ async def ingest_symbols(
                     progress(index, total, symbol)
                 continue
 
+            # Reach back behind the newest bar. Resuming at newest + 1 cannot
+            # heal a hole: once any later bar is stored, a lost day is never
+            # requested again. Existing bars are untouched (DO NOTHING), so the
+            # overlap only ever INSERTS a missing day. Only for a routine run:
+            # an explicit `start` and a full backfill already say what to fetch.
+            overlapping = (
+                start is None and not full_backfill and newest_stored is not None
+            )
+            if overlapping:
+                window_start = newest_stored - timedelta(days=INGEST_OVERLAP_DAYS)
+                if floor is not None and window_start < floor:
+                    window_start = floor
+
             call = lambda: fetcher(  # noqa: E731 — bound per iteration
                 [symbol],
                 window_start.strftime("%Y-%m-%d"),
@@ -413,9 +438,11 @@ async def ingest_symbols(
 
             outcome.fetched = len(raw)
             usable: List[MarketDataRecord] = []
+            empty_days: List[str] = []
             for record in raw:
                 if is_empty_bar(record.ohlcv):
                     outcome.skipped_empty += 1
+                    empty_days.append(record.ohlcv.timestamp.utc.date().isoformat())
                     continue
                 # Belt and braces: a provider may return bars earlier than the
                 # window it was asked for, and those are exactly the ones a
@@ -451,10 +478,41 @@ async def ingest_symbols(
             # so DO NOTHING is right and cheap. A full backfill exists to
             # RESTATE history — yfinance re-adjusts the whole series for splits
             # as of the fetch date — and DO NOTHING made that a silent no-op.
+            if empty_days:
+                # Logged by date so a lost day can be traced. On 2026-09-22
+                # DXCM's bar never landed across three runs and nothing said
+                # whether Yahoo had served it empty or not at all.
+                logger.info(
+                    "%s: dropped %d empty bar(s): %s",
+                    symbol, len(empty_days), ", ".join(sorted(empty_days)),
+                )
+
+            # Bars behind the newest stored one can only be holes being filled
+            # — the overlap re-requests days already held, and DO NOTHING
+            # discards those. Written as their own batch so the fill is counted.
             persisted = 0
-            for start_index in range(0, len(usable), WRITE_BATCH):
+            if overlapping:
+                behind = [r for r in usable if r.ohlcv.timestamp.utc < newest_stored]
+                usable_new = [
+                    r for r in usable if r.ohlcv.timestamp.utc >= newest_stored
+                ]
+                for start_index in range(0, len(behind), WRITE_BATCH):
+                    outcome.filled += await repo.write(
+                        behind[start_index : start_index + WRITE_BATCH],
+                        replace=False,
+                    ) or 0
+                persisted += outcome.filled
+                if outcome.filled:
+                    logger.warning(
+                        "%s: filled %d missing bar(s) behind the newest stored "
+                        "bar — a previous run lost them.",
+                        symbol, outcome.filled,
+                    )
+            else:
+                usable_new = usable
+            for start_index in range(0, len(usable_new), WRITE_BATCH):
                 persisted += await repo.write(
-                    usable[start_index : start_index + WRITE_BATCH],
+                    usable_new[start_index : start_index + WRITE_BATCH],
                     replace=full_backfill,
                 ) or 0
 
@@ -473,7 +531,15 @@ async def ingest_symbols(
             # "Gone from the provider" is NOT the same as delisted — it is also
             # what a rename looks like, which is how three live S&P 500 names
             # got marked dead. Hence the warning: this stamp needs a human.
-            if not raw and looks_unresolved(newest_stored, len(raw)):
+            #
+            # "Empty" means nothing NEWER than what is stored. The overlap
+            # re-serves bars already held, and counting those would stop a dead
+            # symbol from ever being flagged.
+            newer = [
+                r for r in raw
+                if newest_stored is None or r.ohlcv.timestamp.utc > newest_stored
+            ]
+            if not newer and looks_unresolved(newest_stored, len(newer)):
                 outcome.delisted = True
                 logger.warning(
                     "%s: unresolved at the provider — MAY BE A RENAME, not a "
@@ -502,10 +568,9 @@ async def _newest_bar(repo: Any, symbol: str) -> Optional[datetime]:
     """
     Timestamp of the newest stored bar, or None if there are none.
 
-    The resume point is this + 1 day: fetch_range is inclusive at both ends, so
-    re-requesting the last stored date would re-download a bar the upsert then
-    discards. It is also what decides whether an empty fetch means "current" or
-    "delisted".
+    This + 1 day decides whether a symbol is already current (no fetch at all),
+    and bars newer than it decide whether a fetch means "current" or
+    "delisted". The fetch itself reaches INGEST_OVERLAP_DAYS further back.
     """
     records = await repo.fetch_range(
         symbol=symbol,

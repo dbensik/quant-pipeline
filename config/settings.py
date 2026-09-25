@@ -237,6 +237,16 @@ CRYPTO_ID_OVERRIDES = {
 #: and would open a hole indistinguishable from a provider outage.
 MAX_DAILY_MOVE_MULTIPLE = 10.0
 
+# --- Incremental ingest overlap (core/ingest.py) ---
+#: An incremental run re-requests this many calendar days BEFORE the newest
+#: stored bar, inserting only bars that are missing (existing ones are never
+#: touched). Before 2026-09-25 the window began the day after the newest bar,
+#: so a day lost while a later one landed was never requested again: 463 of
+#: 527 equities lost 2026-08-28 around a four-morning DB outage, and DXCM/MGM
+#: lost 2026-09-22 when Yahoo errored and then served nothing usable for that
+#: day for two more runs. 14 days covers a week-long outage plus that lag.
+INGEST_OVERLAP_DAYS = 14
+
 # --- Reassigned tickers (core/corporate_actions.detect_reassignment) ---
 #: A ticker reassigned to another company shows up as a collapse in DOLLAR
 #: volume (close x volume): a split leaves it roughly unchanged, a crash usually

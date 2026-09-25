@@ -22,6 +22,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import delete, select, text
 
+from config.settings import INGEST_OVERLAP_DAYS
 from core.ingest import ingest_symbols
 from core.models import OHLCV, Asset, MarketDataRecord, Timestamp
 from db.models import AssetORM, MarketDataORM
@@ -132,18 +133,38 @@ async def test_the_asset_class_on_disk_is_not_overwritten(repo):
     assert classes == ["crypto"], "a duplicate asset row was created"
 
 
-async def test_a_second_run_resumes_rather_than_refetching(repo):
+async def test_a_second_run_refills_a_lost_day_without_duplicating(repo):
+    """
+    The overlap against the real DO NOTHING insert. The first run stores June 1
+    and 3 — June 2 lost, as 2026-08-28 was for 463 equities. The second run
+    reaches back INGEST_OVERLAP_DAYS, is served June 1-5, and must insert only
+    the hole and the new days: five rows, no duplicate, nothing rewritten.
+    """
     calls = []
 
-    def recording(symbols, start_date, end_date):
-        calls.append(start_date)
-        return stub_fetcher(3)(symbols, start_date, end_date)
+    def served(days):
+        def fetch(symbols, start_date, end_date):
+            calls.append(start_date)
+            return [
+                r for r in stub_fetcher(5)(symbols, START.strftime("%Y-%m-%d"), end_date)
+                if (r.ohlcv.timestamp.utc - START).days in days
+            ]
+        return fetch
 
-    await ingest_symbols(repo, [SYMBOL], start=START, fetcher=recording)
-    await ingest_symbols(repo, [SYMBOL], fetcher=recording)
+    await ingest_symbols(repo, [SYMBOL], start=START, fetcher=served({0, 2}))
+    report = await ingest_symbols(repo, [SYMBOL], fetcher=served({0, 1, 2, 3, 4}))
 
-    # First run wrote 2024-06-01..03; the resume must begin on the 4th.
-    assert calls[1] == (START + timedelta(days=3)).strftime("%Y-%m-%d")
+    newest_after_first = START + timedelta(days=2)
+    assert calls[1] == (
+        newest_after_first - timedelta(days=INGEST_OVERLAP_DAYS)
+    ).strftime("%Y-%m-%d")
+    assert report.outcomes[0].filled == 1
+    assert report.outcomes[0].written == 3
+    rows = await repo.fetch_range(
+        symbol=SYMBOL, asset_class=None,
+        start=START - timedelta(days=1), end=START + timedelta(days=10),
+    )
+    assert [(r.ohlcv.timestamp.utc - START).days for r in rows] == [0, 1, 2, 3, 4]
 
 
 async def test_ingested_bars_are_readable_through_the_repository(repo):

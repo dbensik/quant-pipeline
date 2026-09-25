@@ -605,3 +605,25 @@ def detect_reassignment(
             worst = candidate
         i += window  # the rest of this cluster is the same event
     return worst
+
+
+def missing_sessions(
+    held: Sequence[date], calendar: Sequence[date]
+) -> List[date]:
+    """
+    Trading sessions inside a series' own span that it has no bar for.
+
+    Only INSIDE the span: before the first bar is "not yet listed" and after
+    the last is staleness, which the freshness badge already reports. A hole in
+    the middle is what nothing else sees — incremental ingest resumed after the
+    newest bar, so a day lost while a later one landed was never requested
+    again. 463 equities lost 2026-08-28 that way, found a month later by chance.
+
+    `calendar` must come from outside the series being checked. Measured with
+    each symbol against itself, a day missing everywhere is missing nowhere.
+    """
+    if not held:
+        return []
+    first, last = min(held), max(held)
+    have = set(held)
+    return [d for d in calendar if first < d < last and d not in have]

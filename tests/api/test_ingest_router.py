@@ -65,14 +65,15 @@ def test_explicit_start_is_passed_through(client: TestClient, fetcher):
     assert fetcher.calls[-1][1] == "2020-03-01"
 
 
-def test_resume_starts_after_the_newest_stored_bar(client: TestClient, fetcher):
+def test_resume_reaches_back_behind_the_newest_stored_bar(client: TestClient, fetcher):
     """
     The fixture repo holds 400 daily bars from 2024-01-01, so the newest is
-    2025-02-03; fetch_range is inclusive, so the request must begin the day
-    after or it re-downloads a bar the upsert discards.
+    2025-02-03. A routine run reaches INGEST_OVERLAP_DAYS (14) behind it so a
+    day an earlier run lost is requested again — starting the day after could
+    never heal a hole. Existing bars are not rewritten (DO NOTHING).
     """
     ingest(client)
-    assert fetcher.calls[-1][1] == "2025-02-04"
+    assert fetcher.calls[-1][1] == "2025-01-20"
 
 
 # ---------------------------------------------------------------------------

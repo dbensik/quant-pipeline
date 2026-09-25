@@ -61,8 +61,9 @@ says which symbols have drifted.
 ```bash
 launchctl print gui/$(id -u)/com.dbensik.quant-pipeline.daily-maintenance
 scripts/launchd/install.sh                  # (re)install after editing the plist
-scripts/cron/daily_maintenance.sh           # ingest, reassigned-ticker check, snapshot
+scripts/cron/daily_maintenance.sh           # ingest, reassigned + missing-day checks, snapshot
 scripts/check_reassigned.py                 # the check alone; read-only, exit 1 = flagged
+scripts/check_missing_days.py               # holes inside series; read-only, exit 1 = lost bars
 tail -f logs/daily_maintenance.log
 ```
 
@@ -120,6 +121,16 @@ leaves dollar volume unchanged, and a reassignment can arrive with no hole.
 Clear a reviewed break by adding its date to `metadata.reassignment_cleared` (a
 list) — details in the script's docstring. Crypto is excluded: it has its own
 guard, and stETH/DAI-style volume shifts would fire daily.
+
+**Ingest re-requests the last 14 days (`INGEST_OVERLAP_DAYS`), inserting only
+missing bars** (since 2026-09-25). Before that it resumed the day after the
+newest bar, so a day lost while a later one landed was never requested again:
+463 of 527 equities silently lost 2026-08-28 for a month. Existing bars are
+never rewritten by the overlap. `scripts/check_missing_days.py` then reports any
+hole older than the overlap; fill one with
+`python -m cli.run_pipeline --symbols X --start YYYY-MM-DD` (insert-only,
+refused alongside `--full-backfill`), or accept a day Yahoo no longer serves via
+`metadata.missing_days_accepted`.
 
 **Universe snapshots cannot be backdated.** A missed day is a permanent gap in
 point-in-time membership, and membership is what makes survivorship-free

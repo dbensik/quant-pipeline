@@ -21,7 +21,7 @@ from cli import run_pipeline
 
 
 def args(**overrides) -> argparse.Namespace:
-    defaults = {"symbols": None, "full_backfill": False, "dry_run": False}
+    defaults = {"symbols": None, "full_backfill": False, "dry_run": False, "start": None}
     return argparse.Namespace(**{**defaults, **overrides})
 
 
@@ -36,6 +36,8 @@ class FakeReport:
     #: jump is reported — both get a line in the CLI summary.
     skipped_identity: list = []
     implausible: list = []
+    #: Symbol -> bars the overlap window refilled behind the newest bar.
+    filled: dict = {}
 
 
 @pytest.mark.asyncio
@@ -153,3 +155,31 @@ async def test_naming_symbols_on_the_command_line_disables_the_skip():
         await run_pipeline.run(args(symbols=["BNY"]))
 
     assert ingest.await_args.kwargs["skip_delisted"] is False
+
+
+@pytest.mark.asyncio
+async def test_start_is_passed_through_as_utc_midnight_and_never_overwrites():
+    """
+    --start exists to fill a hole older than the routine overlap. It must reach
+    ingest as an explicit start and must NOT imply a backfill: filling is an
+    insert, and a backfill would rewrite every bar in the window.
+    """
+    from datetime import date, datetime, timezone
+
+    with (
+        patch.object(run_pipeline, "ingest_symbols", new=AsyncMock(return_value=FakeReport())) as ingest,
+        patch.object(run_pipeline, "get_session"),
+    ):
+        await run_pipeline.run(args(symbols=["EIX"], start=date(2026, 8, 27)))
+
+    assert ingest.await_args.kwargs["start"] == datetime(2026, 8, 27, tzinfo=timezone.utc)
+    assert ingest.await_args.kwargs["full_backfill"] is False
+
+
+def test_start_with_full_backfill_is_refused(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv", ["run_pipeline", "--start", "2026-08-27", "--full-backfill"]
+    )
+    with pytest.raises(SystemExit) as exit_info:
+        run_pipeline.main()
+    assert exit_info.value.code == 2

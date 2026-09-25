@@ -125,6 +125,25 @@ if [ "$MODE" != "--snapshot-only" ]; then
     fi
 fi
 
+# Holes INSIDE a series. Ingest re-requests the last 14 days and refills a
+# recent hole by itself; this reports the ones it can no longer reach. Found
+# 2026-09-25: 463 equities had silently lost 2026-08-28 a month earlier.
+# Flags only; filling is `python -m cli.run_pipeline --symbols ... --start ...`.
+if [ "$MODE" != "--snapshot-only" ]; then
+    log "--- missing-day check ---"
+    "$VENV_PYTHON" scripts/check_missing_days.py >> "$LOG_FILE" 2>&1
+    CHECK_EXIT=$?
+    if [ "$CHECK_EXIT" -eq 0 ]; then
+        log "missing-day check OK"
+    elif [ "$CHECK_EXIT" -eq 1 ]; then
+        log "missing-day check FLAGGED lost bars — see MISSING lines above"
+        FLAGGED=1
+    else
+        log "missing-day check FAILED to run (exit $CHECK_EXIT)"
+        STATUS=1
+    fi
+fi
+
 if [ "$MODE" != "--ingest-only" ]; then
     log "--- universe snapshot ---"
     if "$VENV_PYTHON" scripts/snapshot_universes.py >> "$LOG_FILE" 2>&1; then
@@ -153,7 +172,7 @@ if [ "$STATUS" -ne 0 ] && [ ! -t 1 ]; then
 fi
 
 if [ "$FLAGGED" -eq 1 ] && [ ! -t 1 ]; then
-    osascript -e 'display notification "A stored series looks like a different company - see SUSPECT in logs/daily_maintenance.log. Nothing was changed." with title "quant-pipeline daily maintenance"' >/dev/null 2>&1 || true
+    osascript -e 'display notification "A check flagged stored data - see SUSPECT or MISSING in logs/daily_maintenance.log. Nothing was changed." with title "quant-pipeline daily maintenance"' >/dev/null 2>&1 || true
 fi
 
 # Keep the log from growing without bound; 30 days is plenty to notice a

@@ -32,6 +32,7 @@ import argparse
 import asyncio
 import logging
 import sys
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -67,7 +68,12 @@ async def run(args: argparse.Namespace) -> int:
             logger.error("No symbols to ingest — the asset registry is empty.")
             return 1
 
-        mode = "FULL BACKFILL (restating history)" if args.full_backfill else "resume"
+        if args.full_backfill:
+            mode = "FULL BACKFILL (restating history)"
+        elif args.start:
+            mode = f"insert-only from {args.start}"
+        else:
+            mode = "resume"
         logger.info("%d symbol(s), mode: %s", len(symbols), mode)
 
         if args.dry_run:
@@ -82,9 +88,15 @@ async def run(args: argparse.Namespace) -> int:
             # redirected to a log.
             logger.info("[%d/%d] %s", done, total, symbol)
 
+        start = args.start
         report = await ingest_symbols(
             repo=repo,
             symbols=symbols,
+            start=(
+                datetime.combine(start, datetime.min.time(), tzinfo=timezone.utc)
+                if start
+                else None
+            ),
             full_backfill=args.full_backfill,
             progress=progress,
             # A resume over the whole registry skips symbols already flagged
@@ -98,6 +110,16 @@ async def run(args: argparse.Namespace) -> int:
         report.written,
         len(report.symbols),
     )
+    if report.filled:
+        # Every one of these is a day an earlier run lost. A handful after an
+        # outage is the overlap working; the same symbols every day would mean
+        # the provider keeps withholding a day, which deserves a look.
+        logger.warning(
+            "Filled %d missing bar(s) across %d symbol(s): %s",
+            sum(report.filled.values()),
+            len(report.filled),
+            ", ".join(report.filled),
+        )
     if report.skipped_delisted:
         logger.info(
             "Skipped %d symbol(s) already flagged unresolved: %s",
@@ -149,9 +171,22 @@ def main() -> int:
         help="Refetch from 2015 and OVERWRITE stored bars (fixes split drift).",
     )
     parser.add_argument(
+        "--start",
+        type=date.fromisoformat,
+        help=(
+            "Fetch from this date (YYYY-MM-DD) and INSERT only missing bars — "
+            "never rewrites. Fills a hole older than the routine overlap; see "
+            "scripts/check_missing_days.py."
+        ),
+    )
+    parser.add_argument(
         "--dry-run", action="store_true", help="Report the plan; write nothing."
     )
     args = parser.parse_args()
+    if args.start and args.full_backfill:
+        # Opposite intents: --start inserts what is missing, --full-backfill
+        # overwrites everything. Guessing which was meant could destroy bars.
+        parser.error("--start and --full-backfill cannot be combined.")
 
     try:
         return asyncio.run(run(args))

@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from config.settings import INGEST_OVERLAP_DAYS
 from core.ingest import (
     DEFAULT_BACKFILL_START,
     IngestJob,
@@ -148,15 +149,16 @@ async def test_a_symbol_with_no_history_backfills_from_the_default():
 
 
 @pytest.mark.asyncio
-async def test_resume_starts_the_day_after_the_newest_stored_bar():
+async def test_resume_reaches_back_behind_the_newest_stored_bar():
     """
-    fetch_range is inclusive at both ends, so requesting the stored date
-    itself would re-download a bar the upsert then discards.
+    Starting the day after the newest bar could never heal a hole: once a later
+    bar was stored, a lost day was never requested again. 463 equities lost
+    2026-08-28 that way. The window now overlaps what is already held.
     """
     calls = []
-    repo = RecordingRepo(existing={"AAPL": [bar("AAPL", 0), bar("AAPL", 5)]})
+    repo = RecordingRepo(existing={"AAPL": [bar("AAPL", 0), bar("AAPL", 30)]})
     await ingest_symbols(repo, ["AAPL"], fetcher=fetcher_for([], calls))
-    expected = (START + timedelta(days=6)).strftime("%Y-%m-%d")
+    expected = (START + timedelta(days=30 - INGEST_OVERLAP_DAYS)).strftime("%Y-%m-%d")
     assert calls[0][1] == expected
 
 
@@ -794,3 +796,123 @@ async def test_an_asset_with_no_ceiling_is_unaffected():
     calls = []
     await ingest_symbols(repo, ["AAPL"], fetcher=fetcher_for([], calls))
     assert calls and calls[0][2] != ""
+
+
+
+# ---------------------------------------------------------------------------
+# Overlap — refilling a day an earlier run lost
+# ---------------------------------------------------------------------------
+
+class KeyedRepo(RecordingRepo):
+    """Honours the primary key the way the real DO NOTHING insert does."""
+
+    def __init__(self, existing):
+        super().__init__(existing=existing)
+        self.held = {
+            (r.asset.symbol, r.ohlcv.timestamp.utc)
+            for rows in existing.values() for r in rows
+        }
+
+    async def write(self, records, replace: bool = False):
+        self.replace_calls.append(replace)
+        accepted = 0
+        for r in records:
+            key = (r.asset.symbol, r.ohlcv.timestamp.utc)
+            if key in self.held and not replace:
+                continue
+            self.held.add(key)
+            self.written.append(r)
+            accepted += 1
+        return accepted
+
+
+def recent(day_offset, close=100.0):
+    """A bar `day_offset` days before now, so looks_unresolved sees it as fresh."""
+    stamp = datetime.now(timezone.utc).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    ) - timedelta(days=day_offset)
+    return MarketDataRecord(
+        asset=Asset(symbol="AAPL", asset_class="equity", source="yfinance"),
+        ohlcv=OHLCV(open=close, high=close, low=close, close=close,
+                    volume=1000.0, timestamp=Timestamp(utc=stamp)),
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_lost_day_behind_the_newest_bar_is_filled_and_counted():
+    """DXCM's shape: bars on days 5 and 3 held, day 4 lost, provider now has it."""
+    repo = KeyedRepo(existing={"AAPL": [recent(5), recent(3)]})
+    report = await ingest_symbols(
+        repo, ["AAPL"],
+        fetcher=fetcher_for([recent(5), recent(4), recent(3), recent(2)]),
+    )
+    outcome = report.outcomes[0]
+    assert outcome.filled == 1
+    assert outcome.written == 2  # the hole plus the genuinely new day
+    assert sorted(r.ohlcv.timestamp.utc for r in repo.written) == [
+        recent(4).ohlcv.timestamp.utc, recent(2).ohlcv.timestamp.utc,
+    ]
+    assert not outcome.delisted
+
+
+@pytest.mark.asyncio
+async def test_the_overlap_never_rewrites_a_bar_already_held():
+    """Re-served bars are discarded, not restated — that is a backfill's job."""
+    repo = KeyedRepo(existing={"AAPL": [recent(5), recent(3)]})
+    report = await ingest_symbols(
+        repo, ["AAPL"],
+        fetcher=fetcher_for([recent(5, close=1.0), recent(3, close=1.0)]),
+    )
+    assert report.outcomes[0].written == 0
+    assert report.outcomes[0].filled == 0
+    assert repo.written == []
+    assert True not in repo.replace_calls
+
+
+@pytest.mark.asyncio
+async def test_a_dead_symbol_is_still_flagged_when_old_bars_come_back():
+    """
+    The overlap means a dead symbol's fetch can return bars — the ones already
+    held. Counting those as "served" would stop it ever being flagged.
+    """
+    repo = KeyedRepo(existing={"AAPL": [bar("AAPL", 0), bar("AAPL", 1)]})
+    report = await ingest_symbols(
+        repo, ["AAPL"], fetcher=fetcher_for([bar("AAPL", 0), bar("AAPL", 1)]),
+    )
+    assert report.outcomes[0].delisted
+
+
+@pytest.mark.asyncio
+async def test_the_overlap_does_not_reach_behind_a_history_floor():
+    calls = []
+    floor_day = START + timedelta(days=25)
+    repo = RecordingRepo(existing={"AAPL": [bar("AAPL", 26), bar("AAPL", 30)]})
+    repo.assets["AAPL"] = Asset(
+        symbol="AAPL", asset_class="equity", source="yfinance",
+        metadata={"history_valid_from": floor_day.date().isoformat()},
+    )
+    await ingest_symbols(repo, ["AAPL"], fetcher=fetcher_for([], calls))
+    assert calls[0][1] == floor_day.strftime("%Y-%m-%d")
+
+
+@pytest.mark.asyncio
+async def test_dropped_empty_bars_are_logged_by_date(caplog):
+    repo = KeyedRepo(existing={"AAPL": [recent(5)]})
+    empty = recent(4)
+    empty.ohlcv.open = empty.ohlcv.high = empty.ohlcv.low = empty.ohlcv.close = None
+    with caplog.at_level("INFO", logger="core.ingest"):
+        await ingest_symbols(repo, ["AAPL"], fetcher=fetcher_for([empty, recent(3)]))
+    day = empty.ohlcv.timestamp.utc.date().isoformat()
+    assert any("dropped 1 empty bar(s): " + day in m for m in caplog.messages)
+
+
+@pytest.mark.asyncio
+async def test_a_full_backfill_counts_nothing_as_filled():
+    """A backfill restates everything; `filled` is only about the overlap."""
+    repo = KeyedRepo(existing={"AAPL": [recent(5), recent(3)]})
+    report = await ingest_symbols(
+        repo, ["AAPL"], full_backfill=True,
+        fetcher=fetcher_for([recent(5), recent(4), recent(3)]),
+    )
+    assert report.outcomes[0].filled == 0
+    assert report.outcomes[0].written == 3
