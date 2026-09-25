@@ -59,6 +59,9 @@ trap 'rm -f "$LOCK_FILE"' EXIT
 
 MODE="${1:-all}"
 STATUS=0
+# Kept apart from STATUS: a flagged series is a finding, not a failed step,
+# and deserves its own notification rather than one about lost index-days.
+FLAGGED=0
 
 log() { echo "$(date '+%Y-%m-%d %H:%M:%S') - $*" >> "$LOG_FILE"; }
 
@@ -102,6 +105,26 @@ if [ "$MODE" != "--snapshot-only" ]; then
     fi
 fi
 
+# Right after ingest, because ingest is what appends another company's bars
+# under a reassigned ticker. Flags only; writes nothing. On 2026-08-07 Yahoo's
+# PARA key began serving a penny stock and 32 of its bars were appended to
+# Paramount's history before anyone looked — found only by a manual run of
+# scripts/find_successors.py. See scripts/check_reassigned.py.
+if [ "$MODE" != "--snapshot-only" ]; then
+    log "--- reassigned-ticker check ---"
+    "$VENV_PYTHON" scripts/check_reassigned.py >> "$LOG_FILE" 2>&1
+    CHECK_EXIT=$?
+    if [ "$CHECK_EXIT" -eq 0 ]; then
+        log "reassignment check OK"
+    elif [ "$CHECK_EXIT" -eq 1 ]; then
+        log "reassignment check FLAGGED a series — see SUSPECT lines above"
+        FLAGGED=1
+    else
+        log "reassignment check FAILED to run (exit $CHECK_EXIT)"
+        STATUS=1
+    fi
+fi
+
 if [ "$MODE" != "--ingest-only" ]; then
     log "--- universe snapshot ---"
     if "$VENV_PYTHON" scripts/snapshot_universes.py >> "$LOG_FILE" 2>&1; then
@@ -112,7 +135,9 @@ if [ "$MODE" != "--ingest-only" ]; then
     fi
 fi
 
-log "=== daily maintenance finished (exit $STATUS) ==="
+EXIT=$STATUS
+[ "$FLAGGED" -eq 1 ] && EXIT=1
+log "=== daily maintenance finished (exit $EXIT) ==="
 
 # Surface a failure where a human will actually see it.
 #
@@ -124,7 +149,11 @@ log "=== daily maintenance finished (exit $STATUS) ==="
 # Skipped when stdout is a terminal, so running this by hand does not fire a
 # notification at the person who just ran it and is already reading the output.
 if [ "$STATUS" -ne 0 ] && [ ! -t 1 ]; then
-    osascript -e 'display notification "Snapshot or ingest failed - see logs/daily_maintenance.log. Missed index-days cannot be backdated." with title "quant-pipeline daily maintenance"' >/dev/null 2>&1 || true
+    osascript -e 'display notification "Snapshot, ingest or a check failed - see logs/daily_maintenance.log. Missed index-days cannot be backdated." with title "quant-pipeline daily maintenance"' >/dev/null 2>&1 || true
+fi
+
+if [ "$FLAGGED" -eq 1 ] && [ ! -t 1 ]; then
+    osascript -e 'display notification "A stored series looks like a different company - see SUSPECT in logs/daily_maintenance.log. Nothing was changed." with title "quant-pipeline daily maintenance"' >/dev/null 2>&1 || true
 fi
 
 # Keep the log from growing without bound; 30 days is plenty to notice a
@@ -133,4 +162,4 @@ if [ -f "$LOG_FILE" ]; then
     tail -n 20000 "$LOG_FILE" > "$LOG_FILE.tmp" && mv "$LOG_FILE.tmp" "$LOG_FILE"
 fi
 
-exit "$STATUS"
+exit "$EXIT"

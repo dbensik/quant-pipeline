@@ -49,6 +49,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
+from statistics import median
 from typing import Callable, List, Mapping, Optional, Sequence
 
 logger = logging.getLogger(__name__)
@@ -506,3 +507,101 @@ def max_gap(days: Sequence[date]) -> tuple[int, Optional[date]]:
         if span > worst:
             worst, at = span, later
     return worst, at
+
+
+@dataclass(frozen=True)
+class ReassignmentBreak:
+    """Where a series stops looking like the instrument it started as."""
+
+    at: date  # first bar of the suspect regime
+    prior_dollar_volume: float  # median close*volume over the window before
+    after_dollar_volume: float  # ... and after
+    price_ratio: float  # median close before / after — context, not the test
+    gap_days: int  # calendar days between the last good bar and `at`
+
+    @property
+    def collapse(self) -> float:
+        if self.after_dollar_volume <= 0:
+            return float("inf")
+        return self.prior_dollar_volume / self.after_dollar_volume
+
+    def describe(self) -> str:
+        return (
+            f"dollar volume fell {self.collapse:,.0f}x at {self.at} "
+            f"(${self.prior_dollar_volume:,.0f}/day -> "
+            f"${self.after_dollar_volume:,.0f}/day), price ratio "
+            f"{self.price_ratio:.2f}, {self.gap_days}-day gap before it"
+        )
+
+
+def detect_reassignment(
+    bars: Sequence[tuple[date, Optional[float], Optional[float]]],
+    window: int,
+    min_collapse: float,
+    min_prior_dollar_volume: float,
+    cleared: frozenset[date] = frozenset(),
+) -> Optional[ReassignmentBreak]:
+    """
+    The worst dollar-volume collapse in a series of (day, close, volume), or
+    None if nothing crosses both thresholds.
+
+    WHY DOLLAR VOLUME AND NOT THE HOLE. PARA had a 388-day hole, but the ingest
+    outage made it, not the reassignment. With the daily job running, a dead
+    ticker's key can pass to another company with no hole at all — and Yahoo
+    re-keyed PARA's ENTIRE history, so even a backfill would be contiguous. What
+    cannot be hidden is the market: $196M a day of Paramount became ~$440k of a
+    penny stock. A split leaves close*volume roughly unchanged; a real crash
+    usually raises it. `max_gap` is reported beside the break as context only.
+
+    Medians, not means: one block trade or one zero-volume day must not move
+    the verdict. The window after a boundary needs only half its length, so a
+    reassignment is reported ~two weeks after it starts rather than four.
+
+    `cleared` holds break dates a human has reviewed and judged genuine. A
+    cleared break is skipped and the scan CONTINUES, so a different break in
+    the same series is still reported — filtering the result afterwards would
+    let clearing the worst break silence every weaker one.
+
+    Flags; never writes. Deciding a series is another company is a human call.
+    """
+    clean = [(d, c, v) for d, c, v in bars if c is not None and v is not None]
+    if len(clean) < window + window // 2:
+        return None
+    dv = [c * v for _, c, v in clean]
+    worst: Optional[ReassignmentBreak] = None
+    i = window
+    while i <= len(clean) - window // 2:
+        prior = median(dv[i - window:i])
+        after = median(dv[i:i + window])
+        # A median barely moves when one bar crosses the boundary, so every
+        # boundary within half a window of the real one scores alike. Anchor
+        # it: report the FIRST bar below the midpoint whose three predecessors
+        # are still above it. Without this the break is reported at the last
+        # GOOD bar, and a boundary with under half a window of new bars behind
+        # it slips through. Three bars, not one, so a single zero-volume
+        # session just before the break cannot hide it.
+        midpoint = (prior * after) ** 0.5
+        if (
+            prior < min_prior_dollar_volume
+            or (after > 0 and prior / after < min_collapse)
+            or not (median(dv[i - 3:i]) >= midpoint > dv[i])
+        ):
+            i += 1
+            continue
+        if clean[i][0] in cleared:
+            i += window
+            continue
+        candidate = ReassignmentBreak(
+            at=clean[i][0],
+            prior_dollar_volume=prior,
+            after_dollar_volume=after,
+            price_ratio=(
+                median(c for _, c, _ in clean[i - window:i])
+                / max(median(c for _, c, _ in clean[i:i + window]), 1e-12)
+            ),
+            gap_days=(clean[i][0] - clean[i - 1][0]).days,
+        )
+        if worst is None or candidate.collapse > worst.collapse:
+            worst = candidate
+        i += window  # the rest of this cluster is the same event
+    return worst

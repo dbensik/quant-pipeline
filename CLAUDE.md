@@ -61,7 +61,8 @@ says which symbols have drifted.
 ```bash
 launchctl print gui/$(id -u)/com.dbensik.quant-pipeline.daily-maintenance
 scripts/launchd/install.sh                  # (re)install after editing the plist
-scripts/cron/daily_maintenance.sh           # ingest, then snapshot indexes
+scripts/cron/daily_maintenance.sh           # ingest, reassigned-ticker check, snapshot
+scripts/check_reassigned.py                 # the check alone; read-only, exit 1 = flagged
 tail -f logs/daily_maintenance.log
 ```
 
@@ -109,6 +110,16 @@ for exactly this reason: they paginate at 25 rows.
 Bounds are loose on purpose — they catch a changed source shape, not index
 turnover. A check that fires on legitimate reconstitution gets ignored, then
 deleted.
+
+**After ingest, `scripts/check_reassigned.py` flags any equity or ETF whose
+dollar volume collapses 20x or more** (added 2026-09-24). This is the guard for
+PARA's failure: a delisted ticker's key re-issued to another company, whose bars
+the daily job then appended. A flag exits 1 and posts its own notification; it
+writes nothing. The signal is dollar volume, not a hole in the dates. A split
+leaves dollar volume unchanged, and a reassignment can arrive with no hole.
+Clear a reviewed break by adding its date to `metadata.reassignment_cleared` (a
+list) — details in the script's docstring. Crypto is excluded: it has its own
+guard, and stETH/DAI-style volume shifts would fire daily.
 
 **Universe snapshots cannot be backdated.** A missed day is a permanent gap in
 point-in-time membership, and membership is what makes survivorship-free

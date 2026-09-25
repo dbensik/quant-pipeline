@@ -424,3 +424,170 @@ def test_a_normal_series_has_no_meaningful_hole():
 def test_max_gap_of_a_short_series_is_empty():
     assert max_gap([]) == (0, None)
     assert max_gap([date(2026, 9, 10)]) == (0, None)
+
+
+# ---------------------------------------------------------------------------
+# detect_reassignment — a dead ticker's key serving another company
+# ---------------------------------------------------------------------------
+#
+# Synthetic, because the evidence is gone: the 32 contaminated PARA bars were
+# deleted on 2026-09-24. Levels are from research/para-findings-2026-09-24.md —
+# Paramount near $14 on ~14M shares, the successor near $1.76 on 100-400k.
+
+from config.settings import (  # noqa: E402
+    REASSIGNMENT_MIN_COLLAPSE,
+    REASSIGNMENT_MIN_PRIOR_DOLLAR_VOLUME,
+    REASSIGNMENT_WINDOW_BARS,
+)
+from core.corporate_actions import detect_reassignment  # noqa: E402
+
+
+def trading_days(start, n):
+    out, d = [], start
+    while len(out) < n:
+        if d.weekday() < 5:
+            out.append(d)
+        d += timedelta(days=1)
+    return out
+
+
+def bars(days, close, volume):
+    """Deterministic +-3% wobble so medians are not trivially flat."""
+    return [
+        (d, close * (1 + 0.03 * ((i % 5) - 2) / 2), volume * (1 + 0.2 * ((i % 7) - 3) / 3))
+        for i, d in enumerate(days)
+    ]
+
+
+def detect(series):
+    return detect_reassignment(
+        series,
+        window=REASSIGNMENT_WINDOW_BARS,
+        min_collapse=REASSIGNMENT_MIN_COLLAPSE,
+        min_prior_dollar_volume=REASSIGNMENT_MIN_PRIOR_DOLLAR_VOLUME,
+    )
+
+
+PARAMOUNT = trading_days(date(2025, 3, 3), 95)  # ends mid-July 2025
+
+
+def test_para_after_the_outage_hole_is_flagged():
+    """The case as it happened: real bars, 388 days of nothing, a penny stock."""
+    successor = trading_days(date(2026, 8, 7), 32)
+    found = detect(bars(PARAMOUNT, 14.0, 14e6) + bars(successor, 1.76, 250e3))
+    assert found is not None
+    assert found.at == date(2026, 8, 7)
+    assert found.collapse > 100
+    assert found.gap_days > 300
+    assert found.price_ratio > 5
+
+
+def test_para_without_any_hole_is_still_flagged():
+    """
+    The case that proves the detector does not lean on the gap. With the daily
+    job running, a reassigned key can arrive the very next session — and Yahoo
+    re-keyed PARA's whole history, so a backfill would be contiguous too.
+    """
+    successor = trading_days(PARAMOUNT[-1] + timedelta(days=1), 32)
+    found = detect(bars(PARAMOUNT, 14.0, 14e6) + bars(successor, 1.76, 250e3))
+    assert found is not None
+    assert found.at == successor[0]
+    assert found.gap_days <= 4
+
+
+def test_a_split_is_not_a_reassignment():
+    """A 2:1 halves the price and doubles the volume; dollar volume holds."""
+    after = trading_days(PARAMOUNT[-1] + timedelta(days=1), 40)
+    assert detect(bars(PARAMOUNT, 14.0, 14e6) + bars(after, 7.0, 28e6)) is None
+
+
+def test_a_crash_on_heavy_volume_is_not_a_reassignment():
+    """A real -70% day brings MORE trading, not less."""
+    after = trading_days(PARAMOUNT[-1] + timedelta(days=1), 40)
+    assert detect(bars(PARAMOUNT, 14.0, 14e6) + bars(after, 4.2, 30e6)) is None
+
+
+def test_a_suspension_that_resumes_at_the_same_level_is_not_flagged():
+    """A 45-day halt leaves a hole but the same company on the other side."""
+    after = trading_days(PARAMOUNT[-1] + timedelta(days=45), 40)
+    assert detect(bars(PARAMOUNT, 14.0, 14e6) + bars(after, 13.0, 11e6)) is None
+
+
+def test_a_collapse_from_placeholder_bars_is_noise():
+    """
+    AMCR's shape before its 2019 NYSE listing: a quote trading 0 or a few
+    thousand shares a day. Its median dollar volume swung 81x on a single
+    print. A ratio of two near-zero numbers says nothing.
+    """
+    days = trading_days(date(2019, 1, 2), 60)
+    junk = [(d, 35.0, 3000.0 if i < 30 and i % 2 else (20.0 if i >= 30 else 0.0))
+            for i, d in enumerate(days)]
+    assert detect(junk) is None
+
+
+def test_reported_once_half_a_window_has_accumulated():
+    """Ten sessions of the new instrument are enough; nine are not."""
+    successor = trading_days(PARAMOUNT[-1] + timedelta(days=1), 10)
+    good = bars(PARAMOUNT, 14.0, 14e6)
+    assert detect(good + bars(successor, 1.76, 250e3)) is not None
+    assert detect(good + bars(successor[:9], 1.76, 250e3)) is None
+
+
+def test_null_close_or_volume_bars_are_skipped_not_fatal():
+    successor = trading_days(date(2026, 8, 7), 32)
+    series = bars(PARAMOUNT, 14.0, 14e6) + bars(successor, 1.76, 250e3)
+    series[5] = (series[5][0], None, None)
+    series[-3] = (series[-3][0], 1.7, None)
+    assert detect(series) is not None
+
+
+def test_one_odd_bar_either_side_of_the_break_does_not_hide_it():
+    """
+    A zero-volume last session, then a heavy first day for the newcomer.
+
+    Reported within one BAR of the break: a dead session looks exactly like the
+    new regime, so it may be counted as the first bar of it. One bar, not a
+    number of days — across PARA's hole one bar is 392 days.
+    """
+    successor = trading_days(date(2026, 8, 7), 32)
+    series = bars(PARAMOUNT, 14.0, 14e6) + bars(successor, 1.76, 250e3)
+    last_good = len(PARAMOUNT) - 1
+    series[last_good] = (series[last_good][0], 14.0, 0.0)
+    series[last_good + 1] = (series[last_good + 1][0], 1.9, 30e6)
+    found = detect(series)
+    assert found is not None
+    assert found.at in (PARAMOUNT[-1], date(2026, 8, 7))
+
+
+def test_a_reverse_split_is_not_a_reassignment():
+    """
+    1-for-30: share volume falls 30x, which a share-volume test would call a
+    reassignment. Dollar volume is unchanged — the reason it is the measure.
+    """
+    after = trading_days(PARAMOUNT[-1] + timedelta(days=1), 40)
+    assert detect(bars(PARAMOUNT, 14.0, 14e6) + bars(after, 420.0, 14e6 / 30)) is None
+
+
+def test_clearing_one_break_does_not_silence_another():
+    """
+    Two breaks: a human reviews the worse and clears it. The other must still
+    be reported — clearing is about one event, not about the symbol.
+    """
+    first = trading_days(PARAMOUNT[-1] + timedelta(days=1), 40)
+    second = trading_days(first[-1] + timedelta(days=1), 40)
+    series = (
+        bars(PARAMOUNT, 14.0, 14e6)  # ~$196M/day
+        + bars(first, 5.0, 1e6)  # ~$5M/day: a 39x collapse
+        + bars(second, 0.50, 1e5)  # ~$50k/day: a further 100x, the worst
+    )
+    worst = detect(series)
+    assert worst is not None and worst.at == second[0]
+    remaining = detect_reassignment(
+        series,
+        window=REASSIGNMENT_WINDOW_BARS,
+        min_collapse=REASSIGNMENT_MIN_COLLAPSE,
+        min_prior_dollar_volume=REASSIGNMENT_MIN_PRIOR_DOLLAR_VOLUME,
+        cleared=frozenset({second[0]}),
+    )
+    assert remaining is not None
+    assert remaining.at == first[0]

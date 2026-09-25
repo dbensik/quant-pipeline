@@ -237,6 +237,21 @@ CRYPTO_ID_OVERRIDES = {
 #: and would open a hole indistinguishable from a provider outage.
 MAX_DAILY_MOVE_MULTIPLE = 10.0
 
+# --- Reassigned tickers (core/corporate_actions.detect_reassignment) ---
+#: A ticker reassigned to another company shows up as a collapse in DOLLAR
+#: volume (close x volume): a split leaves it roughly unchanged, a crash usually
+#: raises it. PARA's reassignment collapsed it ~450x ($196M/day to ~$440k).
+#: Calibrated 2026-09-24 over all 516 equities and 11 ETFs, full history: the
+#: largest genuine collapse was JNJ at 8.0x (Kenvue exchange offer) and the
+#: 99th percentile 4.6x, so 20x has a wide margin on both sides.
+REASSIGNMENT_WINDOW_BARS = 20
+REASSIGNMENT_MIN_COLLAPSE = 20.0
+#: The collapse must be FROM a real market. Without this floor AMCR fired at
+#: 81x in 2019 — placeholder pre-listing bars trading 0 or 20 shares a day,
+#: where a single 3,000-share print moves the median by two orders. A ratio
+#: between two near-zero numbers is noise. PARA was ~$196M/day before.
+REASSIGNMENT_MIN_PRIOR_DOLLAR_VOLUME = 1_000_000.0
+
 # --- Option chain capture (scripts/capture_option_chains.py) ---
 # yfinance serves only TODAY's chain, so the archive can only grow forward: a
 # weekday the capture does not run is missing for good, at any price. Capture
