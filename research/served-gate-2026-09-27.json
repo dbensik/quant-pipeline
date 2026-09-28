@@ -1,0 +1,5240 @@
+[
+ {
+  "symbol": "A",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "AAPL",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "ABBV",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "ABNB",
+  "verdict": "pass",
+  "bars": 1454,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "ABT",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "ACGL",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "ACN",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "ADBE",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "ADI",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "ADM",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "schedule": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "ADP",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "ADSK",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "AEE",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "AEP",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "AES",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "AFL",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "AGG",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "AIG",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "AIZ",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "AJG",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "AKAM",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "ALB",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "ALGN",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "ALL",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "ALLE",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "AMAT",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "AMCR",
+  "verdict": "pass",
+  "bars": 1834,
+  "uncovered": 0,
+  "explained": {
+   "dividend": 3,
+   "fill": 2
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "AMD",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "AME",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "AMGN",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "schedule": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "AMP",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "AMT",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "AMZN",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "ANET",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "ANSS",
+  "verdict": "legacy: incomplete coverage",
+  "bars": 1390,
+  "uncovered": 1390,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "AON",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "AOS",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "APA",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "APD",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "APH",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "APO",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "APP",
+  "verdict": "pass",
+  "bars": 1369,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "APTV",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "ARE",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "ARM",
+  "verdict": "pass",
+  "bars": 761,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "ASML",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "ATO",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "schedule": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "AVB",
+  "verdict": "legacy: incomplete coverage",
+  "bars": 1663,
+  "uncovered": 1662,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "AVGO",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "AVY",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "AWK",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "AXON",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "AXP",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "AZN",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "AZO",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "BA",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "BAC",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "BALL",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "BAX",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "BBY",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "BDX",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "BEN",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "BF-B",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "BG",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "schedule": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "BIIB",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "BKNG",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "BKR",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "BLDR",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "BLK",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "BMY",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "BNY",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "BR",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "BRK-B",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "BRO",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "BSX",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "BX",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "BXP",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "C",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CAG",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CAH",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CARR",
+  "verdict": "pass",
+  "bars": 1639,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CAT",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CB",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CBOE",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "CBRE",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "CCEP",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CCI",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CCL",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CDNS",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "CDW",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CEG",
+  "verdict": "pass",
+  "bars": 1176,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CF",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CFG",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CHD",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CHRW",
+  "verdict": "fail: unexplained mismatch",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": [
+   {
+    "day": "2021-12-10",
+    "gap_pp": -0.572,
+    "kind": "unexplained"
+   }
+  ]
+ },
+ {
+  "symbol": "CHTR",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "CI",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CINF",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CL",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CLX",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CMCSA",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "CME",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CMG",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "CMI",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CMS",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CNC",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "CNP",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "schedule": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "COF",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "COIN",
+  "verdict": "pass",
+  "bars": 1370,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "COO",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "COP",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "COR",
+  "verdict": "fail: unexplained mismatch",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "dividend": 7,
+   "seam": 1
+  },
+  "unexplained": [
+   {
+    "day": "2020-03-30",
+    "gap_pp": 1.631,
+    "kind": "unexplained"
+   }
+  ]
+ },
+ {
+  "symbol": "COST",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CPAY",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "CPB",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CPRT",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "CPT",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CRL",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "CRM",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CRWD",
+  "verdict": "pass",
+  "bars": 1833,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "CSCO",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CSGP",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "CSX",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CTAS",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "dividend": 1,
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CTRA",
+  "verdict": "legacy: incomplete coverage",
+  "bars": 1390,
+  "uncovered": 1390,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "CTSH",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "schedule": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CTVA",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CVS",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CVX",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "schedule": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "CZR",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "D",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "DAL",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "DASH",
+  "verdict": "pass",
+  "bars": 1455,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "DAY",
+  "verdict": "legacy: incomplete coverage",
+  "bars": 1390,
+  "uncovered": 1390,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "DBC",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "DD",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "DDOG",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "DE",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "DECK",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "DELL",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "DG",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "DGX",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "DHI",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "DHR",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "DIS",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "DLR",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "DLTR",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "DOC",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "schedule": 1,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "DOV",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "DOW",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "schedule": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "DPZ",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "DRI",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "DTE",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "DUK",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "DVA",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "DVN",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "DXCM",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "EA",
+  "verdict": "legacy: incomplete coverage",
+  "bars": 1644,
+  "uncovered": 1643,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "EBAY",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "ECL",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "ED",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "schedule": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "EFA",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "EFX",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "EG",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "dividend": 2,
+   "seam": 1,
+   "fill": 2
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "EIX",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "EL",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "ELV",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "EMN",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "EMR",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "ENPH",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "EOG",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "EPAM",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "EQIX",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "EQT",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "ERIE",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "ES",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "ESS",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "ETN",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "ETR",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "dividend": 9,
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "EVRG",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "schedule": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "EW",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "EXC",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "EXE",
+  "verdict": "pass",
+  "bars": 1413,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "EXPD",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "EXPE",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "EXR",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "F",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "FANG",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "FAST",
+  "verdict": "fail: unexplained mismatch",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": [
+   {
+    "day": "2020-01-30",
+    "gap_pp": -0.716,
+    "kind": "unexplained"
+   },
+   {
+    "day": "2020-04-27",
+    "gap_pp": -0.725,
+    "kind": "unexplained"
+   },
+   {
+    "day": "2020-07-27",
+    "gap_pp": -0.561,
+    "kind": "unexplained"
+   },
+   {
+    "day": "2020-10-26",
+    "gap_pp": -0.556,
+    "kind": "unexplained"
+   },
+   {
+    "day": "2020-12-01",
+    "gap_pp": -0.813,
+    "kind": "unexplained"
+   },
+   {
+    "day": "2021-04-23",
+    "gap_pp": -0.555,
+    "kind": "unexplained"
+   },
+   {
+    "day": "2021-07-26",
+    "gap_pp": -0.518,
+    "kind": "unexplained"
+   },
+   {
+    "day": "2022-07-26",
+    "gap_pp": -0.646,
+    "kind": "unexplained"
+   },
+   {
+    "day": "2022-10-26",
+    "gap_pp": -0.662,
+    "kind": "unexplained"
+   },
+   {
+    "day": "2023-02-01",
+    "gap_pp": -0.726,
+    "kind": "unexplained"
+   },
+   {
+    "day": "2023-04-26",
+    "gap_pp": -0.654,
+    "kind": "unexplained"
+   },
+   {
+    "day": "2023-12-05",
+    "gap_pp": -0.633,
+    "kind": "unexplained"
+   },
+   {
+    "day": "2024-01-31",
+    "gap_pp": -0.567,
+    "kind": "unexplained"
+   },
+   {
+    "day": "2025-01-31",
+    "gap_pp": -0.57,
+    "kind": "unexplained"
+   },
+   {
+    "day": "2025-04-25",
+    "gap_pp": -0.536,
+    "kind": "unexplained"
+   }
+  ]
+ },
+ {
+  "symbol": "FCX",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "FDS",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "FDX",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "FE",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "FFIV",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "FICO",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "FIS",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "FISV",
+  "verdict": "pass",
+  "bars": 2949,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "FITB",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "FOX",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "FOXA",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "FRT",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "FSLR",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "FTNT",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "FTV",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "GD",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "GDDY",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "GE",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "GEHC",
+  "verdict": "pass",
+  "bars": 947,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "GEN",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "GEV",
+  "verdict": "pass",
+  "bars": 625,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "GFS",
+  "verdict": "pass",
+  "bars": 1232,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "GILD",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "GIS",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "GL",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "GLD",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "GLW",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "GM",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "GME",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "GNRC",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "GOOG",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "GOOGL",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "GPC",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "GPN",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "GRMN",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "GS",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "GWW",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "HAL",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "HAS",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "schedule": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "HBAN",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "HCA",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "HD",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "HES",
+  "verdict": "legacy: incomplete coverage",
+  "bars": 1390,
+  "uncovered": 1390,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "HIG",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "HII",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "HLT",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "HOLX",
+  "verdict": "legacy: incomplete coverage",
+  "bars": 1390,
+  "uncovered": 1390,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "HON",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "HPE",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "HPQ",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "HRL",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "HSIC",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "HST",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "HSY",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "HUBB",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "HUM",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "HWM",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "IBM",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "ICE",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "IDXX",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "IEF",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "IEX",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "IFF",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "INCY",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "INTC",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "INTU",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "INVH",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "IPG",
+  "verdict": "legacy: incomplete coverage",
+  "bars": 1390,
+  "uncovered": 1390,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "IQV",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "IR",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "IRM",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "ISRG",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "IT",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "ITW",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "IVZ",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "IWM",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "J",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "JBHT",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "JBL",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "JCI",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "JKHY",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "JNJ",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "JPM",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "K",
+  "verdict": "legacy: incomplete coverage",
+  "bars": 1390,
+  "uncovered": 1390,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "KDP",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "KEY",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "KEYS",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "KHC",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "KIM",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "KKR",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "KLAC",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "KMB",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "KMI",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "KMX",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "KO",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "KR",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "KVUE",
+  "verdict": "pass",
+  "bars": 852,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "dividend": 2,
+   "fill": 2
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "L",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "LDOS",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "LEN",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "dividend": 1,
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "LH",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "LHX",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "LII",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "LIN",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "LKQ",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "schedule": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "LLY",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "LMT",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "LNT",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "LOW",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "LRCX",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "LULU",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "LUV",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "LVS",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "LW",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "LYB",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "schedule": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "LYV",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "MA",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "MAA",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "MAR",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "MAS",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "MCD",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "MCHP",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "schedule": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "MCK",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "MCO",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "MDLZ",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "MDT",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "dividend": 2,
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "MELI",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "MET",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "META",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "MGM",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "MHK",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "MKC",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "MKTX",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "MLM",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "MMM",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "MNST",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "MO",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "MOH",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "MOS",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "MPC",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "MPWR",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "MRK",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "MRNA",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "MRSH",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "MRVL",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "MS",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "MSCI",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "MSFT",
+  "verdict": "fail: unexplained mismatch",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": [
+   {
+    "day": "2020-01-02",
+    "gap_pp": -0.814,
+    "kind": "unexplained"
+   }
+  ]
+ },
+ {
+  "symbol": "MSI",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "MSTR",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "MTB",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "MTCH",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "MTD",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "MU",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "NCLH",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "NDAQ",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "NDSN",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "NEE",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "schedule": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "NEM",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "NFLX",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "NI",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "NKE",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "NOC",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "NOW",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "NRG",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "NSC",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "NTAP",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "NTRS",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "NUE",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "NVDA",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "NVR",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "NWS",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "NWSA",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "NXPI",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "O",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "ODFL",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "OKE",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "OMC",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "ON",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "ORCL",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "ORLY",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "OTIS",
+  "verdict": "pass",
+  "bars": 1639,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "OXY",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "PANW",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "PARA",
+  "verdict": "legacy: incomplete coverage",
+  "bars": 1256,
+  "uncovered": 1256,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "PAYC",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "PAYX",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "PCAR",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "PCG",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "PDD",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "PEG",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "PEP",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "PFE",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "PFG",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "PG",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "PGR",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "PH",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "PHM",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "PKG",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "PLD",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "PLTR",
+  "verdict": "pass",
+  "bars": 1504,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "PM",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "PNC",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "PNR",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "PNW",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "PODD",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "POOL",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "PPG",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "PPL",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "PRU",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "PSA",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "PSX",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "schedule": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "PTC",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "PWR",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "PYPL",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "QCOM",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "QQQ",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "RCL",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "REG",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "REGN",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "RF",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "RJF",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "RL",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "RMD",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "ROK",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "ROL",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "ROP",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "ROST",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "RSG",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "RTX",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "RVTY",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "SBAC",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "schedule": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "SBUX",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "SCHW",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "SHOP",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "SHW",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "SHY",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "SJM",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "SLB",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "SMCI",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "SNA",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "schedule": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "SNPS",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "SO",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "SOLV",
+  "verdict": "pass",
+  "bars": 625,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "SPG",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "SPGI",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "SPY",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "SRE",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "STE",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "STLD",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "STT",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "STZ",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "SW",
+  "verdict": "pass",
+  "bars": 558,
+  "uncovered": 0,
+  "explained": {
+   "dividend": 2,
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "SWK",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "SWKS",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "SYF",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "SYK",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "SYY",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "T",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "TAP",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "schedule": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "TDG",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "TDY",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "TEAM",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "TECH",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "TEL",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "TER",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "TFC",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "TGT",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "TJX",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "TKO",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "TLT",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "TMO",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "TMUS",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "schedule": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "TPL",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "TPR",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "TRGP",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "TRMB",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "TROW",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "TRV",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "TSCO",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "schedule": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "TSLA",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "TSN",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "TT",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "TTD",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "TTWO",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "TXN",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "TXT",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "TYL",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "UAL",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "UBER",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "UDR",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "UHS",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "ULTA",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "UNH",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "UNP",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "UPS",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "URI",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "USB",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "V",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "VICI",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "VLO",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "VLTO",
+  "verdict": "pass",
+  "bars": 747,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "VMC",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "VMRK",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "VNQ",
+  "verdict": "pass",
+  "bars": 2950,
+  "uncovered": 0,
+  "explained": {
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "VRSK",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "VRSN",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "VRTX",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "VST",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "VTR",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "VTRS",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "schedule": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "VZ",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "WAB",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "WAT",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "WBA",
+  "verdict": "legacy: incomplete coverage",
+  "bars": 1390,
+  "uncovered": 1390,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "WBD",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "WDAY",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "WDC",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "WEC",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "WELL",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "WFC",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "WM",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "WMB",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "WMT",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "WRB",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "WSM",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "WST",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "WTW",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "WY",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "WYNN",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "XEL",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "XOM",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "dividend": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "XYL",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "YUM",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1,
+   "fill": 2
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "ZBH",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ },
+ {
+  "symbol": "ZBRA",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "ZS",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {},
+  "unexplained": []
+ },
+ {
+  "symbol": "ZTS",
+  "verdict": "pass",
+  "bars": 1692,
+  "uncovered": 0,
+  "explained": {
+   "seam": 1
+  },
+  "unexplained": []
+ }
+]

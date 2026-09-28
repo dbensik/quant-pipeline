@@ -15,6 +15,7 @@ def fetch(
     start_date: str,
     end_date: str,
     interval: str = "1d",
+    raise_errors: bool = False,
 ) -> List[MarketDataRecord]:
     """
     Fetch OHLCV equity data from Yahoo Finance.
@@ -24,6 +25,10 @@ def fetch(
         start_date: Start date in YYYY-MM-DD format.
         end_date:   End date in YYYY-MM-DD format.
         interval:   yfinance interval string (default '1d').
+        raise_errors: Re-raise a download failure instead of returning []. An
+                    empty list otherwise means both "Yahoo has nothing" and
+                    "the request failed", and a backfill must not mistake a
+                    rate limit for a symbol Yahoo no longer serves.
 
     Returns:
         List of MarketDataRecord, one per (symbol, date) row.
@@ -47,6 +52,8 @@ def fetch(
             actions=True,
         )
     except Exception as e:
+        if raise_errors:
+            raise
         logger.error(f"yfinance download failed: {e}")
         return []
 

@@ -289,3 +289,11 @@ class TestYFinanceServedValues:
         record = yfinance_adapter.fetch(["AAPL"], "2024-01-02", "2024-01-03")[0]
         assert record.ohlcv.close == record.served.close == 150.0
         assert record.dividend is None and record.split_ratio is None
+
+
+@patch("core.adapters.yfinance_adapter.yf.download", side_effect=RuntimeError("429"))
+def test_a_failed_download_can_be_raised_instead_of_returned_empty(mock_dl):
+    """A backfill must tell 'Yahoo has nothing' from 'the request failed'."""
+    with pytest.raises(RuntimeError):
+        yfinance_adapter.fetch(["MO"], "2026-01-01", "2026-02-01", raise_errors=True)
+    assert yfinance_adapter.fetch(["MO"], "2026-01-01", "2026-02-01") == []
