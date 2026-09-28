@@ -126,7 +126,7 @@ decision at cutover:
 | phase | work | estimate |
 |---|---|---|
 | 1 | Alembic 0007: served columns, `fetched_at`, `corporate_actions`, `assets.price_basis` — **done 2026-09-27**, applied to the live DB, downgrade round-tripped, all constraints verified, no existing value changed | 1-1.5 h |
-| 2 | Adjustment engine as pure functions, tests incl. the morning-split and HWM cases | 2-3 h |
+| 2 | Adjustment engine as pure functions, tests incl. the morning-split and HWM cases — **done 2026-09-27**: `core/price_adjustment.py`. Evidence: `total` reproduces Yahoo's auto_adjust series to within 1e-6 over 11 symbols' full history (54 splits, ~1,700 dividends, HWM's manual factor), which checks the dividend math; `none` recovers real trades (NVDA $1,209.98, Arconic $16.40), which checks the direction of un-adjustment; staggered-fetch unit tests cover what a single-fetch check cannot. (`split` matching Yahoo's Close under one fetch time is true by construction and proves nothing.) 16 tests, 7 mutations all caught; fetch dates taken in New York time; 5.8 ms per symbol | 2-3 h |
 | 3 | Ingest writes served values, `fetched_at` and actions; `implausible_jump` on split-adjusted values | 1.5-2 h |
 | 4 | Migration fetch, gate, `price_basis`, investigate failures | 2-3 h |
 | 5 | `fetch_range(adjust=)`, Protocol and test fake, the bypassing readers, `verify` | 2-3 h |
@@ -138,6 +138,32 @@ the gate results before cutover.
 
 The "1-2 days" I quoted on 2026-09-24 was a guess made before this list
 existed. This estimate replaces it.
+
+## Learned while building
+
+- **Yahoo scales dividend amounts by spinoff factors too**, not only splits:
+  HWM's 2020-02-06 dividend is served as 0.015337, Arconic's $0.02 x 0.7669.
+  `raw_dividends` undoes both.
+- **The morning-of-a-split rule** (`APPLIED_ON_EX_DATE = True`) is still
+  unverified; it is one constant, pinned by a test, and phase 6's daily
+  fresh-return check is what will confirm it on the next real split.
+
+## Phase 3 constraints (recorded before building it)
+
+- **Filling `served_*` on rows that already exist.** Ingest writes with ON
+  CONFLICT DO NOTHING, so every bar already stored — including the ones the
+  14-day overlap re-serves every morning — would keep `served_*` NULL forever.
+  "Written once, never rewritten" must mean: set `served_*` and `fetched_at`
+  only where `served_close IS NULL`, in the ingest upsert and in the phase-4
+  backfill alike. The legacy adjusted columns stay DO NOTHING. What `written`
+  and `filled` count then needs deciding (proposal: they keep counting new
+  rows; a separate `served_filled` counts served values added to old rows).
+- **Re-fetched actions.** A dividend fetched again after a split comes back
+  under the same (asset, ex_date, kind) key with a different served value
+  (0.04 becomes 0.004). Keep the FIRST row, never update. Updating `value`
+  without `fetched_at`, or the reverse, would un-split the amount by the wrong
+  ratio and nothing downstream would notice. Keeping the first row is also
+  what makes a stored bar and a stored action immutable in the same way.
 
 ## Decisions needed
 
