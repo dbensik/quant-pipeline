@@ -129,7 +129,7 @@ decision at cutover:
 | 2 | Adjustment engine as pure functions, tests incl. the morning-split and HWM cases — **done 2026-09-27**: `core/price_adjustment.py`. Evidence: `total` reproduces Yahoo's auto_adjust series to within 1e-6 over 11 symbols' full history (54 splits, ~1,700 dividends, HWM's manual factor), which checks the dividend math; `none` recovers real trades (NVDA $1,209.98, Arconic $16.40), which checks the direction of un-adjustment; staggered-fetch unit tests cover what a single-fetch check cannot. (`split` matching Yahoo's Close under one fetch time is true by construction and proves nothing.) 16 tests, 7 mutations all caught; fetch dates taken in New York time; 5.8 ms per symbol | 2-3 h |
 | 3 | Ingest writes served values, `fetched_at` and actions; `implausible_jump` on split-adjusted values — **done 2026-09-27**: one `auto_adjust=False, actions=True` download yields both bases (the adjusted columns reproduce `auto_adjust=True` to the bit); `fill_served` fills only NULLs, `write_actions` keeps the first row, a full backfill never touches served values — all proven against real SQL and mutation-tested. Live run on MO/NVDA/AAPL/BTC-USD: 48 overlap bars filled, MO's 09-15 dividend recorded, every existing adjusted value unchanged. `implausible_jump` still judges the adjusted `ohlcv`, which is correct until cutover; moved to phase 5 | 1.5-2 h |
 | 4 | Migration fetch, gate, `price_basis`, investigate failures — **backfill and gate done 2026-09-27, verdicts awaiting review**: 890,960 bars filled, adjusted columns identical by fingerprint; 512 pass, 4 fail (stored errors the switch corrects), 11 legacy. See `served-gate-2026-09-27.md`. **Applied on approval**: 516 `served` (incl. the 4 failures), 11 `legacy`, crypto NULL | 2-3 h |
-| 5 | `fetch_range(adjust=)`, Protocol and test fake, the bypassing readers, `verify` | 2-3 h |
+| 5 | `fetch_range(adjust=)`, Protocol and test fake, the bypassing readers, `verify` — **done 2026-09-27, behind a switch**: `fetch_range(adjust='total'|'split'|'none')` derives served assets' prices at read time, reading past `end` to the newest bar; whole-call fallback to stored prices if any needed bar lacks served values. Gated by `settings.SERVED_PRICES_ENABLED = False`, because price_basis was already written and the path would otherwise go live on any reload. 7 real-SQL tests, 6 mutations caught. Live, switch on in-process: returns match Yahoo to 0.00006pp (MO NVDA HWM FAST AAPL SPY); 516 symbols x 1 year: read-time 9.2-9.6 s vs stored 15.3-15.5 s, alternating order. `verify` moved to phase 6 (no `services/` change) | 2-3 h |
 | 6 | Cutover, daily fresh-return check, retire or guard `--full-backfill`, docs. The fresh-return check has a NAMED job beyond HWM-type spinoffs: an action keeps its first row, so if Yahoo later corrects a dividend amount the correction is never picked up — the check sees it as a `total`-mode mismatch on that ex-date | 1.5-2 h |
 | | **total** | **10-15 h, over 2-3 sessions** |
 
@@ -147,6 +147,39 @@ existed. This estimate replaces it.
 - **The morning-of-a-split rule** (`APPLIED_ON_EX_DATE = True`) is still
   unverified; it is one constant, pinned by a test, and phase 6's daily
   fresh-return check is what will confirm it on the next real split.
+
+## Phase 6 go/no-go, checked 2026-09-27
+
+1. **Whole bars, not just closes** (the gate compared closes only). Over all
+   907,986 served bars, stored vs read-time `total`:
+   - Open/high/low shape (each as a fraction of the close) differs by >0.5% on
+     **23 bars** (12 opens, 11 highs; 0 lows), all 2026-08-25 or 2026-09-22 —
+     daily-ingest bars Yahoo has since revised. Worst: PAYC 2026-09-22 high,
+     1.6%.
+   - Volume differs by >1% on **924 bars** (423 symbols): 451 in 2026, the
+     preliminary next-morning volume later consolidated (MGM 09-23: 3,052,100
+     stored vs 3,223,100 now); 464 in 2023-24, Yahoo revisions since the bulk
+     load, clustered on dates like 2024-06-25; BIIB 2023-06-09 stored as 0
+     (Yahoo: 8,100).
+   - Verdict: GO. Each is Yahoo's current value replacing a stale capture; none
+     is a regression.
+2. **No duplicate dates** among served assets' rows (the read path keys the
+   engine's output by date), and every served row sits at 00:00 UTC.
+3. **Speed**: 516 symbols x 1 year, alternating order over three runs each —
+   read-time 9.2-9.6 s, stored 15.3-15.5 s. Not slower. (Why the stored path
+   is slower is unmeasured.)
+
+## Readers that stay on the stored columns (decided in phase 5)
+
+Ingest keeps writing the stored (auto_adjust) columns, so these keep working
+unchanged and are deliberately NOT moved to read-time adjustment:
+`find_successors.py` (compares against a fresh auto_adjust fetch — same basis
+both sides), `check_reassigned.py` (dollar volume, basis-invariant),
+`check_missing_days.py` (dates only), `audit_crypto_bounds.py` and
+`repair_bad_extremes.py` (crypto: one basis), and
+`services/execution_service/portfolio_store.py` (the latest close, identical
+in every mode — no event is later than the latest bar). This holds only while
+ingest writes the stored columns; retiring them would reopen each of these.
 
 ## Phase 3 constraints (recorded before building it)
 

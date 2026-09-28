@@ -138,7 +138,11 @@ actions=True` download fills both the adjusted columns every reader uses —
 bit-identical to the old `auto_adjust=True` — and `served_*` + `fetched_at`,
 plus splits and dividends into `corporate_actions`. Served values are written
 once: filled only where NULL, never overwritten — including by a full backfill,
-which rewrites only the adjusted columns. An action keeps its first row. Nothing reads them yet: `core/price_adjustment.py` will, at cutover.
+which rewrites only the adjusted columns. An action keeps its first row. `fetch_range(..., adjust="total"|"split"|"none")` derives prices from them at
+read time for assets with `price_basis = 'served'` (516 equities/ETFs; 11
+`legacy`, crypto NULL) — but only when `config.settings.SERVED_PRICES_ENABLED`
+is True. It is False until the phase-6 cutover; while False, every read returns
+the stored columns exactly as before.
 
 **Universe snapshots cannot be backdated.** A missed day is a permanent gap in
 point-in-time membership, and membership is what makes survivorship-free

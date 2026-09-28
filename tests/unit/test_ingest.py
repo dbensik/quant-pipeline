@@ -60,7 +60,7 @@ class RecordingRepo:
     async def find_asset(self, symbol, asset_class=None):
         return self.assets.get(symbol)
 
-    async def fetch_range(self, symbol, asset_class, start, end, source=None):
+    async def fetch_range(self, symbol, asset_class, start, end, source=None, adjust="total"):
         return self.existing.get(symbol, [])
 
     async def write(self, records, replace: bool = False):

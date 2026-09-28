@@ -378,3 +378,95 @@ async def test_ingest_end_to_end_stores_served_values_and_actions(repo):
     assert report.outcomes[0].written == 2
     assert report.outcomes[0].actions_recorded == 1
     assert (await _served(repo.session, 1))[1] == 22.0
+
+
+# ---------------------------------------------------------------------------
+# fetch_range(adjust=...) — the phase-5 read path, against real SQL
+# ---------------------------------------------------------------------------
+#
+# MO around its $1.06 dividend on 2026-06-15, as Yahoo served it. Days are
+# offsets from START (2024-06-01); the dividend's ex-date is day 3.
+
+from config import settings  # noqa: E402
+
+SERVED_CLOSES = [71.41, 71.94, 72.10, 69.59, 70.19]  # days 0..4
+DIV_DAY = 3
+
+
+async def _served_asset(repo, basis="served", served_days=range(5)):
+    """Five bars with served values on `served_days`, a dividend, a basis."""
+    records = []
+    for day, close in enumerate(SERVED_CLOSES):
+        r = served_record(day, close / 2, FIRST_FETCH, served=day in served_days)
+        records.append(r)
+    await repo.write(records)
+    await repo.write_actions([served_record(DIV_DAY, 1.0, FIRST_FETCH, dividend=1.06)])
+    await repo.session.execute(
+        text("UPDATE assets SET price_basis = :b WHERE symbol = :s"), {"b": basis, "s": SYMBOL}
+    )
+    await repo.session.commit()
+
+
+def _closes(records):
+    return [round(r.ohlcv.close, 4) for r in records]
+
+
+async def test_the_switch_off_returns_stored_prices_whatever_the_basis(repo, monkeypatch):
+    monkeypatch.setattr(settings, "SERVED_PRICES_ENABLED", False)
+    await _served_asset(repo)
+    got = await repo.fetch_range(SYMBOL, None, START, START + timedelta(days=4))
+    assert _closes(got) == [round(c / 2, 4) for c in SERVED_CLOSES]
+
+
+async def test_served_reads_are_adjusted_at_read_time(repo, monkeypatch):
+    """
+    'none' is what traded; 'total' takes the dividend out of the pre-ex bars,
+    so the ex-date's return is -1.82% total rather than -3.48% raw.
+    """
+    monkeypatch.setattr(settings, "SERVED_PRICES_ENABLED", True)
+    await _served_asset(repo)
+    window = (SYMBOL, None, START, START + timedelta(days=4))
+    raw = _closes(await repo.fetch_range(*window, adjust="none"))
+    total = _closes(await repo.fetch_range(*window))
+    assert raw == SERVED_CLOSES  # served_record stores served = 2 x the close
+    factor = 1 - 1.06 / 72.10
+    assert total == [round(c * factor, 4) for c in SERVED_CLOSES[:DIV_DAY]] + SERVED_CLOSES[DIV_DAY:]
+
+
+async def test_a_window_ending_before_the_dividend_is_still_adjusted_for_it(repo, monkeypatch):
+    """The adjustment of a bar is every event AFTER it, not just in the window."""
+    monkeypatch.setattr(settings, "SERVED_PRICES_ENABLED", True)
+    await _served_asset(repo)
+    got = await repo.fetch_range(SYMBOL, None, START, START + timedelta(days=1))
+    factor = 1 - 1.06 / 72.10
+    assert _closes(got) == [round(c * factor, 4) for c in SERVED_CLOSES[:2]]
+
+
+async def test_a_window_starting_on_the_ex_date_is_untouched_by_that_dividend(repo, monkeypatch):
+    """A dividend adjusts only the bars before its ex-date."""
+    monkeypatch.setattr(settings, "SERVED_PRICES_ENABLED", True)
+    await _served_asset(repo)
+    got = await repo.fetch_range(SYMBOL, None, START + timedelta(days=DIV_DAY), START + timedelta(days=4))
+    assert _closes(got) == SERVED_CLOSES[DIV_DAY:]
+
+
+async def test_a_legacy_asset_returns_stored_prices(repo, monkeypatch):
+    monkeypatch.setattr(settings, "SERVED_PRICES_ENABLED", True)
+    await _served_asset(repo, basis="legacy")
+    got = await repo.fetch_range(SYMBOL, None, START, START + timedelta(days=4), adjust="none")
+    assert _closes(got) == [round(c / 2, 4) for c in SERVED_CLOSES]
+
+
+async def test_incomplete_coverage_falls_back_for_the_whole_read(repo, monkeypatch, caplog):
+    """Never bar by bar: one missing served bar returns the stored basis throughout."""
+    monkeypatch.setattr(settings, "SERVED_PRICES_ENABLED", True)
+    await _served_asset(repo, served_days={0, 1, 3, 4})
+    with caplog.at_level("WARNING"):
+        got = await repo.fetch_range(SYMBOL, None, START, START + timedelta(days=4))
+    assert _closes(got) == [round(c / 2, 4) for c in SERVED_CLOSES]
+    assert any("lack served values" in m for m in caplog.messages)
+
+
+async def test_an_unknown_adjust_mode_is_refused(repo):
+    with pytest.raises(ValueError):
+        await repo.fetch_range(SYMBOL, None, START, START, adjust="adjusted")

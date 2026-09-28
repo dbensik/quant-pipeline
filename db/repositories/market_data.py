@@ -21,6 +21,7 @@ Phase 2 — TimescaleDB Schema & Repository Layer
 
 from __future__ import annotations
 
+import logging
 import math
 from collections import defaultdict
 from dataclasses import dataclass
@@ -31,8 +32,14 @@ from sqlalchemy import func, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from config import settings
 from core.models import Asset, OHLCV, MarketDataRecord, Timestamp
-from db.models import AssetORM, MarketDataORM
+from core.price_adjustment import MODES as ADJUST_MODES
+from core.price_adjustment import Action, ServedBar
+from core.price_adjustment import adjust as adjust_prices
+from db.models import AssetORM, CorporateActionORM, MarketDataORM
+
+logger = logging.getLogger(__name__)
 
 
 def _finite(value: Optional[float]) -> bool:
@@ -104,6 +111,7 @@ class MarketDataRepository:
         start: datetime,
         end: datetime,
         source: Optional[str] = None,
+        adjust: str = "total",
     ) -> List[MarketDataRecord]:
         """
         Return OHLCV records for *symbol* within [start, end].
@@ -117,6 +125,11 @@ class MarketDataRepository:
 
         Optionally filter by data *source* (e.g. 'yfinance').
         Results are ordered by time ascending.
+
+        `adjust`: 'total' (default — total return, what every backtest and
+        screener reads), 'split' (splits and spinoffs only — Yahoo's quoted
+        Close, for charts), or 'none' (what actually traded). Honoured for
+        assets whose price_basis is 'served'; others return stored values.
         """
         ...
 
@@ -346,6 +359,7 @@ class TimescaleMarketDataRepo:
         start: datetime,
         end: datetime,
         source: Optional[str] = None,
+        adjust: str = "total",
     ) -> List[MarketDataRecord]:
         """
         Time-range query.  Joins market_data → assets so no separate lookup
@@ -353,7 +367,42 @@ class TimescaleMarketDataRepo:
         bounded date ranges.
 
         asset_class=None resolves by symbol alone — see the Protocol docstring.
+
+        `adjust` applies only when config.settings.SERVED_PRICES_ENABLED is
+        on, and only to assets with price_basis = 'served' (phase 5
+        of research/dividend-drift-plan-2026-09-27.md): their prices are
+        derived at read time from the served values and corporate_actions,
+        so every bar is adjusted to the same as-of date. Every other asset
+        (legacy, crypto) returns its stored columns whatever `adjust` says —
+        there is nothing to derive a different basis from.
         """
+        if adjust not in ADJUST_MODES:
+            raise ValueError(f"adjust must be one of {ADJUST_MODES}, not {adjust!r}")
+
+        asset_query = select(AssetORM).where(AssetORM.symbol == symbol)
+        if asset_class:
+            asset_query = asset_query.where(AssetORM.asset_class == asset_class)
+        assets = list((await self.session.execute(asset_query)).scalars())
+        if (
+            settings.SERVED_PRICES_ENABLED
+            and len(assets) == 1
+            and assets[0].price_basis == "served"
+        ):
+            served = await self._fetch_served(assets[0], start, end, source, adjust)
+            if served is not None:
+                return served
+
+        return await self._fetch_stored(symbol, asset_class, start, end, source)
+
+    async def _fetch_stored(
+        self,
+        symbol: str,
+        asset_class: Optional[str],
+        start: datetime,
+        end: datetime,
+        source: Optional[str],
+    ) -> List[MarketDataRecord]:
+        """The stored (auto_adjust as of each bar's fetch) columns, as always."""
         stmt = (
             select(MarketDataORM, AssetORM)
             .join(AssetORM, MarketDataORM.asset_id == AssetORM.id)
@@ -373,6 +422,93 @@ class TimescaleMarketDataRepo:
         rows = result.all()
 
         return [self._orm_to_domain(md_row, asset_row) for md_row, asset_row in rows]
+
+    async def _fetch_served(
+        self,
+        asset: AssetORM,
+        start: datetime,
+        end: datetime,
+        source: Optional[str],
+        adjust: str,
+    ) -> Optional[List[MarketDataRecord]]:
+        """
+        Bars in [start, end] derived from served values, or None to fall back.
+
+        Reads PAST `end` to the newest bar: a bar's adjustment is every event
+        after it, and a dividend's factor needs the close before its ex-date.
+        Nothing before `start` is needed: a dividend adjusts only bars before
+        its ex-date, so if the window starts on or after the ex-date no window
+        bar is affected, and if it starts earlier the bar before the ex-date
+        is already in the window.
+
+        Falls back — for the WHOLE call, with a warning — if any bar it needs
+        has no served values. Never bar by bar: mixing the two bases is the
+        very drift this replaces. price_basis = 'served' is only set on full
+        coverage (scripts/gate_served.py), so this should not happen.
+        """
+        stmt = (
+            select(MarketDataORM)
+            .where(
+                MarketDataORM.asset_id == asset.id,
+                MarketDataORM.time >= start,
+            )
+            .order_by(MarketDataORM.time.asc())
+        )
+        if source:
+            stmt = stmt.where(MarketDataORM.source == source)
+        rows = list((await self.session.execute(stmt)).scalars())
+        if not any(start <= r.time <= end for r in rows):
+            return []
+        if any(r.served_close is None or r.fetched_at is None for r in rows):
+            logger.warning(
+                "%s: price_basis is 'served' but %d bar(s) from %s lack served "
+                "values; returning stored prices for this read.",
+                asset.symbol,
+                sum(r.served_close is None for r in rows),
+                start.date(),
+            )
+            return None
+
+        actions = [
+            Action(a.ex_date, a.kind, a.value, a.fetched_at)
+            for a in (
+                await self.session.execute(
+                    select(CorporateActionORM).where(
+                        CorporateActionORM.asset_id == asset.id
+                    )
+                )
+            ).scalars()
+        ]
+        # Bar dates are New York trading dates; stored at 00:00 UTC of that date.
+        bars = [
+            ServedBar(
+                r.time.date(), r.served_open, r.served_high, r.served_low,
+                r.served_close, r.served_volume, r.fetched_at,
+            )
+            for r in rows
+        ]
+        derived = {b.day: b for b in adjust_prices(bars, actions, adjust)}
+        domain_asset = Asset(
+            symbol=asset.symbol,
+            asset_class=asset.asset_class,
+            source=asset.source,
+            metadata=asset.metadata_ or {},
+        )
+        out = []
+        for r in rows:
+            if not (start <= r.time <= end):
+                continue
+            b = derived[r.time.date()]
+            out.append(
+                MarketDataRecord(
+                    asset=domain_asset,
+                    ohlcv=OHLCV(
+                        open=b.open, high=b.high, low=b.low, close=b.close,
+                        volume=b.volume, timestamp=Timestamp(utc=r.time),
+                    ),
+                )
+            )
+        return out
 
     async def find_asset(
         self, symbol: str, asset_class: Optional[str] = None

@@ -174,7 +174,9 @@ class FakeRepo:
         start: datetime,
         end: datetime,
         source: Optional[str] = None,
+        adjust: str = "total",
     ) -> List[MarketDataRecord]:
+        # `adjust` mirrors the real signature; fixture bars have one basis.
         records = self.data.get(symbol, [])
         out = []
         for record in records:

@@ -247,6 +247,15 @@ MAX_DAILY_MOVE_MULTIPLE = 10.0
 #: day for two more runs. 14 days covers a week-long outage plus that lag.
 INGEST_OVERLAP_DAYS = 14
 
+# --- Read-time price adjustment (db/repositories/market_data.fetch_range) ---
+#: THE cutover switch of research/dividend-drift-plan-2026-09-27.md. When True,
+#: assets with price_basis = 'served' are read from their served values and
+#: corporate_actions, adjusted at read time; when False every read returns the
+#: stored columns exactly as before. price_basis was written in phase 4, so
+#: without this switch the new read path would go live the moment any process
+#: reloaded — the API, or the 06:00 job — before phase 6 verified it.
+SERVED_PRICES_ENABLED = False
+
 # --- Reassigned tickers (core/corporate_actions.detect_reassignment) ---
 #: A ticker reassigned to another company shows up as a collapse in DOLLAR
 #: volume (close x volume): a split leaves it roughly unchanged, a crash usually
