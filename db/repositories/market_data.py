@@ -21,16 +21,41 @@ Phase 2 — TimescaleDB Schema & Repository Layer
 
 from __future__ import annotations
 
+import math
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Optional
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.models import Asset, OHLCV, MarketDataRecord, Timestamp
 from db.models import AssetORM, MarketDataORM
+
+
+def _finite(value: Optional[float]) -> bool:
+    return value is not None and not math.isnan(value)
+
+
+def _num(value: Optional[float]) -> Optional[float]:
+    """NaN becomes NULL: a served NaN is 'no value', not a number to store."""
+    return value if _finite(value) else None
+
+
+def _served_columns(record: MarketDataRecord) -> dict:
+    """served_* and fetched_at for a new row, or nothing if not supplied."""
+    if record.served is None or record.fetched_at is None:
+        return {}
+    return {
+        "served_open": _num(record.served.open),
+        "served_high": _num(record.served.high),
+        "served_low": _num(record.served.low),
+        "served_close": _num(record.served.close),
+        "served_volume": _num(record.served.volume),
+        "fetched_at": record.fetched_at,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -169,6 +194,10 @@ class TimescaleMarketDataRepo:
                     close=record.ohlcv.close,
                     volume=record.ohlcv.volume,
                     source=record.asset.source,
+                    # Served values ride along on a NEW row. An existing row
+                    # gets them only through fill_served, never from here:
+                    # replace=True below rewrites the adjusted columns alone.
+                    **_served_columns(record),
                 )
             )
             if replace:
@@ -193,6 +222,118 @@ class TimescaleMarketDataRepo:
 
         await self.session.commit()
         return persisted
+
+    async def _asset_id(self, asset: Asset) -> Optional[int]:
+        """The registered id for `asset`, without creating one."""
+        return await self.session.scalar(
+            select(AssetORM.id).where(
+                AssetORM.symbol == asset.symbol,
+                AssetORM.asset_class == asset.asset_class,
+                AssetORM.source == asset.source,
+            )
+        )
+
+    async def fill_served(self, records: List[MarketDataRecord]) -> int:
+        """
+        Set served_* and fetched_at on EXISTING rows that have none yet.
+        Returns rows filled.
+
+        Only where served_close IS NULL: a served value is written once and
+        never replaced. That is what lets a stored bar stay correct when a
+        later split arrives — core/price_adjustment.py derives raw from the
+        value AND the time it was fetched, so replacing either would silently
+        re-date it. (The 14-day ingest overlap re-serves every recent bar each
+        morning; without the NULL guard it would re-stamp them all.)
+
+        One set-based UPDATE per asset, so the phase-4 backfill of ~1M rows
+        is not a million round trips.
+        """
+        by_asset = defaultdict(list)
+        for r in records:
+            if r.served is not None and r.fetched_at is not None and _finite(r.served.close):
+                by_asset[(r.asset.symbol, r.asset.asset_class, r.asset.source)].append(r)
+
+        filled = 0
+        for (symbol, asset_class, source), rows in by_asset.items():
+            asset_id = await self._asset_id(Asset(symbol, asset_class, source))
+            if asset_id is None:
+                continue
+            result = await self.session.execute(
+                text(
+                    """
+                    UPDATE market_data AS m SET
+                        served_open = v.o, served_high = v.h, served_low = v.l,
+                        served_close = v.c, served_volume = v.vol, fetched_at = v.f
+                    FROM unnest(
+                        CAST(:t AS timestamptz[]), CAST(:o AS float8[]),
+                        CAST(:h AS float8[]), CAST(:l AS float8[]),
+                        CAST(:c AS float8[]), CAST(:vol AS float8[]),
+                        CAST(:f AS timestamptz[])
+                    ) AS v(t, o, h, l, c, vol, f)
+                    WHERE m.asset_id = :asset_id
+                      AND m.time = v.t
+                      AND m.served_close IS NULL
+                    """
+                ),
+                {
+                    "asset_id": asset_id,
+                    "t": [r.ohlcv.timestamp.utc for r in rows],
+                    "o": [_num(r.served.open) for r in rows],
+                    "h": [_num(r.served.high) for r in rows],
+                    "l": [_num(r.served.low) for r in rows],
+                    "c": [_num(r.served.close) for r in rows],
+                    "vol": [_num(r.served.volume) for r in rows],
+                    "f": [r.fetched_at for r in rows],
+                },
+            )
+            filled += result.rowcount or 0
+
+        await self.session.commit()
+        return filled
+
+    async def write_actions(self, records: List[MarketDataRecord]) -> int:
+        """
+        Record the splits and dividends the provider reported on these bars.
+        Returns actions newly recorded.
+
+        The FIRST record of an event is kept and never updated. Yahoo serves a
+        dividend in the split basis of the day it is fetched, so NVDA's 2024-03
+        dividend is 0.04 fetched before its split and 0.004 after — same key,
+        different value. The value is only meaningful with the fetched_at it
+        came with, so the two are stored together once and left alone.
+        """
+        recorded = 0
+        for r in records:
+            events = [("dividend", r.dividend), ("split", r.split_ratio)]
+            events = [(k, v) for k, v in events if v is not None and _finite(v) and v > 0]
+            if not events or r.fetched_at is None:
+                continue
+            asset_id = await self._asset_id(r.asset)
+            if asset_id is None:
+                continue
+            for kind, value in events:
+                result = await self.session.execute(
+                    text(
+                        """
+                        INSERT INTO corporate_actions
+                            (asset_id, ex_date, kind, value, source, fetched_at)
+                        VALUES (:asset_id, :ex_date, :kind, :value, :source, :fetched_at)
+                        ON CONFLICT ON CONSTRAINT uq_corporate_action DO NOTHING
+                        """
+                    ),
+                    {
+                        "asset_id": asset_id,
+                        "ex_date": r.ohlcv.timestamp.utc.date(),
+                        "kind": kind,
+                        "value": value,
+                        "source": r.asset.source,
+                        "fetched_at": r.fetched_at,
+                    },
+                )
+                recorded += result.rowcount or 0
+
+        await self.session.commit()
+        return recorded
 
     # ------------------------------------------------------------------
     # Read

@@ -916,3 +916,81 @@ async def test_a_full_backfill_counts_nothing_as_filled():
     )
     assert report.outcomes[0].filled == 0
     assert report.outcomes[0].written == 3
+
+
+# ---------------------------------------------------------------------------
+# Served values and corporate actions (phase 3 of the dividend-drift plan)
+# ---------------------------------------------------------------------------
+
+class ServedRepo(KeyedRepo):
+    """KeyedRepo plus the two phase-3 methods, recording what they were given."""
+
+    def __init__(self, existing):
+        super().__init__(existing)
+        self.served_calls, self.action_calls = [], []
+
+    async def fill_served(self, records):
+        self.served_calls.append(list(records))
+        return len(records)
+
+    async def write_actions(self, records):
+        self.action_calls.append(list(records))
+        return sum(1 for r in records if r.dividend or r.split_ratio)
+
+
+def with_served(record, dividend=None, fetched_at=None):
+    from dataclasses import replace
+
+    return replace(
+        record,
+        served=record.ohlcv,
+        fetched_at=fetched_at or datetime(2026, 9, 27, tzinfo=timezone.utc),
+        dividend=dividend,
+    )
+
+
+@pytest.mark.asyncio
+async def test_served_values_survive_the_retag():
+    """
+    retag rebuilds every record onto the registry's identity. Built fresh, it
+    dropped served/fetched_at/actions — every crypto bar would have lost them.
+    """
+    tagged = retag(with_served(bar("BTC-USD", 0), dividend=0.5), "crypto", "yfinance")
+    assert tagged.asset.asset_class == "crypto"
+    assert tagged.served is not None and tagged.fetched_at is not None
+    assert tagged.dividend == 0.5
+
+
+@pytest.mark.asyncio
+async def test_served_fill_and_actions_are_counted_apart_from_written():
+    repo = ServedRepo(existing={"AAPL": [recent(5)]})
+    fetched = [with_served(recent(5)), with_served(recent(4), dividend=0.25)]
+    report = await ingest_symbols(repo, ["AAPL"], fetcher=fetcher_for(fetched))
+    outcome = report.outcomes[0]
+    assert outcome.written == 1  # the one genuinely new row, as before
+    assert outcome.served_filled == 2
+    assert outcome.actions_recorded == 1
+    assert all(r.served is not None for r in repo.served_calls[0])
+
+
+@pytest.mark.asyncio
+async def test_a_dividend_on_an_empty_bar_is_still_recorded():
+    """The bar is dropped as empty; the dividend it carried is not."""
+    empty = with_served(recent(4), dividend=0.25)
+    empty.ohlcv.open = empty.ohlcv.high = empty.ohlcv.low = empty.ohlcv.close = None
+    repo = ServedRepo(existing={"AAPL": [recent(5)]})
+    await ingest_symbols(repo, ["AAPL"], fetcher=fetcher_for([empty, with_served(recent(3))]))
+    assert [r.dividend for r in repo.action_calls[0]] == [0.25, None]
+
+
+@pytest.mark.asyncio
+async def test_actions_outside_the_history_floor_are_not_recorded():
+    floor_day = START + timedelta(days=25)
+    repo = ServedRepo(existing={"AAPL": [bar("AAPL", 26)]})
+    repo.assets["AAPL"] = Asset(
+        symbol="AAPL", asset_class="equity", source="yfinance",
+        metadata={"history_valid_from": floor_day.date().isoformat()},
+    )
+    fetched = [with_served(bar("AAPL", 20), dividend=0.5), with_served(bar("AAPL", 27), dividend=0.6)]
+    await ingest_symbols(repo, ["AAPL"], fetcher=fetcher_for(fetched))
+    assert [r.dividend for r in repo.action_calls[0]] == [0.6]

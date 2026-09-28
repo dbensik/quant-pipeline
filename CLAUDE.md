@@ -132,6 +132,14 @@ hole older than the overlap; fill one with
 refused alongside `--full-backfill`), or accept a day Yahoo no longer serves via
 `metadata.missing_days_accepted`.
 
+**Ingest also stores prices as Yahoo SERVED them** (since 2026-09-27, phase 3
+of `research/dividend-drift-plan-2026-09-27.md`). One `auto_adjust=False,
+actions=True` download fills both the adjusted columns every reader uses —
+bit-identical to the old `auto_adjust=True` — and `served_*` + `fetched_at`,
+plus splits and dividends into `corporate_actions`. Served values are written
+once: filled only where NULL, never overwritten — including by a full backfill,
+which rewrites only the adjusted columns. An action keeps its first row. Nothing reads them yet: `core/price_adjustment.py` will, at cutover.
+
 **Universe snapshots cannot be backdated.** A missed day is a permanent gap in
 point-in-time membership, and membership is what makes survivorship-free
 screening possible — so this job matters more than its size suggests.

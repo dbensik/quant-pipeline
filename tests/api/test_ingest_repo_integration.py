@@ -291,3 +291,90 @@ async def test_written_reports_rows_the_database_accepted(repo):
 
     second = await ingest_symbols(repo, [SYMBOL], start=START, fetcher=stub_fetcher(3))
     assert second.written == 0
+
+
+# ---------------------------------------------------------------------------
+# Served values and corporate actions — the phase-3 rules, against real SQL
+# ---------------------------------------------------------------------------
+
+FIRST_FETCH = datetime(2026, 9, 1, 10, tzinfo=timezone.utc)
+SECOND_FETCH = datetime(2026, 9, 27, 10, tzinfo=timezone.utc)
+
+
+def served_record(day, close, fetched_at, served=True, dividend=None):
+    stamp = Timestamp(utc=START + timedelta(days=day))
+    adjusted = OHLCV(open=close, high=close, low=close, close=close, volume=100.0, timestamp=stamp)
+    raw = OHLCV(open=close * 2, high=close * 2, low=close * 2, close=close * 2,
+                volume=100.0, timestamp=stamp)
+    return MarketDataRecord(
+        asset=Asset(symbol=SYMBOL, asset_class="crypto", source="yfinance"),
+        ohlcv=adjusted,
+        served=raw if served else None,
+        fetched_at=fetched_at if served else None,
+        dividend=dividend,
+    )
+
+
+async def _served(session, day):
+    row = await session.execute(
+        text(
+            "SELECT m.close, m.served_close, m.fetched_at FROM market_data m "
+            "JOIN assets a ON a.id = m.asset_id WHERE a.symbol = :s AND m.time = :t"
+        ),
+        {"s": SYMBOL, "t": START + timedelta(days=day)},
+    )
+    return row.one()
+
+
+async def test_a_new_row_is_inserted_with_its_served_values(repo):
+    await repo.write([served_record(0, 10.0, FIRST_FETCH)])
+    close, served_close, fetched_at = await _served(repo.session, 0)
+    assert (close, served_close, fetched_at) == (10.0, 20.0, FIRST_FETCH)
+
+
+async def test_fill_served_fills_a_null_and_never_overwrites(repo):
+    """
+    Day 0 predates served values (NULL); day 1 already has one. A later fetch
+    re-serves both with a different value: day 0 is filled, day 1 is left as
+    it was — its value only means anything with the fetch time it came with.
+    """
+    await repo.write([served_record(0, 10.0, None, served=False),
+                      served_record(1, 11.0, FIRST_FETCH)])
+    filled = await repo.fill_served([served_record(0, 10.0, SECOND_FETCH),
+                                     served_record(1, 99.0, SECOND_FETCH)])
+    assert filled == 1
+    assert await _served(repo.session, 0) == (10.0, 20.0, SECOND_FETCH)
+    assert await _served(repo.session, 1) == (11.0, 22.0, FIRST_FETCH)
+
+
+async def test_a_full_backfill_rewrites_adjusted_prices_but_not_served_ones(repo):
+    await repo.write([served_record(0, 10.0, FIRST_FETCH)])
+    await repo.write([served_record(0, 12.0, SECOND_FETCH)], replace=True)
+    assert await _served(repo.session, 0) == (12.0, 20.0, FIRST_FETCH)
+
+
+async def test_a_refetched_action_keeps_its_first_row(repo):
+    """NVDA's dividend served 0.04 before its split, 0.004 after: keep 0.04."""
+    await repo.write([served_record(0, 10.0, FIRST_FETCH)])
+    first = await repo.write_actions([served_record(0, 10.0, FIRST_FETCH, dividend=0.04)])
+    again = await repo.write_actions([served_record(0, 10.0, SECOND_FETCH, dividend=0.004)])
+    row = await repo.session.execute(
+        text(
+            "SELECT ca.value, ca.fetched_at FROM corporate_actions ca "
+            "JOIN assets a ON a.id = ca.asset_id WHERE a.symbol = :s"
+        ),
+        {"s": SYMBOL},
+    )
+    assert (first, again) == (1, 0)
+    assert row.all() == [(0.04, FIRST_FETCH)]
+
+
+async def test_ingest_end_to_end_stores_served_values_and_actions(repo):
+    def fetch(symbols, start_date, end_date):
+        return [served_record(0, 10.0, FIRST_FETCH),
+                served_record(1, 11.0, FIRST_FETCH, dividend=0.5)]
+
+    report = await ingest_symbols(repo, [SYMBOL], start=START, fetcher=fetch)
+    assert report.outcomes[0].written == 2
+    assert report.outcomes[0].actions_recorded == 1
+    assert (await _served(repo.session, 1))[1] == 22.0

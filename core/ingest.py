@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional, Protocol
 
@@ -75,6 +75,11 @@ class SymbolOutcome:
     #: Bars inserted BEHIND the newest stored bar — holes the overlap window
     #: found and filled. Non-zero means a previous run lost a day.
     filled: int = 0
+    #: Existing bars given their served (auto_adjust=False) values for the first
+    #: time. Separate from `written`, which still counts new rows only.
+    served_filled: int = 0
+    #: Splits and dividends newly recorded in corporate_actions.
+    actions_recorded: int = 0
     error: Optional[str] = None
     first_bar: Optional[datetime] = None
     last_bar: Optional[datetime] = None
@@ -134,6 +139,16 @@ class IngestReport:
         outcome nobody prints is how 35 corrupt crypto series went two years
         without anyone noticing."""
         return [o.symbol for o in self.outcomes if o.implausible_jumps]
+
+    @property
+    def served_filled(self) -> int:
+        """Existing bars given served values this run (phase 3)."""
+        return sum(o.served_filled for o in self.outcomes)
+
+    @property
+    def actions_recorded(self) -> int:
+        """Splits and dividends newly recorded this run (phase 3)."""
+        return sum(o.actions_recorded for o in self.outcomes)
 
     @property
     def filled(self) -> Dict[str, int]:
@@ -262,14 +277,17 @@ def retag(record: MarketDataRecord, asset_class: str, source: str) -> MarketData
     symbol that already exists as crypto, and its bars would land under an id
     no query uses.
     """
-    return MarketDataRecord(
+    # replace(), not a fresh MarketDataRecord: the served values, fetch time
+    # and corporate actions must survive the retag, or read-time adjustment
+    # loses them silently for every crypto symbol.
+    return replace(
+        record,
         asset=Asset(
             symbol=record.asset.symbol,
             asset_class=asset_class,
             source=source,
             metadata=record.asset.metadata,
         ),
-        ohlcv=record.ohlcv,
     )
 
 
@@ -520,6 +538,23 @@ async def ingest_symbols(
             # whenever bars already exist, and reporting the latter made a
             # no-op refresh look like 39,707 bars written.
             outcome.written = persisted
+
+            # Served values for bars that already existed (never overwriting
+            # one already set), then the corporate actions reported on the
+            # fetched bars. Phase 3 of research/dividend-drift-plan-2026-09-27.md:
+            # nothing reads these yet; the adjusted columns above are still
+            # what every caller sees. Actions come from the in-window fetch,
+            # including bars dropped as empty — a dividend is still a dividend.
+            if hasattr(repo, "fill_served"):
+                outcome.served_filled = await repo.fill_served(usable) or 0
+            if hasattr(repo, "write_actions"):
+                in_window = [
+                    retag(r, asset.asset_class, asset.source)
+                    for r in raw
+                    if (floor is None or r.ohlcv.timestamp.utc >= floor)
+                    and (ceiling is None or r.ohlcv.timestamp.utc < ceiling)
+                ]
+                outcome.actions_recorded = await repo.write_actions(in_window) or 0
 
             # A full backfill has just restated the whole series, so record
             # when — a split newer than this means the bars have drifted.

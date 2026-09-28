@@ -110,6 +110,13 @@ async def run(args: argparse.Namespace) -> int:
         report.written,
         len(report.symbols),
     )
+    if report.served_filled or report.actions_recorded:
+        # Phase 3 of the dividend-drift plan: stored, not yet read by anything.
+        logger.info(
+            "Served prices filled on %d existing bar(s); %d corporate action(s) recorded.",
+            report.served_filled,
+            report.actions_recorded,
+        )
     if report.filled:
         # Every one of these is a day an earlier run lost. A handful after an
         # outage is the overlap working; the same symbols every day would mean

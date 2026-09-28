@@ -38,6 +38,8 @@ class FakeReport:
     implausible: list = []
     #: Symbol -> bars the overlap window refilled behind the newest bar.
     filled: dict = {}
+    served_filled = 0
+    actions_recorded = 0
 
 
 @pytest.mark.asyncio

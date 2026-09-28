@@ -226,3 +226,66 @@ class TestCoinGeckoAdapter:
         assert result[0].asset.metadata["vs_currency"] == "eur"
         call_params = mock_get.call_args.kwargs["params"]
         assert call_params["vs_currency"] == "eur"
+
+
+# ---------------------------------------------------------------------------
+# yfinance_adapter — served values and corporate actions (phase 3)
+# ---------------------------------------------------------------------------
+
+def _unadjusted_df() -> pd.DataFrame:
+    """What yf.download(auto_adjust=False, actions=True) returns: MO around its
+    2026-06-15 ex-date, $1.06 dividend, as served on 2026-09-27."""
+    idx = pd.DatetimeIndex(["2026-06-12", "2026-06-15"], name="Date")
+    cols = pd.MultiIndex.from_tuples(
+        [(c, "MO") for c in ("Adj Close", "Close", "Dividends", "High", "Low",
+                             "Open", "Stock Splits", "Volume")],
+        names=["Price", "Ticker"],
+    )
+    data = [
+        [69.7658, 71.94, 0.00, 72.10, 71.20, 71.50, 0.0, 8_409_100],
+        [68.4960, 69.59, 1.06, 70.00, 69.10, 69.80, 0.0, 11_461_600],
+    ]
+    return pd.DataFrame(data, index=idx, columns=cols)
+
+
+class TestYFinanceServedValues:
+    @patch("core.adapters.yfinance_adapter.yf.download")
+    def test_asks_for_unadjusted_prices_with_actions(self, mock_dl):
+        mock_dl.return_value = _unadjusted_df()
+        yfinance_adapter.fetch(["MO"], "2026-06-12", "2026-06-16")
+        kwargs = mock_dl.call_args.kwargs
+        assert kwargs["auto_adjust"] is False and kwargs["actions"] is True
+
+    @patch("core.adapters.yfinance_adapter.yf.download")
+    def test_ohlcv_is_still_the_adjusted_bar_and_served_is_the_raw_one(self, mock_dl):
+        """
+        Adjusted = served x Adj Close / Close, which is exactly auto_adjust=True
+        (verified to the bit against Yahoo). Volume is never scaled.
+        """
+        mock_dl.return_value = _unadjusted_df()
+        first = yfinance_adapter.fetch(["MO"], "2026-06-12", "2026-06-16")[0]
+        ratio = 69.7658 / 71.94
+        assert first.served.close == pytest.approx(71.94)
+        assert first.ohlcv.close == pytest.approx(69.7658)
+        assert first.ohlcv.open == pytest.approx(71.50 * ratio)
+        assert first.ohlcv.volume == first.served.volume == 8_409_100
+
+    @patch("core.adapters.yfinance_adapter.yf.download")
+    def test_actions_are_reported_only_where_they_happened(self, mock_dl):
+        mock_dl.return_value = _unadjusted_df()
+        records = yfinance_adapter.fetch(["MO"], "2026-06-12", "2026-06-16")
+        assert [(r.dividend, r.split_ratio) for r in records] == [(None, None), (1.06, None)]
+
+    @patch("core.adapters.yfinance_adapter.yf.download")
+    def test_every_record_of_a_fetch_shares_one_aware_fetch_time(self, mock_dl):
+        mock_dl.return_value = _unadjusted_df()
+        records = yfinance_adapter.fetch(["MO"], "2026-06-12", "2026-06-16")
+        assert len({r.fetched_at for r in records}) == 1
+        assert records[0].fetched_at.tzinfo is not None
+
+    @patch("core.adapters.yfinance_adapter.yf.download")
+    def test_a_frame_without_adj_close_is_taken_as_unadjusted(self, mock_dl):
+        mock_dl.return_value = _single_ticker_df()
+        record = yfinance_adapter.fetch(["AAPL"], "2024-01-02", "2024-01-03")[0]
+        assert record.ohlcv.close == record.served.close == 150.0
+        assert record.dividend is None and record.split_ratio is None

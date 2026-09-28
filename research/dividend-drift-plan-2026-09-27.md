@@ -127,10 +127,10 @@ decision at cutover:
 |---|---|---|
 | 1 | Alembic 0007: served columns, `fetched_at`, `corporate_actions`, `assets.price_basis` — **done 2026-09-27**, applied to the live DB, downgrade round-tripped, all constraints verified, no existing value changed | 1-1.5 h |
 | 2 | Adjustment engine as pure functions, tests incl. the morning-split and HWM cases — **done 2026-09-27**: `core/price_adjustment.py`. Evidence: `total` reproduces Yahoo's auto_adjust series to within 1e-6 over 11 symbols' full history (54 splits, ~1,700 dividends, HWM's manual factor), which checks the dividend math; `none` recovers real trades (NVDA $1,209.98, Arconic $16.40), which checks the direction of un-adjustment; staggered-fetch unit tests cover what a single-fetch check cannot. (`split` matching Yahoo's Close under one fetch time is true by construction and proves nothing.) 16 tests, 7 mutations all caught; fetch dates taken in New York time; 5.8 ms per symbol | 2-3 h |
-| 3 | Ingest writes served values, `fetched_at` and actions; `implausible_jump` on split-adjusted values | 1.5-2 h |
+| 3 | Ingest writes served values, `fetched_at` and actions; `implausible_jump` on split-adjusted values — **done 2026-09-27**: one `auto_adjust=False, actions=True` download yields both bases (the adjusted columns reproduce `auto_adjust=True` to the bit); `fill_served` fills only NULLs, `write_actions` keeps the first row, a full backfill never touches served values — all proven against real SQL and mutation-tested. Live run on MO/NVDA/AAPL/BTC-USD: 48 overlap bars filled, MO's 09-15 dividend recorded, every existing adjusted value unchanged. `implausible_jump` still judges the adjusted `ohlcv`, which is correct until cutover; moved to phase 5 | 1.5-2 h |
 | 4 | Migration fetch, gate, `price_basis`, investigate failures | 2-3 h |
 | 5 | `fetch_range(adjust=)`, Protocol and test fake, the bypassing readers, `verify` | 2-3 h |
-| 6 | Cutover, daily fresh-return check, retire or guard `--full-backfill`, docs | 1.5-2 h |
+| 6 | Cutover, daily fresh-return check, retire or guard `--full-backfill`, docs. The fresh-return check has a NAMED job beyond HWM-type spinoffs: an action keeps its first row, so if Yahoo later corrects a dividend amount the correction is never picked up — the check sees it as a `total`-mode mismatch on that ex-date | 1.5-2 h |
 | | **total** | **10-15 h, over 2-3 sessions** |
 
 Your hands-on time: about 30-45 minutes for the decisions below, plus reviewing

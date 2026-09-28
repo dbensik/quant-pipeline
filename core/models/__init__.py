@@ -36,4 +36,14 @@ class Asset:
 @dataclass
 class MarketDataRecord:
     asset: Asset
+    #: The bar as every reader uses it today: Yahoo's auto_adjust=True values.
     ohlcv: OHLCV
+    #: The same bar as the provider SERVED it (auto_adjust=False) and when —
+    #: what read-time adjustment is built from (core/price_adjustment.py).
+    #: None from a source that does not supply it (CoinGecko).
+    served: Optional[OHLCV] = None
+    fetched_at: Optional[datetime] = None
+    #: Corporate actions the provider reported ON this bar's date, as served:
+    #: dividend per share and split ratio (10.0 for 10:1). None when none.
+    dividend: Optional[float] = None
+    split_ratio: Optional[float] = None
