@@ -125,7 +125,7 @@ decision at cutover:
 
 | phase | work | estimate |
 |---|---|---|
-| 1 | Alembic 0007: served columns, `fetched_at`, `corporate_actions`, `assets.price_basis` | 1-1.5 h |
+| 1 | Alembic 0007: served columns, `fetched_at`, `corporate_actions`, `assets.price_basis` — **done 2026-09-27**, applied to the live DB, downgrade round-tripped, all constraints verified, no existing value changed | 1-1.5 h |
 | 2 | Adjustment engine as pure functions, tests incl. the morning-split and HWM cases | 2-3 h |
 | 3 | Ingest writes served values, `fetched_at` and actions; `implausible_jump` on split-adjusted values | 1.5-2 h |
 | 4 | Migration fetch, gate, `price_basis`, investigate failures | 2-3 h |

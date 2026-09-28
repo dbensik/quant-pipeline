@@ -6,12 +6,15 @@ Phase 2 — TimescaleDB Schema & Repository Layer
 """
 
 from sqlalchemy import (
+    CheckConstraint,
     Column,
+    Date,
     Integer,
     String,
     Float,
     DateTime,
     ForeignKey,
+    Text,
     UniqueConstraint,
     Index,
     text,
@@ -51,6 +54,15 @@ class AssetORM(Base):
     # longer trades", which is the ambiguity the Data page had to hedge.
     delisted_at = Column(DateTime(timezone=True), nullable=True)
 
+    # --- served prices (0007) ---------------------------------------------
+    # Which price columns are authoritative for this asset. NULL: not yet
+    # migrated, the adjusted columns are used as they always were. 'served':
+    # passed the per-symbol gate, prices are derived at read time from the
+    # served_* columns and corporate_actions. 'legacy': Yahoo cannot serve
+    # this series correctly (PARA, delisted names), so it keeps its current
+    # values for good. See research/dividend-drift-plan-2026-09-27.md.
+    price_basis = Column(String, nullable=True)
+
     # NOTE: lazy="dynamic" is deprecated in SQLAlchemy 2.0 (removed in 2.1) and is
     # incompatible with AsyncSession anyway. "selectin" issues one batched SELECT and
     # works under asyncio; for large per-asset scans, query MarketDataORM directly
@@ -61,6 +73,10 @@ class AssetORM(Base):
 
     __table_args__ = (
         UniqueConstraint("symbol", "asset_class", "source", name="uq_asset_identity"),
+        CheckConstraint(
+            "price_basis IS NULL OR price_basis IN ('served', 'legacy')",
+            name="ck_assets_price_basis",
+        ),
     )
 
     def __repr__(self) -> str:
@@ -100,6 +116,20 @@ class MarketDataORM(Base):
     volume = Column(Float, nullable=True)
     source = Column(String, nullable=False)
 
+    # --- served prices (0007) ---------------------------------------------
+    # Yahoo's auto_adjust=False values exactly as returned, and when. That
+    # close is ALREADY split- and spinoff-adjusted as of `fetched_at`, but not
+    # dividend-adjusted — Yahoo has no truly raw price. Raw is recoverable as
+    # served x every split/manual factor with an ex-date in
+    # (bar date, fetched_at], so these are written once and never restated.
+    # NULL until written; the columns above stay authoritative until cutover.
+    served_open = Column(Float, nullable=True)
+    served_high = Column(Float, nullable=True)
+    served_low = Column(Float, nullable=True)
+    served_close = Column(Float, nullable=True)
+    served_volume = Column(Float, nullable=True)
+    fetched_at = Column(DateTime(timezone=True), nullable=True)
+
     asset = relationship("AssetORM", back_populates="market_data")
 
     __table_args__ = (
@@ -111,6 +141,48 @@ class MarketDataORM(Base):
 
     def __repr__(self) -> str:
         return f"<MarketDataORM asset_id={self.asset_id} time={self.time}>"
+
+
+class CorporateActionORM(Base):
+    """
+    One split, dividend or manual price factor for one asset (revision 0007).
+
+    `value` is a split ratio (10.0 for 10:1), a dividend per share AS SERVED
+    (Yahoo's amounts are split-adjusted as of `fetched_at`), or a
+    multiplicative price factor. `manual_factor` covers events Yahoo applies
+    but never lists: HWM's 2020-04-01 Arconic spinoff, 0.76687, is baked into
+    its served close and absent from every action feed. The table refuses a
+    manual factor without `evidence`.
+    """
+
+    __tablename__ = "corporate_actions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    asset_id = Column(
+        Integer, ForeignKey("assets.id", ondelete="CASCADE"), nullable=False
+    )
+    ex_date = Column(Date, nullable=False)
+    kind = Column(String, nullable=False)  # 'split' | 'dividend' | 'manual_factor'
+    value = Column(Float, nullable=False)
+    source = Column(String, nullable=False)  # 'yfinance' | 'manual'
+    fetched_at = Column(DateTime(timezone=True), nullable=False)
+    evidence = Column(Text, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("asset_id", "ex_date", "kind", name="uq_corporate_action"),
+        CheckConstraint(
+            "kind IN ('split', 'dividend', 'manual_factor')",
+            name="ck_corporate_action_kind",
+        ),
+        CheckConstraint("value > 0", name="ck_corporate_action_value"),
+        CheckConstraint(
+            "kind <> 'manual_factor' OR evidence IS NOT NULL",
+            name="ck_manual_factor_has_evidence",
+        ),
+    )
+
+    def __repr__(self) -> str:
+        return f"<CorporateActionORM asset_id={self.asset_id} {self.kind} {self.ex_date}>"
 
 
 # ---------------------------------------------------------------------------
