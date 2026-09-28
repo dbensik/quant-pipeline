@@ -15,15 +15,15 @@ uses, so the CLI and the API cannot diverge.
 
     python -m cli.run_pipeline                     # resume every registered symbol
     python -m cli.run_pipeline --symbols AAPL MSFT # just these
-    python -m cli.run_pipeline --full-backfill     # restate history (see below)
+    python -m cli.run_pipeline --symbols X --start 2026-08-27   # fill an old hole
     python -m cli.run_pipeline --dry-run           # report the plan, write nothing
 
-WHEN TO USE --full-backfill
-    yfinance's auto_adjust restates a whole series for splits as of the fetch
-    date, so a symbol that splits after its bars were stored ends up with two
-    segments adjusted to different as-of dates — a discontinuity every
-    strategy reads as a real move. A full backfill overwrites the stored bars
-    and removes it. `GET /api/v1/ingest/health` says which symbols need one.
+THERE IS NO --full-backfill ANY MORE (removed 2026-09-28)
+    It overwrote stored bars to cure split drift. Read-time adjustment made
+    split drift impossible for every served asset (phase 6 of
+    research/dividend-drift-plan-2026-09-27.md), and the flag was the command
+    that destroyed 1390 genuine PARA bars when the provider's history turned
+    out worse than ours. Nothing this CLI does can rewrite a stored bar.
 """
 
 from __future__ import annotations
@@ -68,9 +68,7 @@ async def run(args: argparse.Namespace) -> int:
             logger.error("No symbols to ingest — the asset registry is empty.")
             return 1
 
-        if args.full_backfill:
-            mode = "FULL BACKFILL (restating history)"
-        elif args.start:
+        if args.start:
             mode = f"insert-only from {args.start}"
         else:
             mode = "resume"
@@ -97,7 +95,6 @@ async def run(args: argparse.Namespace) -> int:
                 if start
                 else None
             ),
-            full_backfill=args.full_backfill,
             progress=progress,
             # A resume over the whole registry skips symbols already flagged
             # unresolved; naming symbols by hand does not. Asking for BNY
@@ -173,11 +170,6 @@ def main() -> int:
         "--symbols", nargs="*", help="Tickers to fetch. Omit for the whole registry."
     )
     parser.add_argument(
-        "--full-backfill",
-        action="store_true",
-        help="Refetch from 2015 and OVERWRITE stored bars (fixes split drift).",
-    )
-    parser.add_argument(
         "--start",
         type=date.fromisoformat,
         help=(
@@ -190,10 +182,6 @@ def main() -> int:
         "--dry-run", action="store_true", help="Report the plan; write nothing."
     )
     args = parser.parse_args()
-    if args.start and args.full_backfill:
-        # Opposite intents: --start inserts what is missing, --full-backfill
-        # overwrites everything. Guessing which was meant could destroy bars.
-        parser.error("--start and --full-backfill cannot be combined.")
 
     try:
         return asyncio.run(run(args))

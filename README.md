@@ -8,7 +8,7 @@ Built and maintained by one person as a working research tool, not a product. It
 
 | Area | What's there |
 |---|---|
-| **Data** | Daily bars for the S&P 500, Dow, Nasdaq 100, and top-100 crypto universes via yfinance, written to TimescaleDB through one ingestion path (`core/ingest.py`) shared by the API and the CLI. Incremental updates by default; `--full-backfill` rewrites a series when yfinance re-adjusts it for splits, and `GET /api/v1/ingest/health` reports which symbols have drifted. |
+| **Data** | Daily bars for the S&P 500, Dow, Nasdaq 100, and top-100 crypto universes via yfinance, written to TimescaleDB through one ingestion path (`core/ingest.py`) shared by the API and the CLI. Incremental, insert-only updates that re-check the last 14 days; prices are adjusted for splits, spinoffs and dividends at read time, so a stored bar is never rewritten. |
 | **Strategies** | 18 modules in `alpha_models/` behind a single `BaseAlphaModel` contract and a registry: moving-average crossover, mean reversion, cointegrated mean reversion, pairs trading, paired switching, trend following, ATR breakout, RSI, momentum allocation, basket trading, index rebalancing, asset-class trend, buy-and-hold, a random-forest model, and others. |
 | **Backtesting** | Equity curve against buy-and-hold, CAGR, Sharpe, max drawdown, Calmar, trade log; parameter grid search and portfolio-weight optimization; strategy comparison on one symbol. Live progress over a websocket. |
 | **Screening and statistics** | Momentum and low-volatility screeners over a universe; ADF, cointegration, and PCA on the Statistics page. |
@@ -48,7 +48,7 @@ python -m cli.run_pipeline     # ingest from the command line (same path as the 
 
 ## A typical session
 
-1. **Ingest** on the Data page. Incremental by default; the health endpoint tells you when a full backfill is warranted.
+1. **Ingest** on the Data page. Incremental and insert-only; adjustment happens at read time.
 2. **Chart and backtest** a symbol: pick a strategy, set parameters and a date range, run, and read the equity curve, KPIs, and trade log.
 3. **Compare** several strategies on the same symbol, or **Optimize** a parameter grid or portfolio weights.
 4. **Screen** the universe (momentum, low volatility) and save the result as a watchlist to backtest against.

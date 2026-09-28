@@ -85,7 +85,7 @@ describe('DataPage — ingest', () => {
     )
     await waitFor(() => expect(run).toHaveBeenCalled())
     // null, not [] — an empty list would be a different request.
-    expect(run.mock.calls[0][0]).toEqual({ symbols: null, full_backfill: false })
+    expect(run.mock.calls[0][0]).toEqual({ symbols: null })
   })
 
   it('sends an explicit symbol list when given one', async () => {
@@ -102,15 +102,10 @@ describe('DataPage — ingest', () => {
     expect(run.mock.calls[0][0]?.symbols).toEqual(['AAPL', 'MSFT'])
   })
 
-  it('passes the full-backfill flag', async () => {
-    const run = vi.spyOn(api, 'runIngest').mockResolvedValue(REPORT as never)
+  it('offers no full backfill — it was removed on 2026-09-28', async () => {
     renderPage(<DataPage />)
-
-    await userEvent.click(await screen.findByLabelText(/Full backfill/))
-    await userEvent.click(screen.getByRole('button', { name: /Ingest everything/ }))
-
-    await waitFor(() => expect(run).toHaveBeenCalled())
-    expect(run.mock.calls[0][0]?.full_backfill).toBe(true)
+    await screen.findByRole('button', { name: 'Ingest everything' })
+    expect(screen.queryByLabelText(/Full backfill/)).toBeNull()
   })
 
   it('summarises what was written', async () => {

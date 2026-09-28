@@ -55,9 +55,14 @@ def test_symbols_are_upper_cased(client: TestClient):
     assert ingest(client, symbols=["aapl"]).json()["results"][0]["symbol"] == "AAPL"
 
 
-def test_full_backfill_asks_for_the_default_start(client: TestClient, fetcher):
-    ingest(client, full_backfill=True)
-    assert fetcher.calls[-1][1] == "2015-01-01"
+def test_full_backfill_is_refused_not_ignored(client: TestClient, fetcher):
+    """
+    Removed 2026-09-28. A stale client still sending it must get an error,
+    not a routine resume it did not ask for — so unknown fields are refused.
+    """
+    response = ingest(client, full_backfill=True)
+    assert response.status_code == 422
+    assert fetcher.calls == []
 
 
 def test_explicit_start_is_passed_through(client: TestClient, fetcher):

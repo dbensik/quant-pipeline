@@ -344,7 +344,6 @@ export const api = {
 
   runIngest(body: {
     symbols?: string[] | null
-    full_backfill?: boolean
   } = {}): Promise<IngestResponse> {
     return request('/api/v1/ingest', {
       method: 'POST',

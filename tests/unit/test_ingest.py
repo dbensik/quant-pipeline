@@ -163,16 +163,6 @@ async def test_resume_reaches_back_behind_the_newest_stored_bar():
 
 
 @pytest.mark.asyncio
-async def test_full_backfill_ignores_stored_history():
-    calls = []
-    repo = RecordingRepo(existing={"AAPL": [bar("AAPL", 5)]})
-    await ingest_symbols(
-        repo, ["AAPL"], full_backfill=True, fetcher=fetcher_for([], calls)
-    )
-    assert calls[0][1] == DEFAULT_BACKFILL_START.strftime("%Y-%m-%d")
-
-
-@pytest.mark.asyncio
 async def test_an_explicit_start_overrides_the_resume_point():
     calls = []
     repo = RecordingRepo(existing={"AAPL": [bar("AAPL", 5)]})
@@ -317,25 +307,19 @@ async def test_incremental_writes_do_not_overwrite():
 
 
 @pytest.mark.asyncio
-async def test_full_backfill_asks_the_database_to_overwrite():
+async def test_ingest_never_asks_the_database_to_overwrite():
     """
-    THE corporate-actions regression. yfinance's auto_adjust restates the whole
-    series for splits as of the FETCH DATE, so a symbol that splits after its
-    bars were stored ends up with two segments adjusted to different as-of
-    dates. Measured 2026-08-09: NFLX closed 1260.27 on 2025-07-15 and 125.03 on
-    2025-07-16 — a 10:1 split in November 2025 applied to the newer segment
-    only, which every strategy reads as a -90% day.
-
-    A full backfill is the fix, but it could not work while write() used ON
-    CONFLICT DO NOTHING: every corrected bar collided with an existing row and
-    was silently discarded. The re-fetch reported 39,707 bars written and
-    changed nothing.
+    There is no restating write any more (full_backfill removed 2026-09-28):
+    read-time adjustment made split drift impossible, and the overwrite was
+    what destroyed 1390 genuine PARA bars. A routine run and an explicit
+    reach-back to 2015 both insert missing bars only.
     """
     repo = RecordingRepo(existing={"AAPL": [bar("AAPL", 0)]})
+    await ingest_symbols(repo, ["AAPL"], fetcher=fetcher_for([bar("AAPL", 0)]))
     await ingest_symbols(
-        repo, ["AAPL"], full_backfill=True, fetcher=fetcher_for([bar("AAPL", 0)])
+        repo, ["AAPL"], start=DEFAULT_BACKFILL_START, fetcher=fetcher_for([bar("AAPL", 0)])
     )
-    assert repo.replace_calls == [True]
+    assert repo.replace_calls and not any(repo.replace_calls)
 
 
 @pytest.mark.asyncio
@@ -399,27 +383,6 @@ async def test_a_flagged_symbol_is_not_re_fetched():
     assert repo.written == []
     assert report.skipped_delisted == ["WBA"]
     assert report.failed == []              # a skip is not a failure
-
-
-@pytest.mark.asyncio
-async def test_full_backfill_still_fetches_a_flagged_symbol():
-    """
-    The repair path must stay open. `mark_full_refresh` clears the flag, so if
-    a backfill skipped flagged assets a mislabelled symbol could never be
-    fixed through the CLI — which is precisely the state BK, FI and MMC were
-    in after being wrongly flagged as delisted rather than renamed.
-    """
-    repo = flagged_repo()
-    calls = []
-    report = await ingest_symbols(
-        repo,
-        ["WBA"],
-        full_backfill=True,
-        fetcher=fetcher_for([bar("WBA", 0)], calls),
-    )
-    assert len(calls) == 1
-    assert report.skipped_delisted == []
-    assert len(repo.written) == 1
 
 
 @pytest.mark.asyncio
@@ -609,18 +572,18 @@ async def test_an_unchecked_asset_is_never_blocked():
 
 
 @pytest.mark.asyncio
-async def test_a_backfill_does_NOT_bypass_the_identity_gate():
+async def test_naming_a_symbol_and_reaching_back_does_NOT_bypass_the_identity_gate():
     """
     The asymmetry with `skip_delisted`, and the whole reason the gate exists.
 
-    A full backfill REPAIRS a stale adjustment or a wrongly-flagged symbol, so
-    it deliberately ignores the delisted gate. It cannot repair a wrong asset:
-    refetching UNI-USD imports more UNICORN Token. Letting a backfill through
-    here would reintroduce exactly the 27,076 bars this is meant to stop.
+    Naming a symbol explicitly repairs a wrongly-flagged symbol, so it ignores
+    the delisted gate. It cannot repair a wrong asset: refetching UNI-USD
+    imports more UNICORN Token, from 2015 as readily as from yesterday.
+    Letting it through here would reintroduce the 27,076 bars this stops.
     """
     repo = identity_repo("wrong_asset")
     await ingest_symbols(
-        repo, ["UNI-USD"], full_backfill=True,
+        repo, ["UNI-USD"], start=DEFAULT_BACKFILL_START, skip_delisted=False,
         fetcher=fetcher_for([bar("UNI-USD", 0)]),
     )
     assert repo.written == []
@@ -677,14 +640,15 @@ def test_an_unparseable_floor_is_ignored_not_fatal():
 
 
 @pytest.mark.asyncio
-async def test_bars_before_the_floor_are_refused_even_on_a_backfill():
+async def test_bars_before_the_floor_are_refused_even_when_fetching_from_2015():
     """
-    THE regression. A backfill asks from 2015; the provider returns the
-    contaminated prefix; without this the deleted bars come straight back.
+    THE regression. A fetch from 2015 (--start, or a symbol with no bars)
+    gets the contaminated prefix back from the provider; without this the
+    deleted bars come straight back.
     """
     repo = floor_repo()
     report = await ingest_symbols(
-        repo, ["TIA-USD"], full_backfill=True,
+        repo, ["TIA-USD"], start=DEFAULT_BACKFILL_START,
         fetcher=fetcher_for([bar("TIA-USD", i, close=1.0 + i) for i in range(6)]),
     )
     # START is 2024-01-01, so days 0 and 1 precede the 2024-01-03 floor.
@@ -697,22 +661,22 @@ async def test_bars_before_the_floor_are_refused_even_on_a_backfill():
 @pytest.mark.asyncio
 async def test_the_fetch_window_itself_is_clamped_to_the_floor():
     """Cheaper than filtering afterwards, and it is what the live run showed:
-    a full backfill of TIA-USD asked for 561 records, not eleven years."""
+    a 2015 fetch of TIA-USD asked for 561 records, not eleven years."""
     repo = floor_repo()
     calls = []
     await ingest_symbols(
-        repo, ["TIA-USD"], full_backfill=True, fetcher=fetcher_for([], calls)
+        repo, ["TIA-USD"], start=DEFAULT_BACKFILL_START, fetcher=fetcher_for([], calls)
     )
     assert calls[0][1] == "2024-01-03"
 
 
 @pytest.mark.asyncio
 async def test_an_asset_with_no_floor_is_unaffected():
-    """516 equities carry no floor; they must fetch their whole history."""
+    """516 equities carry no floor; a fetch from 2015 must get all of it."""
     repo = RecordingRepo()
     calls = []
     await ingest_symbols(
-        repo, ["AAPL"], full_backfill=True, fetcher=fetcher_for([], calls)
+        repo, ["AAPL"], start=DEFAULT_BACKFILL_START, fetcher=fetcher_for([], calls)
     )
     assert calls[0][1] == DEFAULT_BACKFILL_START.strftime("%Y-%m-%d")
 
@@ -746,17 +710,17 @@ def test_an_unparseable_ceiling_is_ignored_not_fatal():
 
 
 @pytest.mark.asyncio
-async def test_bars_after_the_ceiling_are_refused_even_on_a_backfill():
+async def test_bars_after_the_ceiling_are_refused_even_when_named_explicitly():
     """
     THE regression, and why `delisted_at` alone is not enough: the routine
-    skip gate honours it, but --full-backfill deliberately IGNORES that gate
-    because a backfill is the repair path for a wrongly-flagged symbol. So one
-    backfill re-imports the successor's prices, and the identity gate does not
-    stop an equity either — there is no reference to check it against.
+    skip gate honours it, but naming a symbol explicitly bypasses that gate —
+    the repair path for a wrongly-flagged symbol. So one explicit fetch
+    re-imports the successor's prices, and the identity gate does not stop an
+    equity either — there is no reference to check it against.
     """
     repo = ceiling_repo()
     report = await ingest_symbols(
-        repo, ["PARA"], full_backfill=True,
+        repo, ["PARA"], start=DEFAULT_BACKFILL_START, skip_delisted=False,
         fetcher=fetcher_for([bar("PARA", i, close=10.0 + i) for i in range(6)]),
     )
     # START is 2024-01-01, so days 3..5 fall on or after the 2024-01-04 ceiling.
@@ -771,7 +735,7 @@ async def test_the_fetch_window_end_is_clamped_to_the_ceiling():
     repo = ceiling_repo()
     calls = []
     await ingest_symbols(
-        repo, ["PARA"], full_backfill=True, fetcher=fetcher_for([], calls)
+        repo, ["PARA"], start=DEFAULT_BACKFILL_START, fetcher=fetcher_for([], calls)
     )
     assert calls[0][2] == "2024-01-04"
 
@@ -904,18 +868,6 @@ async def test_dropped_empty_bars_are_logged_by_date(caplog):
         await ingest_symbols(repo, ["AAPL"], fetcher=fetcher_for([empty, recent(3)]))
     day = empty.ohlcv.timestamp.utc.date().isoformat()
     assert any("dropped 1 empty bar(s): " + day in m for m in caplog.messages)
-
-
-@pytest.mark.asyncio
-async def test_a_full_backfill_counts_nothing_as_filled():
-    """A backfill restates everything; `filled` is only about the overlap."""
-    repo = KeyedRepo(existing={"AAPL": [recent(5), recent(3)]})
-    report = await ingest_symbols(
-        repo, ["AAPL"], full_backfill=True,
-        fetcher=fetcher_for([recent(5), recent(4), recent(3)]),
-    )
-    assert report.outcomes[0].filled == 0
-    assert report.outcomes[0].written == 3
 
 
 # ---------------------------------------------------------------------------

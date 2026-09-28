@@ -703,8 +703,11 @@ export interface paths {
          * Which stored series have drifted against corporate actions
          * @description Reports drift; it does not fix it.
          *
-         *     The fix is `POST /api/v1/ingest {"symbols": [...], "full_backfill": true}`,
-         *     which restates the series — a write, and therefore the caller's decision.
+         *     Since 2026-09-28 drift no longer reaches readers of a served asset: its
+         *     prices are adjusted at read time from its served values, whatever the
+         *     stored columns hold. This list still describes those stored columns, which
+         *     legacy assets, crypto and a few scripts read directly. There is no longer
+         *     a restating write to fix it with (`full_backfill` was removed).
          *
          *     One network call per symbol (split history), so checking the whole registry
          *     takes minutes. Pass `symbols` to check a few.
@@ -1307,7 +1310,7 @@ export interface components {
             checked: number;
             /**
              * Drifted
-             * @description Stored bars are adjusted to a stale as-of date. Fix with a full backfill of these symbols.
+             * @description Stored columns adjusted to a stale as-of date. Readers of a price_basis='served' asset never see this: its prices are adjusted at read time. It matters for legacy assets, crypto and scripts that read the stored columns. There is no restating write.
              */
             drifted: components["schemas"]["DriftedSymbol"][];
             /**
@@ -1317,7 +1320,7 @@ export interface components {
             delisted: string[];
             /**
              * Unrefreshed
-             * @description Never restated by a full backfill, so their adjustment date is unknown. Not necessarily wrong.
+             * @description Stored columns never restated, so their adjustment as-of date is unknown. Not necessarily wrong; irrelevant to readers of a served asset.
              */
             unrefreshed: string[];
         };
@@ -1382,17 +1385,11 @@ export interface components {
             symbols?: string[] | null;
             /**
              * Start
-             * @description Window start. Omitted means resume from the day after each symbol's newest stored bar.
+             * @description Window start. Omitted means resume, re-requesting the last 14 days so a day an earlier run lost is filled. Either way only missing bars are inserted; a stored bar is never rewritten.
              */
             start?: string | null;
             /** End */
             end?: string | null;
-            /**
-             * Full Backfill
-             * @description Ignore stored history and refetch from 2015.
-             * @default false
-             */
-            full_backfill: boolean;
         };
         /** IngestResponse */
         IngestResponse: {

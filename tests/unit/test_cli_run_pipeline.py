@@ -21,7 +21,7 @@ from cli import run_pipeline
 
 
 def args(**overrides) -> argparse.Namespace:
-    defaults = {"symbols": None, "full_backfill": False, "dry_run": False, "start": None}
+    defaults = {"symbols": None, "dry_run": False, "start": None}
     return argparse.Namespace(**{**defaults, **overrides})
 
 
@@ -70,19 +70,17 @@ async def test_symbols_are_upper_cased_and_blanks_dropped():
     assert ingest.await_args.kwargs["symbols"] == ["AAPL", "MSFT"]
 
 
-@pytest.mark.asyncio
-async def test_full_backfill_is_passed_through():
+def test_full_backfill_no_longer_exists(monkeypatch):
     """
-    It overwrites stored bars, so it must not be silently dropped — this is
-    the flag that repairs split-adjustment drift.
+    Removed 2026-09-28. It overwrote stored bars to cure split drift, which
+    read-time adjustment made impossible, and it destroyed 1390 genuine PARA
+    bars when the provider's history was worse than ours. Asking for it must
+    fail loudly, not quietly run a resume.
     """
-    with (
-        patch.object(run_pipeline, "ingest_symbols", new=AsyncMock(return_value=FakeReport())) as ingest,
-        patch.object(run_pipeline, "get_session"),
-    ):
-        await run_pipeline.run(args(symbols=["AAPL"], full_backfill=True))
-
-    assert ingest.await_args.kwargs["full_backfill"] is True
+    monkeypatch.setattr("sys.argv", ["run_pipeline", "--full-backfill"])
+    with pytest.raises(SystemExit) as exit_info:
+        run_pipeline.main()
+    assert exit_info.value.code == 2
 
 
 @pytest.mark.asyncio
@@ -163,8 +161,7 @@ async def test_naming_symbols_on_the_command_line_disables_the_skip():
 async def test_start_is_passed_through_as_utc_midnight_and_never_overwrites():
     """
     --start exists to fill a hole older than the routine overlap. It must reach
-    ingest as an explicit start and must NOT imply a backfill: filling is an
-    insert, and a backfill would rewrite every bar in the window.
+    ingest as an explicit start; ingest only ever inserts missing bars.
     """
     from datetime import date, datetime, timezone
 
@@ -175,13 +172,4 @@ async def test_start_is_passed_through_as_utc_midnight_and_never_overwrites():
         await run_pipeline.run(args(symbols=["EIX"], start=date(2026, 8, 27)))
 
     assert ingest.await_args.kwargs["start"] == datetime(2026, 8, 27, tzinfo=timezone.utc)
-    assert ingest.await_args.kwargs["full_backfill"] is False
-
-
-def test_start_with_full_backfill_is_refused(monkeypatch):
-    monkeypatch.setattr(
-        "sys.argv", ["run_pipeline", "--start", "2026-08-27", "--full-backfill"]
-    )
-    with pytest.raises(SystemExit) as exit_info:
-        run_pipeline.main()
-    assert exit_info.value.code == 2
+    assert "full_backfill" not in ingest.await_args.kwargs

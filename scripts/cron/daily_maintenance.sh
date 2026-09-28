@@ -144,6 +144,25 @@ if [ "$MODE" != "--snapshot-only" ]; then
     fi
 fi
 
+# Returns readers see vs a fresh Yahoo fetch, last 30 sessions. The standing
+# test of read-time adjustment (research/dividend-drift-plan-2026-09-27.md):
+# catches an unlisted spinoff (HWM-type), a dividend Yahoo later corrected, and
+# the first real test of the morning-split rule. Flags only.
+if [ "$MODE" != "--snapshot-only" ]; then
+    log "--- fresh-return check ---"
+    "$VENV_PYTHON" scripts/check_fresh_returns.py >> "$LOG_FILE" 2>&1
+    CHECK_EXIT=$?
+    if [ "$CHECK_EXIT" -eq 0 ]; then
+        log "fresh-return check OK"
+    elif [ "$CHECK_EXIT" -eq 1 ]; then
+        log "fresh-return check FLAGGED returns that disagree with Yahoo — see MISMATCH lines above"
+        FLAGGED=1
+    else
+        log "fresh-return check FAILED to run (exit $CHECK_EXIT)"
+        STATUS=1
+    fi
+fi
+
 if [ "$MODE" != "--ingest-only" ]; then
     log "--- universe snapshot ---"
     if "$VENV_PYTHON" scripts/snapshot_universes.py >> "$LOG_FILE" 2>&1; then
@@ -172,7 +191,7 @@ if [ "$STATUS" -ne 0 ] && [ ! -t 1 ]; then
 fi
 
 if [ "$FLAGGED" -eq 1 ] && [ ! -t 1 ]; then
-    osascript -e 'display notification "A check flagged stored data - see SUSPECT or MISSING in logs/daily_maintenance.log. Nothing was changed." with title "quant-pipeline daily maintenance"' >/dev/null 2>&1 || true
+    osascript -e 'display notification "A check flagged stored data - see SUSPECT, MISSING or MISMATCH in logs/daily_maintenance.log. Nothing was changed." with title "quant-pipeline daily maintenance"' >/dev/null 2>&1 || true
 fi
 
 # Keep the log from growing without bound; 30 days is plenty to notice a

@@ -254,7 +254,11 @@ INGEST_OVERLAP_DAYS = 14
 #: stored columns exactly as before. price_basis was written in phase 4, so
 #: without this switch the new read path would go live the moment any process
 #: reloaded — the API, or the 06:00 job — before phase 6 verified it.
-SERVED_PRICES_ENABLED = False
+#: Turned ON 2026-09-28 (phase 6), after: 516 symbols gated, returns matching
+#: Yahoo to 0.00006pp through fetch_range, whole bars checked, and the fresh-
+#: return check going from 250 mismatched days (stored) to the result recorded
+#: in the plan. Set False to return every read to the stored columns.
+SERVED_PRICES_ENABLED = True
 
 # --- Reassigned tickers (core/corporate_actions.detect_reassignment) ---
 #: A ticker reassigned to another company shows up as a collapse in DOLLAR

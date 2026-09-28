@@ -672,7 +672,6 @@ async def ingest_ws(websocket: WebSocket) -> None:
                 "type": "accepted",
                 "symbols": symbols,
                 "total": len(symbols),
-                "full_backfill": request.full_backfill,
             }
         )
 
@@ -699,7 +698,6 @@ async def ingest_ws(websocket: WebSocket) -> None:
                     symbols=symbols,
                     start=request.start,
                     end=request.end,
-                    full_backfill=request.full_backfill,
                     progress=on_progress,
                     run_in_thread=run_in_threadpool,
                 )

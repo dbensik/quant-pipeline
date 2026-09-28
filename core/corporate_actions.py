@@ -16,9 +16,11 @@ a -90% day, and nothing anywhere reported a problem.
 WHAT THIS MODULE DOES AND DOES NOT DO
     Does: tell you which symbols have a split newer than the last time their
     series was restated, and which the provider no longer resolves.
-    Does not: fix anything. The fix is a full backfill, which is a write the
-    caller should choose to make. Nor does it say WHY a symbol stopped
-    resolving — see `looks_unresolved`.
+    Does not: fix anything. Since 2026-09-28 nothing needs fixing for an asset
+    read through read-time adjustment (price_basis = 'served') — drift in its
+    stored columns never reaches a reader — and the restating write that used
+    to be the fix (`--full-backfill`) was removed. Nor does it say WHY a symbol
+    stopped resolving — see `looks_unresolved`.
 
     Renames are NOT handled, and on 2026-08-09 that gap bit: BK→BNY, FI→FISV
     and MMC→MRSH were each flagged as delisted and lost 13 months of bars.

@@ -240,14 +240,12 @@ async def test_a_plain_rerun_does_not_change_stored_prices(repo):
     assert 999.0 not in [r[0] for r in rows]
 
 
-async def test_full_backfill_restates_existing_bars(repo):
+async def test_a_readjusted_refetch_never_rewrites_a_stored_bar(repo):
     """
-    THE fix for split drift, asserted against real SQL.
-
-    yfinance re-adjusts a whole series for splits as of the fetch date, so the
-    only way to remove a discontinuity is to overwrite the stored bars. With
-    ON CONFLICT DO NOTHING that was impossible: the corrected bars collided and
-    were discarded, and the run still reported thousands of bars written.
+    Against real SQL. A provider that re-adjusts history (as yfinance does for
+    every split) must not change a stored bar: since 2026-09-28 read-time
+    adjustment handles the split, and the overwrite that used to "fix" it is
+    gone — it destroyed 1390 genuine PARA bars.
     """
     await ingest_symbols(repo, [SYMBOL], start=START, fetcher=stub_fetcher(2))
 
@@ -257,9 +255,7 @@ async def test_full_backfill_restates_existing_bars(repo):
             r.ohlcv.close = r.ohlcv.close / 10.0  # as a 10:1 split would
         return records
 
-    await ingest_symbols(
-        repo, [SYMBOL], start=START, full_backfill=True, fetcher=readjusted
-    )
+    await ingest_symbols(repo, [SYMBOL], start=START, fetcher=readjusted)
 
     rows = await repo.session.execute(
         text(
@@ -268,17 +264,8 @@ async def test_full_backfill_restates_existing_bars(repo):
         ),
         {"s": SYMBOL},
     )
-    closes = [r[0] for r in rows]
-    assert closes == pytest.approx([1.05, 1.15])
-
-
-async def test_full_backfill_does_not_duplicate_rows(repo):
-    """Overwriting must update in place, not append a second bar per date."""
-    await ingest_symbols(repo, [SYMBOL], start=START, fetcher=stub_fetcher(3))
-    await ingest_symbols(
-        repo, [SYMBOL], start=START, full_backfill=True, fetcher=stub_fetcher(3)
-    )
-    assert await _bar_count(repo.session) == 3
+    assert [r[0] for r in rows] == pytest.approx([10.5, 11.5])
+    assert await _bar_count(repo.session) == 2
 
 
 async def test_written_reports_rows_the_database_accepted(repo):
@@ -347,7 +334,7 @@ async def test_fill_served_fills_a_null_and_never_overwrites(repo):
     assert await _served(repo.session, 1) == (11.0, 22.0, FIRST_FETCH)
 
 
-async def test_a_full_backfill_rewrites_adjusted_prices_but_not_served_ones(repo):
+async def test_replace_rewrites_adjusted_prices_but_never_served_ones(repo):
     await repo.write([served_record(0, 10.0, FIRST_FETCH)])
     await repo.write([served_record(0, 12.0, SECOND_FETCH)], replace=True)
     assert await _served(repo.session, 0) == (12.0, 20.0, FIRST_FETCH)

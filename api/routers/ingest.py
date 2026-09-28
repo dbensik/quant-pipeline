@@ -29,7 +29,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.concurrency import run_in_threadpool
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -52,6 +52,11 @@ UNIVERSE_SOURCES = ("sp500", "dow_jones", "nasdaq100", "top_100_crypto")
 # ---------------------------------------------------------------------------
 
 class IngestRequest(BaseModel):
+    # An unknown field is an error, not ignored: `full_backfill` was removed on
+    # 2026-09-28, and a stale client sending it must not be quietly handed a
+    # routine resume it did not ask for.
+    model_config = ConfigDict(extra="forbid")
+
     symbols: Optional[List[str]] = Field(
         default=None,
         description="Tickers to refresh. Omit for every asset in the registry.",
@@ -59,14 +64,12 @@ class IngestRequest(BaseModel):
     start: Optional[datetime] = Field(
         default=None,
         description=(
-            "Window start. Omitted means resume from the day after each "
-            "symbol's newest stored bar."
+            "Window start. Omitted means resume, re-requesting the last 14 days "
+            "so a day an earlier run lost is filled. Either way only missing "
+            "bars are inserted; a stored bar is never rewritten."
         ),
     )
     end: Optional[datetime] = None
-    full_backfill: bool = Field(
-        default=False, description="Ignore stored history and refetch from 2015."
-    )
 
 
 class SymbolResult(BaseModel):
@@ -124,8 +127,10 @@ class DataHealthResponse(BaseModel):
     checked: int
     drifted: List[DriftedSymbol] = Field(
         description=(
-            "Stored bars are adjusted to a stale as-of date. Fix with a full "
-            "backfill of these symbols."
+            "Stored columns adjusted to a stale as-of date. Readers of a "
+            "price_basis='served' asset never see this: its prices are adjusted "
+            "at read time. It matters for legacy assets, crypto and scripts "
+            "that read the stored columns. There is no restating write."
         )
     )
     delisted: List[str] = Field(
@@ -133,8 +138,9 @@ class DataHealthResponse(BaseModel):
     )
     unrefreshed: List[str] = Field(
         description=(
-            "Never restated by a full backfill, so their adjustment date is "
-            "unknown. Not necessarily wrong."
+            "Stored columns never restated, so their adjustment as-of date is "
+            "unknown. Not necessarily wrong; irrelevant to readers of a served "
+            "asset."
         )
     )
 
@@ -278,7 +284,6 @@ async def run_ingest(
             symbols=symbols,
             start=request.start,
             end=request.end,
-            full_backfill=request.full_backfill,
             fetcher=fetcher,
             progress=job.note,
             run_in_thread=run_in_threadpool,
@@ -467,8 +472,11 @@ async def data_health(
     """
     Reports drift; it does not fix it.
 
-    The fix is `POST /api/v1/ingest {"symbols": [...], "full_backfill": true}`,
-    which restates the series — a write, and therefore the caller's decision.
+    Since 2026-09-28 drift no longer reaches readers of a served asset: its
+    prices are adjusted at read time from its served values, whatever the
+    stored columns hold. This list still describes those stored columns, which
+    legacy assets, crypto and a few scripts read directly. There is no longer
+    a restating write to fix it with (`full_backfill` was removed).
 
     One network call per symbol (split history), so checking the whole registry
     takes minutes. Pass `symbols` to check a few.

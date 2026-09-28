@@ -16,12 +16,13 @@ So this is not a port of that button. It is the missing write path: fetch
 through the existing adapters, which already return MarketDataRecord, and
 persist through the repository.
 
-An incremental run upserts with ON CONFLICT DO NOTHING, so re-running it is
-idempotent and cheap. A `full_backfill` run passes replace=True instead,
-because it exists to RESTATE history: yfinance's auto_adjust re-adjusts the
-whole series for splits as of the fetch date, so a symbol that split after
-its bars were stored ends up with two segments adjusted to different as-of
-dates. DO NOTHING made that refresh a silent no-op.
+Every write is ON CONFLICT DO NOTHING, so re-running is idempotent and cheap,
+and a stored bar is never rewritten. There used to be a `full_backfill` that
+overwrote stored history to cure split drift. It was removed on 2026-09-28,
+once read-time adjustment made split drift impossible (phase 6 of
+research/dividend-drift-plan-2026-09-27.md) — it was also the command that
+destroyed 1390 genuine PARA bars, because the provider's history was worse
+than ours.
 
 Pure of FastAPI so it can be tested directly and driven from a CLI later.
 
@@ -223,10 +224,10 @@ def history_floor(metadata: Optional[Dict[str, Any]]) -> Optional[datetime]:
     WHY THIS IS NEEDED. Trimming a contaminated prefix is not durable on its
     own: the provider still serves those bars. TIA-USD's first 1105 bars were a
     micro-cap — every close below Celestia's all-time low, then a 432x jump on
-    2025-03-09 — and they were deleted. But `--full-backfill` starts at
-    DEFAULT_BACKFILL_START (2015), Yahoo happily returns the micro-cap again,
+    2025-03-09 — and they were deleted. But a fetch reaching back to 2015
+    (`--start`, or a symbol with no bars) gets the micro-cap from Yahoo again,
     and the identity gate does NOT block it, because the identity is a correct
-    MATCH. One backfill would silently undo the repair.
+    MATCH. One such fetch would silently undo the repair.
 
     So a cleaned asset records where its real history begins, and ingestion
     refuses to write before it.
@@ -247,9 +248,9 @@ def history_ceiling(metadata: Optional[Dict[str, Any]]) -> Optional[datetime]:
     The first date whose bars no longer belong to this instrument.
 
     `delisted_at` alone is not enough to make a delisting stick. The routine
-    skip gate honours it, but `--full-backfill` deliberately IGNORES that gate,
-    because a backfill is the repair path for a symbol wrongly flagged. So a
-    single backfill of a delisted-and-reassigned ticker re-imports the
+    skip gate honours it, but naming a symbol explicitly bypasses that gate,
+    because that is the repair path for a symbol wrongly flagged. So one
+    explicit fetch of a delisted-and-reassigned ticker re-imports the
     successor's prices, and the identity gate does not stop it either — for an
     equity there is no reference to check against.
 
@@ -296,7 +297,6 @@ async def ingest_symbols(
     symbols: List[str],
     start: Optional[datetime] = None,
     end: Optional[datetime] = None,
-    full_backfill: bool = False,
     fetcher: Fetcher = default_fetcher,
     progress: Optional[Callable[[int, int, str], None]] = None,
     run_in_thread: Optional[Callable] = None,
@@ -312,19 +312,15 @@ async def ingest_symbols(
                        begins INGEST_OVERLAP_DAYS before the symbol's newest
                        stored bar, so a routine run also refills any day an
                        earlier run lost. Existing bars are never rewritten.
-        full_backfill: Ignore stored history and start from
-                       DEFAULT_BACKFILL_START.
         fetcher:       Injected so tests never reach the network.
         run_in_thread: Optional awaitable-returning wrapper for the blocking
                        fetch (FastAPI passes run_in_threadpool).
         skip_delisted: Skip assets already flagged unresolved. Pass False when
                        the caller named the symbols explicitly — skipping a
                        symbol somebody asked for by name is the wrong default.
-                       Ignored when `full_backfill` is set, which repairs.
         skip_unsafe_identity:
                        Skip assets whose RECORDED identity verdict says the
-                       ticker is not the asset we meant. Unlike skip_delisted
-                       this is NOT ignored by full_backfill — see the gate.
+                       ticker is not the asset we meant.
 
     Symbols are processed ONE AT A TIME rather than in one batched download.
     It is slower, but a symbol that fails cannot take the others with it, and
@@ -350,14 +346,14 @@ async def ingest_symbols(
             # Before this gate, eleven dead symbols each cost a 13-month fetch
             # and an ERROR line every morning while the run still exited 0.
             #
-            # Deliberately NOT applied when full_backfill is set: that is the
-            # repair path, and `mark_full_refresh` clears the flag. Skipping
-            # here would make a flagged symbol unrepairable through the CLI —
-            # which is exactly how BK/FI/MMC would have stayed broken.
-            if skip_delisted and not full_backfill and asset.delisted_at:
+            # Naming a symbol explicitly sets skip_delisted=False: that is the
+            # repair path for a symbol wrongly flagged. Without it a flagged
+            # symbol would be unrepairable through the CLI — which is exactly
+            # how BK/FI/MMC would have stayed broken.
+            if skip_delisted and asset.delisted_at:
                 outcome.skipped_delisted = True
-                # Deliberately NOT "re-check with --full-backfill": a backfill
-                # re-asks the provider about the OLD ticker, which stays dead
+                # Deliberately NOT "re-fetch it": a fetch re-asks the provider
+                # about the OLD ticker, which stays dead
                 # whether the cause was a delisting or a rename, so it can
                 # never surface a successor. Clearing this flag means finding
                 # the new ticker and renaming the asset row — how BK/FI/MMC
@@ -380,12 +376,12 @@ async def ingest_symbols(
             # different coin's entire history (27,076 bars) before this gate,
             # and every daily run appended more of it.
             #
-            # DELIBERATELY NOT BYPASSED BY full_backfill — the opposite of the
-            # delisted gate above, and the asymmetry is the point. A backfill
-            # REPAIRS a stale-adjustment or a wrongly-flagged symbol, so it must
-            # reach those. It cannot repair a wrong asset: refetching UNI-USD
-            # just imports more UNICORN Token. The only way past this gate is to
-            # fix the mapping and re-verify, which flips the recorded verdict.
+            # NOT bypassed by naming the symbol — the opposite of the delisted
+            # gate above, and the asymmetry is the point. An explicit fetch can
+            # repair a wrongly-flagged symbol; it cannot repair a wrong asset:
+            # refetching UNI-USD just imports more UNICORN Token. The only way
+            # past this gate is to fix the mapping and re-verify, which flips
+            # the recorded verdict (or skip_unsafe_identity=False, deliberately).
             if skip_unsafe_identity and not metadata_allows_ingest(asset.metadata):
                 outcome.skipped_identity = True
                 logger.warning(
@@ -404,13 +400,9 @@ async def ingest_symbols(
             window_start = start
             if window_start is None:
                 window_start = (
-                    DEFAULT_BACKFILL_START
-                    if full_backfill
-                    else (
-                        newest_stored + timedelta(days=1)
-                        if newest_stored
-                        else DEFAULT_BACKFILL_START
-                    )
+                    newest_stored + timedelta(days=1)
+                    if newest_stored
+                    else DEFAULT_BACKFILL_START
                 )
 
             # A cleaned asset knows where its real history starts. Clamp the
@@ -438,10 +430,8 @@ async def ingest_symbols(
             # heal a hole: once any later bar is stored, a lost day is never
             # requested again. Existing bars are untouched (DO NOTHING), so the
             # overlap only ever INSERTS a missing day. Only for a routine run:
-            # an explicit `start` and a full backfill already say what to fetch.
-            overlapping = (
-                start is None and not full_backfill and newest_stored is not None
-            )
+            # an explicit `start` already says what to fetch.
+            overlapping = start is None and newest_stored is not None
             if overlapping:
                 window_start = newest_stored - timedelta(days=INGEST_OVERLAP_DAYS)
                 if floor is not None and window_start < floor:
@@ -492,10 +482,6 @@ async def ingest_symbols(
                     MAX_DAILY_MOVE_MULTIPLE,
                 )
 
-            # replace=full_backfill. An incremental run writes only new dates,
-            # so DO NOTHING is right and cheap. A full backfill exists to
-            # RESTATE history — yfinance re-adjusts the whole series for splits
-            # as of the fetch date — and DO NOTHING made that a silent no-op.
             if empty_days:
                 # Logged by date so a lost day can be traced. On 2026-09-22
                 # DXCM's bar never landed across three runs and nothing said
@@ -531,7 +517,6 @@ async def ingest_symbols(
             for start_index in range(0, len(usable_new), WRITE_BATCH):
                 persisted += await repo.write(
                     usable_new[start_index : start_index + WRITE_BATCH],
-                    replace=full_backfill,
                 ) or 0
 
             # Rows the DATABASE accepted, not rows submitted. The two differ
@@ -555,11 +540,6 @@ async def ingest_symbols(
                     and (ceiling is None or r.ohlcv.timestamp.utc < ceiling)
                 ]
                 outcome.actions_recorded = await repo.write_actions(in_window) or 0
-
-            # A full backfill has just restated the whole series, so record
-            # when — a split newer than this means the bars have drifted.
-            if full_backfill and usable and hasattr(repo, "mark_full_refresh"):
-                await repo.mark_full_refresh(symbol, datetime.now(timezone.utc))
 
             # An empty fetch is ambiguous on its own: already current, or gone
             # from the provider. Judged together with how old the newest bar is.

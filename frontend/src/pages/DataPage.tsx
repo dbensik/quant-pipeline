@@ -175,7 +175,6 @@ export function DataPage() {
   const { data: watchlists } = useWatchlists()
 
   const [symbols, setSymbols] = useState('')
-  const [fullBackfill, setFullBackfill] = useState(false)
   const [newTicker, setNewTicker] = useState('')
   const [assetClass, setAssetClass] = useState('equity')
   const [source, setSource] = useState<string | null>(null)
@@ -210,8 +209,10 @@ export function DataPage() {
           <CardHeader>
             <CardTitle className="text-base">Ingest price bars</CardTitle>
             <CardDescription>
-              Each symbol resumes from the day after its newest stored bar.
-              Leave the list empty to refresh everything registered.
+              Each symbol resumes from its newest stored bar, re-checking the
+              last 14 days for any day a previous run lost. Stored bars are
+              never rewritten. Leave the list empty to refresh everything
+              registered.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -237,21 +238,9 @@ export function DataPage() {
               </div>
             </div>
 
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={fullBackfill}
-                onChange={(e) => setFullBackfill(e.target.checked)}
-              />
-              Full backfill — refetch from 2015 instead of resuming
-            </label>
-
             <Button
               onClick={() =>
-                ingest.mutate({
-                  symbols: list.length ? list : null,
-                  full_backfill: fullBackfill,
-                })
+                ingest.mutate({ symbols: list.length ? list : null })
               }
               disabled={ingest.isPending}
             >

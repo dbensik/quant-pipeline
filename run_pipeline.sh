@@ -130,7 +130,7 @@ elif [ "$1" == "all" ]; then
 else
     echo "--- Running Data Pipeline... ---"
     # Run the pipeline as a module to ensure imports work correctly
-    # The "$@" allows passing arguments (like --full-backfill)
+    # The "$@" allows passing arguments (like --symbols X --start YYYY-MM-DD)
     python -m cli.run_pipeline "$@"
 fi
 

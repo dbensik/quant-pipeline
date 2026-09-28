@@ -52,18 +52,22 @@ Ingestion goes through `core/ingest.py`, reached by both `POST /api/v1/ingest`
 and `cli.run_pipeline`. The SQLite `PipelineOrchestrator` was deleted on
 2026-08-09 — it wrote a database nothing read while reporting success.
 
-`--full-backfill` OVERWRITES stored bars. It exists because yfinance
-re-adjusts a series for splits as of the fetch date; `GET /api/v1/ingest/health`
-says which symbols have drifted.
+**Nothing writes over a stored bar.** `--full-backfill` (which overwrote
+history to cure split drift) was removed on 2026-09-28: read-time adjustment
+made split drift impossible for every served asset, and the overwrite had
+destroyed 1390 genuine PARA bars. The API refuses a request that still sends
+`full_backfill` (422) rather than quietly resuming. Do not reintroduce a
+restating write — see `research/dividend-drift-plan-2026-09-27.md`.
 
 ## Scheduled
 
 ```bash
 launchctl print gui/$(id -u)/com.dbensik.quant-pipeline.daily-maintenance
 scripts/launchd/install.sh                  # (re)install after editing the plist
-scripts/cron/daily_maintenance.sh           # ingest, reassigned + missing-day checks, snapshot
+scripts/cron/daily_maintenance.sh           # ingest, reassigned + missing-day + fresh-return checks, snapshot
 scripts/check_reassigned.py                 # the check alone; read-only, exit 1 = flagged
 scripts/check_missing_days.py               # holes inside series; read-only, exit 1 = lost bars
+scripts/check_fresh_returns.py              # returns readers see vs fresh Yahoo, 30 sessions; exit 1 = mismatch
 tail -f logs/daily_maintenance.log
 ```
 
@@ -128,21 +132,28 @@ newest bar, so a day lost while a later one landed was never requested again:
 463 of 527 equities silently lost 2026-08-28 for a month. Existing bars are
 never rewritten by the overlap. `scripts/check_missing_days.py` then reports any
 hole older than the overlap; fill one with
-`python -m cli.run_pipeline --symbols X --start YYYY-MM-DD` (insert-only,
-refused alongside `--full-backfill`), or accept a day Yahoo no longer serves via
+`python -m cli.run_pipeline --symbols X --start YYYY-MM-DD` (insert-only), or
+accept a day Yahoo no longer serves via
 `metadata.missing_days_accepted`.
 
-**Ingest also stores prices as Yahoo SERVED them** (since 2026-09-27, phase 3
-of `research/dividend-drift-plan-2026-09-27.md`). One `auto_adjust=False,
+**Prices are adjusted at READ time** (cutover 2026-09-28, the plan in
+`research/dividend-drift-plan-2026-09-27.md`). Ingest stores prices as Yahoo
+SERVED them. One `auto_adjust=False,
 actions=True` download fills both the adjusted columns every reader uses —
 bit-identical to the old `auto_adjust=True` — and `served_*` + `fetched_at`,
 plus splits and dividends into `corporate_actions`. Served values are written
-once: filled only where NULL, never overwritten — including by a full backfill,
-which rewrites only the adjusted columns. An action keeps its first row. `fetch_range(..., adjust="total"|"split"|"none")` derives prices from them at
-read time for assets with `price_basis = 'served'` (516 equities/ETFs; 11
-`legacy`, crypto NULL) — but only when `config.settings.SERVED_PRICES_ENABLED`
-is True. It is False until the phase-6 cutover; while False, every read returns
-the stored columns exactly as before.
+once — filled only where NULL, never overwritten — and an action keeps its
+first row. `fetch_range(..., adjust="total"|"split"|"none")` derives every
+read from them for assets with `price_basis = 'served'` (516 equities/ETFs),
+so all bars are adjusted to one as-of date and the dividend/split drift is
+gone. `legacy` assets (11: PARA and names Yahoo no longer serves) and crypto
+(NULL) read the stored columns. `config.settings.SERVED_PRICES_ENABLED` is
+the switch: False returns every read to the stored columns. The stored columns
+are still written, because legacy, crypto and several scripts read them.
+`scripts/check_fresh_returns.py` (06:00 job) compares 30 sessions against a
+fresh Yahoo fetch — it went from 250 mismatched days on stored prices to 0 at
+cutover, and it is what catches an unlisted spinoff (HWM-type), a dividend
+Yahoo later corrects, or a wrong morning-split rule.
 
 **Universe snapshots cannot be backdated.** A missed day is a permanent gap in
 point-in-time membership, and membership is what makes survivorship-free
@@ -178,7 +189,7 @@ Protocol (`db/repositories/market_data.py` documents this as its purpose).
 Integration tests are deselected by default and skip if the DB is down.
 
 ```bash
-cd frontend && npm test        # 186 tests — also needs NO API/Docker
+cd frontend && npm test        # 202 tests — also needs NO API/Docker
 ```
 
 When adding tests: assert on the *output*, not on values the response merely
