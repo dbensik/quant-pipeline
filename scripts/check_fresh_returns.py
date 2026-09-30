@@ -8,7 +8,9 @@ asset read through read-time adjustment. Read-only.
     python scripts/check_fresh_returns.py --symbols MO HWM --sessions 60
 
 Exit 0 when every recent return matches, 1 when any day differs by
-TOLERANCE_PP or more, 2 if the check itself failed. Run by the 06:00 job.
+TOLERANCE_PP or more, 2 if the check itself failed — including when Yahoo
+returned nothing for more than MAX_NO_DATA symbols, because a check that
+compared only part of the universe has not run. Run by the 06:00 job.
 
 WHY
     Phase 6 of research/dividend-drift-plan-2026-09-27.md. Read-time
@@ -50,6 +52,17 @@ HOW
     reads — against one batch auto_adjust download, over the last `--sessions`
     trading days. With settings.SERVED_PRICES_ENABLED off, fetch_range returns
     stored prices and this compares those instead; the header line says which.
+
+OPEN FILES
+    launchd starts the job with a soft limit of 256 open files. The threaded
+    download of ~516 symbols needs more, and yfinance reports the shortfall
+    per symbol — "unable to open database file" from its cache, "'NoneType'
+    object is not subscriptable" from a failed request — then carries on. On
+    2026-09-29 and 09-30 that dropped 219 and 200 symbols, and the check
+    printed "0 day(s) off" and exited 0 both mornings. Reproduced at
+    `ulimit -n 256`: 152 of 516 lost; at a high limit, 0. So the script
+    raises its own soft limit, and a shortfall now fails the check instead
+    of shrinking it.
 """
 
 from __future__ import annotations
@@ -57,6 +70,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+import resource
 import sys
 import traceback
 from datetime import datetime, timedelta, timezone
@@ -76,6 +90,28 @@ from db.session import get_session  # noqa: E402
 TOLERANCE_PP = 0.5
 DEFAULT_SESSIONS = 30
 MAX_LINES = 40
+# Symbols Yahoo may return nothing for before the check counts as not run.
+# A symbol Yahoo stopped serving is the reassignment and missing-day checks'
+# business, so a few are tolerated; a fetch failure drops hundreds.
+MAX_NO_DATA = 5
+WANT_OPEN_FILES = 4096
+
+
+def raise_open_file_limit(want: int = WANT_OPEN_FILES) -> int:
+    """Raise the soft open-file limit toward `want`, capped by the hard
+    limit. Returns the soft limit now in force."""
+    soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    target = want if hard == resource.RLIM_INFINITY else min(want, hard)
+    if soft != resource.RLIM_INFINITY and soft < target:
+        resource.setrlimit(resource.RLIMIT_NOFILE, (target, hard))
+    return resource.getrlimit(resource.RLIMIT_NOFILE)[0]
+
+
+def exit_code(mismatches: int, uncovered: int, no_data: int) -> int:
+    """2 = did not run (too little fresh data to compare), 1 = flagged, 0 = clean."""
+    if no_data > MAX_NO_DATA:
+        return 2
+    return 1 if mismatches or uncovered else 0
 
 
 async def main(argv: list[str] | None = None) -> int:
@@ -120,6 +156,7 @@ async def main(argv: list[str] | None = None) -> int:
                 index=[r.ohlcv.timestamp.utc.date() for r in records],
             )
 
+    raise_open_file_limit()
     fresh = yf.download(
         symbols, start=start.date().isoformat(), auto_adjust=True,
         progress=False, threads=True,
@@ -149,15 +186,20 @@ async def main(argv: list[str] | None = None) -> int:
     if len(mismatches) > MAX_LINES:
         print(f"... and {len(mismatches) - MAX_LINES} more")
     if no_data:
-        # Not a failure here: a symbol Yahoo stopped serving is the
-        # reassignment and missing-day checks' business.
         print(f"no fresh Yahoo data for {len(no_data)}: {', '.join(no_data)}")
     print(
-        f"Checked {len(symbols)} asset(s) over {args.sessions} sessions; "
+        f"Compared {len(symbols) - len(no_data)} of {len(symbols)} asset(s) over "
+        f"{args.sessions} sessions; "
         f"{len(mismatches)} day(s) off by {TOLERANCE_PP}pp or more; "
         f"{len(uncovered)} served asset(s) with uncovered bars."
     )
-    return 1 if mismatches or uncovered else 0
+    code = exit_code(len(mismatches), len(uncovered), len(no_data))
+    if code == 2:
+        print(
+            f"CHECK FAILED: no fresh Yahoo data for {len(no_data)} symbol(s), "
+            f"more than {MAX_NO_DATA} — the comparison did not cover the universe."
+        )
+    return code
 
 
 if __name__ == "__main__":
