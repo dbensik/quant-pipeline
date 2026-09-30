@@ -115,3 +115,6 @@ archive/
 # Scheduled-job logs
 logs/
 *.log
+
+# Private research scratch (charts, a TQQQ study) — kept local, not tracked
+research/trading_ideas/
