@@ -13,6 +13,7 @@ from config.settings import (
     CACHE_DIR,
     CACHE_EXPIRY_HOURS,
     URL_COINGECKO_API,
+    coingecko_headers,
     URL_DOWJONES_WIKIPEDIA,
     URL_NASDAQ100_WIKIPEDIA,
     URL_SP500_WIKIPEDIA,
@@ -233,7 +234,9 @@ class UniverseFetcher:
             "sparkline": "false",
         }
         try:
-            response = self.session.get(URL_COINGECKO_API, params=params, timeout=15)
+            response = self.session.get(
+                URL_COINGECKO_API, params=params, headers=coingecko_headers(), timeout=15
+            )
             response.raise_for_status()
             api_data = response.json()
             if not api_data:

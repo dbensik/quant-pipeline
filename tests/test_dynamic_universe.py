@@ -257,3 +257,75 @@ def test_the_range_bounds_themselves_are_inclusive(mocker, universe_fetcher):
     for n in (low - 1, high + 1):
         _mock_sp500(mocker, n)
         assert universe_fetcher.get_tickers("sp500") == [], f"accepted {n}"
+
+
+# ---------------------------------------------------------------------------
+# CoinGecko API key — header only, CoinGecko only
+# ---------------------------------------------------------------------------
+# From 2026-09-29 CoinGecko answered 403 to keyless requests from this machine
+# and the top_100_crypto snapshot failed. The environment variable wins over
+# .env, so these hold whether or not a real key is in .env.
+
+from config.settings import COINGECKO_KEY_HEADER  # noqa: E402
+
+KEY = "test-demo-key"
+
+
+def _crypto_response():
+    response = Mock()
+    response.status_code = 200
+    response.json.return_value = [{"symbol": "BTC", "name": "Bitcoin"}]
+    return response
+
+
+def test_the_key_is_sent_as_a_header_on_the_coingecko_call(mocker, monkeypatch, universe_fetcher):
+    monkeypatch.setenv("COINGECKO_API_KEY", KEY)
+    get = mocker.patch("requests.Session.get", return_value=_crypto_response())
+    assert universe_fetcher.get_tickers("crypto") == ["BTC-USD"]
+    kwargs = get.call_args.kwargs
+    assert kwargs["headers"] == {COINGECKO_KEY_HEADER: KEY}
+
+
+def test_the_key_never_appears_in_the_url_or_query(mocker, monkeypatch, universe_fetcher):
+    """Request URLs are logged on failure — the 2026-09-29 403 was."""
+    monkeypatch.setenv("COINGECKO_API_KEY", KEY)
+    get = mocker.patch("requests.Session.get", return_value=_crypto_response())
+    universe_fetcher.get_tickers("crypto")
+    args, kwargs = get.call_args
+    assert KEY not in str(args) and KEY not in str(kwargs.get("params"))
+
+
+def test_no_key_means_no_header(mocker, monkeypatch, universe_fetcher):
+    monkeypatch.setenv("COINGECKO_API_KEY", "")
+    get = mocker.patch("requests.Session.get", return_value=_crypto_response())
+    universe_fetcher.get_tickers("crypto")
+    assert get.call_args.kwargs["headers"] == {}
+
+
+def test_the_key_is_never_sent_to_the_index_scrapes(mocker, monkeypatch):
+    """
+    The same session scrapes Wikipedia; a session-wide header would leak it.
+    Built AFTER the key is set, so a key attached at construction is caught.
+    """
+    monkeypatch.setenv("COINGECKO_API_KEY", KEY)
+    fetcher = DynamicUniverse(timeout=5)
+    _mock_sp500(mocker, 503)
+    get = requests.Session.get
+    fetcher.get_tickers("sp500")
+    assert get.called
+    for call in get.call_args_list:
+        assert KEY not in str(call)
+    assert KEY not in str(dict(fetcher.session.headers))
+
+
+def test_a_keyless_403_says_how_to_fix_it(mocker, monkeypatch, universe_fetcher, caplog):
+    monkeypatch.setenv("COINGECKO_API_KEY", "")
+    refused = Mock()
+    refused.status_code = 403
+    refused.raise_for_status.side_effect = requests.exceptions.HTTPError(
+        "403 Client Error: Forbidden", response=refused
+    )
+    mocker.patch("requests.Session.get", return_value=refused)
+    with caplog.at_level("ERROR"):
+        assert universe_fetcher.get_tickers("crypto") == []
+    assert any("COINGECKO_API_KEY" in m for m in caplog.messages)

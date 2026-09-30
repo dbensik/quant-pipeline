@@ -4,6 +4,7 @@ from typing import List
 
 import requests
 
+from config.settings import coingecko_headers
 from core.models import Asset, MarketDataRecord, OHLCV, Timestamp
 
 logger = logging.getLogger(__name__)
@@ -34,7 +35,9 @@ def fetch(
         params = {"vs_currency": vs_currency, "days": days}
 
         try:
-            resp = requests.get(url, params=params, timeout=10)
+            resp = requests.get(
+                url, params=params, headers=coingecko_headers(), timeout=10
+            )
             resp.raise_for_status()
             rows = resp.json()  # [[timestamp_ms, open, high, low, close], ...]
         except Exception as e:

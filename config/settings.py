@@ -69,6 +69,40 @@ SP500_EXPECTED_RANGE = (480, 520)
 URL_NASDAQ100_WIKIPEDIA = "https://en.wikipedia.org/wiki/Nasdaq-100"
 URL_COINGECKO_API = "https://api.coingecko.com/api/v3/coins/markets"
 
+#: The header CoinGecko reads a Demo API key from. From 2026-09-29 the public
+#: API answered 403 to keyless requests from this machine and the daily
+#: top_100_crypto snapshot failed — a lost index-day that cannot be backdated.
+COINGECKO_KEY_HEADER = "x-cg-demo-api-key"
+
+
+def coingecko_api_key():
+    """
+    The CoinGecko Demo API key from the environment or the project's .env, or
+    None. Read on every call so a key added to .env takes effect without a
+    restart.
+
+    NEVER put it in a URL. CoinGecko also accepts it as a query parameter, but
+    request URLs appear in error logs — the 2026-09-29 403 was logged with its
+    full URL — so the key travels only as a header.
+    """
+    from pydantic_settings import BaseSettings, SettingsConfigDict
+
+    class _Key(BaseSettings):
+        model_config = SettingsConfigDict(env_file=ROOT_DIR / ".env", extra="ignore")
+        COINGECKO_API_KEY: str = ""
+
+    return _Key().COINGECKO_API_KEY.strip() or None
+
+
+def coingecko_headers() -> dict:
+    """Headers for a CoinGecko request: the key if one is set, else none.
+
+    Pass per request, never on a shared session: the universe fetcher's
+    session also scrapes Wikipedia and Slickcharts, and a session-wide header
+    would hand the key to both."""
+    key = coingecko_api_key()
+    return {COINGECKO_KEY_HEADER: key} if key else {}
+
 # --- Crypto identity (core/crypto_identity.py) ---
 #
 # A TICKER IS NOT AN IDENTIFIER. CoinGecko's "mnt" is Mantle; Yahoo's MNT-USD

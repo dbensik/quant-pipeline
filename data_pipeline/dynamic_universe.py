@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 # --- Centralized Configuration Import ---
 from config.settings import (
     URL_COINGECKO_API,
+    coingecko_headers,
     DOWJONES_EXPECTED_COUNT,
     URL_DOWJONES_CONSTITUENTS,
     SP500_EXPECTED_RANGE,
@@ -16,6 +17,30 @@ from config.settings import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _explain_refusal(error: Exception) -> None:
+    """
+    Say what to do about a 403 from CoinGecko, which otherwise reads as an
+    outage. From 2026-09-29 the public API refused keyless requests from this
+    machine; the fix is a Demo API key, not a retry.
+    """
+    from config.settings import coingecko_api_key
+
+    status = getattr(getattr(error, "response", None), "status_code", None)
+    if status != 403:
+        return
+    if coingecko_api_key():
+        logger.error(
+            "CoinGecko refused the request WITH an API key set — check the key "
+            "is valid and still on a plan that allows /coins/markets."
+        )
+    else:
+        logger.error(
+            "CoinGecko refuses keyless requests. Add COINGECKO_API_KEY=<demo key> "
+            "to .env (free at coingecko.com/en/api/pricing). A missed crypto "
+            "snapshot cannot be backdated."
+        )
 
 
 def _implausible(name: str, tickers: list, low: int, high: int, source: str) -> bool:
@@ -239,10 +264,17 @@ class DynamicUniverse:
         wait = COINGECKO_THROTTLE_BACKOFF_SECONDS
         for attempt in range(1, COINGECKO_MAX_RETRIES + 1):
             response = self.session.get(
-                URL_COINGECKO_API, params=params, timeout=self.timeout
+                URL_COINGECKO_API,
+                params=params,
+                headers=coingecko_headers(),
+                timeout=self.timeout,
             )
             if response.status_code != 429:
-                response.raise_for_status()
+                try:
+                    response.raise_for_status()
+                except requests.exceptions.HTTPError as e:
+                    _explain_refusal(e)
+                    raise
                 return response.json()
             if attempt == COINGECKO_MAX_RETRIES:
                 break
@@ -413,7 +445,10 @@ class DynamicUniverse:
         }
         try:
             response = self.session.get(
-                URL_COINGECKO_API, params=params, timeout=self.timeout
+                URL_COINGECKO_API,
+                params=params,
+                headers=coingecko_headers(),
+                timeout=self.timeout,
             )
             response.raise_for_status()
             data = response.json()
@@ -430,6 +465,7 @@ class DynamicUniverse:
             return tickers
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to fetch crypto tickers from CoinGecko: {e}")
+            _explain_refusal(e)
             return []
         except Exception as e:
             logger.error(f"An error occurred while parsing crypto tickers: {e}")

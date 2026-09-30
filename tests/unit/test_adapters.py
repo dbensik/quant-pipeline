@@ -297,3 +297,13 @@ def test_a_failed_download_can_be_raised_instead_of_returned_empty(mock_dl):
     with pytest.raises(RuntimeError):
         yfinance_adapter.fetch(["MO"], "2026-01-01", "2026-02-01", raise_errors=True)
     assert yfinance_adapter.fetch(["MO"], "2026-01-01", "2026-02-01") == []
+
+
+@patch("core.adapters.coingecko_adapter.requests.get")
+def test_coingecko_adapter_sends_the_key_as_a_header(mock_get, monkeypatch):
+    monkeypatch.setenv("COINGECKO_API_KEY", "test-demo-key")
+    mock_get.return_value = MagicMock(status_code=200, json=MagicMock(return_value=_coingecko_rows()))
+    coingecko_adapter.fetch(["bitcoin"], "2024-01-01", "2024-01-03")
+    kwargs = mock_get.call_args.kwargs
+    assert kwargs["headers"] == {"x-cg-demo-api-key": "test-demo-key"}
+    assert "test-demo-key" not in str(mock_get.call_args.args) + str(kwargs.get("params"))

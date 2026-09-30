@@ -155,6 +155,14 @@ fresh Yahoo fetch — it went from 250 mismatched days on stored prices to 0 at
 cutover, and it is what catches an unlisted spinoff (HWM-type), a dividend
 Yahoo later corrects, or a wrong morning-split rule.
 
+**`top_100_crypto` needs a CoinGecko key** (since 2026-09-29). Keyless
+requests to `/coins/markets` get a 403 from this machine, and the snapshot then
+fails — correctly refusing to record an empty index. Put `COINGECKO_API_KEY`
+(a free Demo key) in `.env`; `config.settings.coingecko_headers()` sends it as
+a header on CoinGecko calls only, never in a URL and never on the shared
+session that also scrapes Wikipedia. Re-take a missed day's crypto snapshot the
+same day with `python scripts/snapshot_universes.py --indexes top_100_crypto`.
+
 **Universe snapshots cannot be backdated.** A missed day is a permanent gap in
 point-in-time membership, and membership is what makes survivorship-free
 screening possible — so this job matters more than its size suggests.
