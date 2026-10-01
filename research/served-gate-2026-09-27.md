@@ -117,3 +117,28 @@ the stored bar has the same fault: it is Yahoo's, not introduced here.
   overlap on the ~99 crypto assets, which this backfill skipped — and about 0
   for equities; from 09-29 on, about 0 in total. Thousands every morning
   would mean the insert path or the NULL guard is broken.
+
+## Addendum 2026-09-30: where the 2025-07-16 seam still reaches
+
+Measured after cutover, return on 2025-07-16 per asset: read-time (`fetch_range`,
+`total`), stored columns, and a fresh Yahoo `auto_adjust` fetch.
+
+- **Served (516): closed.** Read-time vs Yahoo: 0 of 515 off by 0.5pp, max gap
+  0.00003pp (BSX failed to download in that run). Stored vs Yahoo still shows
+  the step (364 at 0.5pp, 121 at 3pp), as expected: those columns are frozen
+  and nothing serves them to readers of served assets.
+- **Legacy: only AVB carries it, not all 11** as the line above implied. Nine
+  (ANSS CTRA DAY HES HOLX IPG K WBA, and PARA) have no bar after 2025-07-15,
+  so there is nothing on the other side of the seam. EA spans it but pays
+  ~0.13% a quarter; its step is ~0.5pp at most, inside noise.
+- **AVB: about -4pp on 2025-07-16, left in place.** Stored -2.67% that day.
+  Apartment-REIT peers rose +1.4 to +2.0% (read-time = Yahoo), and their own
+  stored-minus-true seam gaps were 3.9-4.6pp (ESS MAA UDR CPT), consistent
+  with AVB's ~3.5% yield. Yahoo no longer serves AVB, so there is no exact
+  factor to apply. Fixing it means rescaling 1,390 stored bars, a restating
+  write that the 2026-09-28 rule forbids. It is one day in one delisted name.
+- **Readers that bypass `fetch_range`: none affected.** `find_successors`
+  reads stored closes over a 400-day lookback that starts 2025-08-26 and moves
+  away from the seam. `check_reassigned` keys on a 20x dollar-volume collapse.
+  `audit_crypto_bounds` and `repair_bad_extremes` are crypto-only.
+  `portfolio_store` reads the latest close.
