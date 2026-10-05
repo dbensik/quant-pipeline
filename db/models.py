@@ -6,6 +6,7 @@ Phase 2 — TimescaleDB Schema & Repository Layer
 """
 
 from sqlalchemy import (
+    BigInteger,
     CheckConstraint,
     Column,
     Date,
@@ -389,3 +390,46 @@ class UniverseSnapshotORM(Base):
     __table_args__ = (
         Index("ix_universe_snapshots_index_taken", "index_name", "taken_at"),
     )
+
+
+class ReconstructedMembershipORM(Base):
+    """
+    One symbol in one RECONSTRUCTED member list of an index.
+
+    Not an observation. `UniverseMembershipORM` holds what the daily job saw;
+    this holds what a past revision of the source page listed, loaded after
+    the fact by scripts/reconstruct_sp500_membership.py. The two are kept
+    apart so a reader has to choose reconstructed data by name.
+
+    One full list per `as_of` (month-end). `symbol` is the ticker as the
+    revision wrote it, so a renamed company appears under its old ticker in
+    old lists. See research/sp500-membership-reconstruction-2026-10-04.md for
+    what was validated and what this does NOT fix (delisted names have no
+    prices).
+    """
+
+    __tablename__ = "universe_membership_reconstructed"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    index_name = Column(String, nullable=False)
+    as_of = Column(Date, nullable=False)
+    symbol = Column(String, nullable=False)
+    source = Column(String, nullable=False)  # 'wikipedia_revision'
+    source_revision = Column(BigInteger, nullable=False)
+    #: When the revision was saved — at or before the end of `as_of`.
+    revision_at = Column(DateTime(timezone=True), nullable=False)
+    loaded_at = Column(
+        DateTime(timezone=True), server_default=text("now()"), nullable=False
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "index_name", "as_of", "symbol", name="uq_reconstructed_member"
+        ),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<ReconstructedMembershipORM {self.index_name}/{self.symbol}"
+            f"@{self.as_of}>"
+        )

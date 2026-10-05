@@ -167,6 +167,17 @@ same day with `python scripts/snapshot_universes.py --indexes top_100_crypto`.
 point-in-time membership, and membership is what makes survivorship-free
 screening possible — so this job matters more than its size suggests.
 
+**Membership before 2026-08-09 is RECONSTRUCTED, in its own table** (built
+2026-10-04). `universe_membership_reconstructed` holds month-end S&P 500 lists
+for 2014-12 to 2026-07, read from past revisions of the Wikipedia page by
+`scripts/reconstruct_sp500_membership.py` (insert-only; a re-run adds only
+missing months). It is never mixed into `universe_membership`, which stays
+observations only, and nothing reads it yet. Symbols are the tickers of the
+day (FB, not META). It does NOT make a cross-sectional backtest honest: Yahoo
+has no prices for 151 of the 268 tickers that left the index since 2015, and
+every departed name it can price is a survivor. See
+`research/sp500-membership-reconstruction-2026-10-04.md`.
+
 It needs TimescaleDB up at 06:00, which takes two settings, both applied
 2026-08-09:
 

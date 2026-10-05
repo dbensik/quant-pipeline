@@ -209,6 +209,13 @@ fundamentals store at all, and reviving `FundamentalPipeline` means writing a
 TimescaleDB path plus a point-in-time fundamentals model (restatements make
 naive fundamentals look-ahead-biased in the same way stale membership does).
 
+> **AMENDED 2026-10-04, after evaluating it.** The reconstruction works and is
+> stored (month-end lists, 2014-12 to 2026-07), so Blocker 2 is no longer
+> calendar-bound. This phase is still blocked, on prices instead: Yahoo has
+> nothing for 151 of the 268 tickers that left the index since 2015. The
+> gating decision is now a delisted-price source. See
+> `sp500-membership-reconstruction-2026-10-04.md`.
+
 The action here is **not** to build strategies. It is to decide whether the
 Wikipedia membership reconstruction is viable. That decision gates everything
 in this phase.

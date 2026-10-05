@@ -66,6 +66,24 @@ DOWJONES_EXPECTED_COUNT = 30
 #: A band tight enough to catch a 2% miss would false-positive on real changes,
 #: and a check that cries wolf gets deleted.
 SP500_EXPECTED_RANGE = (480, 520)
+
+#: MediaWiki API, used only to read PAST revisions of the S&P 500 page for
+#: scripts/reconstruct_sp500_membership.py. The daily snapshot reads the live
+#: page above.
+URL_WIKIPEDIA_API = "https://en.wikipedia.org/w/api.php"
+WIKIPEDIA_SP500_PAGE_TITLE = "List of S&P 500 companies"
+#: First month-end reconstructed. The page's constituents table is parseable
+#: and carried ~500 rows from at least here on (checked 2026-10-04).
+SP500_RECONSTRUCTION_START = "2014-12-31"
+#: A month-end list differing from the previous accepted one by more symbols
+#: than this (added + removed) is treated as a vandalised or reshaped revision
+#: and an older revision is tried instead. Real months, renames included, peak
+#: at 16 (2019-12, measured against Clenow's file), so 40 catches a broken
+#: page without firing on turnover.
+SP500_RECONSTRUCTION_MAX_MONTHLY_CHANGE = 40
+#: Seconds between MediaWiki requests. Unpaced requests were refused after
+#: about a dozen calls on 2026-10-04.
+WIKIPEDIA_REQUEST_DELAY_SECONDS = 1.5
 URL_NASDAQ100_WIKIPEDIA = "https://en.wikipedia.org/wiki/Nasdaq-100"
 URL_COINGECKO_API = "https://api.coingecko.com/api/v3/coins/markets"
 
