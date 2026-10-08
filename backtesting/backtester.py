@@ -56,10 +56,24 @@ class Backtester:
         cash = self.initial_capital
         symbol = symbol_name if symbol_name else (price_data.name if hasattr(price_data, "name") else "Asset")
 
-        for i in range(len(portfolio)):
+        # State is recorded into numpy arrays and assigned to the frame once,
+        # after the loop. Writing three cells per bar through `iloc` was 81% of
+        # a run (0.51 s of 0.63 s on 2,520 bars, profiled 2026-10-07); the
+        # loop itself — the part that keeps order handling sequential and the
+        # slippage RNG in step — is unchanged. Values are the same float64
+        # arithmetic as before, so results are bit-identical (checked against
+        # 56 real runs, see research/monte-carlo-plan-2026-10-07.md).
+        n_bars = len(portfolio)
+        closes = portfolio["Close"].to_numpy()
+        signal_values = portfolio["signal"].to_numpy()
+        positions = np.zeros(n_bars)
+        cash_values = np.zeros(n_bars)
+        holdings = np.zeros(n_bars)
+
+        for i in range(n_bars):
             date = portfolio.index[i]
-            price = portfolio["Close"].iloc[i]
-            signal = portfolio["signal"].iloc[i]
+            price = closes[i]
+            signal = signal_values[i]
 
             # --- REFACTOR: Trading logic now uses the event-driven system ---
             if signal == 1 and np.isclose(position, 0):  # Buy signal
@@ -84,10 +98,14 @@ class Backtester:
                 cash += fill.total_cost
                 self.trade_log.append(fill)
 
-            # --- Update Portfolio State for the current day ---
-            portfolio.iloc[i, portfolio.columns.get_loc("position")] = position
-            portfolio.iloc[i, portfolio.columns.get_loc("cash")] = cash
-            portfolio.iloc[i, portfolio.columns.get_loc("holdings")] = position * price
+            # --- Record Portfolio State for the current day ---
+            positions[i] = position
+            cash_values[i] = cash
+            holdings[i] = position * price
+
+        portfolio["position"] = positions
+        portfolio["cash"] = cash_values
+        portfolio["holdings"] = holdings
 
         # 4. Calculate final portfolio values
         portfolio["total"] = portfolio["holdings"] + portfolio["cash"]
