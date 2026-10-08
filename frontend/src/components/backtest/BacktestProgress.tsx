@@ -7,13 +7,25 @@
 
 import type { WsProgress } from '@/api/ws'
 
-const STAGES: Array<{ key: WsProgress['stage']; label: string }> = [
-  { key: 'fetching', label: 'Loading history' },
-  { key: 'running', label: 'Running strategy' },
-  { key: 'summarising', label: 'Computing metrics' },
-]
+export type StageLabels = Record<WsProgress['stage'], string>
 
-export function BacktestProgress({ progress }: { progress: WsProgress | null }) {
+const BACKTEST_LABELS: StageLabels = {
+  fetching: 'Loading history',
+  running: 'Running strategy',
+  summarising: 'Computing metrics',
+}
+
+const STAGE_KEYS: Array<WsProgress['stage']> = ['fetching', 'running', 'summarising']
+
+export function BacktestProgress({
+  progress,
+  labels = BACKTEST_LABELS,
+}: {
+  progress: WsProgress | null
+  /** The three stage keys are shared by every socket route; only the wording differs. */
+  labels?: StageLabels
+}) {
+  const STAGES = STAGE_KEYS.map((key) => ({ key, label: labels[key] }))
   // Before the first progress message the socket is still connecting. Showing
   // 0% rather than nothing means the bar never appears to jump from absent.
   const pct = progress?.pct ?? 0

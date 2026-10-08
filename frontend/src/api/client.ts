@@ -30,6 +30,11 @@ export type ParamSchema = components['schemas']['ParamSchema']
 export type BacktestRequest = components['schemas']['BacktestRequest']
 export type BacktestResponse = components['schemas']['BacktestResponse']
 export type EquityPoint = components['schemas']['EquityPoint']
+export type SimulationRequest = components['schemas']['SimulationRequest']
+export type SimulationResponse = components['schemas']['SimulationResponse']
+export type FanBand = components['schemas']['FanBand']
+export type PercentileSummary = components['schemas']['PercentileSummary']
+export type RiskRow = components['schemas']['RiskRow']
 
 /**
  * What a caller actually has to supply for a backtest.
@@ -48,6 +53,13 @@ export type BacktestInput = Pick<
   'symbol' | 'strategy_id' | 'start' | 'end'
 > &
   Partial<Omit<BacktestRequest, 'symbol' | 'strategy_id' | 'start' | 'end'>>
+
+/** Same reasoning as BacktestInput: the server fills every default. */
+export type SimulationInput = Pick<
+  SimulationRequest,
+  'symbol' | 'strategy_id' | 'start' | 'end'
+> &
+  Partial<Omit<SimulationRequest, 'symbol' | 'strategy_id' | 'start' | 'end'>>
 export type WatchlistOut = components['schemas']['WatchlistOut']
 export type IngestResponse = components['schemas']['IngestResponse']
 export type IngestStatus = components['schemas']['IngestStatus']
@@ -221,6 +233,13 @@ export const api = {
 
   runBacktest(body: BacktestInput): Promise<BacktestResponse> {
     return request('/api/v1/backtest', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  },
+
+  runSimulation(body: SimulationInput): Promise<SimulationResponse> {
+    return request('/api/v1/simulate', {
       method: 'POST',
       body: JSON.stringify(body),
     })

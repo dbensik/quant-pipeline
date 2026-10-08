@@ -436,6 +436,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/simulate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Monte Carlo a strategy on stored history: fan bands, drawdown and tail risk */
+        post: operations["run_simulation_api_v1_simulate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/watchlists": {
         parameters: {
             query?: never;
@@ -1324,6 +1341,18 @@ export interface components {
              */
             unrefreshed: string[];
         };
+        /** DrawdownSummary */
+        DrawdownSummary: {
+            /** @description Max drawdown per path; <= 0 */
+            depth: components["schemas"]["PercentileSummary"];
+            duration_bars: components["schemas"]["PercentileSummary"];
+            /** Historical Depth */
+            historical_depth: number | null;
+            /** Historical Duration Bars */
+            historical_duration_bars: number | null;
+            /** Prob Worse Than Historical */
+            prob_worse_than_historical: number | null;
+        };
         /** DriftedSymbol */
         DriftedSymbol: {
             /** Symbol */
@@ -1357,6 +1386,21 @@ export interface components {
             position: number;
             /** Signal */
             signal: number;
+        };
+        /** FanBand */
+        FanBand: {
+            /** Step */
+            step: number;
+            /** P05 */
+            p05: number;
+            /** P25 */
+            p25: number;
+            /** P50 */
+            p50: number;
+            /** P75 */
+            p75: number;
+            /** P95 */
+            p95: number;
         };
         /** Financials */
         Financials: {
@@ -1560,6 +1604,21 @@ export interface components {
             minimum?: number | null;
             /** Maximum */
             maximum?: number | null;
+        };
+        /** PercentileSummary */
+        PercentileSummary: {
+            /** P05 */
+            p05: number;
+            /** P25 */
+            p25: number;
+            /** P50 */
+            p50: number;
+            /** P75 */
+            p75: number;
+            /** P95 */
+            p95: number;
+            /** Mean */
+            mean: number;
         };
         /** PortfolioBacktestRequest */
         PortfolioBacktestRequest: {
@@ -1943,6 +2002,31 @@ export interface components {
              */
             modified_at: string;
         };
+        /** RiskRow */
+        RiskRow: {
+            /** Horizon Days */
+            horizon_days: number;
+            /**
+             * Var 95
+             * @description Loss as a positive fraction
+             */
+            var_95: number;
+            /** Cvar 95 */
+            cvar_95: number;
+            /** Var 99 */
+            var_99: number;
+            /** Cvar 99 */
+            cvar_99: number;
+        };
+        /** RiskSummary */
+        RiskSummary: {
+            /** Rows */
+            rows: components["schemas"]["RiskRow"][];
+            /** Prob Ruin */
+            prob_ruin: number;
+            /** Ruin Threshold */
+            ruin_threshold: number;
+        };
         /** SaveResultRequest */
         SaveResultRequest: {
             /**
@@ -2127,6 +2211,169 @@ export interface components {
             caveat?: string | null;
             /** Signals */
             signals: components["schemas"]["SignalPoint"][];
+        };
+        /** SimulationRequest */
+        SimulationRequest: {
+            /**
+             * Symbol
+             * @description Ticker as stored, e.g. 'AAPL'
+             */
+            symbol: string;
+            /**
+             * Strategy Id
+             * @description Registry id, e.g. 'ma_crossover'
+             */
+            strategy_id: string;
+            /**
+             * Start
+             * Format: date-time
+             */
+            start: string;
+            /**
+             * End
+             * Format: date-time
+             */
+            end: string;
+            /**
+             * Params
+             * @description Strategy parameters. Omitted parameters use registry defaults.
+             */
+            params?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Initial Capital
+             * @default 100000
+             */
+            initial_capital: number;
+            /**
+             * Transaction Cost
+             * @default 0.001
+             */
+            transaction_cost: number;
+            /**
+             * Seed
+             * @description Seeds the historical run's slippage AND every resampling draw. The same request returns the same bands; null is unseeded.
+             * @default 42
+             */
+            seed: number | null;
+            /**
+             * Mode
+             * @description 'returns' resamples the strategy's realised daily returns; 'prices' resamples price returns and re-runs the strategy per path.
+             * @default returns
+             * @enum {string}
+             */
+            mode: "returns" | "prices";
+            /**
+             * Method
+             * @description Stationary block bootstrap (default), iid bootstrap, or GBM.
+             * @default stationary
+             * @enum {string}
+             */
+            method: "stationary" | "iid" | "gbm";
+            /**
+             * N Paths
+             * @description Defaults per mode (settings.SIM_DEFAULT_PATHS / SIM_DEFAULT_RERUN_PATHS); capped per mode.
+             */
+            n_paths?: number | null;
+            /**
+             * Horizon Days
+             * @description Bars to simulate. Default: the length of the resampled history, so the fan is comparable to the historical curve.
+             */
+            horizon_days?: number | null;
+            /**
+             * Block Length Days
+             * @description Stationary bootstrap mean block; ignored by iid and gbm.
+             * @default 20
+             */
+            block_length_days: number;
+            /**
+             * Ruin Threshold
+             * @description P(ruin) counts paths that ever fall below this fraction of start equity.
+             * @default 0.5
+             */
+            ruin_threshold: number;
+            /**
+             * Include Paths
+             * @description How many individual sample paths to return beside the bands.
+             * @default 0
+             */
+            include_paths: number;
+            /**
+             * Allow Unverified
+             * @description Simulate an asset whose price_basis is not 'served' (legacy names, crypto). The response caveat says so.
+             * @default false
+             */
+            allow_unverified: boolean;
+        };
+        /** SimulationResponse */
+        SimulationResponse: {
+            /** Symbol */
+            symbol: string;
+            /** Strategy Id */
+            strategy_id: string;
+            /** Strategy Name */
+            strategy_name: string;
+            /**
+             * Start
+             * Format: date-time
+             */
+            start: string;
+            /**
+             * End
+             * Format: date-time
+             */
+            end: string;
+            /**
+             * Bars
+             * @description Bars fed to the historical run
+             */
+            bars: number;
+            /** Params */
+            params: {
+                [key: string]: unknown;
+            };
+            /** Initial Capital */
+            initial_capital: number;
+            /** Seed */
+            seed: number | null;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "returns" | "prices";
+            /**
+             * Method
+             * @enum {string}
+             */
+            method: "stationary" | "iid" | "gbm";
+            /** N Paths */
+            n_paths: number;
+            /** Horizon Days */
+            horizon_days: number;
+            /** Block Length Days */
+            block_length_days: number;
+            /**
+             * Resampled From
+             * @description Daily returns the draws were taken from
+             */
+            resampled_from: number;
+            /**
+             * Historical
+             * @description The real run's KPIs, as /backtest returns them
+             */
+            historical: {
+                [key: string]: unknown;
+            };
+            /** Bands */
+            bands: components["schemas"]["FanBand"][];
+            terminal: components["schemas"]["TerminalSummary"];
+            drawdown: components["schemas"]["DrawdownSummary"];
+            risk: components["schemas"]["RiskSummary"];
+            /** Sample Paths */
+            sample_paths?: number[][];
+            /** Caveat */
+            caveat?: string | null;
         };
         /** SkippedCombination */
         SkippedCombination: {
@@ -2415,6 +2662,16 @@ export interface components {
             first_bar?: string | null;
             /** Last Bar */
             last_bar?: string | null;
+        };
+        /** TerminalSummary */
+        TerminalSummary: {
+            wealth: components["schemas"]["PercentileSummary"];
+            total_return: components["schemas"]["PercentileSummary"];
+            /**
+             * Prob Loss
+             * @description Share of paths that end below start equity
+             */
+            prob_loss: number;
         };
         /** TestListResponse */
         TestListResponse: {
@@ -3472,6 +3729,44 @@ export interface operations {
                 content?: never;
             };
             /** @description Invalid parameters, bad date range, or no data */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    run_simulation_api_v1_simulate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SimulationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimulationResponse"];
+                };
+            };
+            /** @description Unknown symbol or strategy */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid parameters, bad date range, no data, over a cap, or an unverified asset */
             422: {
                 headers: {
                     [name: string]: unknown;

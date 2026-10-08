@@ -13,7 +13,7 @@
  */
 
 import { API_BASE_URL } from './client'
-import type { BacktestInput } from './client'
+import type { BacktestInput, SimulationInput, SimulationResponse } from './client'
 
 export interface WsAccepted {
   type: 'accepted'
@@ -27,6 +27,9 @@ export interface WsProgress {
   stage: 'fetching' | 'running' | 'summarising'
   pct: number
   detail: string
+  /** Present only on progress published from inside a worker (per path or per combination). */
+  completed?: number
+  total?: number
 }
 
 export interface WsResult {
@@ -53,33 +56,48 @@ export interface WsError {
 
 export type WsMessage = WsAccepted | WsProgress | WsResult | WsError
 
+/**
+ * The simulation socket's result is the REST SimulationResponse verbatim
+ * (the server dumps the same Pydantic model) plus the envelope's `type`.
+ */
+export type WsSimulationResult = SimulationResponse & { type: 'result' }
+export type WsSimulationMessage = WsAccepted | WsProgress | WsSimulationResult | WsError
+
 /** http(s):// base URL -> ws(s):// endpoint. */
 export function backtestSocketUrl(): string {
   const base = API_BASE_URL.replace(/^http/, 'ws')
   return `${base}/api/v1/ws/backtest`
 }
 
+export function simulateSocketUrl(): string {
+  const base = API_BASE_URL.replace(/^http/, 'ws')
+  return `${base}/api/v1/ws/simulate`
+}
+
 /**
- * Run one backtest over a websocket, invoking `onMessage` for each server
+ * Run one request over a websocket, invoking `onMessage` for each server
  * message. Resolves with the final result, or rejects on error/early close.
  *
- * One backtest per connection — the server closes after `result` or `error`,
- * so callers reconnect for the next run.
+ * One run per connection — the server closes after `result` or `error`, so
+ * callers reconnect for the next run. Every socket route speaks the same
+ * accepted / progress / result / error envelope, so one runner serves all.
  */
-export function runBacktestOverSocket(
-  request: BacktestInput,
-  onMessage: (message: WsMessage) => void,
-): Promise<WsResult> {
+function runOverSocket<TMessage extends { type: string }, TResult extends TMessage & { type: 'result' }>(
+  url: string,
+  what: string,
+  request: unknown,
+  onMessage: (message: TMessage) => void,
+): Promise<TResult> {
   return new Promise((resolve, reject) => {
-    const socket = new WebSocket(backtestSocketUrl())
+    const socket = new WebSocket(url)
     let settled = false
 
     socket.onopen = () => socket.send(JSON.stringify(request))
 
     socket.onmessage = (event) => {
-      let message: WsMessage
+      let message: TMessage
       try {
-        message = JSON.parse(event.data) as WsMessage
+        message = JSON.parse(event.data) as TMessage
       } catch {
         return // ignore anything unparseable rather than killing the run
       }
@@ -87,11 +105,11 @@ export function runBacktestOverSocket(
 
       if (message.type === 'result') {
         settled = true
-        resolve(message)
+        resolve(message as unknown as TResult)
         socket.close()
       } else if (message.type === 'error') {
         settled = true
-        reject(new Error(message.detail))
+        reject(new Error((message as unknown as WsError).detail))
         socket.close()
       }
     }
@@ -99,7 +117,7 @@ export function runBacktestOverSocket(
     socket.onerror = () => {
       if (!settled) {
         settled = true
-        reject(new Error(`WebSocket error contacting ${backtestSocketUrl()}`))
+        reject(new Error(`WebSocket error contacting ${url}`))
       }
     }
 
@@ -108,8 +126,27 @@ export function runBacktestOverSocket(
       // rather than leaving the promise pending forever.
       if (!settled) {
         settled = true
-        reject(new Error('WebSocket closed before the backtest finished.'))
+        reject(new Error(`WebSocket closed before the ${what} finished.`))
       }
     }
   })
+}
+
+export function runBacktestOverSocket(
+  request: BacktestInput,
+  onMessage: (message: WsMessage) => void,
+): Promise<WsResult> {
+  return runOverSocket<WsMessage, WsResult>(backtestSocketUrl(), 'backtest', request, onMessage)
+}
+
+export function runSimulationOverSocket(
+  request: SimulationInput,
+  onMessage: (message: WsSimulationMessage) => void,
+): Promise<WsSimulationResult> {
+  return runOverSocket<WsSimulationMessage, WsSimulationResult>(
+    simulateSocketUrl(),
+    'simulation',
+    request,
+    onMessage,
+  )
 }

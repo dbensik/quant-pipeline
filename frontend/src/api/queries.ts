@@ -17,7 +17,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api, ApiError } from './client'
-import type { BacktestInput } from './client'
+import type { BacktestInput,
+  SimulationInput } from './client'
 
 /**
  * Query keys in one place so invalidation can never typo a key.
@@ -155,6 +156,12 @@ export function useSignals(
 export function useRunBacktest() {
   return useMutation({
     mutationFn: (request: BacktestInput) => api.runBacktest(request),
+  })
+}
+
+export function useRunSimulation() {
+  return useMutation({
+    mutationFn: (request: SimulationInput) => api.runSimulation(request),
   })
 }
 
@@ -486,6 +493,17 @@ export function useResult(name: string | null) {
     queryFn: () => api.loadResult(name as string),
     enabled: Boolean(name),
     retry: retryUnlessNotFound,
+  })
+}
+
+export function useSaveResult() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ name, payload }: { name: string; payload: unknown }) =>
+      api.saveResult(name, payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['results'] })
+    },
   })
 }
 

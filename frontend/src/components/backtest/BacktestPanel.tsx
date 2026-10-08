@@ -18,6 +18,7 @@ import { useRunBacktest } from '@/api/queries'
 import { useBacktestSocket } from '@/api/useBacktestSocket'
 import { BacktestProgress } from '@/components/backtest/BacktestProgress'
 import { BacktestResults } from '@/components/backtest/BacktestResults'
+import { SimulationPanel } from '@/components/simulate/SimulationPanel'
 import { StrategySelector } from '@/components/backtest/StrategySelector'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -175,6 +176,11 @@ export function BacktestPanel() {
           </CardContent>
         </Card>
       ) : null}
+
+      {/* The simulation is defined by the backtest's own inputs — same symbol,
+          strategy, parameters, window and seed — so it lives under the result
+          rather than on a page of its own where those could drift. */}
+      {result && !isRunning ? <SimulationPanel backtest={result} /> : null}
     </div>
   )
 }
