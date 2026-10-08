@@ -410,46 +410,31 @@ def compose_caveat(
     return " ".join(parts) or None
 
 
-# ---------------------------------------------------------------------------
-# Route
-# ---------------------------------------------------------------------------
-
-@router.post(
-    "",
-    response_model=SimulationResponse,
-    summary="Monte Carlo a strategy on stored history: fan bands, drawdown and tail risk",
-    responses={
-        404: {"description": "Unknown symbol or strategy"},
-        422: {"description": "Invalid parameters, bad date range, no data, over a cap, or an unverified asset"},
-    },
-)
-async def run_simulation(
-    request: SimulationRequest,
-    repo: TimescaleMarketDataRepo = Depends(get_market_data_repo),
-) -> SimulationResponse:
+def validate_simulation_request(request: SimulationRequest) -> Tuple[registry.StrategySpec, int]:
+    """
+    The checks that need no database, raised as HTTPException so the REST route
+    and the websocket (which translates it to an error message) share them.
+    """
     if request.start > request.end:
         raise HTTPException(status_code=422, detail="`start` must not be after `end`.")
-
     try:
         spec = registry.get(request.strategy_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from None
-
     if spec.input_contract == "multi":
         raise HTTPException(
             status_code=422,
             detail=f"Strategy '{spec.id}' takes a multi-symbol frame and cannot be simulated on one symbol.",
         )
-
     try:
         n_paths = resolve_n_paths(request)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None
+    return spec, n_paths
 
-    asset = await repo.find_asset(request.symbol)
-    if asset is None:
-        raise HTTPException(status_code=404, detail=f"Unknown symbol: {request.symbol!r}")
 
+def gate_asset(asset: Any, request: SimulationRequest) -> None:
+    """Served-only by default; see the module docstring."""
     if asset.price_basis != "served" and not request.allow_unverified:
         raise HTTPException(
             status_code=422,
@@ -460,29 +445,25 @@ async def run_simulation(
             ),
         )
 
-    start = request.start.replace(tzinfo=timezone.utc) if request.start.tzinfo is None else request.start
-    end = request.end.replace(tzinfo=timezone.utc) if request.end.tzinfo is None else request.end
 
-    records = await repo.fetch_range(symbol=request.symbol, asset_class=None, start=start, end=end)
-    frame = records_to_frame(records)
-    if frame.empty:
-        raise HTTPException(
-            status_code=422,
-            detail=f"No bars stored for {request.symbol!r} between {start.date()} and {end.date()}.",
-        )
-
-    try:
-        metrics, sim = await run_in_threadpool(_simulate_sync, frame, spec, request, n_paths)
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from None
-
+def build_simulation_response(
+    asset: Any,
+    spec: registry.StrategySpec,
+    request: SimulationRequest,
+    n_paths: int,
+    bars: int,
+    start: datetime,
+    end: datetime,
+    metrics: Dict[str, Any],
+    sim: Dict[str, Any],
+) -> SimulationResponse:
     return SimulationResponse(
         symbol=asset.symbol,
         strategy_id=spec.id,
         strategy_name=spec.display_name,
         start=start,
         end=end,
-        bars=len(frame),
+        bars=bars,
         params={p.name: request.params.get(p.name, p.default) for p in spec.params},
         initial_capital=request.initial_capital,
         seed=request.seed,
@@ -500,3 +481,46 @@ async def run_simulation(
         sample_paths=sim["sample_paths"],
         caveat=compose_caveat(spec, request, asset.price_basis, sim["trade_count"]),
     )
+
+
+# ---------------------------------------------------------------------------
+# Route
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "",
+    response_model=SimulationResponse,
+    summary="Monte Carlo a strategy on stored history: fan bands, drawdown and tail risk",
+    responses={
+        404: {"description": "Unknown symbol or strategy"},
+        422: {"description": "Invalid parameters, bad date range, no data, over a cap, or an unverified asset"},
+    },
+)
+async def run_simulation(
+    request: SimulationRequest,
+    repo: TimescaleMarketDataRepo = Depends(get_market_data_repo),
+) -> SimulationResponse:
+    spec, n_paths = validate_simulation_request(request)
+
+    asset = await repo.find_asset(request.symbol)
+    if asset is None:
+        raise HTTPException(status_code=404, detail=f"Unknown symbol: {request.symbol!r}")
+    gate_asset(asset, request)
+
+    start = request.start.replace(tzinfo=timezone.utc) if request.start.tzinfo is None else request.start
+    end = request.end.replace(tzinfo=timezone.utc) if request.end.tzinfo is None else request.end
+
+    records = await repo.fetch_range(symbol=request.symbol, asset_class=None, start=start, end=end)
+    frame = records_to_frame(records)
+    if frame.empty:
+        raise HTTPException(
+            status_code=422,
+            detail=f"No bars stored for {request.symbol!r} between {start.date()} and {end.date()}.",
+        )
+
+    try:
+        metrics, sim = await run_in_threadpool(_simulate_sync, frame, spec, request, n_paths)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+
+    return build_simulation_response(asset, spec, request, n_paths, len(frame), start, end, metrics, sim)

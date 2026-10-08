@@ -282,6 +282,164 @@ async def backtest_ws(websocket: WebSocket) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Simulation
+# ---------------------------------------------------------------------------
+# Same protocol again. `returns` mode finishes in well under a second and
+# reports stages only; `prices` mode runs one backtest per path and reports
+# every PROGRESS_EVERY paths from inside the worker, through the bridge.
+
+@router.websocket("/simulate")
+async def simulate_ws(websocket: WebSocket) -> None:
+    """
+    Monte Carlo one strategy on one symbol, streaming progress.
+    Client sends one JSON message matching SimulationRequest.
+    """
+    from api.routers.simulate import (
+        SimulationRequest,
+        _simulate_sync,
+        build_simulation_response,
+        gate_asset,
+        validate_simulation_request,
+    )
+
+    await websocket.accept()
+
+    try:
+        raw = await websocket.receive_json()
+    except WebSocketDisconnect:
+        return
+    except Exception:
+        await _send_error(websocket, "Expected a JSON simulation request.", 422)
+        await websocket.close()
+        return
+
+    try:
+        request = SimulationRequest.model_validate(raw)
+    except ValidationError as exc:
+        await _send_error(websocket, f"Invalid request: {exc.errors()}", 422)
+        await websocket.close()
+        return
+
+    try:
+        try:
+            spec, n_paths = validate_simulation_request(request)
+        except HTTPException as exc:
+            await _send_error(websocket, str(exc.detail), exc.status_code)
+            return
+
+        await websocket.send_json(
+            {
+                "type": "accepted",
+                "symbol": request.symbol,
+                "strategy_id": spec.id,
+                "strategy_name": spec.display_name,
+                "mode": request.mode,
+                "method": request.method,
+                "n_paths": n_paths,
+            }
+        )
+
+        # -- fetch ------------------------------------------------------
+        await websocket.send_json(
+            {"type": "progress", "stage": "fetching", "pct": 5,
+             "detail": f"Loading {request.symbol} history"}
+        )
+
+        start = (
+            request.start.replace(tzinfo=timezone.utc)
+            if request.start.tzinfo is None else request.start
+        )
+        end = (
+            request.end.replace(tzinfo=timezone.utc)
+            if request.end.tzinfo is None else request.end
+        )
+
+        async with get_session() as session:
+            repo = TimescaleMarketDataRepo(session)
+            asset = await repo.find_asset(request.symbol)
+            if asset is None:
+                await _send_error(websocket, f"Unknown symbol: {request.symbol!r}", 404)
+                return
+            try:
+                gate_asset(asset, request)
+            except HTTPException as exc:
+                await _send_error(websocket, str(exc.detail), exc.status_code)
+                return
+            records = await repo.fetch_range(
+                symbol=request.symbol, asset_class=None, start=start, end=end
+            )
+
+        frame = records_to_frame(records)
+        if frame.empty:
+            await _send_error(
+                websocket,
+                f"No bars stored for {request.symbol!r} between "
+                f"{start.date()} and {end.date()}.",
+                422,
+            )
+            return
+
+        # -- simulate ---------------------------------------------------
+        await websocket.send_json(
+            {"type": "progress", "stage": "running", "pct": 10,
+             "detail": (
+                 f"Running {spec.display_name} over {len(frame)} bars, then "
+                 f"{n_paths:,} {request.method} paths"
+             )}
+        )
+
+        async with _ProgressBridge(websocket) as bridge:
+            def on_progress(completed: int, total: int) -> None:
+                # Worker thread. 10% is the fetch and historical run, 85% the
+                # paths, so the bar never moves backwards.
+                bridge.publish(
+                    {
+                        "type": "progress",
+                        "stage": "running",
+                        "pct": 10 + int(85 * completed / max(total, 1)),
+                        "detail": f"Path {completed} of {total}",
+                        "completed": completed,
+                        "total": total,
+                    }
+                )
+
+            try:
+                metrics, sim = await run_in_threadpool(
+                    _simulate_sync, frame, spec, request, n_paths, on_progress
+                )
+            except ValueError as exc:
+                await _send_error(websocket, str(exc), 422)
+                return
+
+        await websocket.send_json(
+            {"type": "progress", "stage": "summarising", "pct": 97,
+             "detail": "Computing bands and tail risk"}
+        )
+
+        response = build_simulation_response(
+            asset, spec, request, n_paths, len(frame), start, end, metrics, sim
+        )
+        payload = response.model_dump(mode="json")
+        payload["type"] = "result"
+        await websocket.send_json(payload)
+
+    except WebSocketDisconnect:
+        logger.info("Websocket client disconnected during simulation.")
+        return
+    except Exception as exc:  # noqa: BLE001 — the socket must not die silently
+        logger.exception("Unhandled error in simulation websocket: %s", exc)
+        try:
+            await _send_error(websocket, "Internal server error", 500)
+        except Exception:
+            pass
+    finally:
+        try:
+            await websocket.close()
+        except Exception:
+            pass
+
+
+# ---------------------------------------------------------------------------
 # Optimization
 # ---------------------------------------------------------------------------
 # Same protocol as /backtest above — accepted / progress / result / error —
