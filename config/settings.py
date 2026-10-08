@@ -400,6 +400,25 @@ INGEST_OVERLAP_DAYS = 14
 #: in the plan. Set False to return every read to the stored columns.
 SERVED_PRICES_ENABLED = True
 
+# --- Risk-free rate (core/rates.py, tier 2 phase 0) ---
+# Plan: research/option-pricing-plan-2026-10-08.md, decision 1. Replaces the
+# hardcoded 0.02 for new code; optimize.py and data_enricher.py still carry it.
+#
+# ^IRX is the 13-week T-bill rate QUOTED ON A BANK-DISCOUNT BASIS, in percent.
+# Checked 2026-10-08 against Treasury's Daily Treasury Bill Rates: ^IRX
+# 3.982-4.037 against the 13-week bank-discount close 4.00-4.05 over
+# 2026-10-01..07 (within ~0.02, an intraday snapshot), and 0.11 below the
+# coupon-equivalent column. Stored exactly as served; converted on read.
+RISK_FREE_RATE_SERIES = "^IRX"
+#: Days to maturity of a 13-week bill, for the discount-to-yield conversion.
+RISK_FREE_RATE_TENOR_DAYS = 91
+#: First date fetched on an empty table: SPY's first stored bar.
+RISK_FREE_RATE_HISTORY_START = "2015-01-02"
+#: A read whose newest observation is older than this many calendar days is
+#: reported stale. Bond-market holidays (Columbus Day, Veterans Day) are stock
+#: sessions with no bill print, so a one-day gap is normal; a week is not.
+RISK_FREE_RATE_MAX_AGE_DAYS = 7
+
 # --- Monte Carlo simulation (api/routers/simulate.py) ---
 # Plan: research/monte-carlo-plan-2026-10-07.md. The kernels in simulation/
 # take every parameter explicitly; these are the router's defaults and caps.

@@ -105,6 +105,19 @@ if [ "$MODE" != "--snapshot-only" ]; then
     fi
 fi
 
+# The risk-free rate (^IRX, 13-week T-bill) for option pricing and, later, the
+# DCF discount rate. Insert-only; an empty fetch is a failure, because a T-bill
+# series never goes the 14-day overlap without a print. See core/rates.py.
+if [ "$MODE" != "--snapshot-only" ]; then
+    log "--- risk-free rate ---"
+    if "$VENV_PYTHON" scripts/ingest_rates.py >> "$LOG_FILE" 2>&1; then
+        log "risk-free rate OK"
+    else
+        log "risk-free rate FAILED (exit $?)"
+        STATUS=1
+    fi
+fi
+
 # Right after ingest, because ingest is what appends another company's bars
 # under a reassigned ticker. Flags only; writes nothing. On 2026-08-07 Yahoo's
 # PARA key began serving a penny stock and 32 of its bars were appended to

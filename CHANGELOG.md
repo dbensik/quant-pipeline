@@ -20,6 +20,8 @@ before the migration below; they are kept as history.
 - **Ports moved off the framework defaults** (2026-08-11): 8001 REST, 8002 GraphQL, 5174 Vite, 15432 TimescaleDB on the host.
 
 ### Added
+- **Risk-free rate series** (2026-10-08): `^IRX` (13-week T-bill, bank-discount basis) ingested daily into its own insert-only table, `rate_observations`, from 2015. `core/rates.py` converts it on read to continuous and bond-equivalent rates for a date, using the observation on or before it and flagging a stale one. Tier 2 phase 0 of `research/option-pricing-plan-2026-10-08.md`.
+- **TQQQ** registered as a served ETF (2026-10-08), so the option-chain capture has spot history, splits and dividends behind it.
 - **Monte Carlo over a backtest** (2026-10-07): `POST /api/v1/simulate` and `ws /simulate`, with a Simulate panel under the backtest result. Fan bands, terminal-wealth, drawdown and VaR/CVaR distributions from a stationary block bootstrap (iid and GBM beside it), either over the strategy's realised returns or by re-running the strategy on resampled price paths. Served assets only unless overridden. Plan and measurements in `research/monte-carlo-plan-2026-10-07.md`.
 - **Point-in-time index membership** (2026-08-09): a daily snapshot of the S&P 500, Dow and top-100 crypto lists. A partial snapshot is a failed run.
 - **Reconstructed S&P 500 membership** (2026-10-04): month-end lists for 2014-12 to 2026-07 from Wikipedia revisions, in `universe_membership_reconstructed`. Nothing reads it yet.
@@ -62,6 +64,7 @@ before the migration below; they are kept as history.
 - **README:** installation instructions rewritten for Poetry.
 
 ### Removed
+- `ml_models/option_pricing.py` (2026-10-08), a placeholder barrier-option payoff nothing imported; replaced by the tier 2 pricing package as it is built.
 - **`environment.yml`:** conda environment spec retired per the Poetry decision; a pre-existing `quant-pipeline-env` still works via the launcher's fallback, but conda setup is no longer documented.
 
 ### Security

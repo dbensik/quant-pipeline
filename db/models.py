@@ -433,3 +433,30 @@ class ReconstructedMembershipORM(Base):
             f"<ReconstructedMembershipORM {self.index_name}/{self.symbol}"
             f"@{self.as_of}>"
         )
+
+
+class RateObservationORM(Base):
+    """
+    One daily observation of an interest-rate series, exactly as served.
+
+    Not a price, so not in `assets`/`market_data`: ^IRX has zero volume, went
+    negative on 7 days in 2020 and moved more than 50% day-over-day on 112
+    days since 2015, every one of which would trip a price guard or check.
+
+    Insert-only, like served prices: an observation is written once and never
+    rewritten. `value` is in the series' own quoting convention (percent,
+    bank-discount basis for ^IRX); core/rates.py converts on read.
+    """
+
+    __tablename__ = "rate_observations"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    series = Column(String, nullable=False)  # '^IRX'
+    obs_date = Column(Date, nullable=False)
+    value = Column(Float, nullable=False)
+    source = Column(String, nullable=False)  # 'yfinance'
+    fetched_at = Column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("series", "obs_date", name="uq_rate_observation"),
+    )

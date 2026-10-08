@@ -64,7 +64,8 @@ restating write — see `research/dividend-drift-plan-2026-09-27.md`.
 ```bash
 launchctl print gui/$(id -u)/com.dbensik.quant-pipeline.daily-maintenance
 scripts/launchd/install.sh                  # (re)install after editing the plist
-scripts/cron/daily_maintenance.sh           # ingest, reassigned + missing-day + fresh-return checks, snapshot
+scripts/cron/daily_maintenance.sh           # ingest, risk-free rate, reassigned + missing-day + fresh-return checks, snapshot
+scripts/ingest_rates.py                     # risk-free rate (^IRX) only; --as-of DATE prints the rate a reader gets
 scripts/check_reassigned.py                 # the check alone; read-only, exit 1 = flagged
 scripts/check_missing_days.py               # holes inside series; read-only, exit 1 = lost bars
 scripts/check_fresh_returns.py              # returns readers see vs fresh Yahoo, 30 sessions; exit 1 = mismatch
@@ -174,6 +175,18 @@ the row), so editing a mapping blocks the asset until it is re-verified. 21
 assets are mapped and loaded; POL-USD is mapped but blocked as `suspect`
 (names differ, a human call); PEPE, TON, BSC and BUIDL have no usable ticker
 and stay empty — the reasons are beside the mapping.
+
+**The risk-free rate is `^IRX`, in `rate_observations`, not `assets`**
+(since 2026-10-08, `core/rates.py`, step in the 06:00 job via
+`scripts/ingest_rates.py`). It is a 13-week T-bill rate quoted on a
+BANK-DISCOUNT basis in percent (checked against Treasury, not assumed), stored
+as served and converted on read: `risk_free_rate(repo, as_of)` returns the
+continuous and bond-equivalent rates, the observation date used (on or
+before `as_of`, never an exact-date join: bond holidays are stock sessions)
+and whether it is stale. Insert-only; today's New York date is never stored.
+A yield is not a price: as an asset it would have reached backtests, the
+symbol picker and every price check. `optimize.py` and `data_enricher.py`
+still default to a hardcoded 0.02.
 
 **Universe snapshots cannot be backdated.** A missed day is a permanent gap in
 point-in-time membership, and membership is what makes survivorship-free
