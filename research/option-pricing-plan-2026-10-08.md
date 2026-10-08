@@ -1,11 +1,27 @@
-# Option pricing and volatility — plan (2026-10-08, draft; nothing built)
+# Option pricing and volatility — plan (2026-10-08, approved; nothing built yet)
 
 Tier 2 of the three-tier "financial models" assessment of 2026-10-07. Tier 1
 (Monte Carlo over the backtester) shipped the same day:
 `monte-carlo-plan-2026-10-07.md`. Tier 3 (DCF / three-statement) is still
 blocked on a point-in-time fundamentals source and is not touched here.
 
-Nothing is built. Decisions at the end; recommended answers are marked.
+Nothing is built yet. Approved 2026-10-08 with the recommended answer to every
+decision (the decisions themselves, with reasoning, are at the end):
+
+| # | decision | approved |
+|---|---|---|
+| 1 | risk-free rate | ingest `^IRX` daily, read as of the chain date (Yahoo serves it: 23 rows in the last month, 4.04% on 2026-10-08) |
+| 2 | TQQQ | register as an ETF and backfill; confirmed absent from `assets` on 2026-10-08 while the other five capture tickers are present |
+| 3 | implied vol | recompute from mids; keep Yahoo's as `vendor_iv`, never plotted |
+| 4 | dividends | continuous yield from trailing 12 months in `corporate_actions`; discrete treatment flagged on straddling expiries, later |
+| 5 | where it lives | a new Options page with its own nav entry |
+| 6 | `ml_models/option_pricing.py` | delete |
+| 7 | scope | no Heston/SABR, no barrier/Asian, no American Monte Carlo, no option strategies in the backtester |
+| 8 | archive second copy | still open, not this plan's work |
+
+The `^IRX` series is shared with tier 3 (`dcf-plan-2026-10-08.md`), which
+reads it as the risk-free leg of the discount rate; it is built once, here, in
+phase 0. The sequence across tiers is in `financial-models-roadmap-2026-10-08.md`.
 
 ## The gap, measured
 
