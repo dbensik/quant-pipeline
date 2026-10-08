@@ -130,7 +130,11 @@ export function StrategySelector() {
     <div className="space-y-4">
       <div className="space-y-1.5">
         <Label htmlFor="strategy">Strategy</Label>
-        <Select value={strategyId ?? undefined} onValueChange={setStrategy}>
+        {/* null, not `?? undefined`: Base UI reads undefined as UNcontrolled,
+            so the Select switched to controlled when the first strategy was
+            picked and logged a warning on every page load. null is
+            "controlled, nothing selected" and shows the placeholder. */}
+        <Select value={strategyId} onValueChange={setStrategy}>
           <SelectTrigger id="strategy" className="w-full">
             {/* Explicit children, not a bare <SelectValue/>: the trigger
                 otherwise renders the raw value — the registry id

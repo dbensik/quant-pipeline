@@ -61,8 +61,9 @@ function SymbolPicker() {
 
   const assets = data?.assets ?? []
 
+  // value is null, not `?? undefined` — see the same note in StrategySelector.
   return (
-    <Select value={selectedSymbol ?? undefined} onValueChange={setSymbol}>
+    <Select value={selectedSymbol} onValueChange={setSymbol}>
       <SelectTrigger id="symbol" className="w-full">
         <SelectValue placeholder="Select a symbol" />
       </SelectTrigger>

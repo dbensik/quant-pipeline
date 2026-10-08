@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { reset as resetBaseUiWarnings } from '@base-ui/utils/error'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { StrategySchema } from '@/api/client'
 import { queryKeys } from '@/api/queries'
@@ -92,6 +93,30 @@ describe('StrategySelector — auto-selection', () => {
     await waitFor(() => {
       expect(useAppStore.getState().strategyId).toBe('ma_crossover')
     })
+  })
+
+  it('stays a controlled Select while nothing is chosen yet', async () => {
+    // strategyId is null until the catalogue arrives and the effect above picks
+    // one. Passing `strategyId ?? undefined` mounted the Select UNcontrolled and
+    // then handed it a value, and Base UI logged "A component is changing the
+    // uncontrolled value state of Select to be controlled" on every page load.
+    // Base UI takes null as "controlled, nothing selected", so null is passed.
+    // Base UI logs each distinct message once per process, so an earlier
+    // render in this file would otherwise have used it up before the spy.
+    resetBaseUiWarnings()
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      renderWith([MA_CROSSOVER, RANDOM_FOREST])
+      await waitFor(() => {
+        expect(useAppStore.getState().strategyId).toBe('ma_crossover')
+      })
+      const uncontrolled = consoleError.mock.calls.filter((args) =>
+        args.some((a) => typeof a === 'string' && a.includes('uncontrolled')),
+      )
+      expect(uncontrolled).toEqual([])
+    } finally {
+      consoleError.mockRestore()
+    }
   })
 
   it('seeds parameters from the schema', async () => {
