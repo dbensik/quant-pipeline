@@ -55,7 +55,10 @@ N_BARS = 400
 
 KNOWN_ASSETS: Dict[str, Asset] = {
     "AAPL": Asset(symbol="AAPL", asset_class="equity", source="yfinance",
-                  metadata={"sector": "Information Technology"}),
+                  metadata={"sector": "Information Technology"},
+                  price_basis="served"),
+    # BTC-USD deliberately has no price_basis, like real crypto: it is the
+    # fixture for "not read-time adjusted", which the simulate router gates.
     "BTC-USD": Asset(symbol="BTC-USD", asset_class="crypto", source="yfinance"),
     # Decorrelated from the other two, which share one price formula and
     # differ only in `base` — so their RETURNS are identical and every
@@ -63,7 +66,8 @@ KNOWN_ASSETS: Dict[str, Asset] = {
     # tests vacuous: a frontier over AAPL + BTC-USD is a single point. MSFT
     # follows an independent seeded path so diversification is expressible.
     "MSFT": Asset(symbol="MSFT", asset_class="equity", source="yfinance",
-                  metadata={"sector": "Information Technology"}),
+                  metadata={"sector": "Information Technology"},
+                  price_basis="served"),
     # Registered but with zero bars — mirrors the five padding-only crypto
     # tickers the migration found, and makes "unknown symbol" (404) vs "known
     # symbol, no data" (200 + empty) a testable distinction.

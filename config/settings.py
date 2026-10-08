@@ -372,3 +372,27 @@ PIPELINE_SCRIPT_PATH = ROOT_DIR / "cli" / "run_pipeline.py"
 # --- Caching Configuration ---
 CACHE_DIR = ROOT_DIR / ".cache"
 CACHE_EXPIRY_HOURS = 24  # Default cache expiry
+# --- Monte Carlo simulation (api/routers/simulate.py) ---
+# Plan: research/monte-carlo-plan-2026-10-07.md. The kernels in simulation/
+# take every parameter explicitly; these are the router's defaults and caps.
+#: `returns` mode resamples the strategy's own daily returns — instant.
+SIM_DEFAULT_PATHS = 2_000
+#: paths x horizon x 8 bytes, with three arrays alive at once: 5,000 paths over
+#: a 3,000-bar history is ~360 MB. 20,000 would be 1.4 GB.
+SIM_MAX_PATHS = 5_000
+#: `prices` mode re-runs the strategy once per path (~5 ms a run since the
+#: 2026-10-07 backtester change), so the cap is time, not memory.
+SIM_DEFAULT_RERUN_PATHS = 200
+SIM_MAX_RERUN_PATHS = 1_000
+#: Stationary-bootstrap mean block, about one trading month: long enough to
+#: keep volatility clustering, short enough that a 10-year series still mixes.
+SIM_BLOCK_LENGTH_DAYS = 20.0
+#: P(ruin) = share of paths that ever fall below this fraction of start equity.
+SIM_RUIN_THRESHOLD = 0.5
+#: A forward horizon may be at most 5 trading years, or the history length if
+#: that is longer (the default horizon IS the history length).
+SIM_MAX_HORIZON_DAYS = 1_260
+SIM_VAR_HORIZONS_DAYS = (1, 10, 21)
+#: Sample paths a client may ask for beside the bands, for a spaghetti overlay.
+SIM_MAX_RETURNED_PATHS = 200
+

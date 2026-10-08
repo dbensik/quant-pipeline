@@ -31,6 +31,11 @@ class Asset:
     #: existed the flag was write-only, and eleven dead symbols were re-fetched
     #: every run. Defaulted last so existing positional construction is unaffected.
     delisted_at: Optional[datetime] = None
+    #: 'served' | 'legacy' | None (crypto). Carried so an API caller can gate on
+    #: it — the simulation router refuses to bootstrap a series that is not
+    #: read-time adjusted unless told to. Only find_asset fills it; a bar's
+    #: embedded Asset leaves it None. Defaulted last, same reason as above.
+    price_basis: Optional[str] = None
 
 
 @dataclass

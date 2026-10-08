@@ -533,6 +533,7 @@ class TimescaleMarketDataRepo:
             source=row.source,
             metadata=row.metadata_ or {},
             delisted_at=row.delisted_at,
+            price_basis=row.price_basis,
         )
 
     async def latest_bars(self) -> List[AssetLastBar]:

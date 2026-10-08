@@ -20,7 +20,8 @@ def horizon_returns(return_paths: np.ndarray, days: int) -> np.ndarray:
 def var(returns: np.ndarray, level: float = 0.95) -> float:
     """Value at risk: the loss exceeded with probability 1 - level."""
     _check_level(level)
-    return float(-np.percentile(np.asarray(returns, dtype=float), 100.0 * (1.0 - level)))
+    # `+ 0.0` turns a -0.0 (flat paths) into 0.0 so JSON never shows "-0.0".
+    return float(-np.percentile(np.asarray(returns, dtype=float), 100.0 * (1.0 - level)) + 0.0)
 
 
 def cvar(returns: np.ndarray, level: float = 0.95) -> float:
@@ -29,7 +30,7 @@ def cvar(returns: np.ndarray, level: float = 0.95) -> float:
     r = np.asarray(returns, dtype=float)
     cutoff = np.percentile(r, 100.0 * (1.0 - level))
     tail = r[r <= cutoff]
-    return float(-tail.mean())
+    return float(-tail.mean() + 0.0)
 
 
 def prob_ruin(equity: np.ndarray, threshold: float) -> float:

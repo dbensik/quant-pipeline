@@ -152,7 +152,7 @@ KPI by 1e-12 is a bug, because saved results are the regression test.
 |---|---|---|
 | 0 | Backtester state writes → numpy — **done 2026-10-07**. `results/` holds no backtest (one weight optimisation only), so identity was proven against a fixture instead: 8 real symbols (MO, NVDA, SPY, AAPL, HWM, MSFT, KO, BTC-USD; 1,698–2,957 bars each, 2015→today) × 7 single-asset strategies, 56 runs, equity frame + trade log + metrics all `equals()` before and after. Per-run median **291 ms → 5 ms** (synthetic 2,520 bars: 239 → 5 ms); the only slow run left is `push_response`'s walk-forward model at 1.9 s, untouched. The estimate above said ~40 ms; the per-bar `iloc` *reads* of Close and signal were most of the remainder | 1–1.5 h |
 | 1 | `simulation/` package: resample, paths, risk — **done 2026-10-07**: `resample.py` (stationary / iid / gbm, `draw` dispatcher), `paths.py` (equity, drawdown depth and duration matching the analyzer's conventions, bands), `risk.py` (horizon returns, VaR, CVaR, P(ruin), P(worse drawdown)). 25 tests: GBM terminal mean within 3 SE of exp((μ+σ²/2)T) at 40k paths; AR(1) φ=0.8 keeps lag-1 autocorrelation 0.6+ under blocks and <0.1 under iid; seed two-sided; known answers by hand for every kernel; duration cross-checked against the analyzer's `groupby` on a random curve. **11 of 11 deliberate mutations caught** (ignored block length, repeat-not-continue, log-not-simple GBM, absolute drawdown, `<=` on duration and ruin, uncarried reset, missing initial column, VaR sign, CVaR→VaR, summed horizon return). 10k paths × 2,520 days: 378 ms to draw, 965 ms for equity + drawdowns + bands | 2–3 h |
-| 2 | `SimulationRequest/Response`, REST route, `returns` mode end-to-end on `FakeRepo`; `_json_safe`; OpenAPI contract test green | 1.5–2 h |
+| 2 | `SimulationRequest/Response`, REST route — **done 2026-10-07**, both modes (the `prices` worker was needed for the sync function the socket reuses). `Asset.price_basis` added to the domain object (filled by `find_asset` only) for the served-only gate; fixture AAPL/MSFT are `served`, BTC-USD is the unverified case. 31 router tests, **7 of 7 router mutations caught** after four tests were added for the ones a first pass missed (flat-prefix resampling, per-path seeds, risk rows from price vs strategy returns, `prob_loss` at equality). Real MO 2015→today: `returns` 2,000 paths 124–158 ms; `prices` 200 paths 1.7 s, 1,000 paths 8.7 s (synthetic-frame build per path, not the backtester). MO buy-and-hold: historical final $233,692, simulated p05/p50/p95 $94,302 / $238,542 / $579,678, P(drawdown worse than historical) 0.44, P(ruin at 50%) 0.025. `SIM_MAX_PATHS` is 5,000 not 20,000: three (paths × horizon) float arrays are alive at once | 1.5–2 h |
 | 3 | `prices` mode behind the websocket with the progress bridge, cap, per-path seeding, `ws_client` tests | 1–1.5 h |
 | 4 | Frontend: regenerate types, `useSimulationSocket`, Simulate section, fan chart + percentile table, `fanRows.ts` with tests, chart mocked in component tests, Save to Results | 2.5–3.5 h |
 | 5 | Run on five real names (MO, NVDA, SPY, a 1-trade buy-and-hold, a crypto with `allow_unverified`), record the numbers below; CLAUDE.md, CHANGELOG, README | 0.5–1 h |
@@ -223,6 +223,13 @@ fan chart on a real name before phase 5 closes.
 
 ## Learned while building
 
+- **Phase 2 (2026-10-07).** A first set of 27 router tests passed first
+  time and missed 4 of 7 deliberate mutations — every assertion was on a
+  single output, none on the relation between two outputs. The tests that
+  caught them tie one output to another computed separately: the step-1 p05
+  band to the 1-day VaR, `prob_loss` to the returned sample paths,
+  `resampled_from` to `bars`. Per-path seeding is invisible in the response
+  and is observed by patching the Backtester the worker constructs.
 - **Phase 0 (2026-10-07).** The per-bar pandas cost was reads as well as
   writes: pre-extracting `Close` and `signal` to numpy alongside the array
   writes took a run from 239 ms to 5 ms, not the ~40 ms the profile implied.

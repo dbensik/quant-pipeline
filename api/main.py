@@ -30,6 +30,7 @@ from api.routers import (
     results,
     screeners,
     signals,
+    simulate,
     statistics,
     strategies,
     universe,
@@ -108,6 +109,7 @@ app.include_router(compare.router)
 app.include_router(optimize.router)
 app.include_router(portfolios.router)
 app.include_router(signals.router)
+app.include_router(simulate.router)
 app.include_router(watchlists.router)
 app.include_router(universe.router)
 app.include_router(research.router)
