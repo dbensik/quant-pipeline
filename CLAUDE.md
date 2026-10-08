@@ -144,7 +144,7 @@ bit-identical to the old `auto_adjust=True` — and `served_*` + `fetched_at`,
 plus splits and dividends into `corporate_actions`. Served values are written
 once — filled only where NULL, never overwritten — and an action keeps its
 first row. `fetch_range(..., adjust="total"|"split"|"none")` derives every
-read from them for assets with `price_basis = 'served'` (516 equities/ETFs),
+read from them for assets with `price_basis = 'served'` (518 equities/ETFs; TQQQ joined 2026-10-08),
 so all bars are adjusted to one as-of date and the dividend/split drift is
 gone. `legacy` assets (11: PARA and names Yahoo no longer serves) and crypto
 (NULL) read the stored columns. `config.settings.SERVED_PRICES_ENABLED` is
