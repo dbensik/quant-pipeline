@@ -1,0 +1,51 @@
+old_symbol,new_symbol,last_listed_as_old,first_listed_as_new,evidence,cik,old_name,new_name
+WAG,WBA,2014-12-31,2015-01-31,same_cik,104207,Walgreen Co.,Walgreens Boots Alliance
+NU,ES,2015-01-31,2015-02-28,same_cik,72741,Northeast Utilities,Eversource Energy
+ACT,AGN,2015-05-31,2015-06-30,same_cik,884629,Actavis plc,Allergan plc
+GCI,TGNA,2015-05-31,2015-06-30,same_cik,39899,Gannett Co.,Tegna
+ZMH,ZBH,2015-05-31,2015-06-30,same_cik,1136869,Zimmer Holdings,Zimmer Biomet Holdings
+KRFT,KHC,2015-06-30,2015-07-31,same_cik,1545158,Kraft Foods Group,Kraft Heinz Co
+MWV,WRK,2015-06-30,2015-07-31,same_cik,1159297,MeadWestvaco Corporation,Westrock Co
+MHFI,SPGI,2016-04-30,2016-05-31,same_cik,64040,McGraw Hill Financial,"S&P Global, Inc."
+AA,ARNC,2016-10-31,2016-11-30,same_cik,4281,Alcoa Inc,Arconic Inc
+TSO,ANDV,2017-07-31,2017-08-31,same_cik,50104,Tesoro Petroleum Co.,Andeavor
+COH,TPR,2017-09-30,2017-10-31,same_cik,1116132,Coach Inc.,"Tapestry, Inc."
+Q,IQV,2017-10-31,2017-11-30,same_cik,1478242,"Quintiles IMS Holdings, Inc",IQVIA Holdings Inc.
+DLPH,APTV,2017-11-30,2017-12-31,same_cik,1521332,Delphi Automotive PLC,Aptiv Plc
+PCLN,BKNG,2018-01-31,2018-02-28,same_cik,1075531,Priceline.com Inc,Booking Holdings Inc
+HCN,WELL,2018-01-31,2018-02-28,same_cik,766704,Welltower Inc.,Welltower Inc.
+CBG,CBRE,2018-02-28,2018-03-31,same_cik,1138118,CBRE Group,CBRE Group
+LUK,JEF,2018-04-30,2018-05-31,same_cik,96223,Leucadia National Corp.,Jefferies Financial Group
+KORS,CPRI,2018-12-31,2019-01-31,same_cik,1530721,Michael Kors Holdings,Capri Holdings
+DWDP,DD,2019-05-31,2019-06-30,same_cik,1666700,DowDuPont,DuPont de Nemours Inc
+HRS,LHX,2019-06-30,2019-07-31,same_cik,202058,Harris Corporation,L3Harris Technologies
+TMK,GL,2019-07-31,2019-08-31,same_cik,320335,Torchmark Corp.,Globe Life Inc.
+BHGE,BKR,2019-09-30,2019-10-31,same_cik,1701605,"Baker Hughes, a GE Company",Baker Hughes Co
+HCP,PEAK,2019-10-31,2019-11-30,same_cik,765880,HCP Inc.,Healthpeak Properties
+SYMC,NLOK,2019-10-31,2019-11-30,same_cik,849399,Symantec Corp.,NortonLifeLock
+BBT,TFC,2019-11-30,2019-12-31,same_cik,92230,BB&T Corporation,Truist Financial
+JEC,J,2019-11-30,2019-12-31,same_cik,52988,Jacobs Engineering Group,Jacobs Engineering Group
+VIAB,VIAC,2019-11-30,2019-12-31,same_cik,1339947,Viacom Inc.,ViacomCBS
+ARNC,HWM,2020-03-31,2020-04-30,same_cik,4281,Arconic Inc.,Howmet Aerospace
+UTX,RTX,2020-03-31,2020-04-30,same_cik,101829,United Technologies,Raytheon Technologies
+CTL,LUMN,2020-08-31,2020-09-30,same_cik,18926,CenturyLink Inc,Lumen Technologies
+LB,BBWI,2021-07-31,2021-08-31,same_cik,701985,L Brands,"Bath & Body Works, Inc."
+COG,CTRA,2021-09-30,2021-10-31,same_cik,858470,Cabot Oil & Gas,Coterra
+WLTW,WTW,2021-12-31,2022-01-31,same_cik,1140536,Willis Towers Watson,Willis Towers Watson
+VIAC,PARA,2022-01-31,2022-02-28,same_cik,813828,ViacomCBS,Paramount
+DISCA,WBD,2022-03-31,2022-04-30,same_cik,1437107,Discovery (Series A),Warner Bros. Discovery
+BLL,BALL,2022-04-30,2022-05-31,same_cik,9389,Ball,Ball
+ANTM,ELV,2022-05-31,2022-06-30,same_cik,1156039,Anthem,Elevance Health
+FB,META,2022-05-31,2022-06-30,same_cik,1326801,Meta,Meta Platforms
+NLOK,GEN,2022-10-31,2022-11-30,same_cik,849399,NortonLifeLock,Gen Digital Inc.
+PKI,RVTY,2023-04-30,2023-05-31,same_cik,31791,PerkinElmer,Revvity
+FISV,FI,2023-05-31,2023-06-30,same_cik,798354,Fiserv,Fiserv
+RE,EG,2023-06-30,2023-07-31,same_cik,1095073,Everest Re,Everest Re
+ABC,COR,2023-08-31,2023-09-30,same_cik,1140859,AmerisourceBergen,Cencora
+CDAY,DAY,2024-01-31,2024-02-29,same_cik,1725057,Ceridian,Dayforce
+FLT,CPAY,2024-02-29,2024-03-31,same_cik,1175454,Fleetcor,Corpay
+PEAK,DOC,2024-02-29,2024-03-31,same_cik,765880,Healthpeak,Healthpeak
+FI,FISV,2025-10-31,2025-11-30,same_cik,798354,Fiserv,Fiserv
+MMC,MRSH,2025-12-31,2026-01-31,same_cik,62709,Marsh McLennan,Marsh McLennan
+BK,BNY,2026-04-30,2026-05-31,same_cik,1390777,BNY Mellon,BNY Mellon
+SATS,ECHO,2026-05-31,2026-06-30,same_cik,1415404,EchoStar,EchoStar

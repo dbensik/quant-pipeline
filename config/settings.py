@@ -121,6 +121,33 @@ def coingecko_headers() -> dict:
     key = coingecko_api_key()
     return {COINGECKO_KEY_HEADER: key} if key else {}
 
+# --- Tiingo (scripts/probe_tiingo_delisted.py) ---
+#
+# Evaluated 2026-10-04 as a free source of DELISTED price history, which Yahoo
+# does not keep. Nothing in ingest uses it; only the probe script does.
+URL_TIINGO_DAILY = "https://api.tiingo.com/tiingo/daily"
+#: Free-tier ceiling. The probe stops short of it rather than be refused.
+TIINGO_MAX_REQUESTS_PER_HOUR = 50
+
+
+def tiingo_headers() -> dict:
+    """
+    Headers for a Tiingo request, or {} when no key is set.
+
+    The key comes from TIINGO_API_KEY in the environment or .env, read on
+    every call. Tiingo also accepts it as a `token` query parameter; it is
+    sent only as a header, for the reason given on `coingecko_api_key`.
+    """
+    from pydantic_settings import BaseSettings, SettingsConfigDict
+
+    class _Key(BaseSettings):
+        model_config = SettingsConfigDict(env_file=ROOT_DIR / ".env", extra="ignore")
+        TIINGO_API_KEY: str = ""
+
+    key = _Key().TIINGO_API_KEY.strip()
+    return {"Authorization": f"Token {key}"} if key else {}
+
+
 # --- Crypto identity (core/crypto_identity.py) ---
 #
 # A TICKER IS NOT AN IDENTIFIER. CoinGecko's "mnt" is Mantle; Yahoo's MNT-USD
