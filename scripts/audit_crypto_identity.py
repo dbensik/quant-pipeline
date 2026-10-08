@@ -45,16 +45,19 @@ from sqlalchemy import select, update  # noqa: E402
 from core.crypto_identity import (  # noqa: E402
     META_COINGECKO_ID,
     META_IDENTITY_CHECKED_AT,
+    META_IDENTITY_PROVIDER_SYMBOL,
     META_IDENTITY_STATUS,
     META_VERIFIED_NAME,
     Identity,
     ProviderQuote,
     apply_identity_override,
+    provider_symbol,
     verify_identity,
 )
 from config.settings import (  # noqa: E402
     CRYPTO_ID_OVERRIDES,
     CRYPTO_IDENTITY_OVERRIDES,
+    CRYPTO_PROVIDER_SYMBOLS,
 )
 from db.models import AssetORM  # noqa: E402
 from db.session import get_session  # noqa: E402
@@ -160,11 +163,33 @@ async def main(argv: list[str] | None = None) -> int:
             logger.error("No matching crypto assets.")
             return 1
 
+        # A coin this audit already identified keeps its reference even when
+        # it has since fallen off the pages fetched: the recorded id is looked
+        # up directly. Without this a re-sourced asset outside the top
+        # `--pages` could never be verified against its new provider ticker.
+        recorded = {
+            symbol: (meta or {}).get(META_COINGECKO_ID)
+            for _, symbol, meta in assets
+            if symbol not in overrides
+            and symbol.removesuffix("-USD") not in references
+            and (meta or {}).get(META_COINGECKO_ID)
+        }
+        if recorded:
+            by_id = {r.coingecko_id: r for r in
+                     universe.fetch_crypto_references_by_id(recorded.values())}
+            for symbol, coin_id in recorded.items():
+                if coin_id in by_id:
+                    overrides[symbol] = by_id[coin_id]
+
         checks = []
         for index, (asset_id, symbol, meta) in enumerate(assets, 1):
             base = symbol.removesuffix("-USD")
             reference = overrides.get(symbol) or references.get(base)
-            check = verify_identity(symbol, reference, provider_quote(symbol))
+            # The verdict is about the ticker the provider is ASKED for, which
+            # for a mapped symbol is not the symbol.
+            check = verify_identity(
+                symbol, reference, provider_quote(provider_symbol(symbol))
+            )
             settled = CRYPTO_IDENTITY_OVERRIDES.get(symbol)
             if settled and check.status is not Identity.SUSPECT:
                 # Say so rather than silently ignoring it: an override that no
@@ -210,6 +235,12 @@ async def main(argv: list[str] | None = None) -> int:
             patch = dict(meta)
             patch[META_IDENTITY_STATUS] = check.status.value
             patch[META_IDENTITY_CHECKED_AT] = now
+            # Which provider ticker this verdict is about. Ingest compares it
+            # with the configured mapping before fetching a mapped symbol.
+            if symbol in CRYPTO_PROVIDER_SYMBOLS:
+                patch[META_IDENTITY_PROVIDER_SYMBOL] = provider_symbol(symbol)
+            else:
+                patch.pop(META_IDENTITY_PROVIDER_SYMBOL, None)
             if reference:
                 patch[META_COINGECKO_ID] = reference.coingecko_id
                 patch[META_VERIFIED_NAME] = reference.name

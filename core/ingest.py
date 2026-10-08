@@ -39,7 +39,12 @@ from typing import Any, Callable, Dict, List, Optional, Protocol
 
 from config.settings import INGEST_OVERLAP_DAYS, MAX_DAILY_MOVE_MULTIPLE
 from core.corporate_actions import looks_unresolved
-from core.crypto_identity import ingest_block_reason, metadata_allows_ingest
+from core.crypto_identity import (
+    ingest_block_reason,
+    metadata_allows_ingest,
+    provider_mapping_unverified,
+    provider_symbol,
+)
 from core.models import Asset, MarketDataRecord, OHLCV, Timestamp
 
 logger = logging.getLogger(__name__)
@@ -268,9 +273,19 @@ def history_ceiling(metadata: Optional[Dict[str, Any]]) -> Optional[datetime]:
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
-def retag(record: MarketDataRecord, asset_class: str, source: str) -> MarketDataRecord:
+def retag(
+    record: MarketDataRecord,
+    asset_class: str,
+    source: str,
+    symbol: Optional[str] = None,
+) -> MarketDataRecord:
     """
     Force a record onto a known asset identity.
+
+    `symbol` matters when the bars were fetched under a different provider
+    ticker (CRYPTO_PROVIDER_SYMBOLS): the adapter labels them UNI7083-USD, and
+    written that way they would create a new asset row instead of filling
+    UNI-USD.
 
     yfinance_adapter hardcodes asset_class="equity". Writing BTC-USD that way
     would not merely mislabel it: assets are keyed on
@@ -284,7 +299,7 @@ def retag(record: MarketDataRecord, asset_class: str, source: str) -> MarketData
     return replace(
         record,
         asset=Asset(
-            symbol=record.asset.symbol,
+            symbol=symbol or record.asset.symbol,
             asset_class=asset_class,
             source=source,
             metadata=record.asset.metadata,
@@ -395,6 +410,21 @@ async def ingest_symbols(
                     progress(index, total, symbol)
                 continue
 
+            # A mapped symbol is fetched under another ticker, and the verdict
+            # above only covers the ticker it was computed for.
+            fetch_symbol = provider_symbol(symbol)
+            unverified = provider_mapping_unverified(symbol, asset.metadata)
+            if skip_unsafe_identity and unverified:
+                outcome.skipped_identity = True
+                logger.warning(
+                    "%s: skipped — %s. Run scripts/audit_crypto_identity.py "
+                    "--symbols %s --write to verify the mapping.",
+                    symbol, unverified, symbol,
+                )
+                if progress:
+                    progress(index, total, symbol)
+                continue
+
             newest_stored = await _newest_bar(repo, symbol)
 
             window_start = start
@@ -438,7 +468,7 @@ async def ingest_symbols(
                     window_start = floor
 
             call = lambda: fetcher(  # noqa: E731 — bound per iteration
-                [symbol],
+                [fetch_symbol],
                 window_start.strftime("%Y-%m-%d"),
                 window_end.strftime("%Y-%m-%d"),
             )
@@ -461,7 +491,9 @@ async def ingest_symbols(
                 if ceiling is not None and record.ohlcv.timestamp.utc >= ceiling:
                     outcome.skipped_after_ceiling += 1
                     continue
-                usable.append(retag(record, asset.asset_class, asset.source))
+                usable.append(
+                    retag(record, asset.asset_class, asset.source, symbol)
+                )
 
             # Plausibility is judged on the fetched run of bars, in date
             # order — the cheap check that would have surfaced 35 corrupt
@@ -534,7 +566,7 @@ async def ingest_symbols(
                 outcome.served_filled = await repo.fill_served(usable) or 0
             if hasattr(repo, "write_actions"):
                 in_window = [
-                    retag(r, asset.asset_class, asset.source)
+                    retag(r, asset.asset_class, asset.source, symbol)
                     for r in raw
                     if (floor is None or r.ohlcv.timestamp.utc >= floor)
                     and (ceiling is None or r.ohlcv.timestamp.utc < ceiling)

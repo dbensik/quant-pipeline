@@ -45,7 +45,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
-from config.settings import CRYPTO_PRICE_GAP_TOLERANCE
+from config.settings import CRYPTO_PRICE_GAP_TOLERANCE, CRYPTO_PROVIDER_SYMBOLS
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +57,9 @@ META_COINGECKO_ID = "coingecko_id"
 META_VERIFIED_NAME = "verified_name"
 META_IDENTITY_STATUS = "identity_status"
 META_IDENTITY_CHECKED_AT = "identity_checked_at"
+#: The provider ticker the recorded verdict was computed FOR. Only written for
+#: a symbol mapped in CRYPTO_PROVIDER_SYMBOLS; see `provider_mapping_unverified`.
+META_IDENTITY_PROVIDER_SYMBOL = "identity_provider_symbol"
 
 #: A SECOND, independent axis. Identity answers "is this the coin we meant";
 #: data quality answers "is the history usable". They genuinely diverge:
@@ -259,6 +262,35 @@ def metadata_allows_ingest(metadata: Optional[dict]) -> bool:
     if status is None:
         return True
     return IdentityCheck(symbol="", status=status).safe_to_ingest
+
+
+def provider_symbol(symbol: str) -> str:
+    """The ticker to ask the price provider for. Usually the symbol itself."""
+    return CRYPTO_PROVIDER_SYMBOLS.get(symbol, symbol)
+
+
+def provider_mapping_unverified(
+    symbol: str, metadata: Optional[dict]
+) -> Optional[str]:
+    """
+    Why a mapped symbol must not be fetched yet, or None when it may be.
+
+    A verdict is about one provider ticker. `UNI-USD: match` recorded against
+    UNI7083-USD says nothing about whatever CRYPTO_PROVIDER_SYMBOLS points at
+    after an edit, so a mapped symbol is fetched only when the recorded
+    verdict names the ticker now configured. Unmapped symbols are untouched:
+    their verdict has always been about the symbol itself.
+    """
+    mapped = CRYPTO_PROVIDER_SYMBOLS.get(symbol)
+    if mapped is None:
+        return None
+    verified = (metadata or {}).get(META_IDENTITY_PROVIDER_SYMBOL)
+    if verified == mapped:
+        return None
+    return (
+        f"it is mapped to provider ticker {mapped} but the recorded identity "
+        f"was checked against {verified or 'the bare symbol'}"
+    )
 
 
 def index_by_symbol(references: "list[CoinReference]") -> dict:

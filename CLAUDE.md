@@ -163,6 +163,18 @@ a header on CoinGecko calls only, never in a URL and never on the shared
 session that also scrapes Wikipedia. Re-take a missed day's crypto snapshot the
 same day with `python scripts/snapshot_universes.py --indexes top_100_crypto`.
 
+**A crypto asset may be fetched under a different provider ticker**
+(`CRYPTO_PROVIDER_SYMBOLS` in `config/settings.py`, since 2026-10-04). Yahoo's
+bare `UNI-USD` is "UNICORN Token"; Uniswap is `UNI7083-USD`. The asset keeps
+its symbol everywhere; only the fetch and `scripts/audit_crypto_identity.py`
+use the provider ticker, and bars are stored under the asset. An entry is a
+claim, not a verdict: ingest refuses a mapped symbol until the audit has been
+run with `--write` against that exact ticker (`identity_provider_symbol` on
+the row), so editing a mapping blocks the asset until it is re-verified. 21
+assets are mapped and loaded; POL-USD is mapped but blocked as `suspect`
+(names differ, a human call); PEPE, TON, BSC and BUIDL have no usable ticker
+and stay empty — the reasons are beside the mapping.
+
 **Universe snapshots cannot be backdated.** A missed day is a permanent gap in
 point-in-time membership, and membership is what makes survivorship-free
 screening possible — so this job matters more than its size suggests.

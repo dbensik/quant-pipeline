@@ -190,7 +190,11 @@ COINGECKO_THROTTLE_BACKOFF_SECONDS = 15.0
 #: is a judgement about each coin's history rather than a number.
 CRYPTO_IDENTITY_OVERRIDES = {
     "BUIDL-USD": "wrong_asset",
-    "USDS-USD": "wrong_asset",
+    # USDS-USD was settled wrong_asset here until 2026-10-04. That verdict was
+    # about Yahoo's bare `USDS-USD` ("Stably USD"). The asset is now fetched
+    # as USDS33039-USD (CRYPTO_PROVIDER_SYMBOLS), whose name is USDS and whose
+    # history begins 2024-09-19 with no close outside USDS's range, so the
+    # entry was removed rather than left to contradict a computed MATCH.
     # --- Settled 2026-09-23, the opposite direction. ---
     # Mapping CoinGecko ids onto the unranked tokens turned three of them
     # SUSPECT, which BLOCKS INGESTION — so a mapping intended to improve
@@ -214,6 +218,63 @@ CRYPTO_IDENTITY_OVERRIDES = {
     "SOLVBTC-USD": "match",
     "WSTETH-USD": "match",
     "JLP-USD": "match",
+}
+
+#: The ticker to ASK THE PRICE PROVIDER FOR, where it is not the asset's own
+#: symbol. Yahoo files most mid-cap coins under the ticker plus a numeric id
+#: (`UNI7083-USD` is Uniswap); the bare ticker belongs to whichever micro-cap
+#: claimed it first (`UNI-USD` is "UNICORN Token"). That collision is what
+#: left 24 assets holding another coin's history until 2026-09-24.
+#:
+#: The asset keeps its symbol everywhere else — registry, bars, snapshots,
+#: API. Only the fetch and the identity audit use the provider ticker.
+#:
+#: An entry is a CLAIM, not a verdict. Ingest refuses a mapped symbol until
+#: `scripts/audit_crypto_identity.py --write` has checked this exact provider
+#: ticker against the coin's CoinGecko name and price and recorded it
+#: (`identity_provider_symbol`), so editing a line here blocks the asset until
+#: it is re-verified rather than silently importing a different coin.
+#:
+#: Found 2026-10-04 by searching Yahoo for each coin's name and keeping the
+#: candidate whose price agreed with CoinGecko. Margins were decisive: the
+#: right ticker was within 1% every time and the nearest wrong one 6.5x away
+#: (SKY-USD, Skycoin), except PEPE24549-USD ("Arbi Pepe"), which sits within
+#: 0.03% of Pepe's price and is rejected on its NAME.
+#:
+#: Each mapped history was then checked against the coin's CoinGecko all-time
+#: range before a bar was stored: 0 closes outside it for every entry but
+#: TAO-USD, whose first bar (2023-03-05, $0.126 against an all-time low of
+#: $30.83) is excluded by `history_valid_from`.
+#:
+#: DELIBERATELY NOT MAPPED, so these stay empty:
+#:   PEPE-USD   PEPE24478-USD is the right coin, but Yahoo rounds its prices
+#:              to six decimals: 27 distinct closes in 1254 bars and 906 days
+#:              of exactly zero return. A series, not a usable one.
+#:   TON-USD    TON11419-USD is the right coin and serves ONE bar of history.
+#:   BSC-USD, BUIDL-USD   no Yahoo ticker found for either.
+CRYPTO_PROVIDER_SYMBOLS = {
+    "APT-USD": "APT21794-USD",
+    "ARB-USD": "ARB11841-USD",
+    "CBBTC-USD": "CBBTC32994-USD",
+    "HYPE-USD": "HYPE32196-USD",
+    "JUP-USD": "JUP29210-USD",
+    "LBTC-USD": "LBTC33652-USD",
+    "METH-USD": "METH29035-USD",
+    "MNT-USD": "MNT27075-USD",
+    "PENGU-USD": "PENGU34466-USD",
+    "PI-USD": "PI35697-USD",
+    "POL-USD": "POL28321-USD",
+    "PUMP-USD": "PUMP36507-USD",
+    "S-USD": "S32684-USD",
+    "SKY-USD": "SKY33038-USD",
+    "SPX-USD": "SPX28081-USD",
+    "STX-USD": "STX4847-USD",
+    "SUI-USD": "SUI20947-USD",
+    "TAO-USD": "TAO22974-USD",
+    "TRUMP-USD": "TRUMP35336-USD",
+    "UNI-USD": "UNI7083-USD",
+    "USDE-USD": "USDE29470-USD",
+    "USDS-USD": "USDS33039-USD",
 }
 
 CRYPTO_ID_OVERRIDES = {
@@ -312,6 +373,30 @@ INGEST_OVERLAP_DAYS = 14
 #: in the plan. Set False to return every read to the stored columns.
 SERVED_PRICES_ENABLED = True
 
+# --- Monte Carlo simulation (api/routers/simulate.py) ---
+# Plan: research/monte-carlo-plan-2026-10-07.md. The kernels in simulation/
+# take every parameter explicitly; these are the router's defaults and caps.
+#: `returns` mode resamples the strategy's own daily returns — instant.
+SIM_DEFAULT_PATHS = 2_000
+#: paths x horizon x 8 bytes, with three arrays alive at once: 5,000 paths over
+#: a 3,000-bar history is ~360 MB. 20,000 would be 1.4 GB.
+SIM_MAX_PATHS = 5_000
+#: `prices` mode re-runs the strategy once per path (~5 ms a run since the
+#: 2026-10-07 backtester change), so the cap is time, not memory.
+SIM_DEFAULT_RERUN_PATHS = 200
+SIM_MAX_RERUN_PATHS = 1_000
+#: Stationary-bootstrap mean block, about one trading month: long enough to
+#: keep volatility clustering, short enough that a 10-year series still mixes.
+SIM_BLOCK_LENGTH_DAYS = 20.0
+#: P(ruin) = share of paths that ever fall below this fraction of start equity.
+SIM_RUIN_THRESHOLD = 0.5
+#: A forward horizon may be at most 5 trading years, or the history length if
+#: that is longer (the default horizon IS the history length).
+SIM_MAX_HORIZON_DAYS = 1_260
+SIM_VAR_HORIZONS_DAYS = (1, 10, 21)
+#: Sample paths a client may ask for beside the bands, for a spaghetti overlay.
+SIM_MAX_RETURNED_PATHS = 200
+
 # --- Reassigned tickers (core/corporate_actions.detect_reassignment) ---
 #: A ticker reassigned to another company shows up as a collapse in DOLLAR
 #: volume (close x volume): a split leaves it roughly unchanged, a crash usually
@@ -372,27 +457,3 @@ PIPELINE_SCRIPT_PATH = ROOT_DIR / "cli" / "run_pipeline.py"
 # --- Caching Configuration ---
 CACHE_DIR = ROOT_DIR / ".cache"
 CACHE_EXPIRY_HOURS = 24  # Default cache expiry
-# --- Monte Carlo simulation (api/routers/simulate.py) ---
-# Plan: research/monte-carlo-plan-2026-10-07.md. The kernels in simulation/
-# take every parameter explicitly; these are the router's defaults and caps.
-#: `returns` mode resamples the strategy's own daily returns — instant.
-SIM_DEFAULT_PATHS = 2_000
-#: paths x horizon x 8 bytes, with three arrays alive at once: 5,000 paths over
-#: a 3,000-bar history is ~360 MB. 20,000 would be 1.4 GB.
-SIM_MAX_PATHS = 5_000
-#: `prices` mode re-runs the strategy once per path (~5 ms a run since the
-#: 2026-10-07 backtester change), so the cap is time, not memory.
-SIM_DEFAULT_RERUN_PATHS = 200
-SIM_MAX_RERUN_PATHS = 1_000
-#: Stationary-bootstrap mean block, about one trading month: long enough to
-#: keep volatility clustering, short enough that a 10-year series still mixes.
-SIM_BLOCK_LENGTH_DAYS = 20.0
-#: P(ruin) = share of paths that ever fall below this fraction of start equity.
-SIM_RUIN_THRESHOLD = 0.5
-#: A forward horizon may be at most 5 trading years, or the history length if
-#: that is longer (the default horizon IS the history length).
-SIM_MAX_HORIZON_DAYS = 1_260
-SIM_VAR_HORIZONS_DAYS = (1, 10, 21)
-#: Sample paths a client may ask for beside the bands, for a spaghetti overlay.
-SIM_MAX_RETURNED_PATHS = 200
-

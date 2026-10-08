@@ -508,6 +508,17 @@ async def test_jumps_are_judged_in_date_order_not_fetch_order():
 # was stored as UNICORN Token. Every daily run appended more of it.
 # ---------------------------------------------------------------------------
 
+@pytest.fixture(autouse=True)
+def no_provider_mappings(monkeypatch):
+    """
+    These tests are about the recorded VERDICT, and use UNI-USD as their
+    example. UNI-USD is really mapped to a provider ticker now, which adds a
+    second gate; the mapping gets its own tests at the end of the file, which
+    set it explicitly.
+    """
+    monkeypatch.setattr("core.crypto_identity.CRYPTO_PROVIDER_SYMBOLS", {})
+
+
 def identity_repo(status):
     """A repo whose one crypto asset carries `status` as its recorded verdict."""
     meta = {"identity_status": status} if status else {}
@@ -946,3 +957,94 @@ async def test_actions_outside_the_history_floor_are_not_recorded():
     fetched = [with_served(bar("AAPL", 20), dividend=0.5), with_served(bar("AAPL", 27), dividend=0.6)]
     await ingest_symbols(repo, ["AAPL"], fetcher=fetcher_for(fetched))
     assert [r.dividend for r in repo.action_calls[0]] == [0.6]
+
+
+# ---------------------------------------------------------------------------
+# Provider tickers (CRYPTO_PROVIDER_SYMBOLS)
+#
+# Yahoo's UNI-USD is "UNICORN Token"; Uniswap is UNI7083-USD. The asset keeps
+# its symbol and only the fetch uses the provider ticker. The two ways this
+# goes wrong are both silent: bars written under the provider ticker create a
+# second asset nobody reads, and a mapping edited without re-verifying imports
+# a different coin into a series marked `match`.
+# ---------------------------------------------------------------------------
+
+def mapped_repo(verified_against):
+    metadata = {"identity_status": "match"}
+    if verified_against:
+        metadata["identity_provider_symbol"] = verified_against
+    return RecordingRepo(
+        assets={
+            "UNI-USD": Asset(
+                symbol="UNI-USD", asset_class="crypto", source="yfinance",
+                metadata=metadata,
+            )
+        }
+    )
+
+
+@pytest.fixture
+def uni_mapped(monkeypatch):
+    monkeypatch.setattr(
+        "core.crypto_identity.CRYPTO_PROVIDER_SYMBOLS", {"UNI-USD": "UNI7083-USD"}
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_mapped_symbol_is_fetched_under_its_provider_ticker(uni_mapped):
+    calls = []
+    repo = mapped_repo("UNI7083-USD")
+    await ingest_symbols(
+        repo, ["UNI-USD"],
+        fetcher=fetcher_for([bar("UNI7083-USD", 0)], calls),
+    )
+    assert calls[0][0] == ("UNI7083-USD",)
+
+
+@pytest.mark.asyncio
+async def test_bars_fetched_under_a_provider_ticker_are_stored_under_the_asset(uni_mapped):
+    repo = mapped_repo("UNI7083-USD")
+    await ingest_symbols(
+        repo, ["UNI-USD"], fetcher=fetcher_for([bar("UNI7083-USD", 0)])
+    )
+    (written,) = repo.written
+    assert written.asset.symbol == "UNI-USD"
+    assert written.asset.asset_class == "crypto"
+
+
+@pytest.mark.asyncio
+async def test_a_mapping_never_verified_is_not_fetched(uni_mapped):
+    """`match` here was recorded against the bare UNI-USD — the wrong coin."""
+    calls = []
+    repo = mapped_repo(None)
+    report = await ingest_symbols(
+        repo, ["UNI-USD"], fetcher=fetcher_for([bar("UNI7083-USD", 0)], calls)
+    )
+    assert calls == [] and repo.written == []
+    assert report.outcomes[0].skipped_identity is True
+
+
+@pytest.mark.asyncio
+async def test_a_mapping_edited_after_verification_is_not_fetched(monkeypatch):
+    monkeypatch.setattr(
+        "core.crypto_identity.CRYPTO_PROVIDER_SYMBOLS", {"UNI-USD": "UNI9999-USD"}
+    )
+    calls = []
+    repo = mapped_repo("UNI7083-USD")
+    report = await ingest_symbols(
+        repo, ["UNI-USD"], start=START,
+        fetcher=fetcher_for([bar("UNI9999-USD", 0)], calls),
+    )
+    assert calls == [] and repo.written == []
+    assert report.outcomes[0].skipped_identity is True
+
+
+@pytest.mark.asyncio
+async def test_an_unmapped_symbol_is_fetched_under_its_own_name(uni_mapped):
+    calls = []
+    repo = RecordingRepo()
+    await ingest_symbols(
+        repo, ["BTC-USD"], fetcher=fetcher_for([bar("BTC-USD", 0)], calls)
+    )
+    assert calls[0][0] == ("BTC-USD",)
+    assert repo.written[0].asset.symbol == "BTC-USD"
