@@ -255,11 +255,12 @@ For the TimescaleDB layer, copy `.env.example` → `.env`; without it, `db/sessi
   its acquirer at ~4.6e-03 before a deal closes, which a loose threshold calls
   a rename. See `research/corporate-actions-findings-2026-09-15.md`.
 - `alpha_models/` — Strategy classes (Moving Average Crossover, Mean Reversion, Trend Following, Pairs Trading, etc.) all inherit from `base_model.py`
-- `backtesting/backtester.py` — Simulates strategy on historical data; produces equity curves and KPIs
+- `backtesting/backtester.py` — Simulates strategy on historical data; produces equity curves and KPIs. Per-bar state goes into numpy arrays, not pandas cell writes (2026-10-07: 291 ms → 5 ms a run, bit-identical). A change to the loop must stay bit-identical on real runs — the equity frame, trade log and metrics are the regression test.
+- `simulation/` — Monte Carlo kernels, pure numpy, every function takes an explicit `Generator`: stationary block bootstrap (default), iid, GBM; vectorised equity, drawdown depth/duration (the analyzer's conventions), VaR/CVaR, P(ruin). Defaults and caps are `SIM_*` in `config/settings.py`. `api/routers/simulate.py` runs it in two modes: `returns` resamples the backtest's own realised returns from the first invested bar (instant, carries a caveat when the strategy traded, since its signals depend on the path); `prices` re-runs the strategy on resampled price paths, one backtest per path, seeded `seed + i`. Served assets only unless `allow_unverified` — a bootstrap resamples any artefact in stored history into every path. Plan, measurements and the mutation checks: `research/monte-carlo-plan-2026-10-07.md`.
 - `screeners/` — Filter universe by criteria (momentum, low volatility); output feeds into watchlists
 - `api/routers/` — the REST/WS surface: ohlcv, assets, strategies, backtest,
-  compare, optimize, screeners, statistics, portfolios, watchlists, research,
-  ingest, results, signals, ws
+  compare, optimize, simulate, screeners, statistics, portfolios, watchlists,
+  research, ingest, results, signals, ws
 - `frontend/` — React dashboard; `routes.tsx` declares pages once for both the
   router and the nav bar; TanStack Query owns server state, Zustand owns UI
   selections only

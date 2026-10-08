@@ -155,7 +155,7 @@ KPI by 1e-12 is a bug, because saved results are the regression test.
 | 2 | `SimulationRequest/Response`, REST route — **done 2026-10-07**, both modes (the `prices` worker was needed for the sync function the socket reuses). `Asset.price_basis` added to the domain object (filled by `find_asset` only) for the served-only gate; fixture AAPL/MSFT are `served`, BTC-USD is the unverified case. 31 router tests, **7 of 7 router mutations caught** after four tests were added for the ones a first pass missed (flat-prefix resampling, per-path seeds, risk rows from price vs strategy returns, `prob_loss` at equality). Real MO 2015→today: `returns` 2,000 paths 124–158 ms; `prices` 200 paths 1.7 s, 1,000 paths 8.7 s (synthetic-frame build per path, not the backtester). MO buy-and-hold: historical final $233,692, simulated p05/p50/p95 $94,302 / $238,542 / $579,678, P(drawdown worse than historical) 0.44, P(ruin at 50%) 0.025. `SIM_MAX_PATHS` is 5,000 not 20,000: three (paths × horizon) float arrays are alive at once | 1.5–2 h |
 | 3 | Websocket `ws /simulate` — **done 2026-10-07**. Same accepted / progress / result / error protocol; `prices` mode publishes every 25 paths from the worker through `_ProgressBridge`, `returns` mode reports stages only. Validation, the asset gate and response assembly were factored out of the REST route (`validate_simulation_request`, `gate_asset`, `build_simulation_response`) so the two cannot drift. 9 socket tests, one of which asserts the socket's bands, summaries and historical metrics equal the REST response for the same request | 1–1.5 h |
 | 4 | Frontend — **done 2026-10-07**. `schema.d.ts` regenerated from `app.openapi()` (295 lines added, 0 removed); `runOverSocket` generalised so the backtest and simulation sockets share one runner; `useSimulationSocket`, `useRunSimulation`, `useSaveResult`; `SimulationPanel` under the backtest result (mode, method, paths, horizon, block length, unverified override; socket or REST following the existing Stream-progress toggle; Save to Results); `FanChart` (Recharts `ComposedChart`, two range areas + median + realised + start line); `fanRows.ts` holds the overlay alignment — step j ↔ historical bar `(bars − resampled_from) + j − 1` — with 6 tests for buy-and-hold, a waiting strategy, prices mode and the history edge; `SimulationResults` tested with the chart mocked. 212 frontend tests (was 202), typecheck clean, build keeps the Plotly chunk separate. Mode/method stayed component state rather than Zustand: they are one panel's controls, not a cross-page selection | 2.5–3.5 h |
-| 5 | Run on five real names (MO, NVDA, SPY, a 1-trade buy-and-hold, a crypto with `allow_unverified`), record the numbers below; CLAUDE.md, CHANGELOG, README | 0.5–1 h |
+| 5 | Real names run and recorded below — **done 2026-10-07**; CLAUDE.md (architecture entries for `simulation/` and the backtester change), CHANGELOG, README | 0.5–1 h |
 | | **total** | **9–12.5 h, over 2–3 sessions** |
 
 Your hands-on time: 20–30 minutes for the decisions below, plus a look at the
@@ -221,7 +221,36 @@ fan chart on a real name before phase 5 closes.
   names; router tests through the repository Protocol; charts mocked under
   jsdom; Plotly not needed, so no new chunk.
 
+## Real names, 2015-01-01 → 2026-10-07, seed 42 (recorded 2026-10-07)
+
+`stationary` = block bootstrap, 20-day mean block. P(worse) = share of paths
+whose max drawdown is deeper than the historical one. VaR/CVaR are losses on
+the strategy's equity, so a strategy mostly in cash shows 0 — correct, and the
+reason the risk table is built from strategy equity rather than price draws.
+
+| symbol | strategy | mode / method | paths | time | historical final · max DD | simulated final p05 / p50 / p95 | DD p50 · P(worse) | VaR95 1d · 21d | CVaR99 21d | P(ruin 50%) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| MO | buy_and_hold | returns / stationary | 2,000 | 158 ms | $233,692 · −38.7% | $94,302 / $238,542 / $579,678 | −37.5% · 0.44 | 2.27% · 9.50% | — | 2.5% |
+| NVDA | buy_and_hold | returns / stationary | 2,000 | 305 ms | $50.5M · −66.3% | $4.1M / $50.9M / $641M | −54.9% · 0.14 | 4.11% · 16.3% | 30.6% | 4.0% |
+| NVDA | trend_following | prices / stationary | 200 | 3.0 s | $111,317 · −35.1% | $65,009 / $101,776 / $156,105 | −23.8% · 0.18 | 0 · 0 | 0 | 2.0% |
+| SPY | buy_and_hold | returns / stationary | 2,000 | 284 ms | $459,780 · −33.7% | $198,826 / $464,907 / $1,030,053 | −32.9% · 0.47 | 1.60% · 6.23% | **17.6%** | 0.2% |
+| SPY | buy_and_hold | returns / **gbm** | 2,000 | 249 ms | same | $172,932 / $474,413 / $1,233,420 | −29.7% · 0.31 | 1.71% · 6.57% | **10.8%** | 0.3% |
+| BTC-USD (unverified) | buy_and_hold | returns / stationary | 2,000 | 235 ms | $1.12M · −76.1% | $88,037 / $1.15M / $17.3M | −67.9% · 0.29 | 4.21% · 18.9% | 35.5% | 24.2% |
+| AAPL | rsi | prices / stationary | 200 | 3.0 s | $111,599 · −6.1% | $81,888 / $101,420 / $121,959 | −10.2% · 0.86 | 0 · 0.90% | 3.45% | 0 |
+
+The SPY pair is the plan's fat-tail claim measured: GBM puts the 21-day 99%
+expected shortfall at 10.8%, the block bootstrap at 17.6%, from the same
+series. GBM's wider p95 and narrower tail is the normal-returns shape.
+
 ## Learned while building
+
+- **Phase 5 (2026-10-07).** The simulated median final value sits within 2%
+  of the historical one on every buy-and-hold run (MO, NVDA, SPY, BTC), which
+  is the sanity check a resampling scheme has to pass before its tails mean
+  anything. `prices` mode on a trading strategy puts the historical outcome
+  near the top of the fan (AAPL rsi: P(worse drawdown) 0.86, historical
+  final above p75) — the realised path was a good one for that rule, which
+  is exactly what a single backtest cannot tell you.
 
 - **Phase 2 (2026-10-07).** A first set of 27 router tests passed first
   time and missed 4 of 7 deliberate mutations — every assertion was on a

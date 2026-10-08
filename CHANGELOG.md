@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Entries from 2026-08-07 on. The older entries further down this section
+describe the Streamlit dashboard and `docker-compose` services as they were
+before the migration below; they are kept as history.
+
+### Changed
+- **Backtester runs 50x faster** (2026-10-07): per-bar state is recorded in numpy arrays instead of three pandas cell writes; 291 ms → 5 ms a run, bit-identical on 56 real runs. Grid search and the Monte Carlo re-run mode inherit it.
+- **TimescaleDB is the store** (2026-08-07 to 08-09). Bars moved from SQLite to a TimescaleDB hypertable; the SQLite pipeline and its orchestrator were retired, and the CLI and `POST /api/v1/ingest` share one write path, `core/ingest.py`.
+- **React replaces Streamlit** (2026-08-09). Every dashboard feature was ported to a FastAPI router and a React page, then `dashboard_app/` and the Streamlit dependency were deleted.
+- **Prices are adjusted at read time** (2026-09-28). Ingest stores prices as Yahoo served them, with the fetch time and corporate actions; `fetch_range` derives adjusted prices on read. Stored bars are never rewritten and `--full-backfill` is removed (the API answers 422 to it).
+- **launchd replaces cron** for the daily job (2026-08-25), so a run missed while the Mac slept happens on wake.
+- **Ports moved off the framework defaults** (2026-08-11): 8001 REST, 8002 GraphQL, 5174 Vite, 15432 TimescaleDB on the host.
+
+### Added
+- **Monte Carlo over a backtest** (2026-10-07): `POST /api/v1/simulate` and `ws /simulate`, with a Simulate panel under the backtest result. Fan bands, terminal-wealth, drawdown and VaR/CVaR distributions from a stationary block bootstrap (iid and GBM beside it), either over the strategy's realised returns or by re-running the strategy on resampled price paths. Served assets only unless overridden. Plan and measurements in `research/monte-carlo-plan-2026-10-07.md`.
+- **Point-in-time index membership** (2026-08-09): a daily snapshot of the S&P 500, Dow and top-100 crypto lists. A partial snapshot is a failed run.
+- **Reconstructed S&P 500 membership** (2026-10-04): month-end lists for 2014-12 to 2026-07 from Wikipedia revisions, in `universe_membership_reconstructed`. Nothing reads it yet.
+- **ETF asset class and three allocation strategies** (2026-08-10): 11 ETFs; paired switching, asset-class trend and momentum allocation; each strategy declares its `signal_shape`.
+- **Daily data checks** after ingest: reassigned tickers (2026-09-24), missing days (2026-09-25), returns against a fresh Yahoo fetch (2026-09-28).
+- **Provider tickers for crypto** (2026-10-04): 21 assets whose bare Yahoo ticker is a different token are fetched under the ticker of the right coin and verified before any bar is stored; 21,766 bars loaded.
+- **PSKY** registered as the continuation of PARA (2026-10-04), as its own asset; PARA's row and bars are unchanged.
+- **Crypto identity and bounds checks** (2026-09-19 to 09-22): each crypto series is verified against its CoinGecko id and the range the coin has traded in.
+- **Rename and successor detection** for equities (2026-09-19), proposing only.
+- **Daily option-chain capture** to dated Parquet (2026-09-14) and a data-freshness badge on every page (2026-09-14).
+- **Test suites that need no Docker**: API routers through the repository Protocol, and a frontend suite.
+
+### Fixed
+- **Split-adjustment drift** silently corrupted prices after a split (2026-08-09); superseded by read-time adjustment.
+- **An empty fetch no longer marks a symbol delisted** (2026-08-10): it means the provider lost the key.
+- **PARA** ingested a reassigned ticker's bars; they were removed and 1256 real bars restored (2026-09-24).
+- **Ingest re-requests the last 14 days**, inserting only missing bars, after 463 equities silently lost 2026-08-28 (2026-09-25).
+- **Wrong-token crypto histories** removed or trimmed for the affected assets (2026-09-19 to 09-24).
+- **Basket and index rebalancing** skipped a third of their rebalances (2026-08-11).
+- **ADF test** reported every series as stationary (2026-08-09).
+- **Dow Jones constituents** moved off Wikipedia, and implausible constituent counts are rejected (2026-08-25).
+
 ### Fixed
 - **docker-compose backend command (P0):** `uvicorn main:app` → `uvicorn api.main:app` (no top-level `main.py` exists; broke containerized deploy).
 - **docker-compose dashboard command:** `dashboard_app/main.py` → `dashboard_app/dashboard.py` (correct Streamlit entry point).

@@ -11,6 +11,7 @@ Built and maintained by one person as a working research tool, not a product. It
 | **Data** | Daily bars for the S&P 500, Dow, Nasdaq 100, and top-100 crypto universes via yfinance, written to TimescaleDB through one ingestion path (`core/ingest.py`) shared by the API and the CLI. Incremental, insert-only updates that re-check the last 14 days; prices are adjusted for splits, spinoffs and dividends at read time, so a stored bar is never rewritten. |
 | **Strategies** | 18 modules in `alpha_models/` behind a single `BaseAlphaModel` contract and a registry: moving-average crossover, mean reversion, cointegrated mean reversion, pairs trading, paired switching, trend following, ATR breakout, RSI, momentum allocation, basket trading, index rebalancing, asset-class trend, buy-and-hold, a random-forest model, and others. |
 | **Backtesting** | Equity curve against buy-and-hold, CAGR, Sharpe, max drawdown, Calmar, trade log; parameter grid search and portfolio-weight optimization; strategy comparison on one symbol. Live progress over a websocket. |
+| **Monte Carlo** | A distribution around any backtest: percentile fan bands, terminal wealth, drawdown depth and duration, VaR and CVaR, probability of ruin. Stationary block bootstrap by default, iid and GBM for contrast; resample the strategy's returns, or re-run it on resampled price paths. |
 | **Screening and statistics** | Momentum and low-volatility screeners over a universe; ADF, cointegration, and PCA on the Statistics page. |
 | **Portfolios and watchlists** | Saved in the database, with a trade log and derived P&L. |
 | **Research** | Company profiles, financials, and news per symbol. |
@@ -50,6 +51,7 @@ python -m cli.run_pipeline     # ingest from the command line (same path as the 
 
 1. **Ingest** on the Data page. Incremental and insert-only; adjustment happens at read time.
 2. **Chart and backtest** a symbol: pick a strategy, set parameters and a date range, run, and read the equity curve, KPIs, and trade log.
+   Then **Simulate** under the result to see how wide the distribution around that one curve is.
 3. **Compare** several strategies on the same symbol, or **Optimize** a parameter grid or portfolio weights.
 4. **Screen** the universe (momentum, low volatility) and save the result as a watchlist to backtest against.
 5. **Save** the run and reload it later without re-simulating.
@@ -59,6 +61,7 @@ python -m cli.run_pipeline     # ingest from the command line (same path as the 
 ```
 alpha_models/      strategies (one class each), base_model.py, registry.py
 backtesting/       backtester and parameter generator
+simulation/        Monte Carlo kernels: resampling, equity paths, drawdowns, tail risk
 core/              ingestion path shared by the API and CLI
 data_pipeline/     universe fetchers, equity/crypto/fundamental pipelines, normalizer
 screeners/         momentum and low-volatility screeners over a universe
