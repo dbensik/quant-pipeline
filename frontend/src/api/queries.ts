@@ -18,6 +18,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api, ApiError } from './client'
 import type { BacktestInput,
+  OptionPriceRequest,
   SimulationInput } from './client'
 
 /**
@@ -49,6 +50,9 @@ export const queryKeys = {
     ['financials', symbol, { quarterly }] as const,
   news: (source: Record<string, unknown>) => ['news', source] as const,
   dataFreshness: () => ['data-freshness'] as const,
+  optionsArchive: () => ['options-archive'] as const,
+  optionsSurface: (ticker: string, day: string | null) => ['options-surface', ticker, { day }] as const,
+  optionPricers: () => ['option-pricers'] as const,
 }
 
 /**
@@ -514,5 +518,58 @@ export function useDeleteResult() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['results'] })
     },
+  })
+}
+
+
+// ---------------------------------------------------------------------------
+// Options (tier 2 phase 4)
+// ---------------------------------------------------------------------------
+
+/**
+ * 404 (no such capture) and 409 (no risk-free rate stored for that day) are
+ * answers, not transient failures: retrying repeats a 10-35 s server-side
+ * attempt only to get the same reply.
+ */
+function retryOptions(failureCount: number, error: unknown): boolean {
+  if (error instanceof ApiError && (error.isNotFound || error.status === 409 || error.status === 422)) {
+    return false
+  }
+  return failureCount < 1
+}
+
+export function useOptionsArchive() {
+  return useQuery({
+    queryKey: queryKeys.optionsArchive(),
+    queryFn: () => api.getOptionsArchive(),
+    staleTime: 5 * 60_000,
+  })
+}
+
+/**
+ * A surface for a past day is fixed until its inputs change server-side, and
+ * the server's cache key handles that; an hour's staleness here is safe.
+ */
+export function useOptionsSurface(ticker: string | null, day: string | null) {
+  return useQuery({
+    queryKey: queryKeys.optionsSurface(ticker ?? '', day),
+    queryFn: () => api.getOptionsSurface(ticker as string, day),
+    enabled: Boolean(ticker),
+    staleTime: 60 * 60_000,
+    retry: retryOptions,
+  })
+}
+
+export function useOptionPricers() {
+  return useQuery({
+    queryKey: queryKeys.optionPricers(),
+    queryFn: () => api.getOptionPricers(),
+    staleTime: Infinity,
+  })
+}
+
+export function usePriceOption() {
+  return useMutation({
+    mutationFn: (body: OptionPriceRequest) => api.priceOption(body),
   })
 }

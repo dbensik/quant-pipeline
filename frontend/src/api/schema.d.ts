@@ -453,6 +453,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/options/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Option-chain captures on disk */
+        get: operations["archive_api_v1_options_archive_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/options/surface": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Implied-volatility surface for one ticker-day */
+        get: operations["surface_api_v1_options_surface_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/options/pricers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The option pricers */
+        get: operations["list_pricers_api_v1_options_pricers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/options/price": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Price one option with every applicable model */
+        post: operations["price_api_v1_options_price_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/options/realised-vol": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Realised volatility and the vol cone for a symbol */
+        get: operations["realised_vol_api_v1_options_realised_vol_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/watchlists": {
         parameters: {
             query?: never;
@@ -1581,6 +1666,313 @@ export interface components {
             count: number;
             /** Bars */
             bars: components["schemas"]["OHLCVBar"][];
+        };
+        /** OptionModelQuote */
+        OptionModelQuote: {
+            /** Model */
+            model: string;
+            /** Display Name */
+            display_name: string;
+            /** Style */
+            style: string;
+            /** Price */
+            price: number;
+            /** Std Error */
+            std_error?: number | null;
+            /** Delta */
+            delta?: number | null;
+            /** Gamma */
+            gamma?: number | null;
+            /** Vega */
+            vega?: number | null;
+            /** Theta */
+            theta?: number | null;
+            /** Rho */
+            rho?: number | null;
+            /** Early Exercise Premium */
+            early_exercise_premium?: number | null;
+        };
+        /** OptionPriceRequest */
+        OptionPriceRequest: {
+            /** Spot */
+            spot: number;
+            /** Strike */
+            strike: number;
+            /**
+             * Expiry Years
+             * @description ACT/365
+             */
+            expiry_years: number;
+            /**
+             * Rate
+             * @description Continuously compounded, decimal
+             */
+            rate: number;
+            /**
+             * Dividend Yield
+             * @description Continuous, decimal
+             * @default 0
+             */
+            dividend_yield: number;
+            /** Sigma */
+            sigma: number;
+            /**
+             * Right
+             * @enum {string}
+             */
+            right: "call" | "put";
+            /**
+             * Style
+             * @default european
+             * @enum {string}
+             */
+            style: "european" | "american";
+            /**
+             * Mc Paths
+             * @default 200000
+             */
+            mc_paths: number;
+            /**
+             * Seed
+             * @default 42
+             */
+            seed: number;
+        };
+        /** OptionPriceResponse */
+        OptionPriceResponse: {
+            /** Style */
+            style: string;
+            /** Quotes */
+            quotes: components["schemas"]["OptionModelQuote"][];
+        };
+        /** OptionPricerInfo */
+        OptionPricerInfo: {
+            /** Id */
+            id: string;
+            /** Display Name */
+            display_name: string;
+            /** Description */
+            description: string;
+            /** Styles */
+            styles: string[];
+        };
+        /** OptionsArchiveResponse */
+        OptionsArchiveResponse: {
+            /** Tickers */
+            tickers: components["schemas"]["OptionsArchiveTicker"][];
+            /** Total Rows */
+            total_rows: number;
+        };
+        /** OptionsArchiveTicker */
+        OptionsArchiveTicker: {
+            /** Ticker */
+            ticker: string;
+            /** Captures */
+            captures: components["schemas"]["OptionsCaptureDay"][];
+        };
+        /** OptionsCaptureDay */
+        OptionsCaptureDay: {
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /** Rows */
+            rows: number;
+            /** Partial */
+            partial: boolean;
+        };
+        /** OptionsConeWindow */
+        OptionsConeWindow: {
+            /** Window */
+            window: number;
+            /** Min */
+            min: number;
+            /** P25 */
+            p25: number;
+            /** Median */
+            median: number;
+            /** P75 */
+            p75: number;
+            /** Max */
+            max: number;
+            /** Current */
+            current: number | null;
+        };
+        /** OptionsDividend */
+        OptionsDividend: {
+            /**
+             * Ex Date
+             * Format: date
+             */
+            ex_date: string;
+            /** Amount */
+            amount: number;
+            /** Projected */
+            projected: boolean;
+        };
+        /** OptionsExpiry */
+        OptionsExpiry: {
+            /** Expiry */
+            expiry: string;
+            /** T */
+            T: number;
+            /** Forward */
+            forward: number;
+            /** Raw Parity Forward */
+            raw_parity_forward: number;
+            /** Forward Passes */
+            forward_passes: number;
+            /** Forward Converged */
+            forward_converged: boolean;
+            /** Implied Spot */
+            implied_spot: number;
+            /** Dividends Before Expiry */
+            dividends_before_expiry: number;
+            /** Dividend Date Uncertain */
+            dividend_date_uncertain: boolean;
+        };
+        /** OptionsRate */
+        OptionsRate: {
+            /** Series */
+            series: string;
+            /**
+             * Observation Date
+             * Format: date
+             */
+            observation_date: string;
+            /**
+             * Quoted Pct
+             * @description As served: 13-week T-bill, bank-discount basis, percent
+             */
+            quoted_pct: number;
+            /** Continuous */
+            continuous: number;
+            /** Stale */
+            stale: boolean;
+        };
+        /** OptionsRealisedVolResponse */
+        OptionsRealisedVolResponse: {
+            /** Symbol */
+            symbol: string;
+            /**
+             * As Of
+             * Format: date
+             */
+            as_of: string;
+            /** Window */
+            window: number;
+            /** Estimators */
+            estimators: {
+                [key: string]: number | null;
+            };
+            cone: components["schemas"]["OptionsVolCone"];
+        };
+        /** OptionsSmilePoint */
+        OptionsSmilePoint: {
+            /** Strike */
+            strike: number;
+            /** Is Call */
+            is_call: boolean;
+            /** Log Moneyness */
+            log_moneyness: number;
+            /** Forward Delta */
+            forward_delta: number | null;
+            /** Iv */
+            iv: number;
+            /**
+             * Vendor Iv
+             * @description Yahoo's IV, for comparison only; not used
+             */
+            vendor_iv: number | null;
+            /** Bid */
+            bid: number;
+            /** Ask */
+            ask: number;
+            /**
+             * Premium
+             * @description Early-exercise premium removed before inversion
+             */
+            premium: number | null;
+        };
+        /** OptionsSurfaceResponse */
+        OptionsSurfaceResponse: {
+            /** Ticker */
+            ticker: string;
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /**
+             * Captured At
+             * Format: date-time
+             */
+            captured_at: string;
+            rate: components["schemas"]["OptionsRate"];
+            /** Dividends */
+            dividends: components["schemas"]["OptionsDividend"][];
+            /** Quality */
+            quality: {
+                [key: string]: number;
+            };
+            /** Expiries */
+            expiries: components["schemas"]["OptionsExpiry"][];
+            /** Term Structure */
+            term_structure: components["schemas"]["OptionsTermPoint"][];
+            /** Smiles */
+            smiles: {
+                [key: string]: components["schemas"]["OptionsSmilePoint"][];
+            };
+            /** Compute Seconds */
+            compute_seconds: number;
+            /**
+             * Computed At
+             * Format: date-time
+             */
+            computed_at: string;
+            /** Cache Hit */
+            cache_hit: boolean;
+            cone: components["schemas"]["OptionsVolCone"] | null;
+            /** Cone Reason */
+            cone_reason?: string | null;
+        };
+        /** OptionsTermPoint */
+        OptionsTermPoint: {
+            /** Expiry */
+            expiry: string;
+            /** T */
+            T: number;
+            /** Forward */
+            forward: number;
+            /** Atm Iv */
+            atm_iv: number | null;
+            /** Put25 Iv */
+            put25_iv: number | null;
+            /** Call25 Iv */
+            call25_iv: number | null;
+            /** Skew 25D */
+            skew_25d: number | null;
+            /** Points */
+            points: number;
+            /** Dividend Date Uncertain */
+            dividend_date_uncertain: boolean;
+        };
+        /** OptionsVolCone */
+        OptionsVolCone: {
+            /** Symbol */
+            symbol: string;
+            /** Estimator */
+            estimator: string;
+            /**
+             * As Of
+             * Format: date
+             */
+            as_of: string;
+            /** Bars */
+            bars: number;
+            /** Windows */
+            windows: components["schemas"]["OptionsConeWindow"][];
         };
         /** ParamSchema */
         ParamSchema: {
@@ -3767,6 +4159,164 @@ export interface operations {
                 content?: never;
             };
             /** @description Invalid parameters, bad date range, no data, over a cap, or an unverified asset */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    archive_api_v1_options_archive_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OptionsArchiveResponse"];
+                };
+            };
+        };
+    };
+    surface_api_v1_options_surface_get: {
+        parameters: {
+            query: {
+                ticker: string;
+                /** @description Capture date; default the latest complete one */
+                day?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OptionsSurfaceResponse"];
+                };
+            };
+            /** @description No complete capture for that ticker-day */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No risk-free rate stored on or before that day */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_pricers_api_v1_options_pricers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OptionPricerInfo"][];
+                };
+            };
+        };
+    };
+    price_api_v1_options_price_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OptionPriceRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OptionPriceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    realised_vol_api_v1_options_realised_vol_get: {
+        parameters: {
+            query: {
+                symbol: string;
+                window?: number;
+                as_of?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OptionsRealisedVolResponse"];
+                };
+            };
+            /** @description Unknown symbol */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not read-time adjusted, or too few bars */
             422: {
                 headers: {
                     [name: string]: unknown;

@@ -99,6 +99,18 @@ export type RebalanceOrder = components['schemas']['RebalanceOrder']
 export type SignalsResponse = components['schemas']['SignalsResponse']
 export type SignalPoint = components['schemas']['SignalPoint']
 
+export type OptionsArchiveResponse = components['schemas']['OptionsArchiveResponse']
+export type OptionsSurfaceResponse = components['schemas']['OptionsSurfaceResponse']
+export type OptionsExpiry = components['schemas']['OptionsExpiry']
+export type OptionsTermPoint = components['schemas']['OptionsTermPoint']
+export type OptionsSmilePoint = components['schemas']['OptionsSmilePoint']
+export type OptionsVolCone = components['schemas']['OptionsVolCone']
+export type OptionsConeWindow = components['schemas']['OptionsConeWindow']
+export type OptionPriceRequest = components['schemas']['OptionPriceRequest']
+export type OptionPriceResponse = components['schemas']['OptionPriceResponse']
+export type OptionModelQuote = components['schemas']['OptionModelQuote']
+export type OptionPricerInfo = components['schemas']['OptionPricerInfo']
+
 export const API_BASE_URL: string =
   import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8001'
 
@@ -492,6 +504,23 @@ export const api = {
 
   getProfile(symbol: string): Promise<Profile> {
     return request(`/api/v1/research/${encodeURIComponent(symbol)}/profile`)
+  },
+
+  getOptionsArchive(): Promise<OptionsArchiveResponse> {
+    return request('/api/v1/options/archive')
+  },
+
+  /** A cold ticker-day prices the whole chain server-side: 10-35 s. */
+  getOptionsSurface(ticker: string, day?: string | null): Promise<OptionsSurfaceResponse> {
+    return request(`/api/v1/options/surface${qs({ ticker, day: day ?? undefined })}`)
+  },
+
+  getOptionPricers(): Promise<OptionPricerInfo[]> {
+    return request('/api/v1/options/pricers')
+  },
+
+  priceOption(body: OptionPriceRequest): Promise<OptionPriceResponse> {
+    return request('/api/v1/options/price', { method: 'POST', body: JSON.stringify(body) })
   },
 
   getFinancials(
