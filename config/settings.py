@@ -433,6 +433,23 @@ REALISED_VOL_WINDOWS = (10, 20, 60, 120)
 #: Trading days per year, for annualising realised volatility only.
 REALISED_VOL_DAYS_PER_YEAR = 252
 
+# --- Option chains and the surface (pricing/chains.py, tier 2 phase 2) ---
+#: A bid below this is "no bid": its mid is not a price.
+OPTIONS_MIN_BID = 0.01
+#: Expiries closer than this many calendar days are flagged zero_dte and kept
+#: out of the surface: T is minutes, and any timestamp skew dominates the IV.
+OPTIONS_EXCLUDE_DTE_BELOW = 1
+#: Near-the-money call/put pairs whose parity forwards are medianed per expiry.
+OPTIONS_FORWARD_PAIRS = 6
+#: The forward/premium joint solve stops when F moves less than this (relative).
+OPTIONS_FORWARD_TOL = 1e-7
+OPTIONS_FORWARD_MAX_PASSES = 10
+#: An expiry within this many days of a PROJECTED ex-date is flagged: the
+#: projection is the last ex-date plus the median gap, and can miss by days.
+OPTIONS_DIVIDEND_DATE_UNCERTAIN_DAYS = 5
+#: A last trade older than this many days before the capture is flagged stale.
+OPTIONS_STALE_TRADE_DAYS = 5
+
 # --- Monte Carlo simulation (api/routers/simulate.py) ---
 # Plan: research/monte-carlo-plan-2026-10-07.md. The kernels in simulation/
 # take every parameter explicitly; these are the router's defaults and caps.

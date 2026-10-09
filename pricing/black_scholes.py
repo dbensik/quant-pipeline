@@ -220,3 +220,57 @@ def implied_vol(
         return ImpliedVol(hi, None)
     sigma = brentq(lambda s: model(s) - option_price, lo, hi, xtol=xtol, maxiter=200)
     return ImpliedVol(float(sigma), None)
+
+
+def implied_vol_black76_many(prices, F, K, T, r: float, is_call, bounds: tuple = OPTIONS_IV_BOUNDS, iterations: int = 80):
+    """
+    Vectorised Black-76 implied vol by bisection: monotone, so it cannot
+    diverge, and 80 halvings of OPTIONS_IV_BOUNDS reach float precision.
+
+    Returns (sigma, reason) arrays; reason is '' where sigma is a number.
+    Same reasons and bounds as `implied_vol` with S=F, q=r (the
+    forward-measure form: no spot needed).
+    """
+    prices, F, K, T = (np.atleast_1d(np.asarray(x, dtype=float)) for x in (prices, F, K, T))
+    is_call = np.atleast_1d(np.asarray(is_call, dtype=bool))
+    prices, F, K, T, is_call = np.broadcast_arrays(prices, F, K, T, is_call)
+    n = prices.size
+    sigma = np.full(n, np.nan)
+    reason = np.full(n, "", dtype=object)
+
+    positive_t = T > 0
+    reason[~positive_t] = "non_positive_time"
+    finite = np.isfinite(prices)
+    reason[positive_t & ~finite] = "non_finite_price"
+    dr = np.exp(-r * np.where(positive_t, T, 0.0))
+    lower = np.where(is_call, np.maximum(dr * (F - K), 0.0), np.maximum(dr * (K - F), 0.0))
+    upper = np.where(is_call, dr * F, dr * K)
+    todo = positive_t & finite
+    below = todo & (prices <= lower + 1e-10 * np.maximum(1.0, upper))
+    above = todo & ~below & (prices >= upper)
+    reason[below] = "at_or_below_lower_bound"
+    reason[above] = "at_or_above_upper_bound"
+    todo &= ~below & ~above
+
+    def model(sig, idx):
+        call = price(F[idx], K[idx], T[idx], r, r, sig, "call")
+        put = price(F[idx], K[idx], T[idx], r, r, sig, "put")
+        return np.where(is_call[idx], call, put)
+
+    idx = np.flatnonzero(todo)
+    if idx.size:
+        lo = np.full(idx.size, bounds[0])
+        hi = np.full(idx.size, bounds[1])
+        target = prices[idx]
+        out_lo = model(lo, idx) > target
+        out_hi = model(hi, idx) < target
+        bad = out_lo | out_hi
+        reason[idx[bad]] = "outside_search_bounds"
+        for _ in range(iterations):
+            mid = 0.5 * (lo + hi)
+            high_side = model(mid, idx) > target
+            hi = np.where(high_side, mid, hi)
+            lo = np.where(high_side, lo, mid)
+        sig = 0.5 * (lo + hi)
+        sigma[idx[~bad]] = sig[~bad]
+    return sigma, reason
