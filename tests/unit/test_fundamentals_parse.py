@@ -44,7 +44,7 @@ class FakeFactRepo:
 
 def test_parse_keeps_what_was_served(aapl):
     facts = parse_company_facts(aapl, WHEN)
-    assert len(facts) == 4446
+    assert len(facts) == 4508
     fy25 = [f for f in facts if f.concept == "RevenueFromContractWithCustomerExcludingAssessedTax"
             and f.period_end == date(2025, 9, 27) and f.fp == "FY"]
     assert {f.value for f in fy25} == {416161000000.0}
@@ -81,7 +81,7 @@ async def test_ingest_is_insert_only(aapl):
     repo = FakeFactRepo()
     first = await ingest_company(repo, aapl, WHEN)
     again = await ingest_company(repo, aapl, WHEN)
-    assert (first.served, first.inserted, again.inserted) == (4446, 4446, 0)
+    assert (first.served, first.inserted, again.inserted) == (4508, 4508, 0)
     assert first.entity_name == "Apple Inc." and first.cik == 320193
     # A restatement arrives under a new accession: a new row, the old one kept.
     old = next(f for f in repo.rows.values() if f.concept == "Assets")

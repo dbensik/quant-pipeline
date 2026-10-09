@@ -21,6 +21,12 @@ also carry 6- and 9-month year-to-date rows, which the span filter drops.
 Q4 is never filed on its own: it is derived as FY minus the three quarters
 inside that fiscal year, and marked derived.
 
+TTM: CASH-FLOW lines are filed year-to-date ONLY (Apple's 10-Qs carry 3-, 6-
+and 9-month cash flows from the fiscal year start, never a lone quarter
+after Q1), so four quarters rarely exist for them. TTM is therefore the
+standard identity FY + YTD(current) - YTD(same span last year) whenever that
+is more recent than four contiguous quarters.
+
 SHARE COUNTS AND SPLITS: a share count is in the split basis of the day it
 was FILED, not of its period. AAPL's FY2019 diluted shares were filed as
 4.649B in 2019 and as 18.596B in the 10-Ks after the 2020-08-31 4:1 split.
@@ -55,6 +61,7 @@ LINE_ITEMS: Dict[str, Tuple[str, ...]] = {
     # instants
     "cash": ("CashAndCashEquivalentsAtCarryingValue", "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"),
     "securities_current": ("MarketableSecuritiesCurrent",),
+    "securities_noncurrent": ("MarketableSecuritiesNoncurrent",),
     "long_term_debt": ("LongTermDebt",),
     "long_term_debt_noncurrent": ("LongTermDebtNoncurrent",),
     "long_term_debt_current": ("LongTermDebtCurrent",),
@@ -62,7 +69,7 @@ LINE_ITEMS: Dict[str, Tuple[str, ...]] = {
     "equity": ("StockholdersEquity",),
     "shares_outstanding": ("EntityCommonStockSharesOutstanding",),
 }
-INSTANTS = {"cash", "securities_current", "long_term_debt", "long_term_debt_noncurrent",
+INSTANTS = {"cash", "securities_current", "securities_noncurrent", "long_term_debt", "long_term_debt_noncurrent",
             "long_term_debt_current", "commercial_paper", "equity", "shares_outstanding"}
 SHARE_ITEMS = {"diluted_shares", "shares_outstanding"}
 ANNUAL_DAYS = (350, 380)
@@ -145,8 +152,7 @@ class Statements:
                              fy.value - sum(q.value for q in inside), fy.concept, fy.filed, derived=True))
         return sorted(out, key=lambda v: v.period_end)
 
-    def ttm(self, item: str, as_of: date) -> Optional[Tuple[float, List[Value]]]:
-        """Sum of the four most recent visible quarters, if they are contiguous."""
+    def _ttm_quarters(self, item: str, as_of: date) -> Optional[Tuple[float, List[Value]]]:
         qs = self.quarterly(item, as_of)[-4:]
         if len(qs) < 4:
             return None
@@ -154,6 +160,35 @@ class Statements:
             if (b.period_start - a.period_end).days > 7:
                 return None
         return sum(q.value for q in qs), qs
+
+    def _ttm_ytd(self, item: str, as_of: date) -> Optional[Tuple[float, List[Value]]]:
+        """FY + YTD(current) - YTD(prior year, same span): [prior, FY, current]."""
+        annual = self.annual(item, as_of)
+        if not annual:
+            return None
+        fy = annual[-1]
+        ytd = list(self._periods(item, as_of, (80, 300)).values())
+        current = [v for v in ytd if v.period_start is not None and (v.period_start - fy.period_end).days in (0, 1)]
+        if not current:
+            return None
+        cur = max(current, key=lambda v: v.period_end)
+        target = cur.period_end.toordinal() - 364
+        prior = [v for v in ytd if v.period_start == fy.period_start and abs(v.period_end.toordinal() - target) <= 7]
+        if not prior:
+            return None
+        pri = prior[0]
+        return fy.value + cur.value - pri.value, [pri, fy, cur]
+
+    def ttm(self, item: str, as_of: date) -> Optional[Tuple[float, List[Value]]]:
+        """
+        Trailing twelve months ending at the latest visible period: four
+        contiguous quarters, or FY + YTD - prior YTD, whichever ends later.
+        The last Value in the list is the period the TTM ends with.
+        """
+        options = [o for o in (self._ttm_quarters(item, as_of), self._ttm_ytd(item, as_of)) if o is not None]
+        if not options:
+            return None
+        return max(options, key=lambda o: o[1][-1].period_end)
 
     def instant(self, item: str, as_of: date) -> Optional[Value]:
         """The latest balance as of the latest period end visible at `as_of`."""
@@ -193,8 +228,15 @@ class Statements:
         debt, cash = self.total_debt(as_of), self.instant("cash", as_of)
         if debt is None or cash is None:
             return None
-        sec = self.instant("securities_current", as_of)
-        return debt - cash.value - (sec.value if sec and sec.period_end == cash.period_end else 0.0)
+        # Marketable securities, current AND noncurrent, net against debt: both
+        # are liquid investments, not operating assets (a choice, recorded in
+        # the plan; Apple's noncurrent book is $77.7B on 2025-09-27).
+        liquid = 0.0
+        for item in ("securities_current", "securities_noncurrent"):
+            v = self.instant(item, as_of)
+            if v and v.period_end == cash.period_end:
+                liquid += v.value
+        return debt - cash.value - liquid
 
     def effective_tax_rate(self, as_of: date) -> Optional[float]:
         tax, pre = self.annual("income_tax", as_of), self.annual("pretax_income", as_of)

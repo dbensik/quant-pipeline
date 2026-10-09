@@ -197,6 +197,9 @@ FUNDAMENTAL_CONCEPTS = (
     ("us-gaap", "CashAndCashEquivalentsAtCarryingValue"),
     ("us-gaap", "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"),
     ("us-gaap", "MarketableSecuritiesCurrent"),
+    # Added 2026-10-09: Apple holds $77.7B here, more than its cash; leaving it
+    # out overstated net debt by that much.
+    ("us-gaap", "MarketableSecuritiesNoncurrent"),
     ("us-gaap", "LongTermDebt"),
     ("us-gaap", "LongTermDebtNoncurrent"),
     ("us-gaap", "LongTermDebtCurrent"),
@@ -209,6 +212,36 @@ FUNDAMENTAL_CONCEPTS = (
     ("us-gaap", "EarningsPerShareDiluted"),
     ("dei", "EntityCommonStockSharesOutstanding"),
 )
+
+# --- DCF (modeling/dcf.py, modeling/valuation.py; tier 3 phase 3) ---
+# Decisions 4 and 5 of research/dcf-plan-2026-10-08.md, approved 2026-10-09.
+DCF_PROJECTION_YEARS = 5
+DCF_TERMINAL_GROWTH = 0.025
+#: A constant, documented as the assumption it is; the sensitivity grid shows
+#: what it moves.
+DCF_EQUITY_RISK_PREMIUM = 0.045
+#: Beta: daily total-return returns regressed on SPY over this many sessions.
+DCF_BETA_WINDOW_DAYS = 756
+DCF_BETA_BENCHMARK = "SPY"
+#: Cost of debt when the filer reports no interest expense (Apple stopped
+#: tagging InterestExpense after mid-2023): risk-free + this spread, labelled
+#: as an estimate wherever it is used.
+DCF_DEBT_SPREAD = 0.01
+#: Stock-based compensation is added back inside operating cash flow; True
+#: subtracts it again, treating it as the real cost it is. Shown as its own
+#: line either way. Apple FY2025: $12.9B of $98.8B FCF.
+DCF_SUBTRACT_SBC = True
+DCF_EXIT_MULTIPLE = 15.0
+#: Sensitivity grid half-widths around the base case.
+DCF_GRID_WACC_STEP = 0.005
+DCF_GRID_GROWTH_STEP = 0.005
+DCF_GRID_POINTS = 5
+#: Reverse DCF searches first-year growth in this bracket.
+DCF_REVERSE_GROWTH_BOUNDS = (-0.5, 1.0)
+#: Above this share of EV the valuation is mostly the terminal assumption.
+DCF_TERMINAL_SHARE_WARN = 0.8
+#: Sectors refused (FCF is not meaningful for banks and insurers).
+DCF_REFUSED_SECTORS = ("Financials",)
 
 # --- Crypto identity (core/crypto_identity.py) ---
 #
