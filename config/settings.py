@@ -419,6 +419,20 @@ RISK_FREE_RATE_HISTORY_START = "2015-01-02"
 #: sessions with no bill print, so a one-day gap is normal; a week is not.
 RISK_FREE_RATE_MAX_AGE_DAYS = 7
 
+# --- Option pricing kernels (pricing/, tier 2 phase 1) ---
+# Plan: research/option-pricing-plan-2026-10-08.md. Pricing time is ACT/365;
+# realised volatility is annualised over trading days. Never mixed in one function.
+#: Implied-vol search interval for brentq, as annual sigma.
+OPTIONS_IV_BOUNDS = (1e-4, 5.0)
+#: Cox-Ross-Rubinstein steps for the American price.
+BINOMIAL_STEPS = 500
+#: Risk-neutral Monte Carlo paths (antithetic pairs count as two).
+MC_PRICER_PATHS = 200_000
+#: Rolling windows, in trading days, for realised vol and the vol cone.
+REALISED_VOL_WINDOWS = (10, 20, 60, 120)
+#: Trading days per year, for annualising realised volatility only.
+REALISED_VOL_DAYS_PER_YEAR = 252
+
 # --- Monte Carlo simulation (api/routers/simulate.py) ---
 # Plan: research/monte-carlo-plan-2026-10-07.md. The kernels in simulation/
 # take every parameter explicitly; these are the router's defaults and caps.
