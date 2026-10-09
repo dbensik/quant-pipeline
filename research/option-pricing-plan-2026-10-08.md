@@ -1,11 +1,11 @@
-# Option pricing and volatility — plan (2026-10-08, approved; nothing built yet)
+# Option pricing and volatility — plan (2026-10-08, approved; all six phases done 2026-10-09)
 
 Tier 2 of the three-tier "financial models" assessment of 2026-10-07. Tier 1
 (Monte Carlo over the backtester) shipped the same day:
 `monte-carlo-plan-2026-10-07.md`. Tier 3 (DCF / three-statement) is still
 blocked on a point-in-time fundamentals source and is not touched here.
 
-Nothing is built yet. Approved 2026-10-08 with the recommended answer to every
+Built 2026-10-08..09 (`ca47cf3`..phase 5). Approved 2026-10-08 with the recommended answer to every
 decision (the decisions themselves, with reasoning, are at the end):
 
 | # | decision | approved |
@@ -150,7 +150,7 @@ barrier premise and the C++ hook are not coming back).
 | 2 | `chains.py` + surface on a synthetic chain priced from BSM (recovers σ and the forward exactly) and on a 200-row SPY slice committed as a fixture; measured on the real 2026-10-07 file — **done 2026-10-08**, with two measured deviations from the design (below). `pricing/chains.py` (normalise, flags incl. `locked`, the joint forward/premium solve, de-americanised IV, smiles, ATM term structure, 25-delta skew), `pricing/dividends.py` (projected discrete dividends), a vectorised escrowed-dividend tree (`escrowed_prices`, equal to the scalar tree to 2e-15 without dividends) and a vectorised Black-76 IV (`implied_vol_black76_many`, bisection, 6,000 rows in 45 ms, equal to brentq to 2e-10). Measured on 2026-10-07: the de-americanised IV is within 0.0085 vol pts of a full American inversion (at most 0.25 of the half-spread) on the 15 largest-premium OTM quotes per ticker; SPY same-strike call/put IV gap, |k|<0.05 and T>0.05, median 0.253 → 0.024 vol pts, pairs beyond the spread 351/453 → 20/453 (AAPL 4/41 → 0, NVDA 0 → 0); the raw parity forward sits up to 10 bp below the solved one on SPY's longest expiries (2–5 passes to converge), and flips sign on the 2026-12-18 expiry that coincides with the projected ex-date (flagged `dividend_date_uncertain`). Per-expiry implied spot (F e^{-rT} + PV of dividends) spreads 13 bp on SPY, and NOT smoothly in T: about −2.6 bp to 10-16, 0 to +1.5 bp from 11-06 to 12-31, then +8.2 and +10.1 bp at the two January expiries; the same jump recurs at the same expiries on 10-08 (+7.5, +9.6), so it is structural, not fetch timing. Of the 20 SPY pairs still beyond the spread, 10 are in the January expiries (17% of their 58 pairs, ~2% elsewhere) and 6 on the 12-18 ex-date expiry (flagged). A January near-money put's premium moves +$0.08–0.10 for +0.3% on r, 2.5–4x its half-spread, and +0.3% over T≈0.27 is what an 8 bp spot jump implies — consistent with a year-end funding premium on expiries that cross 12-31, not proven. The forward is unaffected (read from parity); the premium, and so January IVs, carry the T-bill rate's error. Candidate fix, NOT built (it changes decision 1, Danny's call): a per-expiry market-implied discount factor from the slope of C − P across strikes. In the money the shortcut degrades: 1.0e-3 vol at 17% ITM on a synthetic chain; the surface is OTM-only. 2026-10-08, all six tickers: every expiry converged; priced/rows SPY 4489/5404, QQQ 4623/5244, IWM 1778/2164, TQQQ 940/1144, AAPL 732/1223, NVDA 1093/1877; implied-spot spread 9–19 bp, TQQQ 45 bp; one-month (10-30) ATM IV SPY 12.0%, QQQ 18.8%, IWM 18.3%, TQQQ 54.8%, AAPL 23.0%, NVDA 31.2%. **95 s for the six tickers, 10–30 s each**: phase 3 must cache surfaces, not compute per request. 17 tests (synthetic European chain with the recorded spot 0.2% off gives identical output; per-expiry spots; a tree-priced American chain whose raw parity is shown biased >2 bp before the solve recovers F to 2e-6 and σ to 2e-4; a 198-row real SPY fixture where >50% of near-money pairs disagree beyond the spread before correction and <15% after). Mutations on a clean worktree: 11 of 15 on the first pass; the 3 non-equivalent survivors (add-back compounded instead of discounted, the vectorised lower-bound tolerance, a one-sided ex-date window) each got a test that now fails against it; the 4th (premium not clipped at 0) is equivalent, since American ≥ European on one lattice by construction. Then two robustness fixes: `escrowed_prices` raised for the whole batch if ONE row's sigma sat below the tree floor (|r|√(T/steps)), so one bad quote could fail a ticker-day; such rows now get `below_tree_floor` and the rest price (test fails against the old code with that ValueError, and on a clean worktree against removal of the guard). **Whole archive, 108 captures (6 tickers × 18 days, 2026-09-15→10-08), each with its own day's ^IRX and the dividend history known that day: 0 files fail, 0 stale rates, 4 expiries in 4 files do not converge** (AAPL 10-05, SPY 09-16 and 09-17, TQQQ 09-21; reported in `forward_converged`). 1,924 s in all, median 12.8 s per file, max 34.9 s; SPY and QQQ ~30 s. Rows without an IV: 20,544 at or below the lower bound (in the money at intrinsic: expected), 2,255 above the upper bound and 772 outside the search bounds. Out of the money, every one is NVDA: the same 154 calls every day, all on the 2026-12-18 expiry, strikes 470 and up, quoted ~$800 against a $231 spot — price ≈ 5.6 × spot − strike, not a standard 100-share contract, most likely an adjusted deliverable left in the chain. The upper-bound check already keeps them out of the smile, and they are far from the strikes the forward is read from. Took ~5 h against 2–3 h | 2–3 h |
 | 3 | Router, `PricerSpec` registry, `ChainArchive` on a temp dir, OpenAPI contract test, FakeRepo for the cone — **done 2026-10-09**. `api/routers/options.py`: `GET /archive`, `GET /surface` (cached), `POST /price` (every pricer for the style, side by side), `GET /pricers`, `GET /realised-vol` (served-only, as /simulate). `core/options_surface.py`: `ChainArchive` (row counts from Parquet metadata, 108 files in 0.04 s; a partial capture is listed, never served), `SurfaceCache` (one JSON per ticker-day holding its key, atomic write, `allow_nan=False`, a per-key lock so concurrent misses compute once, a 1-slot semaphore across misses). The key hashes the capture file's bytes, the rate (series, observation date, value), the projected dividend schedule, and a code fingerprint DERIVED from the source of the four pricing modules plus every pricing setting — never hand-bumped. The realised-vol cone is NOT cached (bars are not in the key): built per request from stored bars ending at the capture date, null with a reason when it cannot be (unregistered or not served). Dividends read point-in-time (`db/repositories/dividends.py`, ex_date ≤ capture date). A surface for today's capture uses yesterday's rate and is recomputed tomorrow when the key changes — the cache working, documented in the module. `scripts/precompute_surfaces.py` filled the archive: 108 computed, 0 failed, median 15.3 s, max 38.6 s, 37 min, 33 MB in `data/surfaces/` (gitignored). Not added to the 06:00 job. Through the live API after a restart: cached SPY 2026-10-08 surface 0.42 s (586 KB, 16 expiries, 2,729 smile points, cone included); a deleted-and-recomputed SPY 2026-10-07 cold miss 22.4 s, then 0.37 s. The 06:00 job's new rate step ran for the first time (2026-10-09 06:03, OK) and the precompute used that 10-08 observation. 31 tests (20 unit: every key input changed alone changes the key, fingerprint follows source and settings, a hit does not compute, four concurrent misses compute once, NaN refused on write, the cone unchanged by wild bars after the capture date; 10 router; 1 read-only integration on SPY's dividends). Mutations on a clean worktree: 16 of 18 caught by their intended tests; 2 equivalent (dropping the cache's pre-lock read — the in-lock re-read returns the same hit; dropping the router-side dividend filter — `project_dividends` filters again). Learned: an earlier "no tests ran" mutation result was the zsh shell not word-splitting `$T`, not a pytest flag; corrected in the harness notes. Took ~3.5 h | 2–3 h |
 | 4 | Options page, three panels, pure row modules, mocked charts, types regenerated — **done 2026-10-09**. `pages/OptionsPage.tsx` (nav entry 'Options', /options): ticker and capture-date selectors from the archive (complete captures only — the API 404s a partial one), a summary card (rate as served and as used, discrete dividends priced, quote quality, unconverged-forward badge), the smile, the ATM term structure over the realised-vol cone, and a pricer. Pure row modules `smileRows.ts`, `coneRows.ts`, `pricerPrefill.ts`; `SmileChart` and `TermStructureChart` presentational and mocked in tests. `schema.d.ts` regenerated from the live API: 550 lines added, 0 removed, 16 `Option*` types only. Hooks do not retry a 404, 409 or 422 (an answer, not a fault; a retry would repeat a 10–35 s server computation). Rules the page enforces: Yahoo's IV is never a series (only a one-line median gap: 1.26 vol pts on SPY 10-08's default expiries); the cone's trading-day windows sit at 365/252 their length on the calendar-day axis; nulls stay gaps; the pricer has no recorded spot — it starts from an expiry's implied spot, rounded, with q solved after rounding so S·e^{(r−q)T} matches the parity forward to <1e-4; default pricer expiry is the one nearest 30 days. Found only by looking at the real page: duplicate React keys on two sibling panels; far-wing puts (ln K/F to −0.95, 75–100% vol) squeezing the near-money smile into a corner — trimmed below 2-delta by default with a toggle; the term chart's y-range set by the realised MAX (117%, March 2020) flattening everything — sized to ATM, the realised IQR, median and current instead, the max band left to run off the top; unformatted day ticks (173.8095238095238). Live, after the API restart: cached SPY page renders with 0 console errors; a cold miss (cache file deleted) showed the 10–35 s message at once and rendered in 23.0 s ('priced now in 21.4 s'); American put pricer on SPY 10-08 returned $4.53 with a $0.046 early-exercise premium. Tests: 237 frontend (was 213; 14 row-module + 10 page). Build: Plotly still its own chunk (1,187.5 kB), none in the main chunk, main 923.9 → 941.2 kB (gzip 275.1 → 279.6). Mutations on clean worktrees: 18 of 20 on the first pass; the 2 survivors were fixture gaps (ATM never above the cone's p75; the first expiry already the nearest 30 days), each closed with a case that now fails against it. Two pre-existing `react-hooks/set-state-in-effect` lint errors remain in PortfoliosPage and StatisticsPage, untouched. Took ~3.5 h | 3–4 h |
-| 5 | Run on all six tickers for the latest date, record ATM IV vs realised cone here; CLAUDE.md, CHANGELOG, README | 1 h |
+| 5 | Run on all six tickers for the latest date, record ATM IV vs realised cone here; CLAUDE.md, CHANGELOG, README — **done 2026-10-09**: results below; CLAUDE.md architecture entries, CHANGELOG, README, roadmap | 1 h |
 | | **total** | **12–16 h, over 3–4 sessions** |
 
 Your hands-on time: 20–30 minutes for the decisions, plus a look at one smile
@@ -212,6 +212,61 @@ and one term structure on a real day before phase 5 closes.
   names; router tests without a database; charts mocked under jsdom; keep
   the pricer vectorised so the surface for 5,000 rows is one call.
 
+## Real names, 2026-10-08 capture (recorded 2026-10-09)
+
+From `GET /api/v1/options/surface` on the running API, each served from the
+cache in 0.36–0.38 s. "~30d" is the expiry nearest 30 calendar days with an
+interpolable ATM vol (2026-11-06, 29 days, for every name). The cone is
+Yang–Zhang over each name's full stored history to the capture date. Rate:
+^IRX observed 2026-10-08 (4.043% discount, 4.120% continuous). Two projected
+dividends each in the horizon; no unconverged forward on any name.
+
+| ticker | ATM IV ~30d | 25Δ skew | realised 20d now | realised 20d median | ATM IV within the 20d cone | priced / rows |
+|---|---|---|---|---|---|---|
+| SPY | 12.7% | 3.8% | 11.2% | 12.4% | median–p75 | 4,491 / 5,404 |
+| QQQ | 19.2% | 5.1% | 16.4% | 16.5% | median–p75 | 4,623 / 5,244 |
+| IWM | 19.0% | 3.3% | 15.8% | 18.6% | median–p75 | 1,777 / 2,164 |
+| TQQQ | 58.1% | 12.6% | 49.0% | 49.4% | median–p75 | 940 / 1,144 |
+| AAPL | 26.8% | 2.7% | 21.3% | 23.7% | median–p75 | 732 / 1,223 |
+| NVDA | 31.2% | 3.5% | 29.0% | 38.8% | min–p25 | 1,094 / 1,877 |
+
+Two checks the numbers pass without being built to: TQQQ's ATM vol is 3.03x
+QQQ's (58.1 / 19.2), which is what a 3x daily-leveraged fund on the same
+index should show; and implied sits above today's realised on all six, the
+usual variance premium. NVDA is the one name whose implied is LOW against
+its own history (below its 20-day realised 25th percentile), because its
+realised history is unusually violent; against today's realised it is still
+above.
+
 ## Learned while building
 
-(empty — filled in as phases close)
+- **The plan's spot was the wrong input.** The capture reads spot once and
+  each expiry in its own request, so AAPL's parity forward sat 0.09–0.2%
+  off it — a fake −4% dividend yield. Every expiry is priced off its own
+  parity forward; the recorded spot is used for nothing.
+- **American exercise and discrete dividends were not refinements.** On
+  SPY's tight market the early-exercise premium of near-money puts is up to
+  20x the half-spread in vol, and a continuous trailing yield misprices it
+  4.5–16x around an ex-date. De-americanised IV with projected discrete
+  dividends took the SPY call/put same-strike gap from 0.253 to 0.024 vol
+  points. Decision 4 was changed by measurement; it is flagged to Danny.
+- **A CRR tree at 500 steps is not within 1e-3 at the money** (2.0e-3,
+  flipping sign with N's parity). Averaging N and N+1 fixes it; the test
+  bound is relative to the option's width.
+- **A deep-ITM American put at its exercise boundary has no IV**, and a
+  solver will return an arbitrary one unless the bound check has a float
+  tolerance.
+- **One sub-floor row failed a whole batch** until rows got their own
+  reason; found by pricing all 108 captures, not by the tests.
+- **The cache key had to be derived, not maintained**: it hashes the
+  capture bytes, rate, dividends, and the pricing source and settings.
+- **The real page found three bugs the tests did not** (sibling keys, far
+  wings squeezing the smile, a y-range set by a 2020 realised max).
+- **Mutation testing in place was unreliable twice** — an outside writer
+  restored a mutant, and same-length mutants shared a stale `.pyc` — and a
+  third "no tests ran" was zsh not word-splitting `$T`. Mutate a detached
+  worktree with bytecode off; treat "no tests ran" as a harness failure.
+- **Open, for Danny:** January SPY expiries imply financing ~0.3% above
+  ^IRX (recurs daily); a per-expiry implied discount factor would fix their
+  premia but changes decision 1. And the NVDA 2026-12-18 calls at 470+ are
+  a non-standard deliverable the upper bound already excludes.

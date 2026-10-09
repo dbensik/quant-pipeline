@@ -6,7 +6,7 @@ the sequence for what remains, with the plan each tier follows.
 | tier | what | plan | status |
 |---|---|---|---|
 | 1 | Monte Carlo over the backtester | `monte-carlo-plan-2026-10-07.md` | **shipped 2026-10-07** (`c75acf6`..`49f73ff`) |
-| 2 | option pricing and the volatility surface from the chain archive | `option-pricing-plan-2026-10-08.md` | **approved 2026-10-08**, all eight recommendations; not built |
+| 2 | option pricing and the volatility surface from the chain archive | `option-pricing-plan-2026-10-08.md` | **shipped 2026-10-09** (`ca47cf3`..phase 5); decision 4 changed by measurement (discrete dividends); decision 1 refinement open |
 | 3 | DCF on point-in-time SEC fundamentals | `dcf-plan-2026-10-08.md` | draft 2026-10-08; ten decisions open |
 
 ## Sequence

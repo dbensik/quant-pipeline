@@ -12,6 +12,7 @@ Built and maintained by one person as a working research tool, not a product. It
 | **Strategies** | 18 modules in `alpha_models/` behind a single `BaseAlphaModel` contract and a registry: moving-average crossover, mean reversion, cointegrated mean reversion, pairs trading, paired switching, trend following, ATR breakout, RSI, momentum allocation, basket trading, index rebalancing, asset-class trend, buy-and-hold, a random-forest model, and others. |
 | **Backtesting** | Equity curve against buy-and-hold, CAGR, Sharpe, max drawdown, Calmar, trade log; parameter grid search and portfolio-weight optimization; strategy comparison on one symbol. Live progress over a websocket. |
 | **Monte Carlo** | A distribution around any backtest: percentile fan bands, terminal wealth, drawdown depth and duration, VaR and CVaR, probability of ruin. Stationary block bootstrap by default, iid and GBM for contrast; resample the strategy's returns, or re-run it on resampled price paths. |
+| **Options** | Implied-volatility smiles, ATM term structure and 25-delta skew for six underlyings from a twice-daily option-chain archive, drawn over each name's realised-volatility cone, plus a pricer that shows Black–Scholes, a binomial tree and Monte Carlo side by side. IV comes from mids, priced off each expiry's put-call-parity forward with early exercise and discrete dividends removed; Yahoo's own IV is kept only for comparison. |
 | **Screening and statistics** | Momentum and low-volatility screeners over a universe; ADF, cointegration, and PCA on the Statistics page. |
 | **Portfolios and watchlists** | Saved in the database, with a trade log and derived P&L. |
 | **Research** | Company profiles, financials, and news per symbol. |
@@ -62,6 +63,7 @@ python -m cli.run_pipeline     # ingest from the command line (same path as the 
 alpha_models/      strategies (one class each), base_model.py, registry.py
 backtesting/       backtester and parameter generator
 simulation/        Monte Carlo kernels: resampling, equity paths, drawdowns, tail risk
+pricing/           option pricers, implied vol, realised-vol estimators, chains -> surface
 core/              ingestion path shared by the API and CLI
 data_pipeline/     universe fetchers, equity/crypto/fundamental pipelines, normalizer
 screeners/         momentum and low-volatility screeners over a universe
