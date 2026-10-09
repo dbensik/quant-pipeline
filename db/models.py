@@ -460,3 +460,29 @@ class RateObservationORM(Base):
     __table_args__ = (
         UniqueConstraint("series", "obs_date", name="uq_rate_observation"),
     )
+
+
+class FundamentalFactORM(Base):
+    """
+    One SEC XBRL fact as one filing reported it. Insert-only: a later filing
+    that restates the period is a new row with its own `accn` and `filed`.
+    See migration 0010 for the key (NULLS NOT DISTINCT on period_start).
+    """
+
+    __tablename__ = "fundamental_facts"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    cik = Column(Integer, nullable=False)
+    taxonomy = Column(String, nullable=False)
+    concept = Column(String, nullable=False)
+    unit = Column(String, nullable=False)
+    period_start = Column(Date, nullable=True)
+    period_end = Column(Date, nullable=False)
+    value = Column(Float, nullable=False)
+    fy = Column(Integer, nullable=True)
+    fp = Column(String, nullable=True)
+    form = Column(String, nullable=False)
+    filed = Column(Date, nullable=False)
+    accn = Column(String, nullable=False)
+    frame = Column(String, nullable=True)
+    fetched_at = Column(DateTime(timezone=True), nullable=False)

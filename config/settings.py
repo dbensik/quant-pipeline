@@ -148,6 +148,68 @@ def tiingo_headers() -> dict:
     return {"Authorization": f"Token {key}"} if key else {}
 
 
+# --- SEC EDGAR (core/sec.py, tier 3: research/dcf-plan-2026-10-08.md) ---
+#
+# The SEC refuses an undeclared client with an HTML 403 page ("Your Request
+# Originates from an Undeclared Automated Tool"), measured 2026-10-08. A
+# declared client sends "Name email@domain" as its User-Agent. WHOSE name and
+# email is Danny's decision, so it comes only from SEC_USER_AGENT in .env and
+# nothing here supplies a default.
+URL_SEC_COMPANY_FACTS = "https://data.sec.gov/api/xbrl/companyfacts/CIK{cik:010d}.json"
+URL_SEC_SUBMISSIONS = "https://data.sec.gov/submissions/CIK{cik:010d}.json"
+URL_SEC_COMPANY_TICKERS = "https://www.sec.gov/files/company_tickers.json"
+#: Published limit is 10 per second; stay under it.
+SEC_MAX_REQUESTS_PER_SECOND = 8
+SEC_TIMEOUT_SECONDS = 30
+
+
+def sec_user_agent():
+    """SEC_USER_AGENT from the environment or .env, or None. Read per call."""
+    from pydantic_settings import BaseSettings, SettingsConfigDict
+
+    class _UA(BaseSettings):
+        model_config = SettingsConfigDict(env_file=ROOT_DIR / ".env", extra="ignore")
+        SEC_USER_AGENT: str = ""
+
+    return _UA().SEC_USER_AGENT.strip() or None
+
+
+#: The us-gaap / dei concepts stored (raw, insert-only) by core/fundamentals.py.
+#: Everything a DCF's FCF drivers, the capital structure and per-share values
+#: need; the ordered concept lists that turn these into line items live in
+#: modeling/statements.py. Measured on AAPL 2026-10-08: each of these present.
+FUNDAMENTAL_CONCEPTS = (
+    ("us-gaap", "RevenueFromContractWithCustomerExcludingAssessedTax"),
+    ("us-gaap", "Revenues"),
+    ("us-gaap", "SalesRevenueNet"),
+    ("us-gaap", "CostOfGoodsAndServicesSold"),
+    ("us-gaap", "OperatingIncomeLoss"),
+    ("us-gaap", "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest"),
+    ("us-gaap", "IncomeTaxExpenseBenefit"),
+    ("us-gaap", "InterestExpense"),
+    ("us-gaap", "InterestExpenseNonoperating"),
+    ("us-gaap", "NetIncomeLoss"),
+    ("us-gaap", "DepreciationDepletionAndAmortization"),
+    ("us-gaap", "DepreciationAmortizationAndAccretionNet"),
+    ("us-gaap", "ShareBasedCompensation"),
+    ("us-gaap", "NetCashProvidedByUsedInOperatingActivities"),
+    ("us-gaap", "PaymentsToAcquirePropertyPlantAndEquipment"),
+    ("us-gaap", "CashAndCashEquivalentsAtCarryingValue"),
+    ("us-gaap", "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"),
+    ("us-gaap", "MarketableSecuritiesCurrent"),
+    ("us-gaap", "LongTermDebt"),
+    ("us-gaap", "LongTermDebtNoncurrent"),
+    ("us-gaap", "LongTermDebtCurrent"),
+    ("us-gaap", "CommercialPaper"),
+    ("us-gaap", "StockholdersEquity"),
+    ("us-gaap", "Assets"),
+    ("us-gaap", "Liabilities"),
+    ("us-gaap", "WeightedAverageNumberOfDilutedSharesOutstanding"),
+    ("us-gaap", "WeightedAverageNumberOfSharesOutstandingBasic"),
+    ("us-gaap", "EarningsPerShareDiluted"),
+    ("dei", "EntityCommonStockSharesOutstanding"),
+)
+
 # --- Crypto identity (core/crypto_identity.py) ---
 #
 # A TICKER IS NOT AN IDENTIFIER. CoinGecko's "mnt" is Mantle; Yahoo's MNT-USD
