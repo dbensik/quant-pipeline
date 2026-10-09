@@ -511,6 +511,16 @@ OPTION_CAPTURE_MIN_ROWS = 20
 #: fact that it currently has exactly one copy.
 OPTION_CHAIN_ARCHIVE_DIR = ROOT_DIR / "data" / "option_chains"
 
+#: Priced surfaces, one JSON file per ticker-day (tier 2 phase 3). data/ is
+#: gitignored; every file is derivable from the archive and can be deleted.
+OPTIONS_SURFACE_CACHE_DIR = ROOT_DIR / "data" / "surfaces"
+#: Dividends are projected this far past the capture date: the longest expiry
+#: captured plus a quarter, so every expiry's schedule is complete.
+OPTIONS_DIVIDEND_HORIZON_DAYS = OPTION_CAPTURE_MAX_DTE + 92
+#: Surfaces computed at once. A miss costs 10-35 s of CPU; more in parallel
+#: only contend for the interpreter lock.
+OPTIONS_SURFACE_MAX_CONCURRENT = 1
+
 # --- Quant Pipeline REST API (Phase 3) ---
 # The dashboard reads prices through the FastAPI service by default as of the
 # Phase 3 cutover (2026-08-07). Set QUANT_USE_API=0 to fall back to reading
