@@ -70,9 +70,9 @@ async def load_statements(data: ValuationData, symbol: str) -> Tuple[Statements,
     ciks, sector = eq
     cik = ciks[0] if ciks else None
     if sector in settings.DCF_REFUSED_SECTORS:
-        raise ValuationError(422, f"{symbol} is in {sector}: free cash flow is not meaningful for banks and insurers")
-    if sector in settings.DCF_PENDING_SECTORS:
-        raise ValuationError(422, f"{symbol} is in {sector}: {settings.DCF_PENDING_SECTORS[sector]}")
+        raise ValuationError(422, f"{symbol} is in {sector}: {settings.DCF_REFUSED_SECTORS[sector]}")
+    if symbol.upper() in settings.DCF_REFUSED_SYMBOLS:
+        raise ValuationError(422, f"{symbol} is refused: {settings.DCF_REFUSED_SYMBOLS[symbol.upper()]}")
     if cik is None:
         raise ValuationError(422, f"{symbol} has no CIK: run scripts/resolve_ciks.py, or the ticker is reassigned")
     facts = await data.facts(ciks, ALL_CONCEPTS)
@@ -100,20 +100,29 @@ async def value(
     if rate is None:
         raise ValuationError(409, f"no {settings.RISK_FREE_RATE_SERIES} observation on or before {as_of}")
     try:
-        beta = await beta_from_bars(prices, symbol, as_of)
+        raw_beta = await beta_from_bars(prices, symbol, as_of)
     except ValueError as exc:
         raise ValuationError(422, f"beta unavailable: {exc}") from None
     try:
-        weekly = await beta_from_bars(prices, symbol, as_of, window=260, frequency="weekly")
+        weekly = await beta_from_bars(prices, symbol, as_of, window=settings.DCF_BETA_WEEKLY_WINDOW, frequency="weekly")
     except ValueError:
         weekly = None
-    raw_beta = beta
+    # Decision 11: the beta USED is weekly 5y Blume-adjusted; daily 3y when
+    # the weekly series is too short (said so in the beta line).
     if overrides.beta is not None:
-        beta = Beta(overrides.beta, float("nan"), 0)
+        beta, beta_src = Beta(overrides.beta, float("nan"), 0), "given (override)"
+    elif weekly is not None:
+        beta = Beta(blume(weekly.beta), weekly.std_error * 2 / 3, weekly.observations)
+        beta_src = (f"weekly 5y vs {settings.DCF_BETA_BENCHMARK}, Blume-adjusted "
+                    f"(raw {weekly.beta:.3f}, SE {weekly.std_error:.3f}, {weekly.observations} weeks)")
+    else:
+        beta = raw_beta
+        beta_src = f"daily 3y vs {settings.DCF_BETA_BENCHMARK} (weekly series too short), SE {raw_beta.std_error:.3f}"
 
     built = build_inputs(st, as_of, price, rate.continuous, beta, sector=sector, growth_first=overrides.growth_first)
     if isinstance(built, Refusal):
         raise ValuationError(422, built.reason)
+    built.lines["beta"] = (beta.beta, beta_src)
     x = built.dcf
     changes = {k: v for k, v in {
         "growth_terminal": overrides.growth_terminal, "wacc": overrides.wacc,

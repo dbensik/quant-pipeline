@@ -107,7 +107,7 @@ def build_inputs(
     growth_first: Optional[float] = None,
 ) -> "ValuationInputs | Refusal":
     if sector in settings.DCF_REFUSED_SECTORS:
-        return Refusal(f"{sector}: free cash flow is not meaningful for banks and insurers")
+        return Refusal(f"{sector}: {settings.DCF_REFUSED_SECTORS[sector]}")
     notes: List[str] = []
 
     cfo, cfo_src = _ttm_or_annual(st, "cfo", as_of)

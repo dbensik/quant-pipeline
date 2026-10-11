@@ -283,9 +283,16 @@ DCF_TERMINAL_GROWTH = 0.025
 #: A constant, documented as the assumption it is; the sensitivity grid shows
 #: what it moves.
 DCF_EQUITY_RISK_PREMIUM = 0.045
-#: Beta: daily total-return returns regressed on SPY over this many sessions.
+#: Beta: daily total-return returns regressed on SPY over this many sessions
+#: (decision 4's beta; still computed and reported).
 DCF_BETA_WINDOW_DAYS = 756
 DCF_BETA_BENCHMARK = "SPY"
+#: Decision 11 (approved 2026-10-11): the beta USED is weekly over 5 years,
+#: Blume-adjusted. The phase 6 sweep: 24 names above 3x price against 48 on
+#: the daily 3-year beta, whose near-zero values for staples (CPB -0.01, MO
+#: -0.07) put the cost of equity at the T-bill rate.
+DCF_BETA_METHOD = "weekly_5y_blume"
+DCF_BETA_WEEKLY_WINDOW = 260
 #: Cost of debt when the filer reports no interest expense (Apple stopped
 #: tagging InterestExpense after mid-2023): risk-free + this spread, labelled
 #: as an estimate wherever it is used.
@@ -303,15 +310,27 @@ DCF_GRID_POINTS = 5
 DCF_REVERSE_GROWTH_BOUNDS = (-0.5, 1.0)
 #: Above this share of EV the valuation is mostly the terminal assumption.
 DCF_TERMINAL_SHARE_WARN = 0.8
-#: Sectors refused (FCF is not meaningful for banks and insurers).
-DCF_REFUSED_SECTORS = ("Financials",)
-#: Sectors refused UNTIL Danny decides, with the reason shown. REIT capex is
-#: property acquisition and development (13 file PaymentsToAcquireRealEstate,
-#: 12 PaymentsToDevelopRealEstateAssets); REITs are valued on FFO/AFFO, and a
-#: free-cash-flow DCF on them is a method decision, not a data fix.
-DCF_PENDING_SECTORS = {
+#: Sectors refused, with the reason shown. Financials: decision 2's reason.
+#: Real Estate: decision 12 (approved 2026-10-11) — REIT capex is property
+#: acquisition and development (13 file PaymentsToAcquireRealEstate, 12
+#: PaymentsToDevelopRealEstateAssets) and REITs are valued on FFO/AFFO; refused
+#: until there is such a model.
+DCF_REFUSED_SECTORS = {
+    "Financials": "free cash flow is not meaningful for banks and insurers",
     "Real Estate": "REIT capital spending is property acquisition and development; "
-                   "whether to value REITs by free cash flow is a decision pending (see the DCF plan)",
+                   "REITs need an FFO/AFFO model, not a free-cash-flow DCF",
+}
+
+#: Symbols refused whatever their sector, with why. Decision 13 (approved
+#: 2026-10-11): their operating cash flow or debt carries a financial book
+#: that free cash flow cannot separate — the reason Financials are refused.
+#: Each recurred above 3x price in the phase 6 sweep.
+_MANAGED_CARE = "managed care: insurance float runs through operating cash flow"
+_CAPTIVE_FINANCE = "captive finance: finance receivables and the debt funding them distort FCF and net debt"
+DCF_REFUSED_SYMBOLS = {
+    "CNC": _MANAGED_CARE, "ELV": _MANAGED_CARE, "UNH": _MANAGED_CARE,
+    "CVS": _MANAGED_CARE, "HUM": _MANAGED_CARE, "MOH": _MANAGED_CARE,
+    "F": _CAPTIVE_FINANCE, "GM": _CAPTIVE_FINANCE, "KMX": _CAPTIVE_FINANCE,
 }
 
 # --- Crypto identity (core/crypto_identity.py) ---
