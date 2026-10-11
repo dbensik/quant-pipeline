@@ -189,6 +189,11 @@ class Beta:
     observations: int
 
 
+def blume(beta: float) -> float:
+    """Blume's adjustment toward 1: 2/3 raw + 1/3 (the 'adjusted beta' vendors show)."""
+    return 2.0 / 3.0 * beta + 1.0 / 3.0
+
+
 def regress_beta(asset_returns: Sequence[float], benchmark_returns: Sequence[float]) -> Beta:
     """OLS slope of asset on benchmark daily returns (already date-aligned)."""
     y, x = np.asarray(asset_returns, float), np.asarray(benchmark_returns, float)

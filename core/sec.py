@@ -17,6 +17,11 @@ FOUR RULES, each tested with a fake session (tests/unit/test_sec_gateway.py):
    rather than a parser choking on HTML or a loop hammering a block.
 4. STAY UNDER THE LIMIT. Requests are spaced to SEC_MAX_REQUESTS_PER_SECOND
    (8, under the published 10) by a clock the tests can fake.
+
+A dropped connection mid-download (measured 2026-10-11: "Response ended
+prematurely" on a 3 MB companyfacts body) is retried up to TRANSPORT_RETRIES
+times with backoff. Only transport errors are retried — a block or a 429 is
+an answer and stops the run.
 """
 
 from __future__ import annotations
@@ -55,6 +60,10 @@ def validated_user_agent(value: Optional[str]) -> str:
     return value.strip()
 
 
+TRANSPORT_RETRIES = 3
+TRANSPORT_BACKOFF_SECONDS = 2.0
+
+
 class SECGateway:
     def __init__(
         self,
@@ -84,14 +93,29 @@ class SECGateway:
                 now = self.clock()
         self._last = now
 
+    def _get(self, url: str):
+        import requests
+
+        last: Optional[Exception] = None
+        for attempt in range(TRANSPORT_RETRIES + 1):
+            if attempt:
+                self.sleep(TRANSPORT_BACKOFF_SECONDS * attempt)
+            self._throttle()
+            try:
+                response = self.session.get(
+                    url,
+                    headers={"User-Agent": self.user_agent, "Accept-Encoding": "gzip, deflate"},
+                    timeout=settings.SEC_TIMEOUT_SECONDS,
+                )
+                self.requests_made += 1
+                return response
+            except (requests.ConnectionError, requests.Timeout, requests.exceptions.ChunkedEncodingError) as exc:
+                self.requests_made += 1
+                last = exc
+        raise RuntimeError(f"SEC request failed {TRANSPORT_RETRIES + 1} times at {url}: {last}") from last
+
     def get_json(self, url: str) -> Dict[str, Any]:
-        self._throttle()
-        response = self.session.get(
-            url,
-            headers={"User-Agent": self.user_agent, "Accept-Encoding": "gzip, deflate"},
-            timeout=settings.SEC_TIMEOUT_SECONDS,
-        )
-        self.requests_made += 1
+        response = self._get(url)
         ctype = (response.headers.get("Content-Type") or "").lower()
         if response.status_code == 429:
             raise SECThrottledError(f"SEC throttled the client (429) at {url}; stop and retry later")

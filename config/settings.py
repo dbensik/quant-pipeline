@@ -236,12 +236,27 @@ FUNDAMENTAL_CONCEPTS = (
     ("us-gaap", "IncomeTaxExpenseBenefit"),
     ("us-gaap", "InterestExpense"),
     ("us-gaap", "InterestExpenseNonoperating"),
+    # Added 2026-10-11 from a census of the 132 non-financial equities with no
+    # interest expense ending in 2026: 19 file InterestExpenseDebt, 16
+    # InterestAndDebtExpense, 54 only cash InterestPaidNet (used as a labelled
+    # PROXY), 49 nothing.
+    ("us-gaap", "InterestExpenseDebt"),
+    ("us-gaap", "InterestAndDebtExpense"),
+    ("us-gaap", "InterestPaidNet"),
+    ("us-gaap", "InterestPaid"),
     ("us-gaap", "NetIncomeLoss"),
     ("us-gaap", "DepreciationDepletionAndAmortization"),
     ("us-gaap", "DepreciationAmortizationAndAccretionNet"),
     ("us-gaap", "ShareBasedCompensation"),
     ("us-gaap", "NetCashProvidedByUsedInOperatingActivities"),
     ("us-gaap", "PaymentsToAcquirePropertyPlantAndEquipment"),
+    # Added 2026-10-11 from a census of the 126 equities refused for missing
+    # capex: 82 file PaymentsToAcquireProductiveAssets; the oil-and-gas names
+    # file exploration/development concepts.
+    ("us-gaap", "PaymentsToAcquireProductiveAssets"),
+    ("us-gaap", "PaymentsToAcquireOilAndGasPropertyAndEquipment"),
+    ("us-gaap", "PaymentsToExploreAndDevelopOilAndGasProperties"),
+    ("us-gaap", "PaymentsToAcquireOilAndGasProperty"),
     ("us-gaap", "CashAndCashEquivalentsAtCarryingValue"),
     ("us-gaap", "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"),
     ("us-gaap", "MarketableSecuritiesCurrent"),
@@ -290,6 +305,14 @@ DCF_REVERSE_GROWTH_BOUNDS = (-0.5, 1.0)
 DCF_TERMINAL_SHARE_WARN = 0.8
 #: Sectors refused (FCF is not meaningful for banks and insurers).
 DCF_REFUSED_SECTORS = ("Financials",)
+#: Sectors refused UNTIL Danny decides, with the reason shown. REIT capex is
+#: property acquisition and development (13 file PaymentsToAcquireRealEstate,
+#: 12 PaymentsToDevelopRealEstateAssets); REITs are valued on FFO/AFFO, and a
+#: free-cash-flow DCF on them is a method decision, not a data fix.
+DCF_PENDING_SECTORS = {
+    "Real Estate": "REIT capital spending is property acquisition and development; "
+                   "whether to value REITs by free cash flow is a decision pending (see the DCF plan)",
+}
 
 # --- Crypto identity (core/crypto_identity.py) ---
 #

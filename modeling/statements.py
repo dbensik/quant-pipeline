@@ -51,12 +51,20 @@ LINE_ITEMS: Dict[str, Tuple[str, ...]] = {
     "operating_income": ("OperatingIncomeLoss",),
     "pretax_income": ("IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",),
     "income_tax": ("IncomeTaxExpenseBenefit",),
-    "interest_expense": ("InterestExpense", "InterestExpenseNonoperating"),
+    "interest_expense": ("InterestExpense", "InterestExpenseNonoperating", "InterestExpenseDebt", "InterestAndDebtExpense"),
+    #: Cash interest paid: a PROXY for expense, used only when none is reported.
+    "interest_paid": ("InterestPaidNet", "InterestPaid"),
     "net_income": ("NetIncomeLoss",),
     "d_and_a": ("DepreciationDepletionAndAmortization", "DepreciationAmortizationAndAccretionNet"),
     "share_based_comp": ("ShareBasedCompensation",),
     "cfo": ("NetCashProvidedByUsedInOperatingActivities",),
-    "capex": ("PaymentsToAcquirePropertyPlantAndEquipment",),
+    "capex": (
+        "PaymentsToAcquirePropertyPlantAndEquipment",
+        "PaymentsToAcquireProductiveAssets",
+        "PaymentsToAcquireOilAndGasPropertyAndEquipment",
+        "PaymentsToExploreAndDevelopOilAndGasProperties",
+        "PaymentsToAcquireOilAndGasProperty",
+    ),
     "diluted_shares": ("WeightedAverageNumberOfDilutedSharesOutstanding",),
     # instants
     "cash": ("CashAndCashEquivalentsAtCarryingValue", "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"),

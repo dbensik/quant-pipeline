@@ -89,6 +89,13 @@ class ValuationRequest(BaseModel):
     wacc: Optional[float] = Field(default=None, gt=0, le=0.5)
     exit_multiple: Optional[float] = Field(default=None, gt=0, le=100)
     years: Optional[int] = Field(default=None, ge=1, le=20)
+    beta: Optional[float] = Field(default=None, ge=-1, le=4, description="Replaces the daily 3-year beta")
+
+
+class ValuationBeta(BaseModel):
+    beta: float
+    std_error: Optional[float]
+    observations: int
 
 
 class ValuationInputLine(BaseModel):
@@ -157,6 +164,7 @@ class ValuationResponse(BaseModel):
     implied_growth_first: Optional[float] = Field(description="First-year growth the price implies")
     implied_reason: Optional[str]
     notes: List[str]
+    betas: Dict[str, Optional[ValuationBeta]] = Field(description="daily_3y (decision 4, the default), daily_3y_blume, weekly_5y")
     overridden: List[str]
     sensitivity: ValuationGrid
 
@@ -225,7 +233,8 @@ async def dcf(
     try:
         out = await svc.value(
             data, prices, rates, request.symbol.upper(), request.as_of or _today(),
-            svc.Overrides(request.growth_first, request.growth_terminal, request.wacc, request.exit_multiple, request.years),
+            svc.Overrides(request.growth_first, request.beta, request.growth_terminal, request.wacc,
+                          request.exit_multiple, request.years),
         )
     except svc.ValuationError as exc:
         _raise(exc)

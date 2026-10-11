@@ -21,7 +21,7 @@ from typing import Any, Dict, Iterable, List, Optional, Protocol, Tuple
 from config import settings
 from core.fundamentals import Fact
 from core.rates import RateRepository, risk_free_rate
-from modeling.dcf import DCFInputs, reverse_dcf, run, sensitivity
+from modeling.dcf import Beta, DCFInputs, blume, reverse_dcf, run, sensitivity
 from modeling.statements import LINE_ITEMS, Statements
 from modeling.valuation import Refusal, beta_from_bars, build_inputs, price_as_traded
 
@@ -49,6 +49,9 @@ class ValuationError(Exception):
 @dataclass
 class Overrides:
     growth_first: Optional[float] = None
+    #: Replaces the decision-4 beta in the cost of equity; the computed betas
+    #: are still reported beside it.
+    beta: Optional[float] = None
     growth_terminal: Optional[float] = None
     wacc: Optional[float] = None
     exit_multiple: Optional[float] = None
@@ -68,6 +71,8 @@ async def load_statements(data: ValuationData, symbol: str) -> Tuple[Statements,
     cik = ciks[0] if ciks else None
     if sector in settings.DCF_REFUSED_SECTORS:
         raise ValuationError(422, f"{symbol} is in {sector}: free cash flow is not meaningful for banks and insurers")
+    if sector in settings.DCF_PENDING_SECTORS:
+        raise ValuationError(422, f"{symbol} is in {sector}: {settings.DCF_PENDING_SECTORS[sector]}")
     if cik is None:
         raise ValuationError(422, f"{symbol} has no CIK: run scripts/resolve_ciks.py, or the ticker is reassigned")
     facts = await data.facts(ciks, ALL_CONCEPTS)
@@ -98,6 +103,13 @@ async def value(
         beta = await beta_from_bars(prices, symbol, as_of)
     except ValueError as exc:
         raise ValuationError(422, f"beta unavailable: {exc}") from None
+    try:
+        weekly = await beta_from_bars(prices, symbol, as_of, window=260, frequency="weekly")
+    except ValueError:
+        weekly = None
+    raw_beta = beta
+    if overrides.beta is not None:
+        beta = Beta(overrides.beta, float("nan"), 0)
 
     built = build_inputs(st, as_of, price, rate.continuous, beta, sector=sector, growth_first=overrides.growth_first)
     if isinstance(built, Refusal):
@@ -126,7 +138,13 @@ async def value(
         "implied_growth_first": None if math.isnan(implied.growth_first) else implied.growth_first,
         "implied_reason": implied.reason,
         "notes": built.notes,
-        "overridden": sorted(changes) + (["growth_first"] if overrides.growth_first is not None else []),
+        "betas": {
+            "daily_3y": {"beta": raw_beta.beta, "std_error": raw_beta.std_error, "observations": raw_beta.observations},
+            "daily_3y_blume": {"beta": blume(raw_beta.beta), "std_error": None, "observations": raw_beta.observations},
+            "weekly_5y": None if weekly is None else {"beta": weekly.beta, "std_error": weekly.std_error, "observations": weekly.observations},
+        },
+        "overridden": sorted(changes) + (["growth_first"] if overrides.growth_first is not None else [])
+                      + (["beta"] if overrides.beta is not None else []),
     }
     if with_grid:
         out["sensitivity"] = sensitivity(x)

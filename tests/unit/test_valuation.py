@@ -141,3 +141,62 @@ def test_missing_capex_refuses_instead_of_counting_as_zero():
     st = Statements([f("NetCashProvidedByUsedInOperatingActivities", 4.5e9)])
     out = build_inputs(st, date(2026, 10, 8), 45.0, 0.04, BETA)
     assert isinstance(out, Refusal) and "capital expenditure" in out.reason
+
+
+@pytest.mark.asyncio
+async def test_weekly_beta_uses_the_last_close_of_each_week():
+    repo = BarsRepo()
+    weekly = await beta_from_bars(repo, "AAPL", date(2025, 6, 1), window=50, frequency="weekly")
+    assert weekly.observations == 50
+    with pytest.raises(ValueError):
+        await beta_from_bars(repo, "AAPL", date(2025, 6, 1), frequency="monthly")
+
+
+def test_a_stale_cover_page_count_falls_back_to_diluted_shares():
+    # Fox's real case: the only untagged cover-page count is 1.0 share (2019).
+    from core.fundamentals import Fact
+
+    def f(concept, v, start, end, filed, tax="us-gaap"):
+        return Fact(1, tax, concept, "shares" if "Share" in concept else "USD", start, end, v, None, "FY", "10-K",
+                    filed, f"a-{concept}-{end}", None, datetime(2026, 1, 1, tzinfo=timezone.utc))
+    st = Statements([
+        f("EntityCommonStockSharesOutstanding", 1.0, None, date(2019, 3, 18), date(2019, 3, 18), "dei"),
+        f("WeightedAverageNumberOfDilutedSharesOutstanding", 439e6, date(2025, 7, 1), date(2026, 6, 30), date(2026, 8, 6)),
+        f("NetCashProvidedByUsedInOperatingActivities", 3e9, date(2025, 7, 1), date(2026, 6, 30), date(2026, 8, 6)),
+        f("PaymentsToAcquirePropertyPlantAndEquipment", 4e8, date(2025, 7, 1), date(2026, 6, 30), date(2026, 8, 6)),
+    ])
+    v = build_inputs(st, date(2026, 10, 8), 57.0, 0.04, BETA)
+    assert v.dcf.shares == 439e6 and v.lines["shares"][1].startswith("latest diluted")
+    assert any("stale" in n for n in v.notes)
+
+
+def test_cash_interest_paid_is_used_as_a_labelled_proxy():
+    from core.fundamentals import Fact
+
+    def f(concept, v):
+        return Fact(1, "us-gaap", concept, "shares" if "Share" in concept else "USD", date(2025, 7, 1),
+                    date(2026, 6, 30), v, None, "FY", "10-K", date(2026, 8, 6), f"a-{concept}", None,
+                    datetime(2026, 1, 1, tzinfo=timezone.utc))
+    st = Statements([f("NetCashProvidedByUsedInOperatingActivities", 3e9), f("PaymentsToAcquirePropertyPlantAndEquipment", 4e8),
+                     f("WeightedAverageNumberOfDilutedSharesOutstanding", 1e8), f("InterestPaidNet", 2e8),
+                     Fact(1, "us-gaap", "LongTermDebt", "USD", None, date(2026, 6, 30), 4e9, None, "FY", "10-K",
+                          date(2026, 8, 6), "a-debt", None, datetime(2026, 1, 1, tzinfo=timezone.utc))])
+    v = build_inputs(st, date(2026, 10, 8), 50.0, 0.04, BETA)
+    assert v.discount.cost_of_debt_pre_tax == pytest.approx(2e8 / 4e9)  # the proxy, not risk-free + spread
+    assert v.lines["after_tax_interest"][1].startswith("PROXY: cash interest paid")
+    assert any("proxy" in n for n in v.notes) and not v.discount.cost_of_debt_estimated
+
+
+def test_the_share_fallback_takes_the_newest_average_annual_or_quarterly():
+    from core.fundamentals import Fact
+
+    def f(concept, v, start, end, filed, fp):
+        return Fact(1, "us-gaap", concept, "shares" if "Share" in concept else "USD", start, end, v, None, fp, "10-K",
+                    filed, f"a-{concept}-{end}-{start}", None, datetime(2026, 1, 1, tzinfo=timezone.utc))
+    st = Statements([
+        f("WeightedAverageNumberOfDilutedSharesOutstanding", 443e6, date(2026, 1, 1), date(2026, 3, 31), date(2026, 5, 11), "Q3"),
+        f("WeightedAverageNumberOfDilutedSharesOutstanding", 439e6, date(2025, 7, 1), date(2026, 6, 30), date(2026, 8, 6), "FY"),
+        f("NetCashProvidedByUsedInOperatingActivities", 3e9, date(2025, 7, 1), date(2026, 6, 30), date(2026, 8, 6), "FY"),
+        f("PaymentsToAcquirePropertyPlantAndEquipment", 4e8, date(2025, 7, 1), date(2026, 6, 30), date(2026, 8, 6), "FY"),
+    ])
+    assert build_inputs(st, date(2026, 10, 8), 57.0, 0.04, BETA).dcf.shares == 439e6

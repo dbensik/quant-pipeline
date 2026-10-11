@@ -122,6 +122,13 @@ def build_inputs(
                        "free cash flow cannot be formed")
     sbc, sbc_src = _ttm_or_annual(st, "share_based_comp", as_of)
     interest, interest_src = _ttm_or_annual(st, "interest_expense", as_of)
+    if interest is None:
+        paid, paid_src = _ttm_or_annual(st, "interest_paid", as_of)
+        if paid is not None:
+            # 54 of 132 filers without a current expense tag report only cash
+            # interest paid. Close to expense for most borrowers; a proxy.
+            interest, interest_src = paid, f"PROXY: cash interest paid, {paid_src}"
+            notes.append("interest expense not reported: cash interest paid used as a proxy")
     tax = st.effective_tax_rate(as_of)
     if tax is None or not 0 <= tax < 1:
         notes.append(f"effective tax rate unavailable ({tax}); {FALLBACK_TAX_RATE:.0%} statutory used")
@@ -133,13 +140,23 @@ def build_inputs(
         net_debt = debt
         notes.append("cash not reported: net debt taken as total debt")
 
-    shares_v = st.instant("shares_outstanding", as_of)
-    shares_src = "cover-page shares outstanding"
-    if shares_v is None:
-        diluted = st.quarterly("diluted_shares", as_of) or st.annual("diluted_shares", as_of)
-        if not diluted:
-            return Refusal("no share count on file before this date")
+    # A cover-page count can be years stale: Fox's only untagged one is 1.0
+    # share from its 2019 registration (it reports current counts per class),
+    # CMCSA's is from 2009, CHTR's from 2016. A count is used only if its
+    # period ended within MAX_TTM_AGE_DAYS; the diluted average is the fallback.
+    shares_v, shares_src = st.instant("shares_outstanding", as_of), "cover-page shares outstanding"
+    if shares_v is None or (as_of - shares_v.period_end).days > MAX_TTM_AGE_DAYS:
+        stale_cover = shares_v
+        # The newest of the quarterly and annual averages: Fox's FY (to
+        # 2026-06-30) is newer than its last filed quarter (2026-03-31).
+        diluted = sorted(st.quarterly("diluted_shares", as_of) + st.annual("diluted_shares", as_of),
+                         key=lambda v: (v.period_end, v.filed))
+        if not diluted or (as_of - diluted[-1].period_end).days > MAX_TTM_AGE_DAYS:
+            return Refusal("no share count on file within "
+                           f"{MAX_TTM_AGE_DAYS} days of this date")
         shares_v, shares_src = diluted[-1], "latest diluted weighted average"
+        if stale_cover is not None:
+            notes.append(f"cover-page share count is from {stale_cover.period_end} (stale): diluted average used")
     shares = shares_v.value
 
     market_cap = price * shares
@@ -201,17 +218,34 @@ async def price_as_traded(repo: Any, symbol: str, as_of: date) -> Optional[Tuple
 
 async def beta_from_bars(repo: Any, symbol: str, as_of: date,
                          window: int = settings.DCF_BETA_WINDOW_DAYS,
-                         benchmark: str = settings.DCF_BETA_BENCHMARK) -> Beta:
-    """Daily total-return returns joined ON DATE with the benchmark's."""
+                         benchmark: str = settings.DCF_BETA_BENCHMARK,
+                         frequency: str = "daily") -> Beta:
+    """
+    Total-return log returns joined ON DATE with the benchmark's. `daily`
+    uses the last `window` sessions (decision 4: 756, about 3 years);
+    `weekly` uses the last `window` Friday closes (260 is about 5 years) —
+    reported beside the decision-4 beta because low-beta names (MO: daily
+    −0.07, weekly 0.16, monthly 0.46) depend heavily on the frequency.
+    """
     end = datetime.combine(as_of, time(23, 59, 59), tzinfo=timezone.utc)
-    start = end - timedelta(days=int(window * 1.6) + 30)
+    days_back = int(window * 1.6) + 30 if frequency == "daily" else int(window * 7) + 30
+    start = end - timedelta(days=days_back)
 
     async def closes(sym: str) -> Dict[date, float]:
         rows = await repo.fetch_range(sym, None, start, end, adjust="total")
         return {r.ohlcv.timestamp.utc.date(): float(r.ohlcv.close) for r in rows if r.ohlcv.close}
 
     a, b = await closes(symbol), await closes(benchmark)
-    days = sorted(set(a) & set(b))[-(window + 1):]
+    common = sorted(set(a) & set(b))
+    if frequency == "weekly":
+        # Last common close of each ISO week.
+        last_of_week: Dict[Tuple[int, int], date] = {}
+        for d in common:
+            last_of_week[d.isocalendar()[:2]] = d
+        common = sorted(last_of_week.values())
+    elif frequency != "daily":
+        raise ValueError(f"frequency must be daily or weekly; got {frequency!r}")
+    days = common[-(window + 1):]
     if len(days) < 31:
         raise ValueError(f"only {len(days)} common sessions with {benchmark}")
     ra = np.diff(np.log([a[d] for d in days]))

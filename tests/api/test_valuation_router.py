@@ -34,7 +34,8 @@ CHAINED = {1: [f for f in AAPL_FACTS if f.filed < SPLIT_AT], 2: [f for f in AAPL
 class FakeValuationData:
     EQUITIES = {"AAPL": ([320193], "Information Technology"), "JPM": ([19617], "Financials"),
                 "PARA": ([], "Communication Services"), "MSFT": ([789019], "Information Technology"),
-                "REORG": ([2, 1], "Information Technology"), "SUCCONLY": ([2], "Information Technology")}
+                "REORG": ([2, 1], "Information Technology"), "SUCCONLY": ([2], "Information Technology"),
+                "PLD": ([1045609], "Real Estate")}
 
     async def equity(self, symbol):
         return self.EQUITIES.get(symbol.upper())
@@ -151,6 +152,7 @@ def test_an_impossible_grid_cell_is_null_not_an_error(vclient):
 
 @pytest.mark.parametrize("payload,status,fragment", [
     ({"symbol": "JPM"}, 422, "banks and insurers"),
+    ({"symbol": "PLD"}, 422, "decision pending"),
     ({"symbol": "PARA"}, 422, "no CIK"),
     ({"symbol": "MSFT"}, 422, "no SEC facts"),
     ({"symbol": "SPY"}, 404, "not a registered equity"),
@@ -197,3 +199,15 @@ def test_history_of_a_reorganised_company_includes_its_predecessor_filings(vclie
     pre = [p for p in points if p["as_of"] < SPLIT_AT.isoformat()]
     assert pre, "no point from the predecessor's filings"
     assert all(p["as_of"] > "2023-06-01" for p in points)
+
+
+def test_beta_alternatives_are_reported_and_an_override_is_used(vclient):
+    base = vclient.post("/api/v1/valuation/dcf", json={"symbol": "AAPL", "as_of": "2026-10-08"}).json()
+    b = base["betas"]
+    assert set(b) == {"daily_3y", "daily_3y_blume", "weekly_5y"}
+    assert b["daily_3y_blume"]["beta"] == pytest.approx(2 / 3 * b["daily_3y"]["beta"] + 1 / 3)
+    assert b["weekly_5y"]["observations"] > 50
+    assert base["lines"]["beta"]["value"] == b["daily_3y"]["beta"]  # decision 4 is the default
+    over = vclient.post("/api/v1/valuation/dcf", json={"symbol": "AAPL", "as_of": "2026-10-08", "beta": 1.5}).json()
+    assert over["discount"]["cost_of_equity"] == pytest.approx(over["lines"]["risk_free"]["value"] + 1.5 * 0.045)
+    assert "beta" in over["overridden"] and over["betas"] == base["betas"]

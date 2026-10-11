@@ -140,3 +140,27 @@ def test_overrides_win_and_predecessors_ride_along():
 def test_variants():
     assert variants("BRK-B") == ["BRK.B", "BRKB"]
     assert variants("AAPL") == []
+
+
+def test_a_dropped_connection_is_retried_but_a_block_is_not():
+    import requests
+
+    class Flaky(FakeSession):
+        def get(self, url, headers=None, timeout=None):
+            self.calls.append((url, headers))
+            item = self.responses.pop(0)
+            if isinstance(item, Exception):
+                raise item
+            return item
+
+    clock = FakeClock()
+    ok = Flaky([requests.exceptions.ChunkedEncodingError("Response ended prematurely"), FakeResponse(body={"x": 1})])
+    gw = S.SECGateway(session=ok, user_agent=UA, clock=clock, sleep=clock.sleep)
+    assert gw.get_json("https://data.sec.gov/a") == {"x": 1} and len(ok.calls) == 2
+    always = Flaky([requests.ConnectionError("down")] * 4)
+    with pytest.raises(RuntimeError, match="failed 4 times"):
+        S.SECGateway(session=always, user_agent=UA, clock=clock, sleep=clock.sleep).get_json("https://data.sec.gov/b")
+    blocked = Flaky([FakeResponse(403, ctype="text/html", text="<title>blocked</title>"), FakeResponse()])
+    with pytest.raises(S.SECBlockedError):
+        S.SECGateway(session=blocked, user_agent=UA, clock=clock, sleep=clock.sleep).get_json("https://data.sec.gov/c")
+    assert len(blocked.calls) == 1  # a block is an answer: not retried
