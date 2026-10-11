@@ -116,7 +116,7 @@ RENAMES = renames_from_csv([
 
 
 def test_resolution_order_and_provenance():
-    out = {r.symbol: r for r in resolve(["AAPL", "BRK.B", "WBA", "YY", "ZZZZ"], TICKERS, RENAMES)}
+    out = {r.symbol: r for r in resolve(["AAPL", "BRK.B", "WBA", "YY", "ZZZZ"], TICKERS, RENAMES, overrides={}, predecessors={})}
     assert out["AAPL"] == Resolution("AAPL", 320193, "ticker_map", "Apple Inc.")
     assert out["BRK.B"].cik == 1067983 and out["BRK.B"].how == "ticker_map_variant:BRK-B"
     assert out["WBA"] == Resolution("WBA", 104207, "rename_csv")
@@ -126,8 +126,15 @@ def test_resolution_order_and_provenance():
 
 def test_a_reassigned_ticker_is_never_looked_up():
     # Today's PARA is Banzai International, not Paramount.
-    (r,) = resolve(["PARA"], TICKERS, RENAMES, reassigned={"para"})
+    (r,) = resolve(["PARA"], TICKERS, RENAMES, reassigned={"para"}, overrides={}, predecessors={})
     assert r == Resolution("PARA", None, "reassigned_ticker")
+
+
+def test_overrides_win_and_predecessors_ride_along():
+    out = {r.symbol: r for r in resolve(["WBA", "XOMX"], TICKERS, RENAMES,
+                                        overrides={"WBA": 1618921}, predecessors={"WBA": (104207,), "XOMX": (34088,)})}
+    assert out["WBA"] == Resolution("WBA", 1618921, "override", None, (104207,))
+    assert out["XOMX"].cik is None and out["XOMX"].predecessors == ()  # no CIK: nothing to chain onto
 
 
 def test_variants():

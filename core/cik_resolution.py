@@ -20,6 +20,11 @@ metadata) is never looked up: measured 2026-10-09, PARA in today's map is CIK
 1826011 "Banzai International" — the penny stock that took the key, not
 Paramount. It is reported as `reassigned_ticker`.
 
+settings.CIK_OVERRIDES wins over all of the above (WBA: the rename CSV's CIK
+was the pre-2014 Walgreen Co). settings.CIK_PREDECESSORS adds earlier filers
+of the same business, read together with the asset's CIK (XOM's history is
+under 34088; the ticker moved to holding company 2115436 on 2026-07-01).
+
 Anything else is unresolved and listed, never guessed. The CIK is checked
 against the filer's own entity name on the first live fetch, not here: the
 registry holds no company names (measured 2026-10-09: 0 of 517 equities).
@@ -30,13 +35,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Mapping, Optional, Tuple
 
+from config.settings import CIK_OVERRIDES, CIK_PREDECESSORS
+
 
 @dataclass(frozen=True)
 class Resolution:
     symbol: str
     cik: Optional[int]
-    how: str  # 'ticker_map' | 'ticker_map_variant:<variant>' | 'rename_csv' | 'reassigned_ticker' | 'unresolved'
+    how: str  # 'override' | 'ticker_map' | 'ticker_map_variant:<v>' | 'rename_csv' | 'reassigned_ticker' | 'unresolved'
     sec_title: Optional[str] = None
+    predecessors: Tuple[int, ...] = ()
 
 
 def ticker_map(company_tickers: Mapping[str, Mapping]) -> Dict[str, Tuple[int, str]]:
@@ -58,28 +66,34 @@ def resolve(
     tickers: Mapping[str, Tuple[int, str]],
     renames: Mapping[str, int],
     reassigned: Iterable[str] = (),
+    overrides: Mapping[str, int] = CIK_OVERRIDES,
+    predecessors: Mapping[str, Tuple[int, ...]] = CIK_PREDECESSORS,
 ) -> List[Resolution]:
-    out: List[Resolution] = []
     reissued = {r.upper() for r in reassigned}
+    out: List[Resolution] = []
     for symbol in symbols:
-        s = symbol.upper()
-        if s in reissued:
-            out.append(Resolution(s, None, "reassigned_ticker"))
-            continue
-        if s in tickers:
-            cik, title = tickers[s]
-            out.append(Resolution(s, cik, "ticker_map", title))
-            continue
-        hit = next((v for v in variants(s) if v in tickers), None)
-        if hit is not None:
-            cik, title = tickers[hit]
-            out.append(Resolution(s, cik, f"ticker_map_variant:{hit}", title))
-            continue
-        if s in renames:
-            out.append(Resolution(s, renames[s], "rename_csv"))
-            continue
-        out.append(Resolution(s, None, "unresolved"))
+        r = _resolve_one(symbol.upper(), tickers, renames, reissued, overrides)
+        if r.cik is not None and r.symbol in predecessors:
+            r = Resolution(r.symbol, r.cik, r.how, r.sec_title, tuple(int(c) for c in predecessors[r.symbol]))
+        out.append(r)
     return out
+
+
+def _resolve_one(s, tickers, renames, reissued, overrides) -> Resolution:
+    if s in overrides:
+        return Resolution(s, int(overrides[s]), "override")
+    if s in reissued:
+        return Resolution(s, None, "reassigned_ticker")
+    if s in tickers:
+        cik, title = tickers[s]
+        return Resolution(s, cik, "ticker_map", title)
+    hit = next((v for v in variants(s) if v in tickers), None)
+    if hit is not None:
+        cik, title = tickers[hit]
+        return Resolution(s, cik, f"ticker_map_variant:{hit}", title)
+    if s in renames:
+        return Resolution(s, renames[s], "rename_csv")
+    return Resolution(s, None, "unresolved")
 
 
 def renames_from_csv(rows: Iterable[Mapping[str, str]]) -> Dict[str, int]:

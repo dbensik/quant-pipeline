@@ -83,6 +83,13 @@ def _ttm_or_annual(st: Statements, item: str, as_of: date) -> Tuple[Optional[flo
 def default_growth(st: Statements, as_of: date) -> Tuple[float, str]:
     """3-year revenue CAGR, clamped to GROWTH_CLAMP; an editable starting point."""
     rev = st.annual("revenue", as_of)
+    if rev and (as_of - rev[-1].period_end).days > MAX_ANNUAL_AGE_DAYS:
+        # APA's current filer tags revenue under a concept the list does not
+        # carry, so its latest revenue was its predecessor's FY2020: a growth
+        # rate six years stale. Stale revenue is not a growth rate.
+        return settings.DCF_TERMINAL_GROWTH, (
+            f"latest revenue on file ends {rev[-1].period_end} ({rev[-1].concept}): stale, terminal growth used"
+        )
     if len(rev) >= 4 and rev[-4].value > 0 and rev[-1].value > 0:
         cagr = (rev[-1].value / rev[-4].value) ** (1 / 3) - 1
         clamped = min(max(cagr, GROWTH_CLAMP[0]), GROWTH_CLAMP[1])
@@ -107,6 +114,12 @@ def build_inputs(
     if cfo is None:
         return Refusal("no operating cash flow on file before this date")
     capex, capex_src = _ttm_or_annual(st, "capex", as_of)
+    if capex is None:
+        # Missing capex is NOT zero: treating it as zero made APA's free cash
+        # flow its whole operating cash flow (DCF $323 against a $45 price).
+        # APA's current filer has tagged no standard capex concept since 2022.
+        return Refusal(f"capital expenditure not reported in a standard concept ({capex_src}); "
+                       "free cash flow cannot be formed")
     sbc, sbc_src = _ttm_or_annual(st, "share_based_comp", as_of)
     interest, interest_src = _ttm_or_annual(st, "interest_expense", as_of)
     tax = st.effective_tax_rate(as_of)
@@ -138,7 +151,7 @@ def build_inputs(
 
     after_tax_interest = interest * (1 - tax)
     subtract_sbc = settings.DCF_SUBTRACT_SBC and sbc is not None
-    base_fcf = cfo - (capex or 0.0) + after_tax_interest - (sbc if subtract_sbc else 0.0)
+    base_fcf = cfo - capex + after_tax_interest - (sbc if subtract_sbc else 0.0)
 
     op, _ = _ttm_or_annual(st, "operating_income", as_of)
     da, _ = _ttm_or_annual(st, "d_and_a", as_of)

@@ -71,8 +71,34 @@ def main() -> int:
     unresolved = [f"{r.symbol}{' [reassigned ticker]' if r.how == 'reassigned_ticker' else ''}" for r in results if r.cik is None]
     print("unresolved:", ", ".join(f"{s}{' (delisted)' if s.split(' ')[0] in delisted else ''}" for s in unresolved) or "none")
     for r in results:
-        if r.how.startswith("ticker_map_variant") or r.how == "rename_csv":
-            print(f"  {r.symbol}: CIK {r.cik} via {r.how} {r.sec_title or ''}")
+        if r.how.startswith("ticker_map_variant") or r.how in ("rename_csv", "override") or r.predecessors:
+            pred = f" + predecessors {list(r.predecessors)}" if r.predecessors else ""
+            print(f"  {r.symbol}: CIK {r.cik} via {r.how}{pred} {r.sec_title or ''}")
+
+    # The signature of history left under a predecessor CIK: the filer's first
+    # 10-K/10-Q comes long after the stock's first stored price (XOM's holdco
+    # filed first in 2026; its bars start in 2015). Needs facts loaded.
+    from config.settings import CIK_HISTORY_GAP_ACCEPTED, CIK_HISTORY_GAP_DAYS
+
+    chain = {r.symbol: [r.cik, *r.predecessors] for r in results if r.cik is not None}
+    cur.execute(
+        "SELECT cik, min(filed) FROM fundamental_facts "
+        "WHERE form IN ('10-K', '10-Q', '20-F', '40-F', '10-K/A', '20-F/A', '40-F/A') GROUP BY cik"
+    )
+    first_filed = dict(cur.fetchall())
+    cur.execute(
+        "SELECT a.symbol, min(m.time)::date FROM market_data m JOIN assets a ON a.id = m.asset_id "
+        "WHERE a.asset_class = 'equity' GROUP BY a.symbol"
+    )
+    first_bar = dict(cur.fetchall())
+    gaps = []
+    for sym, ciks in chain.items():
+        filed = [first_filed[c] for c in ciks if c in first_filed]
+        if sym in CIK_HISTORY_GAP_ACCEPTED:
+            continue
+        if filed and sym in first_bar and (min(filed) - first_bar[sym]).days > CIK_HISTORY_GAP_DAYS:
+            gaps.append(f"{sym} (filings from {min(filed)}, bars from {first_bar[sym]})")
+    print(f"history gap > {CIK_HISTORY_GAP_DAYS} days (possible predecessor CIK): {', '.join(gaps) or 'none'}")
 
     if not args.write:
         print("dry run: nothing written (pass --write)")
@@ -84,7 +110,8 @@ def main() -> int:
         cur.execute(
             "UPDATE assets SET metadata = COALESCE(metadata, '{}'::jsonb) || %s::jsonb "
             "WHERE symbol = %s AND asset_class = 'equity'",
-            (json.dumps({"cik": r.cik, "cik_source": f"{r.how}; {source}", "cik_sec_title": r.sec_title}), r.symbol),
+            (json.dumps({"cik": r.cik, "cik_source": f"{r.how}; {source}", "cik_sec_title": r.sec_title,
+                         "cik_predecessors": list(r.predecessors)}), r.symbol),
         )
         n += cur.rowcount
     conn.commit()

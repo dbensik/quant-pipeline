@@ -25,8 +25,11 @@ class TimescaleValuationRepo:
         self.session = session
         self._facts = TimescaleFactRepo(session)
 
-    async def equity(self, symbol: str) -> Optional[Tuple[Optional[int], Optional[str]]]:
-        """(cik, sector) for a registered equity, None if not one."""
+    async def equity(self, symbol: str) -> Optional[Tuple[List[int], Optional[str]]]:
+        """
+        ([cik, *predecessors], sector) for a registered equity, None if not
+        one. The list is empty when no CIK is recorded.
+        """
         row = (await self.session.execute(
             select(AssetORM.metadata_).where(AssetORM.symbol == symbol.upper(), AssetORM.asset_class == "equity")
         )).first()
@@ -34,10 +37,16 @@ class TimescaleValuationRepo:
             return None
         meta = row[0] or {}
         cik = meta.get("cik")
-        return (int(cik) if cik is not None else None, meta.get("sector"))
+        if cik is None:
+            return ([], meta.get("sector"))
+        return ([int(cik), *[int(p) for p in meta.get("cik_predecessors") or []]], meta.get("sector"))
 
-    async def facts(self, cik: int, concepts: Iterable[str]) -> List[Fact]:
-        return await self._facts.facts(cik, concepts)
+    async def facts(self, ciks: Iterable[int], concepts: Iterable[str]) -> List[Fact]:
+        concepts = list(concepts)
+        out: List[Fact] = []
+        for cik in ciks:
+            out.extend(await self._facts.facts(cik, concepts))
+        return out
 
     async def splits(self, symbol: str) -> List[Tuple[date, float]]:
         rows = await self.session.execute(
@@ -48,10 +57,10 @@ class TimescaleValuationRepo:
         )
         return [(r.ex_date, float(r.value)) for r in rows]
 
-    async def filing_dates(self, cik: int) -> List[date]:
+    async def filing_dates(self, ciks: Iterable[int]) -> List[date]:
         rows = await self.session.execute(
             select(FundamentalFactORM.filed).distinct()
-            .where(FundamentalFactORM.cik == cik, FundamentalFactORM.form.in_(["10-K", "10-Q"]))
+            .where(FundamentalFactORM.cik.in_(list(ciks)), FundamentalFactORM.form.in_(["10-K", "10-Q"]))
             .order_by(FundamentalFactORM.filed)
         )
         return [r.filed for r in rows]

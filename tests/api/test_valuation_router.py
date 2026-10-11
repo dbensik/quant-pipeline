@@ -25,21 +25,35 @@ AAPL_FACTS = parse_company_facts(json.loads(gzip.open(FIX / "companyfacts_aapl_2
                                  datetime(2026, 10, 8, tzinfo=timezone.utc))
 
 
+# Apple's real facts split at 2024-01-01 between a "predecessor" CIK 1 and a
+# "successor" CIK 2: the holding-company reorganisation shape (XOM, APA, ...).
+SPLIT_AT = date(2024, 1, 1)
+CHAINED = {1: [f for f in AAPL_FACTS if f.filed < SPLIT_AT], 2: [f for f in AAPL_FACTS if f.filed >= SPLIT_AT]}
+
+
 class FakeValuationData:
-    EQUITIES = {"AAPL": (320193, "Information Technology"), "JPM": (19617, "Financials"),
-                "PARA": (None, "Communication Services"), "MSFT": (789019, "Information Technology")}
+    EQUITIES = {"AAPL": ([320193], "Information Technology"), "JPM": ([19617], "Financials"),
+                "PARA": ([], "Communication Services"), "MSFT": ([789019], "Information Technology"),
+                "REORG": ([2, 1], "Information Technology"), "SUCCONLY": ([2], "Information Technology")}
 
     async def equity(self, symbol):
         return self.EQUITIES.get(symbol.upper())
 
-    async def facts(self, cik, concepts):
-        return [f for f in AAPL_FACTS if f.concept in set(concepts)] if cik == 320193 else []
+    async def facts(self, ciks, concepts):
+        concepts, out = set(concepts), []
+        for cik in ciks:
+            src = AAPL_FACTS if cik == 320193 else CHAINED.get(cik, [])
+            out.extend(f for f in src if f.concept in concepts)
+        return out
 
     async def splits(self, symbol):
-        return [(date(2020, 8, 31), 4.0)] if symbol.upper() == "AAPL" else []
+        return [(date(2020, 8, 31), 4.0)] if symbol.upper() in ("AAPL", "REORG", "SUCCONLY") else []
 
-    async def filing_dates(self, cik):
-        return sorted({f.filed for f in AAPL_FACTS if f.form in ("10-K", "10-Q") and f.filed >= date(2025, 1, 1)})
+    async def filing_dates(self, ciks):
+        facts = [f for c in ciks for f in (AAPL_FACTS if c == 320193 else CHAINED.get(c, []))]
+        # Chained symbols reach back into the predecessor's filings (2023).
+        since = date(2023, 6, 1) if set(ciks) & set(CHAINED) else date(2025, 1, 1)
+        return sorted({f.filed for f in facts if f.form in ("10-K", "10-Q") and f.filed >= since})
 
     async def coverage(self):
         return {"equities": 4, "with_cik": 3, "facts": len(AAPL_FACTS), "ciks_with_facts": 1, "newest_filed": date(2026, 7, 31)}
@@ -53,6 +67,7 @@ class Bars:
         spy = 400 * np.exp(np.cumsum(rng.normal(0, 0.01, len(days))))
         aapl = 150 * np.exp(np.cumsum(1.1 * np.diff(np.log(np.r_[400, spy])) + rng.normal(0, 0.008, len(days))))
         self.series = {"SPY": dict(zip(days, spy)), "AAPL": dict(zip(days, aapl))}
+        self.series["REORG"] = self.series["SUCCONLY"] = self.series["AAPL"]
 
     async def fetch_range(self, symbol, asset_class, start, end, source=None, adjust="total"):
         self.calls.append((symbol, adjust))
@@ -158,3 +173,27 @@ def test_history_is_one_point_the_day_after_each_filing(vclient):
     assert [p["as_of"] for p in body["points"]] == [(d + timedelta(days=1)).isoformat() for d in filed]
     valued = [p for p in body["points"] if p["per_share"] is not None]
     assert valued and all(p["price"] > 0 for p in valued)
+
+
+def test_a_reorganised_company_is_valued_from_its_whole_filer_chain(vclient):
+    apple = vclient.post("/api/v1/valuation/dcf", json={"symbol": "AAPL", "as_of": "2026-10-08"}).json()
+    chain = vclient.post("/api/v1/valuation/dcf", json={"symbol": "REORG", "as_of": "2026-10-08"}).json()
+    assert chain["cik"] == 2 and chain["predecessor_ciks"] == [1]
+    # Same facts, split across two filers: the same valuation, to the cent.
+    assert chain["result"]["per_share"] == pytest.approx(apple["result"]["per_share"], rel=1e-12)
+    assert chain["lines"]["growth_first"] == apple["lines"]["growth_first"]
+    # What the successor alone loses is the long history: its filings still
+    # carry three years of comparatives, but nothing before them.
+    full = vclient.get("/api/v1/valuation/REORG/statements", params={"as_of": "2026-10-08"}).json()
+    alone = vclient.get("/api/v1/valuation/SUCCONLY/statements", params={"as_of": "2026-10-08"}).json()
+    years_full = [p["period_end"][:4] for p in full["annual"]["revenue"]]
+    years_alone = [p["period_end"][:4] for p in alone["annual"]["revenue"]]
+    assert years_full[0] == "2007" and years_alone[0] >= "2021"
+    assert len(years_full) == 19 and len(years_alone) < 6
+
+
+def test_history_of_a_reorganised_company_includes_its_predecessor_filings(vclient):
+    points = vclient.get("/api/v1/valuation/REORG/history").json()["points"]
+    pre = [p for p in points if p["as_of"] < SPLIT_AT.isoformat()]
+    assert pre, "no point from the predecessor's filings"
+    assert all(p["as_of"] > "2023-06-01" for p in points)

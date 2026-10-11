@@ -29,10 +29,12 @@ ALL_CONCEPTS = sorted({c for cs in LINE_ITEMS.values() for c in cs})
 
 
 class ValuationData(Protocol):
-    async def equity(self, symbol: str) -> Optional[Tuple[Optional[int], Optional[str]]]: ...
-    async def facts(self, cik: int, concepts: Iterable[str]) -> List[Fact]: ...
+    async def equity(self, symbol: str) -> Optional[Tuple[List[int], Optional[str]]]:
+        """([cik, *predecessor ciks], sector); an empty list when no CIK is recorded."""
+        ...
+    async def facts(self, ciks: Iterable[int], concepts: Iterable[str]) -> List[Fact]: ...
     async def splits(self, symbol: str) -> List[Tuple[date, float]]: ...
-    async def filing_dates(self, cik: int) -> List[date]: ...
+    async def filing_dates(self, ciks: Iterable[int]) -> List[date]: ...
     async def coverage(self) -> Dict[str, object]: ...
 
 
@@ -53,19 +55,25 @@ class Overrides:
     years: Optional[int] = None
 
 
-async def load_statements(data: ValuationData, symbol: str) -> Tuple[Statements, int, Optional[str]]:
+async def load_statements(data: ValuationData, symbol: str) -> Tuple[Statements, int, Optional[str], List[int]]:
+    """
+    Facts from the asset's CIK AND its predecessors (settings.CIK_PREDECESSORS):
+    a holding-company reorganisation leaves the history under the old filer.
+    Per period the latest-filed row still wins, across all of them.
+    """
     eq = await data.equity(symbol)
     if eq is None:
         raise ValuationError(404, f"{symbol} is not a registered equity (ETFs and crypto have no filer)")
-    cik, sector = eq
+    ciks, sector = eq
+    cik = ciks[0] if ciks else None
     if sector in settings.DCF_REFUSED_SECTORS:
         raise ValuationError(422, f"{symbol} is in {sector}: free cash flow is not meaningful for banks and insurers")
     if cik is None:
         raise ValuationError(422, f"{symbol} has no CIK: run scripts/resolve_ciks.py, or the ticker is reassigned")
-    facts = await data.facts(cik, ALL_CONCEPTS)
+    facts = await data.facts(ciks, ALL_CONCEPTS)
     if not facts:
         raise ValuationError(422, f"no SEC facts stored for {symbol} (CIK {cik}): run scripts/load_fundamentals.py")
-    return Statements(facts, await data.splits(symbol)), cik, sector
+    return Statements(facts, await data.splits(symbol)), cik, sector, ciks
 
 
 async def value(
@@ -75,10 +83,10 @@ async def value(
     symbol: str,
     as_of: date,
     overrides: Overrides = Overrides(),
-    statements: Optional[Tuple[Statements, int, Optional[str]]] = None,
+    statements: Optional[Tuple[Statements, int, Optional[str], List[int]]] = None,
     with_grid: bool = True,
 ) -> Dict[str, Any]:
-    st, cik, sector = statements or await load_statements(data, symbol)
+    st, cik, sector, ciks = statements or await load_statements(data, symbol)
     traded = await price_as_traded(prices, symbol, as_of)
     if traded is None:
         raise ValuationError(422, f"no {symbol} price on or before {as_of}")
@@ -106,6 +114,7 @@ async def value(
     out = {
         "symbol": symbol.upper(),
         "cik": cik,
+        "predecessor_ciks": ciks[1:],
         "sector": sector,
         "as_of": as_of,
         "price": price,
@@ -130,7 +139,7 @@ async def history(
     """Value and price on the day after each 10-K/10-Q filing. Points that cannot be valued say why."""
     st = await load_statements(data, symbol)
     points: List[Dict[str, Any]] = []
-    for filed in await data.filing_dates(st[1]):
+    for filed in await data.filing_dates(st[3]):
         as_of = filed + timedelta(days=1)
         if since is not None and as_of < since:
             continue

@@ -56,10 +56,19 @@ async def run(args: argparse.Namespace) -> int:
 
         gateway = SECGateway()  # raises, naming SEC_USER_AGENT, if it is not set
         where = "" if args.all else "AND symbol = ANY(:syms)"
-        rows = (await session.execute(text(
-            "SELECT symbol, (metadata->>'cik')::int, metadata->>'cik_sec_title' FROM assets "
+        assets = (await session.execute(text(
+            "SELECT symbol, (metadata->>'cik')::int, metadata->>'cik_sec_title', "
+            "COALESCE(metadata->'cik_predecessors', '[]'::jsonb) FROM assets "
             f"WHERE asset_class = 'equity' AND metadata ? 'cik' {where} ORDER BY symbol"
         ), {"syms": [s.upper() for s in (args.symbols or [])]})).all()
+        # Each asset's own CIK, then its predecessors (titled as such); a CIK
+        # shared by two share classes is fetched once.
+        rows, seen = [], set()
+        for symbol, cik, title, preds in assets:
+            for c, t in [(cik, title)] + [(int(p), None) for p in (preds or [])]:
+                if c not in seen:
+                    seen.add(c)
+                    rows.append((symbol if c == cik else f"{symbol}<-pred", c, t))
         for symbol, cik, title in rows:
             try:
                 doc = await asyncio.to_thread(gateway.company_facts, cik)

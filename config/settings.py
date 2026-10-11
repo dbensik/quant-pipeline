@@ -174,6 +174,54 @@ def sec_user_agent():
     return _UA().SEC_USER_AGENT.strip() or None
 
 
+#: A ticker whose filer the ticker map gets WRONG, with the evidence. An entry
+#: wins over the map and the rename CSV (core/cik_resolution.py).
+CIK_OVERRIDES = {
+    # The rename CSV mapped WBA to 104207 'WALGREEN CO', which filed its last
+    # 10-Q 2014-12-30 and deregistered (15-12B) 2014-12-31. Walgreens Boots
+    # Alliance files as 1618921 from 2015 (41 10-K/10-Qs to 2025-06-26).
+    # Checked against SEC submissions 2026-10-11.
+    "WBA": 1618921,
+}
+
+#: Earlier filers whose history belongs to the same business, read together
+#: with the asset's own CIK (latest filed wins per period, as for one CIK).
+#: A holding-company reorganisation moves the ticker to a NEW CIK and leaves
+#: the history under the old one; a ticker->CIK map cannot express that.
+CIK_PREDECESSORS = {
+    # 'ExxonMobil Holdings Corp' (2115436) registered as successor issuer by
+    # 8-K12B on 2026-07-01; 'EXXON MOBIL CORP' (34088) filed Form 25-NSE on
+    # 2026-07-02. 2115436 had 49 facts; 34088 holds the history (10-Ks back
+    # to 2009 here). Checked against SEC submissions 2026-10-11.
+    "XOM": (34088,),
+    # Walgreen Co, the pre-2015 filer of the same business (see CIK_OVERRIDES).
+    "WBA": (104207,),
+    # Found by the resolver's history-gap check 2026-10-11, each confirmed in
+    # SEC submissions (successor 8-K12B / 8-K12G3, predecessor 25-NSE or 15-12):
+    "APA": (6769,),      # APACHE CORP -> APA Corp, 8-K12B 2021-03-01
+    "APO": (1411494,),   # old Apollo Global Management -> new, 8-K12B 2022-01-03
+    "BLK": (1364742,),   # old BlackRock (now 'BlackRock Finance') -> BlackRock, Inc. 2024-10
+    "MRVL": (1058057,),  # MARVELL TECHNOLOGY GROUP LTD -> Marvell Technology, Inc., 8-K12B 2021-04-20
+    "TPL": (97517,),     # TEXAS PACIFIC LAND TRUST -> Texas Pacific Land Corp, 15-12B 2021-01-25
+    "BG": (1144519,),    # BUNGE LTD -> Bunge Global SA, 8-K12G3 2023-11-01
+}
+
+#: History gaps the check found and a person accepted, with why. A merger of
+#: equals has no single predecessor whose statements continue the company's.
+CIK_HISTORY_GAP_ACCEPTED = {
+    "DD": "DowDuPont 2017 merger of Dow and DuPont: no single predecessor",
+    "TKO": "formed 2023 from WWE and UFC: no single predecessor",
+    # Same CIK throughout; checked 2026-10-11: ifrs-full facts 2018-08-30..
+    # 2022-08-19, us-gaap from 2022-11-04 (US redomicile). The allow-list is
+    # us-gaap, so TEAM's history before 2022 is not stored.
+    "TEAM": "filed 20-F under IFRS until its 2022 redomicile; us-gaap starts 2022-11-04",
+}
+
+#: The resolver flags an equity whose filer's first 10-K/10-Q comes more than
+#: this many days after its first stored price bar: the signature of history
+#: left under a predecessor CIK (XOM: 2026 filer, bars from 2015).
+CIK_HISTORY_GAP_DAYS = 400
+
 #: The us-gaap / dei concepts stored (raw, insert-only) by core/fundamentals.py.
 #: Everything a DCF's FCF drivers, the capital structure and per-share values
 #: need; the ordered concept lists that turn these into line items live in

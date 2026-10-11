@@ -16,10 +16,11 @@ pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")
 async def test_apple_from_the_registry_and_facts():
     async with get_session() as session:
         repo = TimescaleValuationRepo(session)
-        assert await repo.equity("aapl") == (320193, "Information Technology")
+        assert await repo.equity("aapl") == ([320193], "Information Technology")
+        assert await repo.equity("XOM") == ([2115436, 34088], "Energy")
         assert await repo.equity("SPY") is None  # an ETF has no filer
         assert (date(2020, 8, 31), 4.0) in await repo.splits("AAPL")
-        filed = await repo.filing_dates(320193)
+        filed = await repo.filing_dates([320193])
         assert date(2025, 10, 31) in filed and filed == sorted(filed)
         cov = await repo.coverage()
         assert cov["with_cik"] >= 500 and cov["ciks_with_facts"] >= 1

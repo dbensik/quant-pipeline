@@ -114,3 +114,30 @@ def test_interest_add_back_is_after_tax(aapl):
     tax = v.lines["tax_rate"][0]
     assert v.lines["after_tax_interest"][1] == "TTM to 2023-09-30"
     assert v.lines["after_tax_interest"][0] == pytest.approx(3_933e6 * (1 - tax))
+
+
+def test_stale_revenue_is_not_a_growth_rate():
+    # Revenue known only to FY2020 (APA's case: its current filer's revenue
+    # concept is not on the list), valued in 2026: terminal growth, and why.
+    from modeling.valuation import default_growth
+    from core.fundamentals import Fact
+
+    def rev(year, v):
+        return Fact(1, "us-gaap", "Revenues", "USD", date(year, 1, 1), date(year, 12, 31), v, year, "FY", "10-K",
+                    date(year + 1, 2, 20), f"a{year}", None, datetime(2026, 1, 1, tzinfo=timezone.utc))
+    st = Statements([rev(y, 100.0 * 1.2 ** (y - 2016)) for y in range(2016, 2021)])
+    g, why = default_growth(st, date(2021, 6, 1))
+    assert g == pytest.approx(1.2 - 1, abs=1e-9) or g == 0.25  # fresh: the CAGR (clamped at 25%)
+    g, why = default_growth(st, date(2026, 10, 8))
+    assert g == 0.025 and "stale" in why
+
+
+def test_missing_capex_refuses_instead_of_counting_as_zero():
+    from core.fundamentals import Fact
+
+    def f(concept, v, filed=date(2026, 8, 1)):
+        return Fact(1, "us-gaap", concept, "USD", date(2025, 7, 1), date(2026, 6, 30), v, 2026, "FY", "10-K",
+                    filed, f"a-{concept}", None, datetime(2026, 1, 1, tzinfo=timezone.utc))
+    st = Statements([f("NetCashProvidedByUsedInOperatingActivities", 4.5e9)])
+    out = build_inputs(st, date(2026, 10, 8), 45.0, 0.04, BETA)
+    assert isinstance(out, Refusal) and "capital expenditure" in out.reason

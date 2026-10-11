@@ -145,6 +145,7 @@ class ValuationGrid(BaseModel):
 class ValuationResponse(BaseModel):
     symbol: str
     cik: int
+    predecessor_ciks: List[int] = Field(description="Earlier filers read with `cik` (holding-company reorganisations)")
     sector: Optional[str]
     as_of: date
     price: float = Field(description="Close AS TRADED on price_date: the basis of the share count")
@@ -197,7 +198,7 @@ async def statements(
 ) -> ValuationStatements:
     as_of = as_of or _today()
     try:
-        st, cik, _ = await svc.load_statements(data, symbol)
+        st, cik, _, _ = await svc.load_statements(data, symbol)
     except svc.ValuationError as exc:
         _raise(exc)
     item = lambda v: ValuationLineItem(**v.__dict__) if v else None  # noqa: E731
