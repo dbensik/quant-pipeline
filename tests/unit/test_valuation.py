@@ -631,3 +631,28 @@ def test_ebitda_sums_depreciation_and_amortisation_when_there_is_no_total():
     assert (
         w.lines["ebitda"][0] == pytest.approx(189e9) and "depreciation only" in w.lines["ebitda"][1]
     )
+
+
+@pytest.mark.parametrize(
+    "concept",
+    [
+        "PaymentsToAcquireOtherPropertyPlantAndEquipment",  # LLY, WEC, LNT, ADP
+        "PaymentsToAcquireOtherProductiveAssets",  # VZ
+        "PaymentsForConstructionInProcess",  # ED
+        "PaymentsForCapitalImprovements",  # GLW, IT, SNA
+        "PaymentsToAcquireMachineryAndEquipment",  # RL
+        "PaymentsForProceedsFromProductiveAssets",  # D, net of disposals
+    ],
+)
+def test_a_filers_only_capex_line_is_capex(concept):
+    st = Statements(
+        [
+            _flow_and_balance("NetCashProvidedByUsedInOperatingActivities", 37e9),
+            _flow_and_balance(concept, 17e9),
+            _flow_and_balance("WeightedAverageNumberOfDilutedSharesOutstanding", 4.2e9),
+            _flow_and_balance("LongTermDebt", 1e9, duration=False),
+            _flow_and_balance("InterestPaidNet", 5e7),
+        ]
+    )
+    v = build_inputs(st, date(2026, 10, 8), 40.0, 0.04, BETA)
+    assert not isinstance(v, Refusal) and v.lines["capex"][0] == 17e9

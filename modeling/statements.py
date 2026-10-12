@@ -89,6 +89,17 @@ LINE_ITEMS: Dict[str, Tuple[str, ...]] = {
         "PaymentsToAcquireOilAndGasPropertyAndEquipment",
         "PaymentsToExploreAndDevelopOilAndGasProperties",
         "PaymentsToAcquireOilAndGasProperty",
+        # From a census of the 26 refused for capex (2026-10-11): each the
+        # filer's only capex line. LLY, WEC, LNT, ADP; VZ ($17.0B), INCY, ROP;
+        # ED ($4.8B, construction); GLW, IT, SNA; RL. D ($12.7B) reports it
+        # net of disposal proceeds. The other 13 tag capex only under their
+        # own extension concepts (COP, NEE, PSX, VLO, URI, ...) and stay refused.
+        "PaymentsToAcquireOtherPropertyPlantAndEquipment",
+        "PaymentsToAcquireOtherProductiveAssets",
+        "PaymentsForConstructionInProcess",
+        "PaymentsForCapitalImprovements",
+        "PaymentsToAcquireMachineryAndEquipment",
+        "PaymentsForProceedsFromProductiveAssets",
     ),
     "diluted_shares": ("WeightedAverageNumberOfDilutedSharesOutstanding",),
     # instants

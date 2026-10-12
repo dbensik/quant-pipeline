@@ -304,6 +304,14 @@ FUNDAMENTAL_CONCEPTS = (
     ("us-gaap", "PaymentsToAcquireOilAndGasPropertyAndEquipment"),
     ("us-gaap", "PaymentsToExploreAndDevelopOilAndGasProperties"),
     ("us-gaap", "PaymentsToAcquireOilAndGasProperty"),
+    # Added 2026-10-11 from a census of the 26 refused for capex; see the
+    # capex list in modeling/statements.py for who files which.
+    ("us-gaap", "PaymentsToAcquireOtherPropertyPlantAndEquipment"),
+    ("us-gaap", "PaymentsToAcquireOtherProductiveAssets"),
+    ("us-gaap", "PaymentsForConstructionInProcess"),
+    ("us-gaap", "PaymentsForCapitalImprovements"),
+    ("us-gaap", "PaymentsToAcquireMachineryAndEquipment"),
+    ("us-gaap", "PaymentsForProceedsFromProductiveAssets"),
     ("us-gaap", "CashAndCashEquivalentsAtCarryingValue"),
     ("us-gaap", "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"),
     ("us-gaap", "MarketableSecuritiesCurrent"),
@@ -412,6 +420,12 @@ DCF_REFUSED_SYMBOLS = {
     "F": _CAPTIVE_FINANCE,
     "GM": _CAPTIVE_FINANCE,
     "KMX": _CAPTIVE_FINANCE,
+    # Added 2026-10-11 (approved by Danny): John Deere Financial and PACCAR
+    # Financial. Both were refused anyway for "interest but no debt balance"
+    # (DE tags $17.1B DebtCurrent and $6.1B SecuredDebt, no standard total);
+    # this is the reason that would remain once the debt tags were read.
+    "DE": _CAPTIVE_FINANCE,
+    "PCAR": _CAPTIVE_FINANCE,
 }
 
 # --- Crypto identity (core/crypto_identity.py) ---
