@@ -158,6 +158,18 @@ def tiingo_headers() -> dict:
 URL_SEC_COMPANY_FACTS = "https://data.sec.gov/api/xbrl/companyfacts/CIK{cik:010d}.json"
 URL_SEC_SUBMISSIONS = "https://data.sec.gov/submissions/CIK{cik:010d}.json"
 URL_SEC_COMPANY_TICKERS = "https://www.sec.gov/files/company_tickers.json"
+#: EDGAR's daily form index: one fixed-width file per business day listing
+#: every filing. The quarter's directory listing (JSON) names the days that
+#: exist, so a weekend or holiday is never requested (its URL answers 403
+#: AccessDenied, which must not be mistaken for a block).
+URL_SEC_DAILY_INDEX_DIR = "https://www.sec.gov/Archives/edgar/daily-index/{year}/QTR{quarter}/index.json"
+URL_SEC_DAILY_FORM_INDEX = "https://www.sec.gov/Archives/edgar/daily-index/{year}/QTR{quarter}/{name}"
+#: Forms whose filing changes a company's XBRL facts (amendments included).
+SEC_FACT_FORMS = ("10-K", "10-K/A", "10-Q", "10-Q/A", "10-KT", "10-KT/A", "10-QT", "10-QT/A",
+                  "20-F", "20-F/A", "40-F", "40-F/A")
+#: The daily step looks back this many days, so mornings the Mac slept
+#: through are caught up (the job has gone seven days without running).
+SEC_REFRESH_LOOKBACK_DAYS = 7
 #: Published limit is 10 per second; stay under it.
 SEC_MAX_REQUESTS_PER_SECOND = 8
 SEC_TIMEOUT_SECONDS = 30
@@ -249,6 +261,13 @@ FUNDAMENTAL_CONCEPTS = (
     ("us-gaap", "NetIncomeLoss"),
     ("us-gaap", "DepreciationDepletionAndAmortization"),
     ("us-gaap", "DepreciationAmortizationAndAccretionNet"),
+    # Added 2026-10-11 from a census of the 104 non-financial equities with no
+    # D&A within 460 days (so no EBITDA and no exit-multiple cross-check; MSFT
+    # among them): 47 tag DepreciationAndAmortization, 77 Depreciation and 72
+    # AmortizationOfIntangibleAssets (summed when there is no total).
+    ("us-gaap", "DepreciationAndAmortization"),
+    ("us-gaap", "Depreciation"),
+    ("us-gaap", "AmortizationOfIntangibleAssets"),
     ("us-gaap", "ShareBasedCompensation"),
     ("us-gaap", "NetCashProvidedByUsedInOperatingActivities"),
     # Added 2026-10-11: Apple filed CFO under this variant 2014-04..2017-02 (its

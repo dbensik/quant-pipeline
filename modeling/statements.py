@@ -58,7 +58,12 @@ LINE_ITEMS: Dict[str, Tuple[str, ...]] = {
     #: Cash interest paid: a PROXY for expense, used only when none is reported.
     "interest_paid": ("InterestPaidNet", "InterestPaid"),
     "net_income": ("NetIncomeLoss",),
-    "d_and_a": ("DepreciationDepletionAndAmortization", "DepreciationAmortizationAndAccretionNet"),
+    "d_and_a": ("DepreciationDepletionAndAmortization", "DepreciationAmortizationAndAccretionNet",
+                "DepreciationAndAmortization"),
+    #: The two halves, for the 77 of 104 filers without a D&A total that tag
+    #: Depreciation (MSFT among them); summed per period in valuation.py.
+    "depreciation": ("Depreciation",),
+    "amortization_intangibles": ("AmortizationOfIntangibleAssets",),
     "share_based_comp": ("ShareBasedCompensation",),
     "cfo": ("NetCashProvidedByUsedInOperatingActivities", "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"),
     "capex": (

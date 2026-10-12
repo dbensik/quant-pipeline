@@ -64,11 +64,12 @@ restating write — see `research/dividend-drift-plan-2026-09-27.md`.
 ```bash
 launchctl print gui/$(id -u)/com.dbensik.quant-pipeline.daily-maintenance
 scripts/launchd/install.sh                  # (re)install after editing the plist
-scripts/cron/daily_maintenance.sh           # ingest, risk-free rate, reassigned + missing-day + fresh-return checks, snapshot
+scripts/cron/daily_maintenance.sh           # ingest, risk-free rate, SEC facts, reassigned + missing-day + fresh-return checks, snapshot
 scripts/ingest_rates.py                     # risk-free rate (^IRX) only; --as-of DATE prints the rate a reader gets
 scripts/check_reassigned.py                 # the check alone; read-only, exit 1 = flagged
 scripts/check_missing_days.py               # holes inside series; read-only, exit 1 = lost bars
 scripts/check_fresh_returns.py              # returns readers see vs fresh Yahoo, 30 sessions; exit 1 = mismatch
+scripts/load_fundamentals.py --recent       # SEC facts for registry filers of the last 7 days (--all: everyone, ~10 min)
 tail -f logs/daily_maintenance.log
 ```
 
@@ -186,7 +187,17 @@ before `as_of`, never an exact-date join: bond holidays are stock sessions)
 and whether it is stale. Insert-only; today's New York date is never stored.
 A yield is not a price: as an asset it would have reached backtests, the
 symbol picker and every price check. `optimize.py` and `data_enricher.py`
-still default to a hardcoded 0.02.
+still default to a hardcoded 0.02. The DCF reads it (`modeling/valuation.py`).
+
+**SEC facts are refreshed from EDGAR's daily form index** (since
+2026-10-11, step in the 06:00 job). The quarter's `index.json` names the
+business days that exist — a weekend's index URL answers 403 AccessDenied,
+which must never be read as a block — and only registry companies (own CIK
+or a predecessor) that filed a 10-K, 10-Q, 20-F, 40-F or an amendment in
+`SEC_REFRESH_LOOKBACK_DAYS` are reloaded: a few requests, not the ~500 and
+2 GB of `--all`. Needs `SEC_USER_AGENT` in `.env` (Danny's identity, his
+choice; never supplied by code — `core/sec.py` refuses to construct without
+it). A block (HTML 403) or a 429 stops the run.
 
 **Universe snapshots cannot be backdated.** A missed day is a permanent gap in
 point-in-time membership, and membership is what makes survivorship-free
@@ -233,7 +244,7 @@ Protocol (`db/repositories/market_data.py` documents this as its purpose).
 Integration tests are deselected by default and skip if the DB is down.
 
 ```bash
-cd frontend && npm test        # 202 tests — also needs NO API/Docker
+cd frontend && npm test        # 256 tests — also needs NO API/Docker
 ```
 
 When adding tests: assert on the *output*, not on values the response merely
@@ -285,8 +296,29 @@ For the TimescaleDB layer, copy `.env.example` → `.env`; without it, `db/sessi
 - `screeners/` — Filter universe by criteria (momentum, low volatility); output feeds into watchlists
 - `pricing/` — option pricing, pure numpy/scipy: Black–Scholes–Merton with Greeks and `implied_vol` (NaN WITH A REASON outside dividend-discounted bounds, never a wrong number), CRR tree (N and N+1 averaged: plain 500 steps is 2e-3 off at the money), antithetic Monte Carlo (SE over PAIR averages), realised-vol estimators and the cone, a vectorised escrowed-dividend tree, and `chains.py`: one archived capture -> de-americanised IV, per-expiry smiles, ATM term structure, 25-delta skew. **No recorded spot**: each expiry is priced off its own put-call-parity forward (the capture reads spot once, seconds from each expiry's quotes; AAPL showed a fake −4% yield). **Dividends are discrete and projected** from `corporate_actions` (a continuous yield mispriced the SPY put premium 4.5–16x the half-spread). Plan, measurements, mutation tallies: `research/option-pricing-plan-2026-10-08.md`.
 - `core/options_surface.py` + `api/routers/options.py` — `/api/v1/options` archive|surface|price|pricers|realised-vol. A surface costs 10–35 s, so it is cached in `data/surfaces/<TICKER>/<day>.json` (gitignored, derivable, safe to delete). The key hashes the capture bytes, the rate observation, the dividend schedule and a fingerprint DERIVED from the pricing source and settings — never hand-bump a version. The realised-vol cone is NOT cached (bars are not in the key). A surface for today's capture uses yesterday's rate and is recomputed tomorrow: correct. `scripts/precompute_surfaces.py` fills the cache (108 captures ~37 min); it is not in the 06:00 job.
+- `core/sec.py` + `core/fundamentals.py` + `modeling/` + `api/routers/valuation.py` —
+  tier 3, the DCF. SEC XBRL company facts are stored RAW and insert-only in
+  `fundamental_facts` (allow-list `FUNDAMENTAL_CONCEPTS`; a new concept needs
+  a `load_fundamentals.py --all` reload, insert-only) and standardised at READ
+  time by `modeling/statements.py`: a fact is visible only if filed STRICTLY
+  before `as_of`, ordered concept lists per line item, Q4 = FY − 3Q, cash-flow
+  TTM = FY + YTD − prior YTD (10-Qs file cash flows year-to-date only), share
+  counts in the split basis of the day they were FILED. `modeling/valuation.py`
+  builds inputs with the source of every line; prices against share counts are
+  AS TRADED (`adjust="none"`), beta uses total returns. **Missing is never
+  zero**: missing capex refuses; debt older than 460 days or absent while
+  interest is reported refuses (LDOS was valued on 2015 debt, CMCSA on none of
+  its $90B); flows older than 200 days (annual 460) count as unreported.
+  `Statements.debt()` takes the newest balance date, then the LARGEST of three
+  shapes at it (ON tags a $1.6M lease figure beside $4.5B of debt). Decisions
+  in `research/dcf-plan-2026-10-08.md`: weekly 5y Blume beta, 7% WACC floor
+  (labelled; `wacc_unfloored` in the response), market cost of debt, growth =
+  lower of 3y/5y revenue CAGR capped 10%; financials, REITs, managed care and
+  captive finance refused. Predecessor CIKs (`CIK_PREDECESSORS`) cover holdco
+  reorganisations (XOM, WBA). `core/valuation_service.py` assembles a value and
+  the point-in-time history (the day after each 10-K/10-Q).
 - `api/routers/` — the REST/WS surface: ohlcv, assets, strategies, backtest,
-  compare, optimize, simulate, options, screeners, statistics, portfolios,
+  compare, optimize, simulate, options, valuation, screeners, statistics, portfolios,
   watchlists, research, ingest, results, signals, ws
 - `frontend/` — React dashboard; `routes.tsx` declares pages once for both the
   router and the nav bar; TanStack Query owns server state, Zustand owns UI

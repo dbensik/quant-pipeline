@@ -2,10 +2,9 @@
 #
 # scripts/cron/daily_maintenance.sh
 #
-# Daily data maintenance, for cron. Two steps, in this order:
-#
-#   1. Ingest new price bars into TimescaleDB.
-#   2. Snapshot index membership.
+# Daily data maintenance, for launchd. In this order: ingest new price bars,
+# the risk-free rate, SEC facts for recent filers, the read-only checks
+# (reassigned tickers, missing days, fresh returns), then the index snapshot.
 #
 # Ingest runs FIRST so that any name which joined an index today already has
 # bars by the time the snapshot records it.
@@ -114,6 +113,21 @@ if [ "$MODE" != "--snapshot-only" ]; then
         log "risk-free rate OK"
     else
         log "risk-free rate FAILED (exit $?)"
+        STATUS=1
+    fi
+fi
+
+# SEC facts for the DCF (tier 3): only registry companies that filed a 10-K,
+# 10-Q, 20-F or 40-F in the last SEC_REFRESH_LOOKBACK_DAYS, read from EDGAR's
+# daily form index — a few requests, not the ~500 and 2 GB of a full reload.
+# Insert-only. Needs SEC_USER_AGENT in .env; without it this step fails and
+# says so, and nothing else in the job depends on it.
+if [ "$MODE" != "--snapshot-only" ]; then
+    log "--- SEC fundamentals ---"
+    if "$VENV_PYTHON" scripts/load_fundamentals.py --recent >> "$LOG_FILE" 2>&1; then
+        log "SEC fundamentals OK"
+    else
+        log "SEC fundamentals FAILED (exit $?)"
         STATUS=1
     fi
 fi

@@ -210,9 +210,21 @@ def build_inputs(
     subtract_sbc = settings.DCF_SUBTRACT_SBC and sbc is not None
     base_fcf = cfo - capex + after_tax_interest - (sbc if subtract_sbc else 0.0)
 
-    op, _ = _ttm_or_annual(st, "operating_income", as_of)
-    da, _ = _ttm_or_annual(st, "d_and_a", as_of)
+    op, op_src = _ttm_or_annual(st, "operating_income", as_of)
+    da, da_src = _ttm_or_annual(st, "d_and_a", as_of)
+    da_label = "D&A"
+    if da is None:
+        # No D&A total: depreciation plus amortisation of intangibles over the
+        # SAME trailing period (MSFT tags only these), or depreciation alone.
+        dep, dep_src = _ttm_or_annual(st, "depreciation", as_of)
+        amort, amort_src = _ttm_or_annual(st, "amortization_intangibles", as_of)
+        if dep is not None and amort is not None and amort_src == dep_src:
+            da, da_src, da_label = dep + amort, dep_src, "depreciation + amortisation of intangibles"
+        elif dep is not None:
+            da, da_src, da_label = dep, dep_src, "depreciation only (no amortisation on file for the period)"
     ebitda = op + da if op is not None and da is not None else None
+    ebitda_src = (f"operating income ({op_src}) + {da_label} ({da_src})" if ebitda is not None
+                  else "operating income + D&A: not both on file")
 
     if growth_first is None:
         growth_first, growth_src = default_growth(st, as_of)
@@ -233,7 +245,7 @@ def build_inputs(
         "total_debt": (debt, debt_src),
         "net_debt": (net_debt, net_src),
         "shares": (shares, f"{shares_src}, period {shares_v.period_end}, filed {shares_v.filed}"),
-        "ebitda": (ebitda, "operating income + D&A, TTM"),
+        "ebitda": (ebitda, ebitda_src),
         "growth_first": (growth_first, growth_src),
         "beta": (beta.beta, f"vs {settings.DCF_BETA_BENCHMARK}, {beta.observations} daily returns, SE {beta.std_error:.3f}"),
         "risk_free": (risk_free, "^IRX continuous, as of the valuation date"),

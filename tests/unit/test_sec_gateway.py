@@ -164,3 +164,54 @@ def test_a_dropped_connection_is_retried_but_a_block_is_not():
     with pytest.raises(S.SECBlockedError):
         S.SECGateway(session=blocked, user_agent=UA, clock=clock, sleep=clock.sleep).get_json("https://data.sec.gov/c")
     assert len(blocked.calls) == 1  # a block is an answer: not retried
+
+
+# --- daily form index -----------------------------------------------------------
+
+INDEX = """Description:           Daily Index of EDGAR Dissemination Feed by Form Type
+Last Data Received:    Oct 9, 2026
+
+Form Type   Company Name                                                  CIK
+      Date Filed  File Name
+---------------------------------------------------------------------------------------------------------------------------------------------
+1-A              Timeplast, Inc.                                               1933967     20261009    edgar/data/1933967/0001104659-26-114962.txt
+10-Q             DELTA AIR LINES, INC.                                         27904       20261009    edgar/data/27904/0000027904-26-000038.txt
+10-K/A           SOME CO                                                       12345       20261009    edgar/data/12345/0000012345-26-000001.txt
+SC 13G/A         VANGUARD GROUP INC                                            102909      20261009    edgar/data/102909/0000102909-26-000001.txt
+8-K              APPLE INC                                                     320193      20261009    edgar/data/320193/0000320193-26-000099.txt
+"""
+
+
+def test_the_form_index_parses_multi_word_forms_and_ciks():
+    rows = S.parse_form_index(INDEX)
+    assert ("10-Q", 27904, S.date(2026, 10, 9)) in rows
+    assert ("SC 13G/A", 102909, S.date(2026, 10, 9)) in rows
+    assert len(rows) == 5
+
+
+def test_recent_filers_reads_only_listed_days_and_fact_forms():
+    listing = {"directory": {"item": [{"name": "form.20261008.idx"}, {"name": "form.20261009.idx"},
+                                      {"name": "master.20261009.idx"}, {"name": "form.20260930.idx"}]}}
+    session = FakeSession([FakeResponse(body=listing),
+                           FakeResponse(ctype="application/octet-stream", text=""),
+                           FakeResponse(ctype="application/octet-stream", text=INDEX)])
+    gw = S.SECGateway(session=session, user_agent=UA, clock=FakeClock(), sleep=lambda s: None)
+    ciks, days = gw.recent_fact_filers(S.date(2026, 10, 3), S.date(2026, 10, 10))
+    assert ciks == {27904, 12345}  # 10-Q and 10-K/A; not the 8-K, 13G or 1-A
+    assert days == [S.date(2026, 10, 8), S.date(2026, 10, 9)]  # the weekend is never requested
+    assert [u.rsplit("/", 1)[-1] for u, _ in session.calls] == ["index.json", "form.20261008.idx", "form.20261009.idx"]
+
+
+def test_a_window_across_quarters_lists_both():
+    empty = {"directory": {"item": []}}
+    session = FakeSession([FakeResponse(body=empty), FakeResponse(body=empty)])
+    gw = S.SECGateway(session=session, user_agent=UA, clock=FakeClock(), sleep=lambda s: None)
+    gw.recent_fact_filers(S.date(2026, 9, 28), S.date(2026, 10, 2))
+    assert [u.split("daily-index/")[1] for u, _ in session.calls] == ["2026/QTR3/index.json", "2026/QTR4/index.json"]
+
+
+def test_an_html_index_response_is_a_block():
+    session = FakeSession([FakeResponse(status=403, ctype="text/html", text="<title>Undeclared Automated Tool</title>")])
+    gw = S.SECGateway(session=session, user_agent=UA, clock=FakeClock(), sleep=lambda s: None)
+    with pytest.raises(S.SECBlockedError):
+        gw.get_text("https://www.sec.gov/Archives/x.idx")

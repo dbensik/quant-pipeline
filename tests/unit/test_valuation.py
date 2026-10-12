@@ -329,3 +329,20 @@ def test_default_growth_is_the_lower_of_three_and_five_year_cagr():
     g, why = default_growth(Statements([rev(y, v) for y, v in levels.items()]), date(2026, 6, 1))
     assert g == pytest.approx((110 / 100) ** (1 / 5) - 1)  # 5-year 1.9%, not 3-year 16.3%
     assert "3-year" in why and "5-year" in why and "acquisitions" in why
+
+
+def test_ebitda_sums_depreciation_and_amortisation_when_there_is_no_total():
+    # MSFT tags Depreciation and AmortizationOfIntangibleAssets, no D&A total.
+    st = Statements(_operating() + [
+        _flow_and_balance("LongTermDebt", 4e9, duration=False),
+        _flow_and_balance("OperatingIncomeLoss", 155e9),
+        _flow_and_balance("Depreciation", 34e9),
+        _flow_and_balance("AmortizationOfIntangibleAssets", 4e9)])
+    v = build_inputs(st, date(2026, 10, 8), 50.0, 0.04, BETA)
+    assert v.lines["ebitda"][0] == pytest.approx(193e9)
+    assert "depreciation + amortisation" in v.lines["ebitda"][1]
+    alone = Statements(_operating() + [_flow_and_balance("LongTermDebt", 4e9, duration=False),
+                                       _flow_and_balance("OperatingIncomeLoss", 155e9),
+                                       _flow_and_balance("Depreciation", 34e9)])
+    w = build_inputs(alone, date(2026, 10, 8), 50.0, 0.04, BETA)
+    assert w.lines["ebitda"][0] == pytest.approx(189e9) and "depreciation only" in w.lines["ebitda"][1]

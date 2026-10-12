@@ -6,6 +6,15 @@ Load SEC company facts into `fundamental_facts`, insert-only.
     python scripts/load_fundamentals.py --from-file facts.json[.gz] ...   # offline
     python scripts/load_fundamentals.py --symbols AAPL MSFT               # live: needs SEC_USER_AGENT
     python scripts/load_fundamentals.py --all                             # every equity with a CIK
+    python scripts/load_fundamentals.py --recent [DAYS]                   # 06:00 job: filers of the last 7 days
+
+`--recent DAYS` reads EDGAR's daily form index for each business day in the
+window (one small file per day, the days named by the quarter's listing) and
+reloads only registry companies — own CIK or a predecessor — that filed a
+10-K, 10-Q, 20-F, 40-F or an amendment. A whole reload is ~500 requests and
+2 GB; a day's is the index plus the handful that filed. The window overlaps
+on purpose: a morning the Mac slept through is caught up, and a reload is
+insert-only, so a repeat inserts nothing.
 
 Live loads read the CIK recorded by scripts/resolve_ciks.py --write and
 report the filer's own entityName beside the symbol: that is the identity
@@ -24,11 +33,12 @@ import asyncio
 import gzip
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from config import settings  # noqa: E402
 from core.fundamentals import ingest_company  # noqa: E402
 from db.repositories.fundamentals import TimescaleFactRepo  # noqa: E402
 from db.session import AsyncSessionLocal  # noqa: E402
@@ -55,7 +65,7 @@ async def run(args: argparse.Namespace) -> int:
         from core.sec import SECGateway
 
         gateway = SECGateway()  # raises, naming SEC_USER_AGENT, if it is not set
-        where = "" if args.all else "AND symbol = ANY(:syms)"
+        where = "AND symbol = ANY(:syms)" if args.symbols else ""
         assets = (await session.execute(text(
             "SELECT symbol, (metadata->>'cik')::int, metadata->>'cik_sec_title', "
             "COALESCE(metadata->'cik_predecessors', '[]'::jsonb) FROM assets "
@@ -69,6 +79,13 @@ async def run(args: argparse.Namespace) -> int:
                 if c not in seen:
                     seen.add(c)
                     rows.append((symbol if c == cik else f"{symbol}<-pred", c, t))
+        if args.recent:
+            end = date.today()
+            filed, days = await asyncio.to_thread(gateway.recent_fact_filers, end - timedelta(days=args.recent), end)
+            rows = [r for r in rows if r[1] in filed]
+            print(f"daily index read for {len(days)} business days "
+                  f"({days[0] if days else '-'}..{days[-1] if days else '-'}): {len(filed)} filers of "
+                  f"10-K/10-Q/20-F/40-F, {len(rows)} in the registry")
         for symbol, cik, title in rows:
             try:
                 doc = await asyncio.to_thread(gateway.company_facts, cik)
@@ -93,9 +110,11 @@ def main() -> int:
     p.add_argument("--fetched-at", type=lambda s: datetime.fromisoformat(s))
     p.add_argument("--symbols", nargs="+")
     p.add_argument("--all", action="store_true")
+    p.add_argument("--recent", type=int, metavar="DAYS", nargs="?", const=settings.SEC_REFRESH_LOOKBACK_DAYS,
+                   help=f"default {settings.SEC_REFRESH_LOOKBACK_DAYS} (SEC_REFRESH_LOOKBACK_DAYS)")
     args = p.parse_args()
-    if not (args.from_file or args.symbols or args.all):
-        p.error("give --from-file, --symbols or --all")
+    if not (args.from_file or args.symbols or args.all or args.recent):
+        p.error("give --from-file, --symbols, --all or --recent DAYS")
     return asyncio.run(run(args))
 
 

@@ -13,12 +13,13 @@ Built and maintained by one person as a working research tool, not a product. It
 | **Backtesting** | Equity curve against buy-and-hold, CAGR, Sharpe, max drawdown, Calmar, trade log; parameter grid search and portfolio-weight optimization; strategy comparison on one symbol. Live progress over a websocket. |
 | **Monte Carlo** | A distribution around any backtest: percentile fan bands, terminal wealth, drawdown depth and duration, VaR and CVaR, probability of ruin. Stationary block bootstrap by default, iid and GBM for contrast; resample the strategy's returns, or re-run it on resampled price paths. |
 | **Options** | Implied-volatility smiles, ATM term structure and 25-delta skew for six underlyings from a twice-daily option-chain archive, drawn over each name's realised-volatility cone, plus a pricer that shows Black–Scholes, a binomial tree and Monte Carlo side by side. IV comes from mids, priced off each expiry's put-call-parity forward with early exercise and discrete dividends removed; Yahoo's own IV is kept only for comparison. |
+| **Valuation** | A discounted-cash-flow value for every S&P 500 filer from point-in-time SEC XBRL facts (each read only after it was filed), with the source of every input, the bridge from enterprise value to per-share value, a WACC × terminal-growth grid, the growth the price implies, and the value against the price at every 10-K and 10-Q since 2015. Banks, insurers, REITs, managed care and captive finance are refused with a reason; a negative free cash flow is explained, never shown as a price. |
 | **Screening and statistics** | Momentum and low-volatility screeners over a universe; ADF, cointegration, and PCA on the Statistics page. |
 | **Portfolios and watchlists** | Saved in the database, with a trade log and derived P&L. |
 | **Research** | Company profiles, financials, and news per symbol. |
 | **Serving** | gRPC `SignalService`, a GraphQL gateway in front of it, SHA-256 payload hashing and Ed25519 signing, and a hash-chained `audit_log.json`. `./run_pipeline.sh verify` checks the chain. |
 | **Testing** | `tests/test_strategy_contract.py` runs every registered strategy over synthetic trend, mean-reverting, flat, and gap fixtures and asserts output shape, valid signal values, and no look-ahead: signals at *t* must not change when future bars are removed. 116 checks, and new strategies are covered automatically. |
-| **Operations** | A launchd job (`scripts/launchd/`) ingests, checks the result (reassigned tickers, missing days, returns against a fresh fetch) and snapshots index constituents daily, is single-instance, catches up after the Mac was asleep, and posts a notification on a partial run instead of a stack trace. |
+| **Operations** | A launchd job (`scripts/launchd/`) ingests bars, the risk-free rate and SEC facts for companies that filed that week, checks the result (reassigned tickers, missing days, returns against a fresh fetch) and snapshots index constituents daily, is single-instance, catches up after the Mac was asleep, and posts a notification on a partial run instead of a stack trace. |
 
 ## Quick start
 
@@ -64,6 +65,7 @@ alpha_models/      strategies (one class each), base_model.py, registry.py
 backtesting/       backtester and parameter generator
 simulation/        Monte Carlo kernels: resampling, equity paths, drawdowns, tail risk
 pricing/           option pricers, implied vol, realised-vol estimators, chains -> surface
+modeling/          point-in-time statements from SEC facts, DCF kernels, valuation inputs
 core/              ingestion path shared by the API and CLI
 data_pipeline/     universe fetchers, equity/crypto/fundamental pipelines, normalizer
 screeners/         momentum and low-volatility screeners over a universe
@@ -86,6 +88,7 @@ Honest accounting, kept current in `CHANGELOG.md`:
 - `PairsTradingStrategy` returns per-leg position columns instead of a `signal` column. It works with the portfolio backtester, is pinned by a test, and should be unified with the contract.
 - Cross-sectional equity strategies are not supported. Index membership is observed daily only from 2026-08-09; earlier S&P 500 membership is reconstructed from Wikipedia revisions into a separate table that nothing reads yet, and Yahoo has no prices for most names that left the index. See `research/sp500-membership-reconstruction-2026-10-04.md`.
 - 5 of the 99 registered crypto assets have no bars (BSC, BUIDL, PEPE, POL, TON). Yahoo's bare ticker for each is a different token; 21 others in the same position are now fetched under the provider's own ticker for the right coin (`CRYPTO_PROVIDER_SYMBOLS`), and these five have no usable one.
+- DCF values are a model, labelled as one: 341 of 508 equities are valued; the WACC is floored at 7% for about a third of them (CAPM gives less for low-beta names), and 20 are refused because they pay interest but tag no debt balance the model reads. See `research/dcf-plan-2026-10-08.md`.
 - The Nasdaq 100 is not tracked. Its Wikipedia page no longer carries a constituents table.
 - The Streamlit dashboard was removed in August 2026 after every feature was ported to a React page. Do not look for it.
 - The SQLite database (`quant_pipeline.db`) is the legacy store from the 0.1.0 release. Nothing reads it any more; TimescaleDB is the source of truth.
