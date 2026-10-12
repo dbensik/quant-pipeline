@@ -111,6 +111,14 @@ export type OptionPriceResponse = components['schemas']['OptionPriceResponse']
 export type OptionModelQuote = components['schemas']['OptionModelQuote']
 export type OptionPricerInfo = components['schemas']['OptionPricerInfo']
 
+export type ValuationRequest = components['schemas']['ValuationRequest']
+export type ValuationResponse = components['schemas']['ValuationResponse']
+export type ValuationResult = components['schemas']['ValuationResult']
+export type ValuationGrid = components['schemas']['ValuationGrid']
+export type ValuationHistory = components['schemas']['ValuationHistory']
+export type ValuationHistoryPoint = components['schemas']['ValuationHistoryPoint']
+export type ValuationCoverage = components['schemas']['ValuationCoverage']
+
 export const API_BASE_URL: string =
   import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8001'
 
@@ -504,6 +512,18 @@ export const api = {
 
   getProfile(symbol: string): Promise<Profile> {
     return request(`/api/v1/research/${encodeURIComponent(symbol)}/profile`)
+  },
+
+  getValuationCoverage(): Promise<ValuationCoverage> {
+    return request('/api/v1/valuation/coverage')
+  },
+
+  valueCompany(body: ValuationRequest): Promise<ValuationResponse> {
+    return request('/api/v1/valuation/dcf', { method: 'POST', body: JSON.stringify(body) })
+  },
+
+  getValuationHistory(symbol: string, since?: string | null): Promise<ValuationHistory> {
+    return request(`/api/v1/valuation/${encodeURIComponent(symbol)}/history${qs({ since: since ?? undefined })}`)
   },
 
   getOptionsArchive(): Promise<OptionsArchiveResponse> {

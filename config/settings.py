@@ -249,6 +249,10 @@ FUNDAMENTAL_CONCEPTS = (
     ("us-gaap", "DepreciationAmortizationAndAccretionNet"),
     ("us-gaap", "ShareBasedCompensation"),
     ("us-gaap", "NetCashProvidedByUsedInOperatingActivities"),
+    # Added 2026-10-11: Apple filed CFO under this variant 2014-04..2017-02 (its
+    # history had a hole there), and DLTR, DOV, DRI, DD, JCI, NWS, NWSA file it
+    # today — 7 of the 12 refused for "no operating cash flow".
+    ("us-gaap", "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"),
     ("us-gaap", "PaymentsToAcquirePropertyPlantAndEquipment"),
     # Added 2026-10-11 from a census of the 126 equities refused for missing
     # capex: 82 file PaymentsToAcquireProductiveAssets; the oil-and-gas names

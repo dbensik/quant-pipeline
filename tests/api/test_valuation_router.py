@@ -74,6 +74,11 @@ class Bars:
         self.calls.append((symbol, adjust))
         out = []
         for d, px in sorted(self.series.get(symbol, {}).items()):
+            # As traded, the stock split 4:1 on 2025-06-02: unadjusted closes
+            # before it are 4x. Adjusted ("total") series are continuous. So a
+            # reader that mixes the two bases gets a different beta and price.
+            if adjust == "none" and symbol != "SPY" and d < date(2025, 6, 2):
+                px = px * 4
             ts = datetime(d.year, d.month, d.day, tzinfo=timezone.utc)
             if start <= ts <= end:
                 out.append(MarketDataRecord(asset=Asset(symbol=symbol, asset_class="equity", source="yfinance"),
@@ -215,3 +220,23 @@ def test_beta_alternatives_are_reported_and_an_override_is_used(vclient):
     over = vclient.post("/api/v1/valuation/dcf", json={"symbol": "AAPL", "as_of": "2026-10-08", "beta": 1.5}).json()
     assert over["discount"]["cost_of_equity"] == pytest.approx(over["lines"]["risk_free"]["value"] + 1.5 * 0.045)
     assert "beta" in over["overridden"] and over["betas"] == base["betas"]
+
+
+
+@pytest.mark.asyncio
+async def test_history_reads_each_series_once_and_matches_uncached_values():
+    from core import valuation_service as svc
+
+    bars, data, rates = Bars(), FakeValuationData(), Rates()
+    cached = await svc.history(data, bars, rates, "AAPL")
+    n_cached = len(bars.calls)
+    # The same history computed point by point without the cache.
+    expected = []
+    for filed in await data.filing_dates([320193]):
+        try:
+            v = await svc.value(data, Bars(), rates, "AAPL", filed + timedelta(days=1), with_grid=False)
+            expected.append(v["result"]["per_share"])
+        except svc.ValuationError:
+            expected.append(None)
+    assert [p["per_share"] for p in cached] == pytest.approx(expected, rel=1e-12)
+    assert n_cached <= 4  # AAPL none + total, SPY total: not three reads per filing

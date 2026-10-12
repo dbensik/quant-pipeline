@@ -19,6 +19,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError } from './client'
 import type { BacktestInput,
   OptionPriceRequest,
+  ValuationRequest,
   SimulationInput } from './client'
 
 /**
@@ -53,6 +54,9 @@ export const queryKeys = {
   optionsArchive: () => ['options-archive'] as const,
   optionsSurface: (ticker: string, day: string | null) => ['options-surface', ticker, { day }] as const,
   optionPricers: () => ['option-pricers'] as const,
+  valuationCoverage: () => ['valuation-coverage'] as const,
+  valuation: (body: Record<string, unknown>) => ['valuation', body] as const,
+  valuationHistory: (symbol: string, since: string | null) => ['valuation-history', symbol, { since }] as const,
 }
 
 /**
@@ -571,5 +575,47 @@ export function useOptionPricers() {
 export function usePriceOption() {
   return useMutation({
     mutationFn: (body: OptionPriceRequest) => api.priceOption(body),
+  })
+}
+
+
+// ---------------------------------------------------------------------------
+// Valuation (tier 3 phase 5)
+// ---------------------------------------------------------------------------
+
+/**
+ * 404 (not an equity), 409 (no rate for the date) and 422 (refused: a bank, a
+ * REIT, no capex on file...) are answers with a reason, not faults to retry.
+ */
+function retryValuation(failureCount: number, error: unknown): boolean {
+  if (error instanceof ApiError && [404, 409, 422].includes(error.status)) return false
+  return failureCount < 1
+}
+
+export function useValuationCoverage() {
+  return useQuery({ queryKey: queryKeys.valuationCoverage(), queryFn: () => api.getValuationCoverage(), staleTime: 10 * 60_000 })
+}
+
+/**
+ * A DCF is a POST (it takes overrides) but has no side effects, so it is a
+ * query keyed by its request: the same inputs are served from the cache.
+ */
+export function useValuation(body: ValuationRequest | null) {
+  return useQuery({
+    queryKey: queryKeys.valuation((body ?? {}) as Record<string, unknown>),
+    queryFn: () => api.valueCompany(body as ValuationRequest),
+    enabled: Boolean(body?.symbol),
+    staleTime: 10 * 60_000,
+    retry: retryValuation,
+  })
+}
+
+export function useValuationHistory(symbol: string | null, since: string | null = null) {
+  return useQuery({
+    queryKey: queryKeys.valuationHistory(symbol ?? '', since),
+    queryFn: () => api.getValuationHistory(symbol as string, since),
+    enabled: Boolean(symbol),
+    staleTime: 30 * 60_000,
+    retry: retryValuation,
   })
 }

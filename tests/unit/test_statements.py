@@ -134,3 +134,15 @@ def test_ttm_refuses_a_gap_in_the_quarters():
         q(date(2025, 1, 1), date(2025, 3, 31), 1.0),
     ])
     assert s.ttm("revenue", NOW) is None
+
+
+def test_cash_flow_has_no_hole_where_the_filer_switched_concept(aapl):
+    # Apple filed CFO as ...ContinuingOperations from 2014-04 to 2017-02: with
+    # only the standard concept its cash flow stopped at FY2013 for three years.
+    for as_of in (date(2015, 1, 29), date(2016, 4, 28), date(2017, 2, 2)):
+        latest = aapl.annual("cfo", as_of)[-1]
+        assert (as_of - latest.period_end).days < 460
+    concepts = {v.period_end.year: v.concept for v in aapl.annual("cfo", NOW)}
+    assert concepts[2015] == "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations" or concepts[2015] == "NetCashProvidedByUsedInOperatingActivities"
+    years = sorted(concepts)
+    assert years == list(range(years[0], years[-1] + 1))  # no gap

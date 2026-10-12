@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import asdict, dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional, Protocol, Tuple
 
 from config import settings
@@ -160,11 +160,38 @@ async def value(
     return out
 
 
+class CachedPrices:
+    """
+    Fetch each (symbol, adjust) series ONCE and slice it in memory. A history
+    re-values at every filing date, and each valuation reads the price and
+    two betas: AAPL's 69 filings took 22.5 s re-fetching years of bars each
+    time (measured 2026-10-11). Slicing is exact for these reads: an as-traded
+    price does not change with the window, and returns are ratios of closes
+    adjusted to one as-of date, so the window does not move them either.
+    """
+
+    def __init__(self, inner: Any) -> None:
+        self.inner, self.cache, self.fetches = inner, {}, 0
+
+    async def fetch_range(self, symbol, asset_class, start, end, source=None, adjust="total"):
+        key = (symbol, asset_class, source, adjust)
+        if key not in self.cache:
+            self.fetches += 1
+            self.cache[key] = await self.inner.fetch_range(
+                symbol, asset_class, datetime(1990, 1, 1, tzinfo=timezone.utc),
+                datetime(2100, 1, 1, tzinfo=timezone.utc), source, adjust)
+        return [r for r in self.cache[key] if start <= r.ohlcv.timestamp.utc <= end]
+
+    async def find_asset(self, *args, **kwargs):
+        return await self.inner.find_asset(*args, **kwargs)
+
+
 async def history(
     data: ValuationData, prices: Any, rates: RateRepository, symbol: str, since: Optional[date] = None,
 ) -> List[Dict[str, Any]]:
     """Value and price on the day after each 10-K/10-Q filing. Points that cannot be valued say why."""
     st = await load_statements(data, symbol)
+    prices = CachedPrices(prices)
     points: List[Dict[str, Any]] = []
     for filed in await data.filing_dates(st[3]):
         as_of = filed + timedelta(days=1)

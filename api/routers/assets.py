@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import noload
 
 from db.models import AssetORM, MarketDataORM
 
@@ -61,7 +62,10 @@ async def list_assets(
     This is what a UI populates a symbol picker from. `count` is the number
     returned in this page, not the total matching the filter.
     """
-    stmt = select(AssetORM).order_by(AssetORM.symbol)
+    # noload: AssetORM.market_data is lazy="selectin", so a plain select of
+    # every asset ALSO loaded every stored bar (~1.6M rows) to return symbols:
+    # measured 10.4 s for the 517 equities on 2026-10-11. The list needs none.
+    stmt = select(AssetORM).options(noload(AssetORM.market_data)).order_by(AssetORM.symbol)
     if asset_class:
         stmt = stmt.where(AssetORM.asset_class == asset_class)
     if search:

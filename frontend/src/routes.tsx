@@ -10,6 +10,7 @@
 import type { ComponentType } from 'react'
 import {
   BarChart3,
+  Calculator,
   ChartCandlestick,
   Briefcase,
   Database,
@@ -27,6 +28,7 @@ import { DataPage } from '@/pages/DataPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { OptimizePage } from '@/pages/OptimizePage'
 import { OptionsPage } from '@/pages/OptionsPage'
+import { ValuationPage } from '@/pages/ValuationPage'
 import { ScreenersPage } from '@/pages/ScreenersPage'
 import { StatisticsPage } from '@/pages/StatisticsPage'
 import { PortfoliosPage } from '@/pages/PortfoliosPage'
@@ -85,6 +87,13 @@ export const routes: RouteDef[] = [
     icon: ChartCandlestick,
     element: OptionsPage,
     blurb: 'Implied-volatility smiles and term structure from the archived option chains, and a pricer.',
+  },
+  {
+    path: '/valuation',
+    label: 'Valuation',
+    icon: Calculator,
+    element: ValuationPage,
+    blurb: 'Discounted cash flow from SEC filings, as of any date, with every input and its source.',
   },
   {
     path: '/portfolios',

@@ -57,7 +57,7 @@ LINE_ITEMS: Dict[str, Tuple[str, ...]] = {
     "net_income": ("NetIncomeLoss",),
     "d_and_a": ("DepreciationDepletionAndAmortization", "DepreciationAmortizationAndAccretionNet"),
     "share_based_comp": ("ShareBasedCompensation",),
-    "cfo": ("NetCashProvidedByUsedInOperatingActivities",),
+    "cfo": ("NetCashProvidedByUsedInOperatingActivities", "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"),
     "capex": (
         "PaymentsToAcquirePropertyPlantAndEquipment",
         "PaymentsToAcquireProductiveAssets",

@@ -538,6 +538,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/valuation/coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What fundamentals are stored */
+        get: operations["coverage_api_v1_valuation_coverage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/valuation/{symbol}/statements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Standardised line items as of a date */
+        get: operations["statements_api_v1_valuation__symbol__statements_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/valuation/dcf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Discounted cash flow valuation as of a date */
+        post: operations["dcf_api_v1_valuation_dcf_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/valuation/{symbol}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** DCF value against price the day after each 10-K/10-Q filing */
+        get: operations["value_history_api_v1_valuation__symbol__history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/watchlists": {
         parameters: {
             query?: never;
@@ -3187,6 +3255,277 @@ export interface components {
             /** Context */
             ctx?: Record<string, never>;
         };
+        /** ValuationBeta */
+        ValuationBeta: {
+            /** Beta */
+            beta: number;
+            /** Std Error */
+            std_error: number | null;
+            /** Observations */
+            observations: number;
+        };
+        /** ValuationCoverage */
+        ValuationCoverage: {
+            /** Equities */
+            equities: number;
+            /** With Cik */
+            with_cik: number;
+            /** Facts */
+            facts: number;
+            /** Ciks With Facts */
+            ciks_with_facts: number;
+            /** Newest Filed */
+            newest_filed: string | null;
+        };
+        /** ValuationDCFInputs */
+        ValuationDCFInputs: {
+            /** Base Fcf */
+            base_fcf: number;
+            /** Growth First */
+            growth_first: number;
+            /** Growth Terminal */
+            growth_terminal: number;
+            /** Wacc */
+            wacc: number;
+            /** Net Debt */
+            net_debt: number;
+            /** Shares */
+            shares: number;
+            /** Years */
+            years: number;
+            /** Exit Metric Base */
+            exit_metric_base: number | null;
+            /** Exit Multiple */
+            exit_multiple: number | null;
+        };
+        /** ValuationDiscount */
+        ValuationDiscount: {
+            /** Wacc */
+            wacc: number;
+            /** Cost Of Equity */
+            cost_of_equity: number;
+            /** Cost Of Debt Pre Tax */
+            cost_of_debt_pre_tax: number;
+            /** Cost Of Debt After Tax */
+            cost_of_debt_after_tax: number;
+            /** Weight Equity */
+            weight_equity: number;
+            /** Weight Debt */
+            weight_debt: number;
+            /** Cost Of Debt Estimated */
+            cost_of_debt_estimated: boolean;
+            /** Notes */
+            notes: string[];
+        };
+        /** ValuationGrid */
+        ValuationGrid: {
+            /** Wacc */
+            wacc: number[];
+            /** Growth Terminal */
+            growth_terminal: number[];
+            /**
+             * Per Share
+             * @description Rows by WACC, columns by terminal growth; null where wacc <= growth
+             */
+            per_share: (number | null)[][];
+        };
+        /** ValuationHistory */
+        ValuationHistory: {
+            /** Symbol */
+            symbol: string;
+            /** Points */
+            points: components["schemas"]["ValuationHistoryPoint"][];
+        };
+        /** ValuationHistoryPoint */
+        ValuationHistoryPoint: {
+            /**
+             * As Of
+             * Format: date
+             */
+            as_of: string;
+            /** Price */
+            price: number | null;
+            /** Per Share */
+            per_share: number | null;
+            /** Exit Per Share */
+            exit_per_share?: number | null;
+            /** Wacc */
+            wacc?: number | null;
+            /** Implied Growth First */
+            implied_growth_first?: number | null;
+            /** Reason */
+            reason?: string | null;
+        };
+        /** ValuationInputLine */
+        ValuationInputLine: {
+            /** Value */
+            value: number | null;
+            /** Source */
+            source: string;
+        };
+        /** ValuationLineItem */
+        ValuationLineItem: {
+            /** Period Start */
+            period_start: string | null;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /** Value */
+            value: number;
+            /** Concept */
+            concept: string;
+            /**
+             * Filed
+             * Format: date
+             */
+            filed: string;
+            /**
+             * Derived
+             * @default false
+             */
+            derived: boolean;
+        };
+        /** ValuationRequest */
+        ValuationRequest: {
+            /** Symbol */
+            symbol: string;
+            /**
+             * As Of
+             * @description Default today
+             */
+            as_of?: string | null;
+            /** Growth First */
+            growth_first?: number | null;
+            /** Growth Terminal */
+            growth_terminal?: number | null;
+            /** Wacc */
+            wacc?: number | null;
+            /** Exit Multiple */
+            exit_multiple?: number | null;
+            /** Years */
+            years?: number | null;
+            /**
+             * Beta
+             * @description Replaces the daily 3-year beta
+             */
+            beta?: number | null;
+        };
+        /** ValuationResponse */
+        ValuationResponse: {
+            /** Symbol */
+            symbol: string;
+            /** Cik */
+            cik: number;
+            /**
+             * Predecessor Ciks
+             * @description Earlier filers read with `cik` (holding-company reorganisations)
+             */
+            predecessor_ciks: number[];
+            /** Sector */
+            sector: string | null;
+            /**
+             * As Of
+             * Format: date
+             */
+            as_of: string;
+            /**
+             * Price
+             * @description Close AS TRADED on price_date: the basis of the share count
+             */
+            price: number;
+            /**
+             * Price Date
+             * Format: date
+             */
+            price_date: string;
+            /** Market Cap */
+            market_cap: number;
+            result: components["schemas"]["ValuationResult"];
+            discount: components["schemas"]["ValuationDiscount"];
+            /** Lines */
+            lines: {
+                [key: string]: components["schemas"]["ValuationInputLine"];
+            };
+            /**
+             * Implied Growth First
+             * @description First-year growth the price implies
+             */
+            implied_growth_first: number | null;
+            /** Implied Reason */
+            implied_reason: string | null;
+            /** Notes */
+            notes: string[];
+            /**
+             * Betas
+             * @description daily_3y (decision 4, the default), daily_3y_blume, weekly_5y
+             */
+            betas: {
+                [key: string]: components["schemas"]["ValuationBeta"] | null;
+            };
+            /** Overridden */
+            overridden: string[];
+            sensitivity: components["schemas"]["ValuationGrid"];
+        };
+        /** ValuationResult */
+        ValuationResult: {
+            inputs: components["schemas"]["ValuationDCFInputs"];
+            /** Growth Path */
+            growth_path: number[];
+            /** Fcf */
+            fcf: number[];
+            /** Pv Fcf */
+            pv_fcf: number[];
+            /** Terminal Value */
+            terminal_value: number | null;
+            /** Pv Terminal */
+            pv_terminal: number | null;
+            /** Enterprise Value */
+            enterprise_value: number | null;
+            /** Equity Value */
+            equity_value: number | null;
+            /** Per Share */
+            per_share: number | null;
+            /** Terminal Share */
+            terminal_share: number | null;
+            /** Exit Enterprise Value */
+            exit_enterprise_value: number | null;
+            /** Exit Per Share */
+            exit_per_share: number | null;
+            /** Reason */
+            reason: string | null;
+            /** Warnings */
+            warnings: string[];
+        };
+        /** ValuationStatements */
+        ValuationStatements: {
+            /** Symbol */
+            symbol: string;
+            /** Cik */
+            cik: number;
+            /**
+             * As Of
+             * Format: date
+             */
+            as_of: string;
+            /** Annual */
+            annual: {
+                [key: string]: components["schemas"]["ValuationLineItem"][];
+            };
+            /** Ttm */
+            ttm: {
+                [key: string]: number | null;
+            };
+            /** Ttm Through */
+            ttm_through: {
+                [key: string]: string | null;
+            };
+            /** Balances */
+            balances: {
+                [key: string]: components["schemas"]["ValuationLineItem"] | null;
+            };
+        };
         /** WatchlistOut */
         WatchlistOut: {
             /** Name */
@@ -4317,6 +4656,147 @@ export interface operations {
                 content?: never;
             };
             /** @description Not read-time adjusted, or too few bars */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    coverage_api_v1_valuation_coverage_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValuationCoverage"];
+                };
+            };
+        };
+    };
+    statements_api_v1_valuation__symbol__statements_get: {
+        parameters: {
+            query?: {
+                as_of?: string | null;
+            };
+            header?: never;
+            path: {
+                symbol: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValuationStatements"];
+                };
+            };
+            /** @description Not a registered equity */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No CIK or no facts */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    dcf_api_v1_valuation_dcf_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ValuationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValuationResponse"];
+                };
+            };
+            /** @description Not a registered equity */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No risk-free rate stored for the date */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Cannot be valued: the reason is in `detail` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    value_history_api_v1_valuation__symbol__history_get: {
+        parameters: {
+            query?: {
+                since?: string | null;
+            };
+            header?: never;
+            path: {
+                symbol: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValuationHistory"];
+                };
+            };
+            /** @description Not a registered equity */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No CIK or no facts */
             422: {
                 headers: {
                     [name: string]: unknown;
