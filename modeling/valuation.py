@@ -51,7 +51,7 @@ from modeling.dcf import DCFInputs, WACC, Beta, regress_beta, wacc
 from modeling.statements import Statements
 
 FALLBACK_TAX_RATE = 0.21
-GROWTH_CLAMP = (-0.10, 0.25)
+GROWTH_CLAMP = (-0.10, settings.DCF_DEFAULT_GROWTH_CAP)
 
 
 @dataclass
@@ -88,7 +88,10 @@ def _ttm_or_annual(st: Statements, item: str, as_of: date) -> Tuple[Optional[flo
 
 
 def default_growth(st: Statements, as_of: date) -> Tuple[float, str]:
-    """3-year revenue CAGR, clamped to GROWTH_CLAMP; an editable starting point."""
+    """
+    The lower of the 3- and 5-year revenue CAGR (the 3-year alone with less
+    history), clamped to GROWTH_CLAMP; an editable starting point. Decision 15.
+    """
     rev = st.annual("revenue", as_of)
     if rev and (as_of - rev[-1].period_end).days > MAX_ANNUAL_AGE_DAYS:
         # APA's current filer tags revenue under a concept the list does not
@@ -98,9 +101,14 @@ def default_growth(st: Statements, as_of: date) -> Tuple[float, str]:
             f"latest revenue on file ends {rev[-1].period_end} ({rev[-1].concept}): stale, terminal growth used"
         )
     if len(rev) >= 4 and rev[-4].value > 0 and rev[-1].value > 0:
-        cagr = (rev[-1].value / rev[-4].value) ** (1 / 3) - 1
+        cagrs = {3: (rev[-1].value / rev[-4].value) ** (1 / 3) - 1}
+        if len(rev) >= 6 and rev[-6].value > 0:
+            cagrs[5] = (rev[-1].value / rev[-6].value) ** (1 / 5) - 1
+        years, cagr = min(cagrs.items(), key=lambda kv: kv[1])
         clamped = min(max(cagr, GROWTH_CLAMP[0]), GROWTH_CLAMP[1])
-        return clamped, f"3-year revenue CAGR {cagr:.2%} to FY {rev[-1].period_end}" + (" (clamped)" if clamped != cagr else "")
+        shown = " and ".join(f"{y}-year {c:.2%}" for y, c in sorted(cagrs.items()))
+        return clamped, (f"lower revenue CAGR ({shown}) to FY {rev[-1].period_end}, includes acquisitions"
+                         + (f"; clamped to {clamped:.0%}" if clamped != cagr else ""))
     return settings.DCF_TERMINAL_GROWTH, "too little revenue history: terminal growth used"
 
 

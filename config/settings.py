@@ -316,6 +316,19 @@ DCF_BETA_WEEKLY_WINDOW = 260
 #: tagging InterestExpense after mid-2023): risk-free + this spread, labelled
 #: as an estimate wherever it is used.
 DCF_DEBT_SPREAD = 0.01
+#: Decision 14 (approved 2026-10-11): the WACC used is at least this, applied
+#: and labelled (the CAPM figure is kept beside it); a WACC override on the
+#: page replaces it. Measured on the 13 names over 3x price on a low WACC
+#: (CAG 4.9%, CPB 4.6%): market cost of debt, a 5.5% ERP or 2% terminal growth
+#: each moved value/price 5-30%; only a floor moved the list. A CAPM beta of
+#: 0.4 says a stock moved little with SPY, not that its cash flows are nearly
+#: riskless — the floor states that judgement openly.
+DCF_WACC_FLOOR = 0.07
+#: Decision 15 (approved 2026-10-11): the default first-year growth is the
+#: LOWER of the 3- and 5-year revenue CAGR, capped here. Revenue CAGR counts
+#: acquisitions and recoveries as growth (LVS 46.9% after reopening, AMCR
+#: 19.9% with Berry, FANG 16.2% with Endeavor); the input stays editable.
+DCF_DEFAULT_GROWTH_CAP = 0.10
 #: Stock-based compensation is added back inside operating cash flow; True
 #: subtracts it again, treating it as the real cost it is. Shown as its own
 #: line either way. Apple FY2025: $12.9B of $98.8B FCF.

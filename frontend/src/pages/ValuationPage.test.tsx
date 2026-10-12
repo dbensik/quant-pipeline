@@ -37,6 +37,25 @@ describe('ValuationPage', () => {
     expect(within(screen.getByTestId('bridge')).getByText('Plus net cash')).toBeInTheDocument()
   })
 
+  it('a floored WACC says so and shows the CAPM figure it replaced', async () => {
+    const floored = {
+      ...AAPL_VALUATION,
+      discount: { ...AAPL_VALUATION.discount, wacc: 0.07, wacc_unfloored: 0.0487, floored: true },
+    }
+    vi.spyOn(api, 'valueCompany').mockResolvedValue(floored)
+    renderPage(<ValuationPage />)
+    const line = await screen.findByTestId('wacc-line')
+    expect(line).toHaveTextContent('WACC 7.00%: the floor, because CAPM weights give 4.87%')
+  })
+
+  it('an unfloored WACC is stated as the weighted sum', async () => {
+    vi.spyOn(api, 'valueCompany').mockResolvedValue(AAPL_VALUATION)
+    renderPage(<ValuationPage />)
+    const line = await screen.findByTestId('wacc-line')
+    expect(line).toHaveTextContent(/^WACC 9\.01% = /)
+    expect(line).not.toHaveTextContent('floor')
+  })
+
   it('a negative-cash-flow company gets an explanation, not a price', async () => {
     vi.spyOn(api, 'listAssets').mockResolvedValue({ count: 1, assets: [{ symbol: 'ORCL' }] } as never)
     vi.spyOn(api, 'valueCompany').mockResolvedValue(ORCL_VALUATION)

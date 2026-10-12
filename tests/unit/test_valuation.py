@@ -127,7 +127,7 @@ def test_stale_revenue_is_not_a_growth_rate():
                     date(year + 1, 2, 20), f"a{year}", None, datetime(2026, 1, 1, tzinfo=timezone.utc))
     st = Statements([rev(y, 100.0 * 1.2 ** (y - 2016)) for y in range(2016, 2021)])
     g, why = default_growth(st, date(2021, 6, 1))
-    assert g == pytest.approx(1.2 - 1, abs=1e-9) or g == 0.25  # fresh: the CAGR (clamped at 25%)
+    assert g == 0.10 and "clamped" in why  # fresh: a 20% CAGR, capped at decision 15's 10%
     g, why = default_growth(st, date(2026, 10, 8))
     assert g == 0.025 and "stale" in why
 
@@ -238,7 +238,8 @@ def test_the_capital_lease_variants_are_debt_at_the_newest_balance_date():
     assert v.lines["total_debt"][0] == pytest.approx(6.03e9)
     assert "LongTermDebtAndCapitalLeaseObligations" in v.lines["total_debt"][1] and "2026-06-30" in v.lines["total_debt"][1]
     assert v.dcf.net_debt == pytest.approx(6.03e9 - 0.9e9)
-    assert v.discount.cost_of_debt_pre_tax == pytest.approx(2.2e8 / 6.03e9)
+    # 3.65% reported is below risk-free + 1%: the market cost of debt is used (decision 14).
+    assert v.discount.cost_of_debt_pre_tax == pytest.approx(0.05)
 
 
 def test_a_combined_debt_figure_is_used_alone():
@@ -314,3 +315,17 @@ def test_at_one_balance_date_a_component_shape_loses_to_the_whole():
         _flow_and_balance("LongTermDebt", 4.505e9, duration=False)])
     d = st.debt(date(2026, 10, 8))
     assert d.value == pytest.approx(4.505e9) and d.concept.startswith("LongTermDebt")
+
+
+def test_default_growth_is_the_lower_of_three_and_five_year_cagr():
+    # LVS's shape: a rebound inflates the 3-year CAGR; the 5-year is lower.
+    from modeling.valuation import default_growth
+    from core.fundamentals import Fact
+
+    def rev(year, v):
+        return Fact(1, "us-gaap", "Revenues", "USD", date(year, 1, 1), date(year, 12, 31), v, year, "FY", "10-K",
+                    date(year + 1, 2, 20), f"a{year}", None, datetime(2026, 1, 1, tzinfo=timezone.utc))
+    levels = {2020: 100.0, 2021: 60.0, 2022: 70.0, 2023: 80.0, 2024: 95.0, 2025: 110.0}
+    g, why = default_growth(Statements([rev(y, v) for y, v in levels.items()]), date(2026, 6, 1))
+    assert g == pytest.approx((110 / 100) ** (1 / 5) - 1)  # 5-year 1.9%, not 3-year 16.3%
+    assert "3-year" in why and "5-year" in why and "acquisitions" in why

@@ -122,3 +122,19 @@ def test_a_non_positive_exit_metric_gives_no_exit_value():
     assert r.exit_per_share is None and r.exit_enterprise_value is None
     assert any("not positive" in w for w in r.warnings) and r.per_share is not None
     assert gordon_implied_multiple(r) is None
+
+
+def test_the_wacc_floor_binds_and_is_labelled():
+    # CAG's shape: beta 0.44, 55% debt at 4.8% -> CAPM-weighted WACC about 4.9%.
+    w = wacc(0.0413, 0.44, equity_market_value=6.44e9, debt=7.73e9, tax_rate=0.21, interest_expense=0.374e9)
+    assert w.floored and w.wacc == pytest.approx(0.07) and w.wacc_unfloored < 0.06
+    assert any("floored at 7.00%" in n for n in w.notes)
+    high = wacc(0.04, 1.2, 900.0, 100.0, 0.2, interest_expense=6.0)
+    assert not high.floored and high.wacc == pytest.approx(high.wacc_unfloored)
+
+
+def test_a_book_coupon_below_the_market_rate_is_raised():
+    # TAP's 3.2% coupon against a 4.1% T-bill: the market cost of debt is used.
+    w = wacc(0.041, 1.0, 900.0, 100.0, 0.2, interest_expense=3.2)
+    assert w.cost_of_debt_pre_tax == pytest.approx(0.051) and not w.cost_of_debt_estimated
+    assert any("market, not book" in n for n in w.notes)

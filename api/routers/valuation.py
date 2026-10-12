@@ -111,6 +111,9 @@ class ValuationDiscount(BaseModel):
     weight_equity: float
     weight_debt: float
     cost_of_debt_estimated: bool
+    #: The CAPM-weighted WACC before decision 14's floor.
+    wacc_unfloored: float
+    floored: bool
     notes: List[str]
 
 

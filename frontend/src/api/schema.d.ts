@@ -3314,6 +3314,10 @@ export interface components {
             weight_debt: number;
             /** Cost Of Debt Estimated */
             cost_of_debt_estimated: boolean;
+            /** Wacc Unfloored */
+            wacc_unfloored: number;
+            /** Floored */
+            floored: boolean;
             /** Notes */
             notes: string[];
         };

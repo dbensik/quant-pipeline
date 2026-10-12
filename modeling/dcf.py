@@ -230,6 +230,9 @@ class WACC:
     weight_equity: float
     weight_debt: float
     cost_of_debt_estimated: bool
+    #: The CAPM-weighted figure before the floor; equals `wacc` when unfloored.
+    wacc_unfloored: float = math.nan
+    floored: bool = False
     notes: Tuple[str, ...] = ()
 
 
@@ -242,11 +245,14 @@ def wacc(
     interest_expense: Optional[float] = None,
     equity_risk_premium: float = settings.DCF_EQUITY_RISK_PREMIUM,
     debt_spread: float = settings.DCF_DEBT_SPREAD,
+    floor: float = settings.DCF_WACC_FLOOR,
 ) -> WACC:
     """
     CAPM cost of equity; cost of debt = interest / debt when interest is
-    reported, else risk-free + spread (estimated, and said so). Market-value
-    equity weight, book debt.
+    reported, but never below risk-free + spread (a coupon fixed in 2021 is
+    not today's borrowing cost: TAP 3.2%, FANG 1.9%); risk-free + spread
+    (estimated, and said so) when none is. Market-value equity weight, book
+    debt. The result is at least `floor` (decision 14), labelled when it binds.
     """
     if equity_market_value <= 0:
         raise ValueError("equity market value must be positive")
@@ -260,8 +266,16 @@ def wacc(
         notes.append(f"no interest expense reported: cost of debt estimated as risk-free + {debt_spread:.2%}")
     else:
         kd = interest_expense / debt
+        if kd < risk_free + debt_spread:
+            notes.append(f"reported interest is {kd:.2%} of debt, below risk-free + {debt_spread:.2%}: "
+                         f"cost of debt raised to {risk_free + debt_spread:.2%} (market, not book)")
+            kd = risk_free + debt_spread
     debt = max(debt, 0.0)
     total = equity_market_value + debt
     we, wd = equity_market_value / total, debt / total
     kd_after = kd * (1.0 - tax_rate)
-    return WACC(we * ke + wd * kd_after, ke, kd, kd_after, we, wd, estimated, tuple(notes))
+    raw = we * ke + wd * kd_after
+    floored = raw < floor
+    if floored:
+        notes.append(f"WACC floored at {floor:.2%}; CAPM weights give {raw:.2%}")
+    return WACC(max(raw, floor), ke, kd, kd_after, we, wd, estimated, raw, floored, tuple(notes))

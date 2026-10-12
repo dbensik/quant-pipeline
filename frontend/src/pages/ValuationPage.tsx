@@ -181,8 +181,11 @@ function Inputs({ v }: { v: ValuationResponse }) {
     <Card>
       <CardHeader>
         <CardTitle>Inputs and where each came from</CardTitle>
-        <CardDescription>
-          WACC {pct(d.wacc, 2)} = {pct(d.weight_equity, 0)} equity at {pct(d.cost_of_equity, 2)} + {pct(d.weight_debt, 0)} debt at{' '}
+        <CardDescription data-testid="wacc-line">
+          {d.floored
+            ? `WACC ${pct(d.wacc, 2)}: the floor, because CAPM weights give ${pct(d.wacc_unfloored, 2)} = `
+            : `WACC ${pct(d.wacc, 2)} = `}
+          {pct(d.weight_equity, 0)} equity at {pct(d.cost_of_equity, 2)} + {pct(d.weight_debt, 0)} debt at{' '}
           {pct(d.cost_of_debt_after_tax, 2)} after tax{d.cost_of_debt_estimated ? ' (cost of debt estimated)' : ''}.
         </CardDescription>
       </CardHeader>
