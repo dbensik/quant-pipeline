@@ -91,7 +91,7 @@ frontend/node_modules/
 package-lock.json
 
 # --- Dependency Lock Files ---
-poetry.lock
+# poetry.lock is committed (2026-10-11) so CI installs the versions the tests passed on.
 poetry.toml
 
 # --- Debug / Diagnostic Scripts ---
