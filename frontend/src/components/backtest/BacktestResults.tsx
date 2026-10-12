@@ -106,6 +106,10 @@ export function BacktestResults({ result }: { result: BacktestResult }) {
             </div>
           ))}
         </dl>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Sharpe is net of a {(result.riskFreeRate * 100).toFixed(2)}% risk-free rate (
+          {result.riskFreeSource}).
+        </p>
       </div>
 
       {Object.keys(result.params).length > 0 ? (

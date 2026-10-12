@@ -249,6 +249,10 @@ export function OptimizePage() {
                     {result.combinations_requested} combinations evaluated
                   </span>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Sharpe net of a {percent(result.risk_free_rate)} risk-free rate (
+                  {result.risk_free_source}).
+                </p>
 
                 {(result.skipped ?? []).length > 0 ? (
                   <Alert>

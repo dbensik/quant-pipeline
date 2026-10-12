@@ -45,6 +45,8 @@ const GRID_RESULT = {
   bars: 250,
   metric: 'Sharpe Ratio',
   seed: 42,
+  risk_free_rate: 0.0412,
+  risk_free_source: '^IRX bond-equivalent, mean over 250 sessions 2024-01-02..2024-12-30',
   initial_capital: 100000,
   combinations_requested: 9,
   combinations_evaluated: 7,
@@ -179,6 +181,7 @@ describe('OptimizePage — grid search', () => {
       await screen.findByText(/best: short_window=20, long_window=50/),
     ).toBeInTheDocument()
     expect(screen.getByText(/7 of 9 combinations evaluated/)).toBeInTheDocument()
+    expect(screen.getByText(/net of a 4\.12% risk-free rate/)).toBeInTheDocument()
   })
 
   it('reports combinations the strategy rejected', async () => {

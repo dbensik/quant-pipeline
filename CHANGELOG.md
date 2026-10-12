@@ -12,6 +12,7 @@ describe the Streamlit dashboard and `docker-compose` services as they were
 before the migration below; they are kept as history.
 
 ### Changed
+- **Every strategy Sharpe is in excess of the stored risk-free rate** (2026-10-12): backtest, compare (strategies and benchmark on one rate), strategy optimize, portfolio backtest and simulate, REST and websocket, all subtract the mean `^IRX` bond-equivalent rate over the window; it used to be 0. Each response carries `risk_free_rate` and `risk_free_source`, and the Backtest, Compare and Optimize pages show them. Sortino and Calmar are unchanged. Backtester runs are unaffected: the rate enters the metrics only. A mostly-in-cash strategy moves most: SPY `ma_crossover` 2023–2025 went from 0.95 to −2.71, since idle cash earns nothing in the backtester.
 - **Portfolio optimizer uses the stored risk-free rate** (2026-10-12): the Sharpe ratio in `/optimize/portfolio` (REST and websocket) subtracts the mean `^IRX` bond-equivalent rate over the window's sessions instead of a constant 0.02. The response carries `risk_free_source`, and the Optimize page shows it. A window the stored series does not cover is 422; `risk_free_rate` in the request still overrides. Over 2023–2025 the constant was 2.8 points low: SPY/AGG/GLD max Sharpe 2.05 → 1.82.
 - **Backtester runs 50x faster** (2026-10-07): per-bar state is recorded in numpy arrays instead of three pandas cell writes; 291 ms → 5 ms a run, bit-identical on 56 real runs. Grid search and the Monte Carlo re-run mode inherit it.
 - **TimescaleDB is the store** (2026-08-07 to 08-09). Bars moved from SQLite to a TimescaleDB hypertable; the SQLite pipeline and its orchestrator were retired, and the CLI and `POST /api/v1/ingest` share one write path, `core/ingest.py`.
@@ -38,6 +39,7 @@ before the migration below; they are kept as history.
 - **Test suites that need no Docker**: API routers through the repository Protocol, and a frontend suite.
 
 ### Fixed
+- **Backtest metrics used the requested starting capital** (2026-10-12): every caller passed `PerformanceAnalyzer(history, initial_capital)`, which bound the capital to `benchmark_history`, so metrics were measured against 100,000 whatever the run started with — a 50,000 run that gained 1.6% reported −49.2%. Only API callers setting `initial_capital` were affected; the UI always sends the default. The analyzer's options are now keyword-only.
 - **Split-adjustment drift** silently corrupted prices after a split (2026-08-09); superseded by read-time adjustment.
 - **An empty fetch no longer marks a symbol delisted** (2026-08-10): it means the provider lost the key.
 - **PARA** ingested a reassigned ticker's bars; they were removed and 1256 real bars restored (2026-09-24).

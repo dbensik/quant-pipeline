@@ -13,7 +13,7 @@ Phase 5 — decommissioning Streamlit
 """
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException
@@ -23,7 +23,16 @@ from pydantic import BaseModel, Field
 from alpha_models import registry
 from api.dependencies import get_market_data_repo
 from api.frames import frames_to_wide_close, records_to_frame
+from api.risk_free import (
+    RISK_FREE_RATE_DESCRIPTION,
+    RISK_FREE_SOURCE_DESCRIPTION,
+    RiskFreeCoverageError,
+    get_rate_repo,
+    resolve_risk_free,
+    risk_free_refusal,
+)
 from api.routers.backtest import _json_safe
+from core.rates import RateRepository
 from db.repositories.market_data import TimescaleMarketDataRepo
 
 router = APIRouter(prefix="/api/v1/backtest/portfolio", tags=["backtest"])
@@ -96,6 +105,7 @@ class PortfolioBacktestRequest(BaseModel):
         default=True, description="Compute VaR/CVaR on the resulting returns"
     )
     include_equity_curve: bool = Field(default=True)
+    risk_free_rate: Optional[float] = Field(default=None, description=RISK_FREE_RATE_DESCRIPTION)
 
 
 class PortfolioEquityPoint(BaseModel):
@@ -114,6 +124,8 @@ class PortfolioBacktestResponse(BaseModel):
     weights: Dict[str, float] = Field(description="Weights actually used")
     initial_capital: float
     seed: Optional[int]
+    risk_free_rate: float = Field(description="Annual rate the Sharpe ratio is in excess of")
+    risk_free_source: str = Field(description=RISK_FREE_SOURCE_DESCRIPTION)
     # Echoed for the same reason as `weights`: these dominate the metrics, so a
     # saved result is not interpretable without knowing what they were.
     max_trade_risk_pct: float
@@ -190,6 +202,7 @@ def _run_sync(
     price_data: Dict[str, pd.DataFrame],
     weights: Dict[str, float],
     request: PortfolioBacktestRequest,
+    risk_free_rate: float,
 ) -> tuple:
     """CPU-bound half: signals, backtest, metrics, risk."""
     from backtesting.portfolio_backtester import PortfolioBacktester
@@ -210,7 +223,7 @@ def _run_sync(
         ),
     )
     portfolio, _holdings = backtester.run(price_data, signals_data, weights)
-    metrics = backtester.get_performance_metrics()
+    metrics = backtester.get_performance_metrics(risk_free_rate)
 
     risk: Dict[str, Any] = {}
     if request.include_risk and portfolio is not None and not portfolio.empty:
@@ -240,6 +253,7 @@ def _run_sync(
 async def run_portfolio_backtest(
     request: PortfolioBacktestRequest,
     repo: TimescaleMarketDataRepo = Depends(get_market_data_repo),
+    rates: RateRepository = Depends(get_rate_repo),
 ) -> PortfolioBacktestResponse:
     if request.start > request.end:
         raise HTTPException(status_code=422, detail="`start` must not be after `end`.")
@@ -313,6 +327,16 @@ async def run_portfolio_backtest(
 
     weights = request.weights or {symbol: 1.0 / len(price_data) for symbol in price_data}
 
+    # PortfolioBacktester runs over the UNION of the symbols' dates, so the
+    # rate is averaged over the same sessions.
+    timeline = pd.DatetimeIndex(sorted(set().union(*(f.index for f in price_data.values()))))
+    try:
+        risk_free: Tuple[float, str] = await resolve_risk_free(
+            request.risk_free_rate, timeline, rates
+        )
+    except RiskFreeCoverageError as exc:
+        raise HTTPException(status_code=422, detail=risk_free_refusal(exc)) from exc
+
     try:
         model = spec.build(request.params)
     except (ValueError, TypeError) as exc:
@@ -322,7 +346,7 @@ async def run_portfolio_backtest(
 
     try:
         portfolio, metrics, risk = await run_in_threadpool(
-            _run_sync, spec, model, price_data, weights, request
+            _run_sync, spec, model, price_data, weights, request, risk_free[0]
         )
     except (ValueError, KeyError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None
@@ -352,6 +376,8 @@ async def run_portfolio_backtest(
         weights=weights,
         initial_capital=request.initial_capital,
         seed=request.seed,
+        risk_free_rate=risk_free[0],
+        risk_free_source=risk_free[1],
         max_trade_risk_pct=request.max_trade_risk_pct,
         max_portfolio_drawdown_pct=request.max_portfolio_drawdown_pct,
         metrics={k: _json_safe(v) for k, v in (metrics or {}).items()},

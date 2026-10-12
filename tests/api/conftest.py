@@ -39,7 +39,7 @@ from api.dependencies import (
     get_watchlist_repo,
 )
 from api.main import app
-from api.routers.optimize import get_optimize_rates
+from api.risk_free import get_rate_repo
 from api.upstream import YFinanceGateway, get_upstream
 from core.models import OHLCV, Asset, MarketDataRecord, Timestamp
 from core.portfolio import Portfolio, Trade
@@ -644,7 +644,7 @@ def client(
     app.dependency_overrides[get_upstream] = lambda: upstream
     app.dependency_overrides[get_fetcher] = lambda: fetcher
     app.dependency_overrides[get_universe_repo] = lambda: universe_repo
-    app.dependency_overrides[get_optimize_rates] = lambda: rates
+    app.dependency_overrides[get_rate_repo] = lambda: rates
     try:
         yield TestClient(app)
     finally:

@@ -88,6 +88,8 @@ class ParameterOptimizer:
         initial_capital: float = 100_000.0,
         transaction_cost: float = 0.001,
         seed: Optional[int] = 42,
+        *,
+        risk_free_rate: float,
     ):
         if metric not in MAXIMIZE and metric not in MINIMIZE:
             raise ValueError(
@@ -105,6 +107,8 @@ class ParameterOptimizer:
         self.initial_capital = initial_capital
         self.transaction_cost = transaction_cost
         self.seed = seed
+        #: Annual; every combination is judged against the same rate.
+        self.risk_free_rate = risk_free_rate
 
         self.results_df: Optional[pd.DataFrame] = None
         #: Combinations the strategy itself rejected, with the reason. Reported
@@ -164,7 +168,7 @@ class ParameterOptimizer:
 
             try:
                 backtester.run(self.price_data, model)
-                stats = backtester.get_performance_metrics()
+                stats = backtester.get_performance_metrics(self.risk_free_rate)
             except (ValueError, KeyError) as exc:
                 self.skipped.append({"params": dict(params), "reason": str(exc)})
                 if progress_callback:

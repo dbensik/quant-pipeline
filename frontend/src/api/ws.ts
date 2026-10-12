@@ -45,6 +45,8 @@ export interface WsResult {
   params: Record<string, number | string>
   seed: number | null
   initial_capital: number
+  risk_free_rate: number
+  risk_free_source: string
   equity_curve?: Array<{ time: string; total: number }>
 }
 

@@ -30,6 +30,9 @@ export interface BacktestResult {
    */
   initialCapital: number
   seed: number | null
+  /** Annual rate the Sharpe ratio is in excess of, and where it came from. */
+  riskFreeRate: number
+  riskFreeSource: string
   metrics: Record<string, unknown>
   caveat: string | null
   equityCurve: Array<{ time: string; total: number }>
@@ -47,6 +50,8 @@ export function fromRest(response: BacktestResponse): BacktestResult {
     params: response.params,
     initialCapital: response.initial_capital,
     seed: response.seed ?? null,
+    riskFreeRate: response.risk_free_rate,
+    riskFreeSource: response.risk_free_source,
     metrics: response.metrics,
     caveat: response.caveat ?? null,
     equityCurve: (response.equity_curve ?? []).map((point) => ({
@@ -67,6 +72,8 @@ export function fromSocket(message: WsResult): BacktestResult {
     params: message.params,
     initialCapital: message.initial_capital,
     seed: message.seed,
+    riskFreeRate: message.risk_free_rate,
+    riskFreeSource: message.risk_free_source,
     metrics: message.metrics,
     caveat: message.caveat,
     equityCurve: message.equity_curve ?? [],

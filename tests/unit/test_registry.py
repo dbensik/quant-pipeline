@@ -122,7 +122,7 @@ def test_same_seed_gives_identical_results(price_frame):
             price_data=price_frame,
             model=registry.build("ma_crossover", {"short_window": 10, "long_window": 30}),
         )
-        runs.append((bt.get_performance_metrics(), len(bt.get_trade_log())))
+        runs.append((bt.get_performance_metrics(risk_free_rate=0.0), len(bt.get_trade_log())))
 
     first_metrics, first_trades = runs[0]
     for metrics, trades in runs[1:]:
@@ -140,7 +140,7 @@ def test_different_seeds_give_different_draws(price_frame):
             price_data=price_frame,
             model=registry.build("ma_crossover", {"short_window": 10, "long_window": 30}),
         )
-        finals.append(bt.get_performance_metrics()["Final Value"])
+        finals.append(bt.get_performance_metrics(risk_free_rate=0.0)["Final Value"])
     assert len(set(finals)) > 1
 
 
@@ -182,7 +182,7 @@ def test_trade_count_matches_trade_log(price_frame, strategy_id, params):
     """
     bt = Backtester(seed=42)
     bt.run(price_data=price_frame, model=registry.build(strategy_id, params))
-    assert bt.get_performance_metrics()["Trade Count"] == len(bt.get_trade_log())
+    assert bt.get_performance_metrics(risk_free_rate=0.0)["Trade Count"] == len(bt.get_trade_log())
 
 
 def test_trade_count_honours_explicit_trades_column(price_frame):
@@ -200,9 +200,9 @@ def test_trade_count_honours_explicit_trades_column(price_frame):
     results.iloc[5, results.columns.get_loc("trades")] = 1
 
     assert (
-        PerformanceAnalyzer(results, initial_capital=100000.0).calculate_all_metrics()[
-            "Trade Count"
-        ]
+        PerformanceAnalyzer(
+            results, initial_capital=100000.0, risk_free_rate=0.0
+        ).calculate_all_metrics()["Trade Count"]
         == 2
     )
 
@@ -219,7 +219,7 @@ def test_metrics_use_the_backtest_capital_not_the_default(price_frame):
         model=registry.build("ma_crossover", {"short_window": 10, "long_window": 30}),
     )
     expected = results["total"].iloc[-1] / 50_000.0 - 1.0
-    assert bt.get_performance_metrics()["Total Return"] == pytest.approx(expected)
+    assert bt.get_performance_metrics(risk_free_rate=0.0)["Total Return"] == pytest.approx(expected)
 
 
 def test_analyzer_options_are_keyword_only(price_frame):
@@ -230,4 +230,4 @@ def test_analyzer_options_are_keyword_only(price_frame):
         model=registry.build("ma_crossover", {"short_window": 10, "long_window": 30}),
     )
     with pytest.raises(TypeError):
-        PerformanceAnalyzer(results, 50_000.0)
+        PerformanceAnalyzer(results, 50_000.0, risk_free_rate=0.0)

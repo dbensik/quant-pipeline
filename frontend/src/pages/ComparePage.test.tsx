@@ -65,6 +65,8 @@ const RESULT = {
   metric: 'Sharpe Ratio',
   initial_capital: 100000,
   seed: 42,
+  risk_free_rate: 0.0412,
+  risk_free_source: '^IRX bond-equivalent, mean over 250 sessions 2024-01-02..2024-12-30',
   optimized: false,
   results: [
     {
@@ -135,6 +137,15 @@ describe('ComparePage — setup', () => {
       optimize: false,
       metric: 'Sharpe Ratio',
     })
+  })
+
+  it('says which rate every Sharpe in the table is net of', async () => {
+    vi.spyOn(api, 'compareStrategies').mockResolvedValue(RESULT as never)
+    renderPage(<ComparePage />)
+    await screen.findByRole('button', { name: /Moving Average Crossover/ })
+    await userEvent.click(screen.getByRole('button', { name: /^Compare/ }))
+
+    expect(await screen.findByText(/net of a 4\.12% risk-free rate/)).toBeInTheDocument()
   })
 
   it('passes a benchmark only when one is entered', async () => {

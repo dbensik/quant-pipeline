@@ -22,24 +22,26 @@ import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from alpha_models import registry
-from api.dependencies import get_db, get_market_data_repo
+from api.dependencies import get_market_data_repo
 from api.frames import frames_to_wide_close, records_to_frame
+from api.risk_free import (
+    RISK_FREE_RATE_DESCRIPTION,
+    RISK_FREE_SOURCE_DESCRIPTION,
+    RiskFreeCoverageError,
+    get_rate_repo,
+    resolve_risk_free,
+    risk_free_refusal,
+)
 from api.routers.backtest import _json_safe
 from backtesting.parameter_optimizer import OPTIMIZABLE_METRICS, ParameterOptimizer
-from core.rates import RateRepository, RiskFreeCoverageError, risk_free_over
+from core.rates import RateRepository
 from db.repositories.market_data import TimescaleMarketDataRepo
-from db.repositories.rates import TimescaleRateRepo
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/optimize", tags=["optimize"])
-
-
-async def get_optimize_rates(session: AsyncSession = Depends(get_db)) -> RateRepository:
-    return TimescaleRateRepo(session)
 
 
 # Cap on grid size. Set from the case being ported rather than a round number:
@@ -164,6 +166,7 @@ class StrategyOptimizeRequest(BaseModel):
         ),
     )
     top_n: int = Field(default=25, gt=0, le=MAX_COMBINATIONS)
+    risk_free_rate: Optional[float] = Field(default=None, description=RISK_FREE_RATE_DESCRIPTION)
 
 
 class SkippedCombination(BaseModel):
@@ -181,6 +184,8 @@ class StrategyOptimizeResponse(BaseModel):
     metric: str
     seed: Optional[int]
     initial_capital: float
+    risk_free_rate: float
+    risk_free_source: str = Field(description=RISK_FREE_SOURCE_DESCRIPTION)
     combinations_requested: int
     combinations_evaluated: int
     best_params: Dict[str, Any]
@@ -201,6 +206,7 @@ def _optimize_sync(
     strategy_id: str,
     combos: List[Dict[str, Any]],
     request: StrategyOptimizeRequest,
+    risk_free_rate: float,
     progress_callback: Optional[Callable[[int, int], None]] = None,
 ) -> ParameterOptimizer:
     optimizer = ParameterOptimizer(
@@ -211,6 +217,7 @@ def _optimize_sync(
         initial_capital=request.initial_capital,
         transaction_cost=request.transaction_cost,
         seed=request.seed,
+        risk_free_rate=risk_free_rate,
     )
     optimizer.run_optimization(progress_callback=progress_callback)
     return optimizer
@@ -224,6 +231,7 @@ def build_optimize_payload(
     request: StrategyOptimizeRequest,
     start: datetime,
     end: datetime,
+    risk_free: Tuple[float, str],
 ) -> Dict[str, Any]:
     """Shared by the REST route and the websocket, so both report identically."""
     results = [
@@ -241,6 +249,8 @@ def build_optimize_payload(
         "metric": request.metric,
         "seed": request.seed,
         "initial_capital": request.initial_capital,
+        "risk_free_rate": risk_free[0],
+        "risk_free_source": risk_free[1],
         "combinations_requested": len(combos),
         "combinations_evaluated": (
             0 if optimizer.results_df is None else len(optimizer.results_df)
@@ -323,6 +333,7 @@ def validate_strategy_request(
 async def optimize_strategy(
     request: StrategyOptimizeRequest,
     repo: TimescaleMarketDataRepo = Depends(get_market_data_repo),
+    rates: RateRepository = Depends(get_rate_repo),
 ) -> StrategyOptimizeResponse:
     spec, combos = validate_strategy_request(request)
 
@@ -346,7 +357,14 @@ async def optimize_strategy(
             ),
         )
 
-    optimizer = await run_in_threadpool(_optimize_sync, frame, spec.id, combos, request, None)
+    try:
+        risk_free = await resolve_risk_free(request.risk_free_rate, frame.index, rates)
+    except RiskFreeCoverageError as exc:
+        raise HTTPException(status_code=422, detail=risk_free_refusal(exc)) from exc
+
+    optimizer = await run_in_threadpool(
+        _optimize_sync, frame, spec.id, combos, request, risk_free[0], None
+    )
 
     # Every combination rejected is a client error, not an empty result set.
     # Returning 200 with best_params={} would read as "searched and found
@@ -362,7 +380,7 @@ async def optimize_strategy(
         )
 
     return StrategyOptimizeResponse(
-        **build_optimize_payload(optimizer, spec, frame, combos, request, start, end)
+        **build_optimize_payload(optimizer, spec, frame, combos, request, start, end, risk_free)
     )
 
 
@@ -376,15 +394,7 @@ class PortfolioOptimizeRequest(BaseModel):
     start: datetime
     end: datetime
     num_portfolios: int = Field(default=5_000, gt=0, le=MAX_PORTFOLIOS)
-    risk_free_rate: Optional[float] = Field(
-        default=None,
-        description=(
-            "Annual risk-free rate for the Sharpe ratio. Omitted, it is the "
-            "stored ^IRX bond-equivalent rate averaged over the window's "
-            "sessions; this used to default to a constant 0.02 whatever the "
-            "window, which is 2-4 points off for 2022 onward."
-        ),
-    )
+    risk_free_rate: Optional[float] = Field(default=None, description=RISK_FREE_RATE_DESCRIPTION)
     seed: Optional[int] = Field(
         default=42,
         description=(
@@ -422,9 +432,7 @@ class PortfolioOptimizeResponse(BaseModel):
     bars: int
     num_portfolios: int
     risk_free_rate: float
-    risk_free_source: str = Field(
-        description="Where risk_free_rate came from: the request, or ^IRX over the window"
-    )
+    risk_free_source: str = Field(description=RISK_FREE_SOURCE_DESCRIPTION)
     seed: Optional[int]
     max_sharpe: AllocationPoint
     min_volatility: AllocationPoint
@@ -437,32 +445,6 @@ def _row_to_allocation(row: pd.Series) -> AllocationPoint:
         annualized_volatility=float(row["Annualized Volatility"]),
         sharpe_ratio=float(row["Sharpe Ratio"]),
         weights={k: float(v) for k, v in row["weights"].items()},
-    )
-
-
-async def resolve_risk_free(
-    request: PortfolioOptimizeRequest, prices: pd.DataFrame, rates: RateRepository
-) -> Tuple[float, str]:
-    """
-    The annual rate the Sharpe ratio subtracts, and a line saying where from.
-
-    A rate in the request is used as given and the store is never read. Else
-    each return period is set against the bill rate known at its START, so
-    the window's last print is not needed and nothing is read ahead.
-    Raises RiskFreeCoverageError when the store has a gap in the window.
-    """
-    if request.risk_free_rate is not None:
-        return request.risk_free_rate, "supplied in the request"
-    # pct_change() drops the first row: N prices make N-1 returns, each
-    # starting on one of the first N-1 dates.
-    sessions = sorted({ts.date() for ts in pd.DatetimeIndex(prices.index[:-1])})
-    window = await risk_free_over(rates, sessions)
-    return window.rate, window.describe()
-
-
-def risk_free_refusal(exc: RiskFreeCoverageError) -> str:
-    return (
-        f"No stored risk-free rate covers this window ({exc}). Pass risk_free_rate to supply one."
     )
 
 
@@ -536,7 +518,7 @@ def build_portfolio_payload(
 async def optimize_portfolio(
     request: PortfolioOptimizeRequest,
     repo: TimescaleMarketDataRepo = Depends(get_market_data_repo),
-    rates: RateRepository = Depends(get_optimize_rates),
+    rates: RateRepository = Depends(get_rate_repo),
 ) -> PortfolioOptimizeResponse:
     if request.start > request.end:
         raise HTTPException(status_code=422, detail="`start` must not be after `end`.")
@@ -585,7 +567,7 @@ async def optimize_portfolio(
         )
 
     try:
-        risk_free = await resolve_risk_free(request, prices, rates)
+        risk_free = await resolve_risk_free(request.risk_free_rate, prices.index, rates)
     except RiskFreeCoverageError as exc:
         raise HTTPException(status_code=422, detail=risk_free_refusal(exc)) from exc
 

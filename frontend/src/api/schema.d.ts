@@ -1176,6 +1176,11 @@ export interface components {
              * @default true
              */
             include_trades: boolean;
+            /**
+             * Risk Free Rate
+             * @description Annual risk-free rate the Sharpe ratio is in excess of. Omitted, it is the stored ^IRX bond-equivalent rate averaged over the window's sessions.
+             */
+            risk_free_rate?: number | null;
         };
         /** BacktestResponse */
         BacktestResponse: {
@@ -1217,6 +1222,16 @@ export interface components {
              * @description Slippage seed used for this run
              */
             seed?: number | null;
+            /**
+             * Risk Free Rate
+             * @description Annual rate the Sharpe ratio is in excess of
+             */
+            risk_free_rate: number;
+            /**
+             * Risk Free Source
+             * @description Where risk_free_rate came from: the request, or ^IRX over the window
+             */
+            risk_free_source: string;
             /**
              * Metrics
              * @description KPIs from PerformanceAnalyzer
@@ -1319,6 +1334,11 @@ export interface components {
              * @default true
              */
             include_equity_curves: boolean;
+            /**
+             * Risk Free Rate
+             * @description Annual risk-free rate the Sharpe ratio is in excess of. Omitted, it is the stored ^IRX bond-equivalent rate averaged over the window's sessions.
+             */
+            risk_free_rate?: number | null;
         };
         /** CompareResponse */
         CompareResponse: {
@@ -1342,6 +1362,16 @@ export interface components {
             initial_capital: number;
             /** Seed */
             seed: number | null;
+            /**
+             * Risk Free Rate
+             * @description Annual rate every Sharpe here is in excess of, the benchmark's included
+             */
+            risk_free_rate: number;
+            /**
+             * Risk Free Source
+             * @description Where risk_free_rate came from: the request, or ^IRX over the window
+             */
+            risk_free_source: string;
             /** Optimized */
             optimized: boolean;
             /**
@@ -2157,6 +2187,11 @@ export interface components {
              * @default true
              */
             include_equity_curve: boolean;
+            /**
+             * Risk Free Rate
+             * @description Annual risk-free rate the Sharpe ratio is in excess of. Omitted, it is the stored ^IRX bond-equivalent rate averaged over the window's sessions.
+             */
+            risk_free_rate?: number | null;
         };
         /** PortfolioBacktestResponse */
         PortfolioBacktestResponse: {
@@ -2193,6 +2228,16 @@ export interface components {
             initial_capital: number;
             /** Seed */
             seed: number | null;
+            /**
+             * Risk Free Rate
+             * @description Annual rate the Sharpe ratio is in excess of
+             */
+            risk_free_rate: number;
+            /**
+             * Risk Free Source
+             * @description Where risk_free_rate came from: the request, or ^IRX over the window
+             */
+            risk_free_source: string;
             /** Max Trade Risk Pct */
             max_trade_risk_pct: number;
             /** Max Portfolio Drawdown Pct */
@@ -2247,7 +2292,7 @@ export interface components {
             num_portfolios: number;
             /**
              * Risk Free Rate
-             * @description Annual risk-free rate for the Sharpe ratio. Omitted, it is the stored ^IRX bond-equivalent rate averaged over the window's sessions; this used to default to a constant 0.02 whatever the window, which is 2-4 points off for 2022 onward.
+             * @description Annual risk-free rate the Sharpe ratio is in excess of. Omitted, it is the stored ^IRX bond-equivalent rate averaged over the window's sessions.
              */
             risk_free_rate?: number | null;
             /**
@@ -2723,6 +2768,11 @@ export interface components {
              */
             seed: number | null;
             /**
+             * Risk Free Rate
+             * @description Annual risk-free rate the Sharpe ratio is in excess of. Omitted, it is the stored ^IRX bond-equivalent rate averaged over the window's sessions.
+             */
+            risk_free_rate?: number | null;
+            /**
              * Mode
              * @description 'returns' resamples the strategy's realised daily returns; 'prices' resamples price returns and re-runs the strategy per path.
              * @default returns
@@ -2802,6 +2852,16 @@ export interface components {
             initial_capital: number;
             /** Seed */
             seed: number | null;
+            /**
+             * Risk Free Rate
+             * @description Annual rate the historical Sharpe is in excess of
+             */
+            risk_free_rate: number;
+            /**
+             * Risk Free Source
+             * @description Where risk_free_rate came from: the request, or ^IRX over the window
+             */
+            risk_free_source: string;
             /**
              * Mode
              * @enum {string}
@@ -3025,6 +3085,11 @@ export interface components {
              * @default 25
              */
             top_n: number;
+            /**
+             * Risk Free Rate
+             * @description Annual risk-free rate the Sharpe ratio is in excess of. Omitted, it is the stored ^IRX bond-equivalent rate averaged over the window's sessions.
+             */
+            risk_free_rate?: number | null;
         };
         /** StrategyOptimizeResponse */
         StrategyOptimizeResponse: {
@@ -3052,6 +3117,13 @@ export interface components {
             seed: number | null;
             /** Initial Capital */
             initial_capital: number;
+            /** Risk Free Rate */
+            risk_free_rate: number;
+            /**
+             * Risk Free Source
+             * @description Where risk_free_rate came from: the request, or ^IRX over the window
+             */
+            risk_free_source: string;
             /** Combinations Requested */
             combinations_requested: number;
             /** Combinations Evaluated */

@@ -31,6 +31,8 @@ const RESULT: SimulationResponse = {
   params: {},
   initial_capital: 250_000,
   seed: 42,
+  risk_free_rate: 0.0412,
+  risk_free_source: '^IRX bond-equivalent, mean over 250 sessions 2024-01-02..2024-12-30',
   mode: 'returns',
   method: 'stationary',
   n_paths: 2000,

@@ -136,20 +136,27 @@ class Backtester:
 
         return pd.DataFrame(log_data)
 
-    def get_performance_metrics(self) -> dict:
+    def get_performance_metrics(self, risk_free_rate: float) -> dict:
         """
         Calculates performance metrics by delegating to the PerformanceAnalyzer.
+
+        The rate is an argument here, not of the constructor: the run itself
+        never uses it, so the loop and its results are unaffected by it.
         """
         if self.results is None or self.results.empty:
             return {}  # Return empty dict if no results exist
 
-        analyzer = PerformanceAnalyzer(self.results, initial_capital=self.initial_capital)
+        analyzer = PerformanceAnalyzer(
+            self.results, initial_capital=self.initial_capital, risk_free_rate=risk_free_rate
+        )
         return analyzer.calculate_all_metrics()
 
-    def run_and_get_metrics(self, price_data: pd.DataFrame, model: BaseAlphaModel) -> dict:
+    def run_and_get_metrics(
+        self, price_data: pd.DataFrame, model: BaseAlphaModel, risk_free_rate: float
+    ) -> dict:
         """
         A convenience method that runs a backtest and immediately returns the
         performance metrics. Useful for optimizations.
         """
         self.run(price_data=price_data, model=model)
-        return self.get_performance_metrics()
+        return self.get_performance_metrics(risk_free_rate)

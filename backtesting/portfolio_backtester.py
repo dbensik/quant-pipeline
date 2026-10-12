@@ -228,9 +228,11 @@ class PortfolioBacktester:
 
         return portfolio, pd.DataFrame(trade_log)
 
-    def get_performance_metrics(self) -> dict:
+    def get_performance_metrics(self, risk_free_rate: float) -> dict:
         """Calculates performance metrics by delegating to the PerformanceAnalyzer."""
         if self.results is None or self.results.empty:
             return {}
-        analyzer = PerformanceAnalyzer(self.results, initial_capital=self.initial_capital)
+        analyzer = PerformanceAnalyzer(
+            self.results, initial_capital=self.initial_capital, risk_free_rate=risk_free_rate
+        )
         return analyzer.calculate_all_metrics()

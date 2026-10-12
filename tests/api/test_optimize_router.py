@@ -483,9 +483,9 @@ def test_too_few_common_dates_is_422(client: TestClient):
 
 def with_rates(client: TestClient, rates):
     from api.main import app
-    from api.routers.optimize import get_optimize_rates
+    from api.risk_free import get_rate_repo
 
-    app.dependency_overrides[get_optimize_rates] = lambda: rates
+    app.dependency_overrides[get_rate_repo] = lambda: rates
     return client
 
 

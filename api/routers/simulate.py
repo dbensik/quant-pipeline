@@ -40,9 +40,18 @@ from pydantic import BaseModel, Field
 from alpha_models import registry
 from api.dependencies import get_market_data_repo
 from api.frames import records_to_frame
+from api.risk_free import (
+    RISK_FREE_RATE_DESCRIPTION,
+    RISK_FREE_SOURCE_DESCRIPTION,
+    RiskFreeCoverageError,
+    get_rate_repo,
+    resolve_risk_free,
+    risk_free_refusal,
+)
 from api.routers.backtest import _json_safe, _run_backtest_sync
 from backtesting.backtester import Backtester
 from config import settings
+from core.rates import RateRepository
 from db.repositories.market_data import TimescaleMarketDataRepo
 from simulation import (
     bands,
@@ -92,6 +101,7 @@ class SimulationRequest(BaseModel):
             "The same request returns the same bands; null is unseeded."
         ),
     )
+    risk_free_rate: Optional[float] = Field(default=None, description=RISK_FREE_RATE_DESCRIPTION)
     mode: Mode = Field(
         default="returns",
         description=(
@@ -201,6 +211,8 @@ class SimulationResponse(BaseModel):
     params: Dict[str, Any]
     initial_capital: float
     seed: Optional[int]
+    risk_free_rate: float = Field(description="Annual rate the historical Sharpe is in excess of")
+    risk_free_source: str = Field(description=RISK_FREE_SOURCE_DESCRIPTION)
     mode: Mode
     method: Method
     n_paths: int
@@ -273,6 +285,7 @@ def _simulate_sync(
     spec: registry.StrategySpec,
     request: SimulationRequest,
     n_paths: int,
+    risk_free_rate: float,
     on_progress: Optional[Callable[[int, int], None]] = None,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """
@@ -286,6 +299,7 @@ def _simulate_sync(
         request.initial_capital,
         request.transaction_cost,
         request.seed,
+        risk_free_rate=risk_free_rate,
     )
     trade_count = 0 if trades is None or trades.empty else len(trades)
     rng = np.random.default_rng(request.seed)
@@ -483,6 +497,7 @@ def build_simulation_response(
     end: datetime,
     metrics: Dict[str, Any],
     sim: Dict[str, Any],
+    risk_free: Tuple[float, str],
 ) -> SimulationResponse:
     return SimulationResponse(
         symbol=asset.symbol,
@@ -494,6 +509,8 @@ def build_simulation_response(
         params={p.name: request.params.get(p.name, p.default) for p in spec.params},
         initial_capital=request.initial_capital,
         seed=request.seed,
+        risk_free_rate=risk_free[0],
+        risk_free_source=risk_free[1],
         mode=request.mode,
         method=request.method,
         n_paths=n_paths,
@@ -529,6 +546,7 @@ def build_simulation_response(
 async def run_simulation(
     request: SimulationRequest,
     repo: TimescaleMarketDataRepo = Depends(get_market_data_repo),
+    rates: RateRepository = Depends(get_rate_repo),
 ) -> SimulationResponse:
     spec, n_paths = validate_simulation_request(request)
 
@@ -553,10 +571,17 @@ async def run_simulation(
         )
 
     try:
-        metrics, sim = await run_in_threadpool(_simulate_sync, frame, spec, request, n_paths)
+        risk_free = await resolve_risk_free(request.risk_free_rate, frame.index, rates)
+    except RiskFreeCoverageError as exc:
+        raise HTTPException(status_code=422, detail=risk_free_refusal(exc)) from exc
+
+    try:
+        metrics, sim = await run_in_threadpool(
+            _simulate_sync, frame, spec, request, n_paths, risk_free[0]
+        )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None
 
     return build_simulation_response(
-        asset, spec, request, n_paths, len(frame), start, end, metrics, sim
+        asset, spec, request, n_paths, len(frame), start, end, metrics, sim, risk_free
     )

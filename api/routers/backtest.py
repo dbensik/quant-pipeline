@@ -17,7 +17,16 @@ from pydantic import BaseModel, Field
 from alpha_models import registry
 from api.dependencies import get_market_data_repo
 from api.frames import records_to_frame
+from api.risk_free import (
+    RISK_FREE_RATE_DESCRIPTION,
+    RISK_FREE_SOURCE_DESCRIPTION,
+    RiskFreeCoverageError,
+    get_rate_repo,
+    resolve_risk_free,
+    risk_free_refusal,
+)
 from backtesting.backtester import Backtester
+from core.rates import RateRepository
 from db.repositories.market_data import TimescaleMarketDataRepo
 
 router = APIRouter(prefix="/api/v1/backtest", tags=["backtest"])
@@ -55,6 +64,7 @@ class BacktestRequest(BaseModel):
         default=True, description="Set false for a metrics-only response"
     )
     include_trades: bool = Field(default=True)
+    risk_free_rate: Optional[float] = Field(default=None, description=RISK_FREE_RATE_DESCRIPTION)
 
 
 class EquityPoint(BaseModel):
@@ -82,6 +92,8 @@ class BacktestResponse(BaseModel):
         )
     )
     seed: Optional[int] = Field(default=None, description="Slippage seed used for this run")
+    risk_free_rate: float = Field(description="Annual rate the Sharpe ratio is in excess of")
+    risk_free_source: str = Field(description=RISK_FREE_SOURCE_DESCRIPTION)
     metrics: Dict[str, Any] = Field(description="KPIs from PerformanceAnalyzer")
     caveat: Optional[str] = Field(
         default=None, description="Non-null when the strategy is known to be unsound"
@@ -122,6 +134,8 @@ def _run_backtest_sync(
     initial_capital: float,
     transaction_cost: float,
     seed: Optional[int] = None,
+    *,
+    risk_free_rate: float,
 ) -> tuple:
     """
     The CPU-bound half, run off the event loop via run_in_threadpool.
@@ -137,7 +151,7 @@ def _run_backtest_sync(
         seed=seed,
     )
     results = backtester.run(price_data=frame, model=model)
-    metrics = backtester.get_performance_metrics()
+    metrics = backtester.get_performance_metrics(risk_free_rate)
     trades = backtester.get_trade_log()
     return results, metrics, trades
 
@@ -159,6 +173,7 @@ def _run_backtest_sync(
 async def run_backtest(
     request: BacktestRequest,
     repo: TimescaleMarketDataRepo = Depends(get_market_data_repo),
+    rates: RateRepository = Depends(get_rate_repo),
 ) -> BacktestResponse:
     """
     Fetch history, run the strategy, return equity curve + KPIs + trades.
@@ -206,6 +221,11 @@ async def run_backtest(
         )
 
     try:
+        risk_free = await resolve_risk_free(request.risk_free_rate, frame.index, rates)
+    except RiskFreeCoverageError as exc:
+        raise HTTPException(status_code=422, detail=risk_free_refusal(exc)) from exc
+
+    try:
         results, metrics, trades = await run_in_threadpool(
             _run_backtest_sync,
             frame,
@@ -214,6 +234,7 @@ async def run_backtest(
             request.initial_capital,
             request.transaction_cost,
             request.seed,
+            risk_free_rate=risk_free[0],
         )
     except ValueError as exc:
         # Strategies validate their own parameters and raise ValueError —
@@ -253,6 +274,8 @@ async def run_backtest(
         params=effective_params,
         initial_capital=request.initial_capital,
         seed=request.seed,
+        risk_free_rate=risk_free[0],
+        risk_free_source=risk_free[1],
         metrics={k: _json_safe(v) for k, v in (metrics or {}).items()},
         caveat=spec.caveat,
         equity_curve=equity,

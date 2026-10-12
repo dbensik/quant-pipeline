@@ -14,6 +14,8 @@ const REST: BacktestResponse = {
   params: { short_window: 10, long_window: 30 },
   initial_capital: 250_000,
   seed: 42,
+  risk_free_rate: 0.0412,
+  risk_free_source: '^IRX bond-equivalent, mean over 250 sessions 2024-01-02..2024-12-30',
   metrics: { 'Final Value': 123_456, 'Sharpe Ratio': null },
   caveat: null,
   equity_curve: [
@@ -34,6 +36,8 @@ const SOCKET: WsResult = {
   caveat: null,
   params: { short_window: 10, long_window: 30 },
   seed: 42,
+  risk_free_rate: 0.0412,
+  risk_free_source: '^IRX bond-equivalent, mean over 250 sessions 2024-01-02..2024-12-30',
   initial_capital: 250_000,
   equity_curve: [
     { time: '2024-01-01T00:00:00Z', total: 100 },
@@ -85,6 +89,15 @@ describe('initial capital', () => {
   it('does not leak into the strategy parameters', () => {
     expect(fromRest(REST).params).toEqual({ short_window: 10, long_window: 30 })
     expect(fromRest(REST).params).not.toHaveProperty('initial_capital')
+  })
+})
+
+describe('risk-free rate', () => {
+  it('carries the rate the Sharpe is net of, from either transport', () => {
+    for (const result of [fromRest(REST), fromSocket(SOCKET)]) {
+      expect(result.riskFreeRate).toBe(0.0412)
+      expect(result.riskFreeSource).toMatch(/^\^IRX bond-equivalent/)
+    }
   })
 })
 

@@ -187,10 +187,14 @@ before `as_of`, never an exact-date join: bond holidays are stock sessions)
 and whether it is stale. Insert-only; today's New York date is never stored.
 A yield is not a price: as an asset it would have reached backtests, the
 symbol picker and every price check. The DCF reads it (`modeling/valuation.py`,
-continuous). `/optimize/portfolio` subtracts the MEAN bond-equivalent rate over
-its window (`risk_free_over`, since 2026-10-12; a window the series does not
-cover is 422, `risk_free_rate` in the request overrides). Still not on it:
-strategy Sharpe in `analysis/performance_analyzer.py` uses rf = 0, and
+continuous). Every Sharpe the API reports (backtest, compare, both
+optimizers, portfolio backtest, simulate, and their websockets) is in excess
+of the MEAN bond-equivalent rate over its window, resolved once per request by
+`api/risk_free.py` (since 2026-10-12; a window the series does not cover is
+422, `risk_free_rate` in the request overrides). `PerformanceAnalyzer` and
+`get_performance_metrics()` take the rate with NO default. Strategy Sharpe is
+still CAGR-based and the portfolio optimizer's arithmetic, and idle backtest
+cash earns 0, so a mostly-flat strategy now reads strongly negative.
 `data_enricher.py` keeps 0.02 but has no live caller.
 
 **SEC facts are refreshed from EDGAR's daily form index** (since

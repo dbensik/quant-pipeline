@@ -22,6 +22,7 @@ class PerformanceAnalyzer:
         *,
         benchmark_history: Optional[pd.DataFrame] = None,
         initial_capital: float = 100000.0,
+        risk_free_rate: float,
     ):
         """
         Initializes the analyzer with the results of a backtest.
@@ -30,6 +31,10 @@ class PerformanceAnalyzer:
             portfolio_history: A DataFrame with 'total', 'returns', and 'trades' columns.
             benchmark_history: An optional DataFrame for a benchmark, with a 'total' column.
             initial_capital: The starting capital for calculating total return.
+            risk_free_rate: Annual rate the Sharpe ratio is in excess of. No
+                default: the API resolves the stored ^IRX rate over the window
+                (api/risk_free.py), and a silent 0 is how Sharpe used to be
+                computed here. Pass 0.0 explicitly for a raw ratio.
 
         Everything after the history is keyword-only. Until 2026-10-12 every
         caller passed `(history, initial_capital)`, which bound the capital to
@@ -43,6 +48,7 @@ class PerformanceAnalyzer:
         self.portfolio = portfolio_history
         self.benchmark = benchmark_history
         self.initial_capital = initial_capital
+        self.risk_free_rate = risk_free_rate
         self.returns = self.portfolio["returns"]
         self.portfolio_value = self.portfolio["total"]
 
@@ -62,8 +68,15 @@ class PerformanceAnalyzer:
 
         # --- Risk & Risk-Adjusted Return Metrics ---
         annualized_volatility = self.returns.std() * np.sqrt(252)
+        # Excess over the risk-free rate. The numerator stays the CAGR (the
+        # portfolio optimizer uses the arithmetic mean x 252, so the two
+        # Sharpes still differ by numerator). Sortino and Calmar are left
+        # against 0: Sortino's target is a separate choice, since moving it
+        # also moves which returns count as downside.
         sharpe_ratio = (
-            annualized_return / annualized_volatility if annualized_volatility != 0 else 0.0
+            (annualized_return - self.risk_free_rate) / annualized_volatility
+            if annualized_volatility != 0
+            else 0.0
         )
 
         downside_returns = self.returns[self.returns < 0]
@@ -165,7 +178,9 @@ class PerformanceAnalyzer:
         if self.benchmark is not None and not self.benchmark.empty:
             # Use a separate analyzer instance for the benchmark
             bench_analyzer = PerformanceAnalyzer(
-                self.benchmark, initial_capital=self.initial_capital
+                self.benchmark,
+                initial_capital=self.initial_capital,
+                risk_free_rate=self.risk_free_rate,
             )
             bench_stats = bench_analyzer.calculate_all_metrics()
             bench_stats["drawdown_series"], _, _ = bench_analyzer._calculate_drawdowns()

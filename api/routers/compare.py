@@ -36,12 +36,21 @@ from pydantic import BaseModel, Field
 from alpha_models import registry
 from api.dependencies import get_market_data_repo
 from api.frames import records_to_frame
+from api.risk_free import (
+    RISK_FREE_RATE_DESCRIPTION,
+    RISK_FREE_SOURCE_DESCRIPTION,
+    RiskFreeCoverageError,
+    get_rate_repo,
+    resolve_risk_free,
+    risk_free_refusal,
+)
 from api.routers.backtest import _json_safe, _run_backtest_sync
 from backtesting.parameter_optimizer import (
     MINIMIZE,
     OPTIMIZABLE_METRICS,
     ParameterOptimizer,
 )
+from core.rates import RateRepository
 from db.repositories.market_data import TimescaleMarketDataRepo
 
 logger = logging.getLogger(__name__)
@@ -107,6 +116,7 @@ class CompareRequest(BaseModel):
     transaction_cost: float = Field(default=0.001, ge=0)
     seed: Optional[int] = Field(default=42)
     include_equity_curves: bool = Field(default=True)
+    risk_free_rate: Optional[float] = Field(default=None, description=RISK_FREE_RATE_DESCRIPTION)
 
 
 class ComparisonRow(BaseModel):
@@ -134,6 +144,10 @@ class CompareResponse(BaseModel):
     metric: str
     initial_capital: float
     seed: Optional[int]
+    risk_free_rate: float = Field(
+        description="Annual rate every Sharpe here is in excess of, the benchmark's included"
+    )
+    risk_free_source: str = Field(description=RISK_FREE_SOURCE_DESCRIPTION)
     optimized: bool
     results: List[ComparisonRow] = Field(description="Ranked best-first by `metric`")
     benchmark: Optional[BenchmarkRow] = None
@@ -161,7 +175,7 @@ def _curve(frame: Optional[pd.DataFrame]) -> List[ComparisonEquityPoint]:
 
 
 def _benchmark_metrics(
-    frame: pd.DataFrame, initial_capital: float
+    frame: pd.DataFrame, initial_capital: float, risk_free_rate: float
 ) -> tuple[Dict[str, Any], pd.DataFrame]:
     """
     Buy-and-hold on the benchmark, scaled to the same starting capital.
@@ -180,12 +194,14 @@ def _benchmark_metrics(
     portfolio = pd.DataFrame({"total": values})
     portfolio["returns"] = portfolio["total"].pct_change().fillna(0)
 
-    analyzer = PerformanceAnalyzer(portfolio, initial_capital=initial_capital)
+    analyzer = PerformanceAnalyzer(
+        portfolio, initial_capital=initial_capital, risk_free_rate=risk_free_rate
+    )
     return analyzer.calculate_all_metrics(), portfolio
 
 
 def _compare_sync(
-    frame: pd.DataFrame, request: CompareRequest
+    frame: pd.DataFrame, request: CompareRequest, risk_free_rate: float
 ) -> tuple[List[Dict[str, Any]], List[Dict[str, str]]]:
     """CPU-bound half: tune (optionally), backtest, collect."""
     rows: List[Dict[str, Any]] = []
@@ -236,6 +252,7 @@ def _compare_sync(
                 initial_capital=request.initial_capital,
                 transaction_cost=request.transaction_cost,
                 seed=request.seed,
+                risk_free_rate=risk_free_rate,
             )
             optimizer.run_optimization()
             best = optimizer.get_best_parameters()
@@ -252,6 +269,7 @@ def _compare_sync(
                 request.initial_capital,
                 request.transaction_cost,
                 request.seed,
+                risk_free_rate=risk_free_rate,
             )
         except (ValueError, KeyError) as exc:
             skipped.append({"strategy_id": spec.id, "reason": str(exc)})
@@ -306,6 +324,7 @@ def _expand(grid: Dict[str, List[Any]]) -> List[Dict[str, Any]]:
 async def compare_strategies(
     request: CompareRequest,
     repo: TimescaleMarketDataRepo = Depends(get_market_data_repo),
+    rates: RateRepository = Depends(get_rate_repo),
 ) -> CompareResponse:
     if request.start > request.end:
         raise HTTPException(status_code=422, detail="`start` must not be after `end`.")
@@ -361,6 +380,14 @@ async def compare_strategies(
 
     frame = await load(request.symbol)
 
+    # One rate for the whole comparison, the benchmark's Sharpe included: the
+    # rows are ranked against each other, so they must share a hurdle. It is
+    # taken over the strategy symbol's sessions, the window the rows trade.
+    try:
+        risk_free = await resolve_risk_free(request.risk_free_rate, frame.index, rates)
+    except RiskFreeCoverageError as exc:
+        raise HTTPException(status_code=422, detail=risk_free_refusal(exc)) from exc
+
     benchmark: Optional[BenchmarkRow] = None
     if request.benchmark_symbol:
         # No live-yfinance fallback: prices come from the migrated database
@@ -369,7 +396,7 @@ async def compare_strategies(
         benchmark_frame = await load(request.benchmark_symbol)
         try:
             metrics, portfolio = await run_in_threadpool(
-                _benchmark_metrics, benchmark_frame, request.initial_capital
+                _benchmark_metrics, benchmark_frame, request.initial_capital, risk_free[0]
             )
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from None
@@ -379,7 +406,7 @@ async def compare_strategies(
             equity_curve=_curve(portfolio) if request.include_equity_curves else [],
         )
 
-    rows, skipped = await run_in_threadpool(_compare_sync, frame, request)
+    rows, skipped = await run_in_threadpool(_compare_sync, frame, request, risk_free[0])
 
     if not rows:
         reasons = "; ".join(f"{s['strategy_id']}: {s['reason']}" for s in skipped)
@@ -414,6 +441,8 @@ async def compare_strategies(
         metric=request.metric,
         initial_capital=request.initial_capital,
         seed=request.seed,
+        risk_free_rate=risk_free[0],
+        risk_free_source=risk_free[1],
         optimized=request.optimize,
         results=[
             ComparisonRow(

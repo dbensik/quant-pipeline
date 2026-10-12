@@ -335,7 +335,7 @@ def test_prices_mode_seeds_each_path_from_its_index(monkeypatch):
         horizon_days=10,
         seed=7,
     )
-    simulate._simulate_sync(frame, registry.get("buy_and_hold"), request, 4)
+    simulate._simulate_sync(frame, registry.get("buy_and_hold"), request, 4, 0.0)
     # The historical run is seeded with the request seed via _run_backtest_sync
     # (which builds its own Backtester, not patched here); the four paths follow.
     assert seeds[-4:] == [7, 8, 9, 10]

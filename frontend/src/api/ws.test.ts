@@ -90,6 +90,8 @@ const RESULT = {
   caveat: null,
   params: {},
   seed: 42,
+  risk_free_rate: 0.0412,
+  risk_free_source: '^IRX bond-equivalent, mean over 250 sessions 2024-01-02..2024-12-30',
   initial_capital: 100_000,
 } as const
 

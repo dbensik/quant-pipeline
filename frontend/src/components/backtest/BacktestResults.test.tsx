@@ -33,6 +33,8 @@ const RESULT: BacktestResult = {
   params: { short_window: 10, long_window: 30 },
   initialCapital: 250_000,
   seed: 42,
+  riskFreeRate: 0.0412,
+  riskFreeSource: '^IRX bond-equivalent, mean over 250 sessions 2024-01-02..2024-12-30',
   metrics: {
     'Final Value': 123_456.78,
     'Total Return': 0.2345,
@@ -47,6 +49,14 @@ const RESULT: BacktestResult = {
   ],
   via: 'websocket',
 }
+
+describe('BacktestResults — risk-free rate', () => {
+  it('says which rate the Sharpe ratio is net of', () => {
+    render(<BacktestResults result={RESULT} />)
+    expect(screen.getByText(/net of a 4\.12% risk-free rate/)).toBeInTheDocument()
+    expect(screen.getByText(/\^IRX bond-equivalent, mean over 250 sessions/)).toBeInTheDocument()
+  })
+})
 
 describe('BacktestResults — break-even line', () => {
   it('passes the run\'s own initial capital to the chart', () => {

@@ -213,7 +213,9 @@ export function ComparePage() {
                 Ranked by {result.metric}
               </CardTitle>
               <CardDescription>
-                {result.bars} bars · {result.optimized ? 'tuned' : 'default parameters'}
+                {result.bars} bars · {result.optimized ? 'tuned' : 'default parameters'} ·
+                Sharpe net of a {percent(result.risk_free_rate)} risk-free rate (
+                {result.risk_free_source})
               </CardDescription>
             </CardHeader>
             <CardContent>

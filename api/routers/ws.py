@@ -42,6 +42,7 @@ from pydantic import ValidationError
 
 from alpha_models import registry
 from api.frames import frames_to_wide_close, records_to_frame
+from api.risk_free import RiskFreeCoverageError, resolve_risk_free, risk_free_refusal
 from api.routers.backtest import BacktestRequest, _json_safe, _run_backtest_sync
 from db.repositories.market_data import TimescaleMarketDataRepo
 from db.repositories.rates import TimescaleRateRepo
@@ -201,14 +202,23 @@ async def backtest_ws(websocket: WebSocket) -> None:
                 symbol=request.symbol, asset_class=None, start=start, end=end
             )
 
-        frame = records_to_frame(records)
-        if frame.empty:
-            await _send_error(
-                websocket,
-                f"No bars stored for {request.symbol!r} between {start.date()} and {end.date()}.",
-                422,
-            )
-            return
+            frame = records_to_frame(records)
+            if frame.empty:
+                await _send_error(
+                    websocket,
+                    f"No bars stored for {request.symbol!r} between {start.date()} and {end.date()}.",
+                    422,
+                )
+                return
+
+            # Inside the session: the rate is read from the same database.
+            try:
+                risk_free = await resolve_risk_free(
+                    request.risk_free_rate, frame.index, TimescaleRateRepo(session)
+                )
+            except RiskFreeCoverageError as exc:
+                await _send_error(websocket, risk_free_refusal(exc), 422)
+                return
 
         await websocket.send_json(
             {
@@ -229,6 +239,7 @@ async def backtest_ws(websocket: WebSocket) -> None:
                 request.initial_capital,
                 request.transaction_cost,
                 request.seed,
+                risk_free_rate=risk_free[0],
             )
         except ValueError as exc:
             await _send_error(websocket, str(exc), 422)
@@ -261,6 +272,8 @@ async def backtest_ws(websocket: WebSocket) -> None:
             "params": {p.name: request.params.get(p.name, p.default) for p in spec.params},
             "seed": request.seed,
             "initial_capital": request.initial_capital,
+            "risk_free_rate": risk_free[0],
+            "risk_free_source": risk_free[1],
         }
         if request.include_equity_curve and results is not None and not results.empty:
             payload["equity_curve"] = [
@@ -381,14 +394,22 @@ async def simulate_ws(websocket: WebSocket) -> None:
                 symbol=request.symbol, asset_class=None, start=start, end=end
             )
 
-        frame = records_to_frame(records)
-        if frame.empty:
-            await _send_error(
-                websocket,
-                f"No bars stored for {request.symbol!r} between {start.date()} and {end.date()}.",
-                422,
-            )
-            return
+            frame = records_to_frame(records)
+            if frame.empty:
+                await _send_error(
+                    websocket,
+                    f"No bars stored for {request.symbol!r} between {start.date()} and {end.date()}.",
+                    422,
+                )
+                return
+
+            try:
+                risk_free = await resolve_risk_free(
+                    request.risk_free_rate, frame.index, TimescaleRateRepo(session)
+                )
+            except RiskFreeCoverageError as exc:
+                await _send_error(websocket, risk_free_refusal(exc), 422)
+                return
 
         # -- simulate ---------------------------------------------------
         await websocket.send_json(
@@ -421,7 +442,7 @@ async def simulate_ws(websocket: WebSocket) -> None:
 
             try:
                 metrics, sim = await run_in_threadpool(
-                    _simulate_sync, frame, spec, request, n_paths, on_progress
+                    _simulate_sync, frame, spec, request, n_paths, risk_free[0], on_progress
                 )
             except ValueError as exc:
                 await _send_error(websocket, str(exc), 422)
@@ -437,7 +458,7 @@ async def simulate_ws(websocket: WebSocket) -> None:
         )
 
         response = build_simulation_response(
-            asset, spec, request, n_paths, len(frame), start, end, metrics, sim
+            asset, spec, request, n_paths, len(frame), start, end, metrics, sim, risk_free
         )
         payload = response.model_dump(mode="json")
         payload["type"] = "result"
@@ -548,14 +569,22 @@ async def optimize_strategy_ws(websocket: WebSocket) -> None:
                 symbol=request.symbol, asset_class=None, start=start, end=end
             )
 
-        frame = records_to_frame(records)
-        if frame.empty:
-            await _send_error(
-                websocket,
-                f"No bars stored for {request.symbol!r} between {start.date()} and {end.date()}.",
-                422,
-            )
-            return
+            frame = records_to_frame(records)
+            if frame.empty:
+                await _send_error(
+                    websocket,
+                    f"No bars stored for {request.symbol!r} between {start.date()} and {end.date()}.",
+                    422,
+                )
+                return
+
+            try:
+                risk_free = await resolve_risk_free(
+                    request.risk_free_rate, frame.index, TimescaleRateRepo(session)
+                )
+            except RiskFreeCoverageError as exc:
+                await _send_error(websocket, risk_free_refusal(exc), 422)
+                return
 
         # -- search -----------------------------------------------------
         async with _ProgressBridge(websocket) as bridge:
@@ -575,7 +604,7 @@ async def optimize_strategy_ws(websocket: WebSocket) -> None:
                 )
 
             optimizer = await run_in_threadpool(
-                _optimize_sync, frame, spec.id, combos, request, on_progress
+                _optimize_sync, frame, spec.id, combos, request, risk_free[0], on_progress
             )
 
         if optimizer.results_df is None or optimizer.results_df.empty:
@@ -592,7 +621,9 @@ async def optimize_strategy_ws(websocket: WebSocket) -> None:
             {"type": "progress", "stage": "summarising", "pct": 97, "detail": "Ranking results"}
         )
 
-        payload = build_optimize_payload(optimizer, spec, frame, combos, request, start, end)
+        payload = build_optimize_payload(
+            optimizer, spec, frame, combos, request, start, end, risk_free
+        )
         payload["type"] = "result"
         payload["start"] = start.isoformat()
         payload["end"] = end.isoformat()
@@ -628,10 +659,7 @@ async def optimize_portfolio_ws(websocket: WebSocket) -> None:
         PortfolioOptimizeRequest,
         _simulate_sync,
         build_portfolio_payload,
-        resolve_risk_free,
-        risk_free_refusal,
     )
-    from core.rates import RiskFreeCoverageError
 
     await websocket.accept()
 
@@ -729,7 +757,9 @@ async def optimize_portfolio_ws(websocket: WebSocket) -> None:
 
             # Inside the session: the rate is read from the same database.
             try:
-                risk_free = await resolve_risk_free(request, prices, TimescaleRateRepo(session))
+                risk_free = await resolve_risk_free(
+                    request.risk_free_rate, prices.index, TimescaleRateRepo(session)
+                )
             except RiskFreeCoverageError as exc:
                 await _send_error(websocket, risk_free_refusal(exc), 422)
                 return
