@@ -39,6 +39,7 @@ def price_frame() -> pd.DataFrame:
 # Registry
 # ---------------------------------------------------------------------------
 
+
 def test_every_single_asset_strategy_is_constructible():
     """A strategy that cannot be built from its own declared defaults is broken."""
     for spec in registry.single_asset_strategies():
@@ -105,6 +106,7 @@ def test_multi_asset_strategies_are_flagged():
 # Determinism
 # ---------------------------------------------------------------------------
 
+
 def test_same_seed_gives_identical_results(price_frame):
     """
     Identical inputs must give identical outputs.
@@ -116,7 +118,10 @@ def test_same_seed_gives_identical_results(price_frame):
     runs = []
     for _ in range(3):
         bt = Backtester(seed=42)
-        bt.run(price_data=price_frame, model=registry.build("ma_crossover", {"short_window": 10, "long_window": 30}))
+        bt.run(
+            price_data=price_frame,
+            model=registry.build("ma_crossover", {"short_window": 10, "long_window": 30}),
+        )
         runs.append((bt.get_performance_metrics(), len(bt.get_trade_log())))
 
     first_metrics, first_trades = runs[0]
@@ -131,7 +136,10 @@ def test_different_seeds_give_different_draws(price_frame):
     finals = []
     for seed in (1, 2, 3):
         bt = Backtester(seed=seed)
-        bt.run(price_data=price_frame, model=registry.build("ma_crossover", {"short_window": 10, "long_window": 30}))
+        bt.run(
+            price_data=price_frame,
+            model=registry.build("ma_crossover", {"short_window": 10, "long_window": 30}),
+        )
         finals.append(bt.get_performance_metrics()["Final Value"])
     assert len(set(finals)) > 1
 
@@ -155,11 +163,15 @@ def test_handler_rng_is_per_instance_not_global():
 # Metrics
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("strategy_id,params", [
-    ("ma_crossover", {"short_window": 10, "long_window": 30}),
-    ("buy_and_hold", {}),
-    ("rsi", {}),
-])
+
+@pytest.mark.parametrize(
+    "strategy_id,params",
+    [
+        ("ma_crossover", {"short_window": 10, "long_window": 30}),
+        ("buy_and_hold", {}),
+        ("rsi", {}),
+    ],
+)
 def test_trade_count_matches_trade_log(price_frame, strategy_id, params):
     """
     "Trade Count" must equal the number of executions.
@@ -178,10 +190,18 @@ def test_trade_count_honours_explicit_trades_column(price_frame):
     from analysis.performance_analyzer import PerformanceAnalyzer
 
     bt = Backtester(seed=42)
-    results = bt.run(price_data=price_frame, model=registry.build("ma_crossover", {"short_window": 10, "long_window": 30}))
+    results = bt.run(
+        price_data=price_frame,
+        model=registry.build("ma_crossover", {"short_window": 10, "long_window": 30}),
+    )
     results = results.copy()
     results["trades"] = 0
     results.iloc[0, results.columns.get_loc("trades")] = 1
     results.iloc[5, results.columns.get_loc("trades")] = 1
 
-    assert PerformanceAnalyzer(results, initial_capital=100000.0).calculate_all_metrics()["Trade Count"] == 2
+    assert (
+        PerformanceAnalyzer(results, initial_capital=100000.0).calculate_all_metrics()[
+            "Trade Count"
+        ]
+        == 2
+    )

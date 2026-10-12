@@ -89,8 +89,13 @@ _SPECS: List[ScreenerSpec] = [
         ),
         params=[
             ParamSpec(
-                "quantile", "float", 0.25, "Volatility quantile",
-                "Fraction of the universe to keep, lowest volatility first", 0.01, 1.0,
+                "quantile",
+                "float",
+                0.25,
+                "Volatility quantile",
+                "Fraction of the universe to keep, lowest volatility first",
+                0.01,
+                1.0,
             ),
         ],
     ),
@@ -101,12 +106,22 @@ _SPECS: List[ScreenerSpec] = [
         description="Keep names whose return over the lookback window clears a floor.",
         params=[
             ParamSpec(
-                "momentum_window", "int", 126, "Lookback window",
-                "Trading days over which momentum is measured (126 ~ 6 months)", 2, 756,
+                "momentum_window",
+                "int",
+                126,
+                "Lookback window",
+                "Trading days over which momentum is measured (126 ~ 6 months)",
+                2,
+                756,
             ),
             ParamSpec(
-                "min_momentum", "float", 0.10, "Minimum return",
-                "Return over the window required to pass, e.g. 0.10 = 10%", -1.0, 10.0,
+                "min_momentum",
+                "float",
+                0.10,
+                "Minimum return",
+                "Return over the window required to pass, e.g. 0.10 = 10%",
+                -1.0,
+                10.0,
             ),
         ],
     ),
@@ -121,16 +136,31 @@ _SPECS: List[ScreenerSpec] = [
         ),
         params=[
             ParamSpec(
-                "min_price", "float", 5.0, "Minimum price",
-                "Drop names trading below this", 0.0, 10_000.0,
+                "min_price",
+                "float",
+                5.0,
+                "Minimum price",
+                "Drop names trading below this",
+                0.0,
+                10_000.0,
             ),
             ParamSpec(
-                "min_avg_volume", "float", 100_000.0, "Minimum average volume",
-                "Drop names below this average daily volume", 0.0, 1e9,
+                "min_avg_volume",
+                "float",
+                100_000.0,
+                "Minimum average volume",
+                "Drop names below this average daily volume",
+                0.0,
+                1e9,
             ),
             ParamSpec(
-                "avg_volume_days", "int", 20, "Volume window",
-                "Trading days used to average volume", 1, 252,
+                "avg_volume_days",
+                "int",
+                20,
+                "Volume window",
+                "Trading days used to average volume",
+                1,
+                252,
             ),
         ],
     ),
@@ -149,9 +179,7 @@ def get(screener_id: str) -> ScreenerSpec:
     try:
         return REGISTRY[screener_id]
     except KeyError:
-        raise KeyError(
-            f"Unknown screener '{screener_id}'. Valid ids: {sorted(REGISTRY)}"
-        ) from None
+        raise KeyError(f"Unknown screener '{screener_id}'. Valid ids: {sorted(REGISTRY)}") from None
 
 
 def build(screener_id: str, params: Optional[Dict[str, Any]] = None) -> BaseScreener:

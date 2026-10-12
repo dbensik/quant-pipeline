@@ -22,7 +22,22 @@ WHEN = datetime(2026, 10, 9, tzinfo=timezone.utc)
 
 
 def fact(concept, value, start=None, accn="A1", filed=date(2025, 10, 31)):
-    return Fact(CIK, "us-gaap", concept, "USD", start, date(2025, 9, 27), value, 2025, "FY", "10-K", filed, accn, None, WHEN)
+    return Fact(
+        CIK,
+        "us-gaap",
+        concept,
+        "USD",
+        start,
+        date(2025, 9, 27),
+        value,
+        2025,
+        "FY",
+        "10-K",
+        filed,
+        accn,
+        None,
+        WHEN,
+    )
 
 
 @pytest_asyncio.fixture(loop_scope="session")
@@ -47,6 +62,11 @@ async def test_instant_facts_dedupe_despite_null_start(repo):
 async def test_restatement_is_a_new_row_and_nothing_is_overwritten(repo):
     flow = dict(start=date(2024, 9, 29))
     assert await repo.insert([fact("NetIncomeLoss", 10.0, **flow)]) == 1
-    assert await repo.insert([fact("NetIncomeLoss", 11.0, accn="A2", filed=date(2026, 10, 30), **flow)]) == 1
+    assert (
+        await repo.insert(
+            [fact("NetIncomeLoss", 11.0, accn="A2", filed=date(2026, 10, 30), **flow)]
+        )
+        == 1
+    )
     rows = await repo.facts(CIK, ["NetIncomeLoss"])
     assert [(r.accn, r.value) for r in rows] == [("A1", 10.0), ("A2", 11.0)]

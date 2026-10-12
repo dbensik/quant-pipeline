@@ -92,7 +92,10 @@ def normalise(frame: pd.DataFrame) -> pd.DataFrame:
     )
     if out["is_call"].isna().any():
         raise ValueError("right must be 'C' or 'P'")
-    expiries = {e: (expiry_time(e) - captured).total_seconds() / SECONDS_PER_YEAR for e in out["expiry"].unique()}
+    expiries = {
+        e: (expiry_time(e) - captured).total_seconds() / SECONDS_PER_YEAR
+        for e in out["expiry"].unique()
+    }
     out["T"] = out["expiry"].map(expiries)
     out["mid"] = 0.5 * (out["bid"] + out["ask"])
     out["zero_bid"] = ~(out["bid"] >= OPTIONS_MIN_BID)
@@ -100,7 +103,9 @@ def normalise(frame: pd.DataFrame) -> pd.DataFrame:
     out["locked"] = out["ask"] == out["bid"]
     out["zero_dte"] = out["T"] < OPTIONS_EXCLUDE_DTE_BELOW / 365.0
     if "lastTradeDate" in frame:
-        age = (pd.Timestamp(captured) - pd.to_datetime(frame["lastTradeDate"], utc=True)).dt.total_seconds() / 86400
+        age = (
+            pd.Timestamp(captured) - pd.to_datetime(frame["lastTradeDate"], utc=True)
+        ).dt.total_seconds() / 86400
         out["stale_last_trade"] = (age > OPTIONS_STALE_TRADE_DAYS).fillna(True).to_numpy()
     else:
         out["stale_last_trade"] = False
@@ -113,7 +118,10 @@ def normalise(frame: pd.DataFrame) -> pd.DataFrame:
 # De-americanisation and the joint forward solve
 # ---------------------------------------------------------------------------
 
-def _schedules(rows: pd.DataFrame, dividends: Sequence[Dividend], valuation: date) -> List[List[Tuple[float, float]]]:
+
+def _schedules(
+    rows: pd.DataFrame, dividends: Sequence[Dividend], valuation: date
+) -> List[List[Tuple[float, float]]]:
     cache: Dict[str, List[Tuple[float, float]]] = {}
     out = []
     for e in rows["expiry"]:
@@ -150,8 +158,14 @@ def deamericanise(
             break
         idx = np.flatnonzero(ok)
         am, eu = escrowed_prices(
-            s_risky[idx], K[idx], T[idx], r, sigma[idx], is_call[idx],
-            divs=[schedules[i] for i in idx], steps=steps,
+            s_risky[idx],
+            K[idx],
+            T[idx],
+            r,
+            sigma[idx],
+            is_call[idx],
+            divs=[schedules[i] for i in idx],
+            steps=steps,
         )
         premium[idx] = np.maximum(am - eu, 0.0)
         floored = reason == "below_tree_floor"
@@ -164,7 +178,9 @@ def deamericanise(
     return mids - premium, premium, sigma, reason
 
 
-def _parity_forward(calls: pd.DataFrame, puts: pd.DataFrame, T: float, r: float, around: Optional[float]) -> Optional[float]:
+def _parity_forward(
+    calls: pd.DataFrame, puts: pd.DataFrame, T: float, r: float, around: Optional[float]
+) -> Optional[float]:
     """
     Median of K + e^{rT}(C - P) over the OPTIONS_FORWARD_PAIRS usable pairs
     nearest the money: nearest `around` if given, else where |C - P| is
@@ -178,7 +194,9 @@ def _parity_forward(calls: pd.DataFrame, puts: pd.DataFrame, T: float, r: float,
     else:
         distance = (pairs.index.to_series() - around).abs()
     near = pairs.loc[distance.nsmallest(OPTIONS_FORWARD_PAIRS).index]
-    estimates = near.index.to_numpy() + np.exp(r * T) * (near["price_c"] - near["price_p"]).to_numpy()
+    estimates = (
+        near.index.to_numpy() + np.exp(r * T) * (near["price_c"] - near["price_p"]).to_numpy()
+    )
     return float(np.median(estimates))
 
 
@@ -190,7 +208,9 @@ class ForwardSolve:
     converged: bool
 
 
-def solve_forward(rows: pd.DataFrame, r: float, schedules, steps: int = BINOMIAL_STEPS) -> Optional[ForwardSolve]:
+def solve_forward(
+    rows: pd.DataFrame, r: float, schedules, steps: int = BINOMIAL_STEPS
+) -> Optional[ForwardSolve]:
     """
     One expiry's usable rows -> its parity forward, solved jointly with the
     early-exercise premium of the pairs it is read from.
@@ -209,13 +229,24 @@ def solve_forward(rows: pd.DataFrame, r: float, schedules, steps: int = BINOMIAL
     forward = raw
     sched = {"c": schedules, "p": schedules}  # one expiry: one schedule
     for n in range(1, OPTIONS_FORWARD_MAX_PASSES + 1):
-        near = (pd.Series(common, index=common) - forward).abs().nsmallest(2 * OPTIONS_FORWARD_PAIRS).index
+        near = (
+            (pd.Series(common, index=common) - forward)
+            .abs()
+            .nsmallest(2 * OPTIONS_FORWARD_PAIRS)
+            .index
+        )
         k = np.asarray(near, dtype=float)
         mids = np.concatenate([calls.loc[near, "mid"].to_numpy(), puts.loc[near, "mid"].to_numpy()])
         flags = np.concatenate([np.ones(k.size, bool), np.zeros(k.size, bool)])
         eu, _, _, why = deamericanise(
-            mids, np.full(2 * k.size, forward), np.concatenate([k, k]), np.full(2 * k.size, T), r,
-            flags, [sched["c"]] * (2 * k.size), steps=steps,
+            mids,
+            np.full(2 * k.size, forward),
+            np.concatenate([k, k]),
+            np.full(2 * k.size, T),
+            r,
+            flags,
+            [sched["c"]] * (2 * k.size),
+            steps=steps,
         )
         c_eu = pd.DataFrame({"price": eu[: k.size]}, index=near)[why[: k.size] == ""]
         p_eu = pd.DataFrame({"price": eu[k.size :]}, index=near)[why[k.size :] == ""]
@@ -231,6 +262,7 @@ def solve_forward(rows: pd.DataFrame, r: float, schedules, steps: int = BINOMIAL
 # ---------------------------------------------------------------------------
 # The whole capture
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class ChainResult:
@@ -287,15 +319,23 @@ def price_chain(
     if idx.size:
         sub = rows.iloc[idx]
         eu, premium, sigma, reason = deamericanise(
-            sub["mid"], sub["F"], sub["strike"], sub["T"], r, sub["is_call"],
-            _schedules(sub, dividends, valuation), steps=steps,
+            sub["mid"],
+            sub["F"],
+            sub["strike"],
+            sub["T"],
+            r,
+            sub["is_call"],
+            _schedules(sub, dividends, valuation),
+            steps=steps,
         )
         rows.loc[rows.index[idx], "premium"] = premium
         rows.loc[rows.index[idx], "iv"] = sigma
         rows.loc[rows.index[idx], "iv_reason"] = np.where(reason == "", "", reason)
     rows["log_moneyness"] = np.log(rows["strike"] / rows["F"])
     rows["otm"] = np.where(rows["is_call"], rows["strike"] >= rows["F"], rows["strike"] < rows["F"])
-    d1 = (-rows["log_moneyness"] + 0.5 * rows["iv"] ** 2 * rows["T"]) / (rows["iv"] * np.sqrt(rows["T"]))
+    d1 = (-rows["log_moneyness"] + 0.5 * rows["iv"] ** 2 * rows["T"]) / (
+        rows["iv"] * np.sqrt(rows["T"])
+    )
     rows["forward_delta"] = np.where(rows["is_call"], norm.cdf(d1), norm.cdf(d1) - 1.0)
 
     quality = {flag: int(rows[flag].sum()) for flag in (*FLAG_COLUMNS, "stale_last_trade")}
@@ -306,7 +346,9 @@ def price_chain(
     )
     if not expiries.empty:
         quality["implied_spot_spread_bp"] = float(
-            1e4 * (expiries["implied_spot"].max() - expiries["implied_spot"].min()) / expiries["implied_spot"].median()
+            1e4
+            * (expiries["implied_spot"].max() - expiries["implied_spot"].min())
+            / expiries["implied_spot"].median()
         )
     return ChainResult(rows=rows, expiries=expiries, quality=quality)
 
@@ -315,10 +357,23 @@ def price_chain(
 # Surface
 # ---------------------------------------------------------------------------
 
+
 def smile(rows: pd.DataFrame, expiry: str) -> pd.DataFrame:
     """The surface points for one expiry: out-of-the-money, priced, by strike."""
     g = rows[(rows["expiry"] == expiry) & rows["otm"] & (rows["iv_reason"] == "")]
-    return g.sort_values("strike")[["strike", "is_call", "log_moneyness", "forward_delta", "iv", "vendor_iv", "bid", "ask", "premium"]]
+    return g.sort_values("strike")[
+        [
+            "strike",
+            "is_call",
+            "log_moneyness",
+            "forward_delta",
+            "iv",
+            "vendor_iv",
+            "bid",
+            "ask",
+            "premium",
+        ]
+    ]
 
 
 def _interp(x: np.ndarray, y: np.ndarray, at: float) -> float:

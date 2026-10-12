@@ -33,6 +33,7 @@ FIXTURE_NEWEST = START + timedelta(days=N_BARS - 1)
 # Route
 # ---------------------------------------------------------------------------
 
+
 def test_newest_bar_is_the_max_over_the_fixture(client: TestClient):
     body = client.get(BASE).json()
     assert datetime.fromisoformat(body["newest_bar"]) == FIXTURE_NEWEST
@@ -57,8 +58,8 @@ def test_by_class_reports_each_class_once(client: TestClient):
     body = client.get(BASE).json()
     classes = {row["asset_class"]: row for row in body["by_class"]}
     assert set(classes) == {"equity", "crypto"}
-    assert classes["equity"]["assets"] == 2           # AAPL, MSFT
-    assert classes["crypto"]["assets"] == 2           # BTC-USD, EMPTY-USD
+    assert classes["equity"]["assets"] == 2  # AAPL, MSFT
+    assert classes["crypto"]["assets"] == 2  # BTC-USD, EMPTY-USD
     assert classes["crypto"]["with_bars"] == 1
 
 
@@ -76,7 +77,7 @@ def test_threshold_is_validated(client: TestClient):
 # Summariser — pinned clock
 # ---------------------------------------------------------------------------
 
-AS_OF = datetime(2026, 9, 14, 13, 0, tzinfo=timezone.utc)   # a Monday
+AS_OF = datetime(2026, 9, 14, 13, 0, tzinfo=timezone.utc)  # a Monday
 
 
 def bar(days_ago: int) -> datetime:

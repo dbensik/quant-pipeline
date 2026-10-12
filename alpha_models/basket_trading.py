@@ -51,8 +51,6 @@ class BasketTradingStrategy(BaseAlphaModel):
         # 139 were due — 42 missed, 30% of them — and 13 of 46 quarterly.
         # `rebalance_dates` groups by period and takes the last date actually
         # present, which cannot drop a period that has any trading day at all.
-        signals.loc[
-            rebalance_dates(price_data.index, self.rebalance_frequency), "signal"
-        ] = 2.0
+        signals.loc[rebalance_dates(price_data.index, self.rebalance_frequency), "signal"] = 2.0
 
         return signals

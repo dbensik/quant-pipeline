@@ -74,7 +74,12 @@ def test_wacc_at_or_below_terminal_growth_has_no_value_and_a_reason():
 
 
 def test_sensitivity_grid_is_monotone_and_survives_impossible_cells():
-    g = sensitivity(DCFInputs(100.0, 0.06, 0.025, 0.035, 0.0, 10.0), wacc_step=0.005, growth_step=0.005, points=5)
+    g = sensitivity(
+        DCFInputs(100.0, 0.06, 0.025, 0.035, 0.0, 10.0),
+        wacc_step=0.005,
+        growth_step=0.005,
+        points=5,
+    )
     grid = np.array(g["per_share"], dtype=float)
     assert np.isnan(grid).any()  # wacc 2.5% with growth 3.5%: no Gordon value, no exception
     for row in grid:  # higher terminal growth, higher value
@@ -117,8 +122,19 @@ def test_wacc_reported_and_estimated_cost_of_debt():
 def test_a_non_positive_exit_metric_gives_no_exit_value():
     # CAG 2026: TTM EBITDA -$1.3B (impairment). 15x of it was -$37 a share.
     from modeling.dcf import DCFInputs, gordon_implied_multiple, run
-    r = run(DCFInputs(base_fcf=1.1e9, growth_first=0.0, growth_terminal=0.025, wacc=0.08, net_debt=7e9,
-                      shares=4.8e8, exit_metric_base=-1.3e9, exit_multiple=15.0))
+
+    r = run(
+        DCFInputs(
+            base_fcf=1.1e9,
+            growth_first=0.0,
+            growth_terminal=0.025,
+            wacc=0.08,
+            net_debt=7e9,
+            shares=4.8e8,
+            exit_metric_base=-1.3e9,
+            exit_multiple=15.0,
+        )
+    )
     assert r.exit_per_share is None and r.exit_enterprise_value is None
     assert any("not positive" in w for w in r.warnings) and r.per_share is not None
     assert gordon_implied_multiple(r) is None
@@ -126,7 +142,14 @@ def test_a_non_positive_exit_metric_gives_no_exit_value():
 
 def test_the_wacc_floor_binds_and_is_labelled():
     # CAG's shape: beta 0.44, 55% debt at 4.8% -> CAPM-weighted WACC about 4.9%.
-    w = wacc(0.0413, 0.44, equity_market_value=6.44e9, debt=7.73e9, tax_rate=0.21, interest_expense=0.374e9)
+    w = wacc(
+        0.0413,
+        0.44,
+        equity_market_value=6.44e9,
+        debt=7.73e9,
+        tax_rate=0.21,
+        interest_expense=0.374e9,
+    )
     assert w.floored and w.wacc == pytest.approx(0.07) and w.wacc_unfloored < 0.06
     assert any("floored at 7.00%" in n for n in w.notes)
     high = wacc(0.04, 1.2, 900.0, 100.0, 0.2, interest_expense=6.0)

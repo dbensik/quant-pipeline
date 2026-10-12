@@ -104,27 +104,21 @@ class DataEnricher:
             group["daily_return"] = group["Close"].pct_change(fill_method=None)
 
             # --- Volatility (annualized) ---
-            group[f"volatility_{self.volatility_window}d"] = group[
-                "daily_return"
-            ].rolling(window=self.volatility_window).std() * np.sqrt(
-                self.annualization_factor
-            )  # Use the dynamic factor
+            group[f"volatility_{self.volatility_window}d"] = group["daily_return"].rolling(
+                window=self.volatility_window
+            ).std() * np.sqrt(self.annualization_factor)  # Use the dynamic factor
 
             # --- RSI ---
             group[f"rsi_{self.rsi_window}d"] = self._calculate_rsi(group["Close"])
 
             # --- Sharpe Ratio (annualized) ---
             excess_returns = group["daily_return"] - self.daily_risk_free_rate
-            mean_excess_return = excess_returns.rolling(
-                window=self.sharpe_window
-            ).mean()
+            mean_excess_return = excess_returns.rolling(window=self.sharpe_window).mean()
             # Annualize the numerator (mean excess return)
             sharpe_numerator = mean_excess_return * self.annualization_factor
             # The denominator (volatility) is already annualized
             sharpe_denominator = group[f"volatility_{self.volatility_window}d"]
-            group[f"sharpe_ratio_{self.sharpe_window}d"] = (
-                sharpe_numerator / sharpe_denominator
-            )
+            group[f"sharpe_ratio_{self.sharpe_window}d"] = sharpe_numerator / sharpe_denominator
 
             # --- Beta (requires benchmark data) ---
             if self.benchmark_returns is not None:
@@ -136,8 +130,14 @@ class DataEnricher:
                     # This is safer than concat as it preserves the group's index.
                     merged_df = group.join(benchmark)
 
-                    rolling_cov = merged_df["daily_return"].rolling(window=self.beta_window).cov(merged_df["benchmark_return"])
-                    rolling_var = merged_df["benchmark_return"].rolling(window=self.beta_window).var()
+                    rolling_cov = (
+                        merged_df["daily_return"]
+                        .rolling(window=self.beta_window)
+                        .cov(merged_df["benchmark_return"])
+                    )
+                    rolling_var = (
+                        merged_df["benchmark_return"].rolling(window=self.beta_window).var()
+                    )
 
                     # Pandas automatically aligns the indexes during this assignment.
                     group["beta"] = rolling_cov / rolling_var

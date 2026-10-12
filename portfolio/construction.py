@@ -18,9 +18,7 @@ class PortfolioConstructor:
         # Logic for risk parity optimization...
         pass
 
-    def build_black_litterman_portfolio(
-        self, views: dict, view_confidences: pd.Series
-    ) -> dict:
+    def build_black_litterman_portfolio(self, views: dict, view_confidences: pd.Series) -> dict:
         """
         Constructs a portfolio using the Black-Litterman model, which blends
         market equilibrium returns with an investor's specific views.

@@ -109,9 +109,7 @@ class EquityPipeline:
         final_df = enriched_df.reset_index()
 
         # Select only the columns that actually exist in the dataframe
-        existing_cols = [
-            col for col in DB_PRICE_DATA_COLUMNS if col in final_df.columns
-        ]
+        existing_cols = [col for col in DB_PRICE_DATA_COLUMNS if col in final_df.columns]
 
         logger.info(
             f"✅ Successfully fetched and enriched data for {final_df['Ticker'].nunique()} tickers."
@@ -120,9 +118,7 @@ class EquityPipeline:
         return final_df[existing_cols]
 
     @staticmethod
-    def write_universe(
-        tickers: list[str], sectors: dict, conn: sqlite3.Connection
-    ) -> None:
+    def write_universe(tickers: list[str], sectors: dict, conn: sqlite3.Connection) -> None:
         """
         Writes the equity universe metadata to the database using a robust
         "upsert" method that is compatible with SQLite.

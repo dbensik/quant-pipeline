@@ -83,8 +83,7 @@ def convert(name: str, data: Dict[str, Any]) -> Tuple[float, List[Trade], Dict, 
         action = str(raw.get("action", "")).upper()
         if action not in (BUY, SELL):
             warnings.append(
-                f"{name}: trade {index} has unusable action "
-                f"{raw.get('action')!r}; skipped."
+                f"{name}: trade {index} has unusable action {raw.get('action')!r}; skipped."
             )
             continue
         direction = str(raw.get("direction", "")).upper()
@@ -189,9 +188,7 @@ async def run(path: Path, dry_run: bool) -> int:
                 skipped += 1
                 continue
 
-            await repo.create_portfolio(
-                name=name, initial_cash=initial_cash, metadata=metadata
-            )
+            await repo.create_portfolio(name=name, initial_cash=initial_cash, metadata=metadata)
             for trade in trades:
                 await repo.add_trade(name, trade)
             imported += 1

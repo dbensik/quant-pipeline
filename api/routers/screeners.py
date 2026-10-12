@@ -32,6 +32,7 @@ MAX_SYMBOLS = 200
 # Models
 # ---------------------------------------------------------------------------
 
+
 class ParamSchema(BaseModel):
     name: str
     type: Literal["int", "float", "str"]
@@ -130,8 +131,13 @@ def _to_schema(spec: registry.ScreenerSpec) -> ScreenerSchema:
         description=spec.description,
         params=[
             ParamSchema(
-                name=p.name, type=p.type, default=p.default, label=p.label,
-                description=p.description, minimum=p.minimum, maximum=p.maximum,
+                name=p.name,
+                type=p.type,
+                default=p.default,
+                label=p.label,
+                description=p.description,
+                minimum=p.minimum,
+                maximum=p.maximum,
             )
             for p in spec.params
         ],
@@ -172,6 +178,7 @@ def _screen_sync(
 # Routes
 # ---------------------------------------------------------------------------
 
+
 @router.get("", response_model=ScreenerListResponse, summary="List available screeners")
 async def list_screeners() -> ScreenerListResponse:
     """
@@ -181,9 +188,7 @@ async def list_screeners() -> ScreenerListResponse:
     including per-screener controls with defaults and bounds, from this alone.
     """
     specs = registry.all_screeners()
-    return ScreenerListResponse(
-        count=len(specs), screeners=[_to_schema(s) for s in specs]
-    )
+    return ScreenerListResponse(count=len(specs), screeners=[_to_schema(s) for s in specs])
 
 
 @router.get(
@@ -238,17 +243,18 @@ async def run_screen(
             # survivorship bias the index option exists to avoid, so this is
             # an error rather than a silent substitution.
             earliest = (
-                membership.first_observed.date().isoformat()
-                if membership.first_observed
-                else None
+                membership.first_observed.date().isoformat() if membership.first_observed else None
             )
             raise HTTPException(
                 status_code=422,
                 detail=(
                     f"No snapshot of {request.index!r} at or before "
                     f"{request.start.date().isoformat()}"
-                    + (f"; the earliest is {earliest}." if earliest else
-                       " — this index has never been snapshotted.")
+                    + (
+                        f"; the earliest is {earliest}."
+                        if earliest
+                        else " — this index has never been snapshotted."
+                    )
                     + " Membership before then is unknown; today's list is not"
                     " a substitute. Take a snapshot, or pass `symbols`."
                 ),
@@ -268,9 +274,7 @@ async def run_screen(
         )
 
     if not request.screeners:
-        raise HTTPException(
-            status_code=422, detail="`screeners` must contain at least one step."
-        )
+        raise HTTPException(status_code=422, detail="`screeners` must contain at least one step.")
 
     # Build every screener before fetching anything, so a bad parameter fails
     # immediately instead of after a long data load.
@@ -289,18 +293,14 @@ async def run_screen(
 
     start = (
         request.start.replace(tzinfo=timezone.utc)
-        if request.start.tzinfo is None else request.start
+        if request.start.tzinfo is None
+        else request.start
     )
-    end = (
-        request.end.replace(tzinfo=timezone.utc)
-        if request.end.tzinfo is None else request.end
-    )
+    end = request.end.replace(tzinfo=timezone.utc) if request.end.tzinfo is None else request.end
 
     data: Dict[str, Any] = {}
     for symbol in request.symbols:
-        records = await repo.fetch_range(
-            symbol=symbol, asset_class=None, start=start, end=end
-        )
+        records = await repo.fetch_range(symbol=symbol, asset_class=None, start=start, end=end)
         frame = records_to_frame(records)
         if not frame.empty:
             data[symbol] = frame
@@ -315,9 +315,7 @@ async def run_screen(
         )
 
     try:
-        passed, results = await run_in_threadpool(
-            _screen_sync, steps, list(data), data
-        )
+        passed, results = await run_in_threadpool(_screen_sync, steps, list(data), data)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None
 

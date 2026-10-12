@@ -24,6 +24,7 @@ def run(client: TestClient, **overrides):
 # Happy path
 # ---------------------------------------------------------------------------
 
+
 def test_runs_a_multi_asset_strategy(client: TestClient):
     body = run(client).json()
     assert body["strategy_name"] == "Basket Trading"
@@ -80,6 +81,7 @@ def test_echoes_initial_capital_and_seed(client: TestClient):
 # Determinism
 # ---------------------------------------------------------------------------
 
+
 def test_same_seed_gives_identical_results(client: TestClient):
     """
     PortfolioBacktester constructed its execution handler without a seed, so
@@ -104,6 +106,7 @@ def test_different_seeds_can_differ(client: TestClient):
 # Strategy contract
 # ---------------------------------------------------------------------------
 
+
 def test_single_asset_strategy_is_rejected(client: TestClient):
     """
     The mirror of the single-symbol endpoint's multi rejection. Between them,
@@ -115,9 +118,7 @@ def test_single_asset_strategy_is_rejected(client: TestClient):
 
 
 def test_pairs_trading_requires_exactly_two_symbols(client: TestClient):
-    response = run(
-        client, strategy_id="pairs_trading", symbols=["AAPL", "BTC-USD", "EMPTY-USD"]
-    )
+    response = run(client, strategy_id="pairs_trading", symbols=["AAPL", "BTC-USD", "EMPTY-USD"])
     assert response.status_code == 422
     assert "exactly 2" in response.json()["detail"]
 
@@ -141,6 +142,7 @@ def test_cointegrated_without_weights_is_422_not_500(client: TestClient):
 # ---------------------------------------------------------------------------
 # Error paths
 # ---------------------------------------------------------------------------
+
 
 def test_one_symbol_is_422(client: TestClient):
     response = run(client, symbols=["AAPL"])
@@ -196,6 +198,7 @@ def test_unknown_param_name_is_rejected_not_ignored(client: TestClient):
 # so a portfolio backtest reported the risk manager's behaviour rather than the
 # strategy's: max_trade_risk_pct=0.02 scales every buy to 2% of equity, and
 # max_portfolio_drawdown_pct=0.20 halts buying permanently once tripped.
+
 
 def test_risk_limits_default_to_the_previous_hardcoded_values(client: TestClient):
     """
@@ -266,6 +269,7 @@ def test_a_cap_above_one_is_422(client: TestClient):
 # every one of 665 strategy-level tests and raised KeyError on the first real
 # backtest. Both halves of that gap are now closed — the fixtures are tz-aware,
 # and these give the new strategies a tz-aware route through the router.
+
 
 def test_paired_switching_runs_through_the_router(client: TestClient):
     body = run(

@@ -125,7 +125,9 @@ async def snapshot(indexes: list[str], dry_run: bool) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--indexes", nargs="*", default=list(DEFAULT_INDEXES),
+        "--indexes",
+        nargs="*",
+        default=list(DEFAULT_INDEXES),
         help=f"Default: {' '.join(DEFAULT_INDEXES)}",
     )
     parser.add_argument("--dry-run", action="store_true")

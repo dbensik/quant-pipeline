@@ -29,6 +29,7 @@ def signal_values(body: dict) -> list:
 # Happy path
 # ---------------------------------------------------------------------------
 
+
 def test_returns_a_signal_per_bar(client: TestClient):
     body = client.get(url("AAPL", "ma_crossover")).json()
     assert body["symbol"] == "AAPL"
@@ -71,6 +72,7 @@ def test_include_close_false_omits_prices(client: TestClient):
 # Parameters — the regression this suite exists for
 # ---------------------------------------------------------------------------
 
+
 def test_parameters_change_the_actual_signals(client: TestClient):
     """
     THE discriminating test. Asserting only that the echoed `params` match the
@@ -78,9 +80,7 @@ def test_parameters_change_the_actual_signals(client: TestClient):
     defaults and computed from defaults. What proves parameters are honoured is
     that the OUTPUT differs.
     """
-    tight = client.get(
-        url("AAPL", "ma_crossover", '{"short_window": 5, "long_window": 15}')
-    ).json()
+    tight = client.get(url("AAPL", "ma_crossover", '{"short_window": 5, "long_window": 15}')).json()
     loose = client.get(
         url("AAPL", "ma_crossover", '{"short_window": 40, "long_window": 100}')
     ).json()
@@ -103,9 +103,7 @@ def _transitions(body: dict) -> int:
 
 
 def test_echoed_params_reflect_what_was_used(client: TestClient):
-    body = client.get(
-        url("AAPL", "mean_reversion", '{"window": 30, "threshold": 2.0}')
-    ).json()
+    body = client.get(url("AAPL", "mean_reversion", '{"window": 30, "threshold": 2.0}')).json()
     assert body["params"] == {"window": 30, "threshold": 2.0}
 
 
@@ -138,15 +136,14 @@ def test_params_that_are_not_an_object_are_422(client: TestClient):
 
 
 def test_strategy_self_validation_surfaces_as_422(client: TestClient):
-    response = client.get(
-        url("AAPL", "ma_crossover", '{"short_window": 100, "long_window": 50}')
-    )
+    response = client.get(url("AAPL", "ma_crossover", '{"short_window": 100, "long_window": 50}'))
     assert response.status_code == 422
 
 
 # ---------------------------------------------------------------------------
 # Error paths
 # ---------------------------------------------------------------------------
+
 
 def test_unknown_symbol_is_404(client: TestClient):
     assert client.get(url("NOPE", "ma_crossover")).status_code == 404
@@ -164,16 +161,14 @@ def test_multi_asset_strategy_is_rejected(client: TestClient):
 
 def test_start_after_end_is_422(client: TestClient):
     response = client.get(
-        "/api/v1/signals/AAPL?strategy_id=ma_crossover"
-        "&start=2024-12-31&end=2024-01-01"
+        "/api/v1/signals/AAPL?strategy_id=ma_crossover&start=2024-12-31&end=2024-01-01"
     )
     assert response.status_code == 422
 
 
 def test_no_bars_in_range_is_422(client: TestClient):
     response = client.get(
-        "/api/v1/signals/AAPL?strategy_id=ma_crossover"
-        "&start=1990-01-01&end=1990-12-31"
+        "/api/v1/signals/AAPL?strategy_id=ma_crossover&start=1990-01-01&end=1990-12-31"
     )
     assert response.status_code == 422
 

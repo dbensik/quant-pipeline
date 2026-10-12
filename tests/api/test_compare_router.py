@@ -29,6 +29,7 @@ def compare(client: TestClient, **overrides):
 # Happy path
 # ---------------------------------------------------------------------------
 
+
 def test_runs_every_requested_strategy(client: TestClient):
     body = compare(client).json()
     assert {r["strategy_id"] for r in body["results"]} == {
@@ -89,6 +90,7 @@ def test_explicit_params_are_used(client: TestClient):
 # Benchmark
 # ---------------------------------------------------------------------------
 
+
 def test_benchmark_is_buy_and_hold_on_a_symbol(client: TestClient):
     body = compare(client, benchmark_symbol="MSFT").json()
     assert body["benchmark"]["symbol"] == "MSFT"
@@ -126,6 +128,7 @@ def test_benchmark_without_bars_is_422_not_a_live_fetch(client: TestClient):
 # ---------------------------------------------------------------------------
 # Auto-tuning
 # ---------------------------------------------------------------------------
+
 
 def test_optimize_tunes_from_the_registry_default_grid(client: TestClient):
     """
@@ -168,9 +171,7 @@ def test_an_explicit_grid_overrides_the_default(client: TestClient):
 
 def test_a_strategy_without_a_grid_runs_on_its_params(client: TestClient):
     """`optimize` must not fail a strategy the registry has no sweep for."""
-    body = compare(
-        client, optimize=True, strategies=[{"strategy_id": "trend_following"}]
-    ).json()
+    body = compare(client, optimize=True, strategies=[{"strategy_id": "trend_following"}]).json()
     assert body["results"][0]["tuned"] is False
     assert body["results"][0]["metrics"]
 
@@ -180,8 +181,10 @@ def test_oversized_grid_is_skipped_with_a_reason(client: TestClient):
         client,
         optimize=True,
         strategies=[
-            {"strategy_id": "ma_crossover",
-             "grid": {"short_window": list(range(1, 30)), "long_window": list(range(30, 60))}},
+            {
+                "strategy_id": "ma_crossover",
+                "grid": {"short_window": list(range(1, 30)), "long_window": list(range(30, 60))},
+            },
             {"strategy_id": "mean_reversion"},
         ],
     ).json()
@@ -193,6 +196,7 @@ def test_oversized_grid_is_skipped_with_a_reason(client: TestClient):
 # Determinism
 # ---------------------------------------------------------------------------
 
+
 def test_same_seed_gives_identical_comparisons(client: TestClient):
     first = compare(client, include_equity_curves=False, seed=42).json()
     second = compare(client, include_equity_curves=False, seed=42).json()
@@ -202,6 +206,7 @@ def test_same_seed_gives_identical_comparisons(client: TestClient):
 # ---------------------------------------------------------------------------
 # Errors and partial failure
 # ---------------------------------------------------------------------------
+
 
 def test_unknown_strategy_is_skipped_with_a_reason_not_dropped(client: TestClient):
     """A comparison missing an entry must say why."""
@@ -255,9 +260,7 @@ def test_start_after_end_is_422(client: TestClient):
 
 
 def test_too_many_strategies_is_422(client: TestClient):
-    response = compare(
-        client, strategies=[{"strategy_id": f"s{i}"} for i in range(11)]
-    )
+    response = compare(client, strategies=[{"strategy_id": f"s{i}"} for i in range(11)])
     assert response.status_code == 422
     assert "limit is 10" in response.json()["detail"]
 

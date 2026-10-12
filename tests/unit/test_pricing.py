@@ -28,6 +28,7 @@ GRID = [
 
 # --- Black-Scholes -------------------------------------------------------------
 
+
 def test_hull_known_values():
     # Hull, Options Futures and Other Derivatives: S=42 K=40 r=10% sigma=20% T=0.5
     assert round(bs.price(42, 40, 0.5, 0.10, 0.0, 0.20, "call"), 2) == 4.76
@@ -48,6 +49,7 @@ def _fd(fn, x, h):
 @pytest.mark.parametrize("S,K,T,r,q,s", GRID[::3])
 def test_greeks_match_central_differences(S, K, T, r, q, s, right):
     g = bs.greeks(S, K, T, r, q, s, right)
+
     def P(**kw):
         return bs.price(**{**dict(S=S, K=K, T=T, r=r, q=q, sigma=s, right=right), **kw})
 
@@ -93,6 +95,7 @@ def test_vectorised_over_strikes():
 
 
 # --- implied volatility -----------------------------------------------------------
+
 
 @pytest.mark.parametrize("right", RIGHTS)
 @pytest.mark.parametrize("S,K,T,r,q,s", GRID)
@@ -165,6 +168,7 @@ def test_american_iv_inverts_the_tree_and_european_iv_overstates_it():
 
 # --- binomial tree ----------------------------------------------------------------
 
+
 @pytest.mark.parametrize("right", RIGHTS)
 @pytest.mark.parametrize("S,K,T,r,q,s", GRID)
 def test_european_tree_converges_to_black_scholes(S, K, T, r, q, s, right):
@@ -184,7 +188,9 @@ def test_smoothing_is_what_meets_the_tolerance_at_the_money():
 def test_hull_american_put():
     # Hull: S=K=50, r=10%, sigma=40%, T=5 months. 5-step tree 4.49; converged
     # ~4.28; European (BSM) 4.08.
-    assert round(crr_price(50, 50, 5 / 12, 0.10, 0.0, 0.40, "put", True, 5, smooth=False), 2) == 4.49
+    assert (
+        round(crr_price(50, 50, 5 / 12, 0.10, 0.0, 0.40, "put", True, 5, smooth=False), 2) == 4.49
+    )
     a = american_price(50, 50, 5 / 12, 0.10, 0.0, 0.40, "put")
     assert round(a.american, 2) == 4.28
     assert round(bs.price(50, 50, 5 / 12, 0.10, 0.0, 0.40, "put"), 2) == 4.08
@@ -215,6 +221,7 @@ def test_tree_rejects_a_probability_outside_zero_one():
 
 
 # --- Monte Carlo ------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("right", RIGHTS)
 @pytest.mark.parametrize("K", (90, 100, 115))
@@ -253,6 +260,7 @@ def test_mc_seed_is_explicit_and_effective():
 
 # --- realised volatility ------------------------------------------------------
 
+
 def simulate_ohlc(rng, days, sigma, steps=390, gap_frac=0.0, drift_per_day=0.0):
     """
     Daily OHLC from an intraday GBM: `steps` log-normal steps a day plus an
@@ -266,7 +274,9 @@ def simulate_ohlc(rng, days, sigma, steps=390, gap_frac=0.0, drift_per_day=0.0):
     gaps = rng.standard_normal(days) * sd * np.sqrt(gap_frac)
     day_move = gaps + intraday.sum(axis=1)
     open_log = np.log(100.0) + np.concatenate([[0.0], np.cumsum(day_move)[:-1]]) + gaps
-    path = open_log[:, None] + np.concatenate([np.zeros((days, 1)), np.cumsum(intraday, axis=1)], axis=1)
+    path = open_log[:, None] + np.concatenate(
+        [np.zeros((days, 1)), np.cumsum(intraday, axis=1)], axis=1
+    )
     return np.exp(open_log), np.exp(path.max(axis=1)), np.exp(path.min(axis=1)), np.exp(path[:, -1])
 
 

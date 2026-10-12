@@ -58,9 +58,7 @@ def run_with(tickers_by_index, indexes, dry_run=False):
         patch.object(module, "TimescaleUniverseRepo", lambda _s: repo),
         patch.dict(
             "sys.modules",
-            {"data_pipeline.dynamic_universe": type(
-                "M", (), {"DynamicUniverse": FakeUniverse}
-            )},
+            {"data_pipeline.dynamic_universe": type("M", (), {"DynamicUniverse": FakeUniverse})},
         ),
     ):
         code = asyncio.run(module.snapshot(indexes, dry_run))

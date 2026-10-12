@@ -65,9 +65,7 @@ SERVED = ("open", "high", "low", "close", "volume")
 
 def upgrade() -> None:
     for field in SERVED:
-        op.add_column(
-            "market_data", sa.Column(f"served_{field}", sa.Float(), nullable=True)
-        )
+        op.add_column("market_data", sa.Column(f"served_{field}", sa.Float(), nullable=True))
     op.add_column(
         "market_data",
         sa.Column("fetched_at", sa.DateTime(timezone=True), nullable=True),
@@ -92,9 +90,7 @@ def upgrade() -> None:
         sa.Column("evidence", sa.Text(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
         sa.ForeignKeyConstraint(["asset_id"], ["assets.id"], ondelete="CASCADE"),
-        sa.UniqueConstraint(
-            "asset_id", "ex_date", "kind", name="uq_corporate_action"
-        ),
+        sa.UniqueConstraint("asset_id", "ex_date", "kind", name="uq_corporate_action"),
         sa.CheckConstraint(
             "kind IN ('split', 'dividend', 'manual_factor')",
             name="ck_corporate_action_kind",

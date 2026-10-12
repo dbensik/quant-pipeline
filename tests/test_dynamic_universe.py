@@ -24,9 +24,7 @@ def test_get_sp500_tickers_success(mocker, universe_fetcher):
     # so the row COUNT is plausible — since 2026-08-25 a scrape returning far
     # fewer names than the index holds is discarded rather than trusted, and a
     # three-row S&P 500 was never a realistic fixture anyway.
-    filler = "".join(
-        f"<tr><td>FILL{i}</td><td>Filler {i}</td></tr>" for i in range(497)
-    )
+    filler = "".join(f"<tr><td>FILL{i}</td><td>Filler {i}</td></tr>" for i in range(497))
     mock_html_content = f"""
     <html>
         <body>
@@ -63,9 +61,7 @@ def test_get_tickers_request_fails(mocker, universe_fetcher):
     Tests that get_tickers returns an empty list if the web request fails.
     """
     # 1. Arrange: Mock the 'get' method to raise a connection error
-    mocker.patch(
-        "requests.Session.get", side_effect=requests.exceptions.RequestException
-    )
+    mocker.patch("requests.Session.get", side_effect=requests.exceptions.RequestException)
 
     # 2. Act
     tickers = universe_fetcher.get_tickers("sp500")
@@ -137,9 +133,36 @@ def test_get_unsupported_source(universe_fetcher):
 import pandas as pd
 
 DOW_30 = [
-    "AAPL", "AMGN", "AMZN", "AXP", "BA", "CAT", "CRM", "CSCO", "CVX", "DIS",
-    "GOOGL", "GS", "HD", "HON", "IBM", "JNJ", "JPM", "KO", "MCD", "MMM",
-    "MRK", "MSFT", "NKE", "NVDA", "PG", "SHW", "TRV", "UNH", "V", "WMT",
+    "AAPL",
+    "AMGN",
+    "AMZN",
+    "AXP",
+    "BA",
+    "CAT",
+    "CRM",
+    "CSCO",
+    "CVX",
+    "DIS",
+    "GOOGL",
+    "GS",
+    "HD",
+    "HON",
+    "IBM",
+    "JNJ",
+    "JPM",
+    "KO",
+    "MCD",
+    "MMM",
+    "MRK",
+    "MSFT",
+    "NKE",
+    "NVDA",
+    "PG",
+    "SHW",
+    "TRV",
+    "UNH",
+    "V",
+    "WMT",
 ]
 
 
@@ -172,9 +195,7 @@ def test_an_over_long_dow_scrape_is_rejected(mocker, universe_fetcher):
     assert universe_fetcher.get_tickers("dow_jones") == []
 
 
-def test_dow_jones_missing_symbol_column_is_empty_not_an_exception(
-    mocker, universe_fetcher
-):
+def test_dow_jones_missing_symbol_column_is_empty_not_an_exception(mocker, universe_fetcher):
     """
     Exactly what happened when the page changed: no 'Symbol' column anywhere.
     Must degrade to [] so the caller records nothing, rather than raising and
@@ -235,9 +256,7 @@ def test_an_implausibly_large_sp500_scrape_is_rejected(mocker, universe_fetcher)
     assert universe_fetcher.get_tickers("sp500") == []
 
 
-def test_the_real_world_count_is_comfortably_inside_the_range(
-    mocker, universe_fetcher
-):
+def test_the_real_world_count_is_comfortably_inside_the_range(mocker, universe_fetcher):
     """
     503 is what the live page returns today: the index targets 500 COMPANIES
     but lists more SECURITIES, because a few have two share classes (GOOG/GOOGL,

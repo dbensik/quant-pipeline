@@ -7,9 +7,7 @@ class SectorAnalyzer:
     Performs analysis on an entire sector or compares multiple sectors.
     """
 
-    def __init__(
-        self, price_data: dict, fundamental_data: pd.DataFrame, sector_map: dict
-    ):
+    def __init__(self, price_data: dict, fundamental_data: pd.DataFrame, sector_map: dict):
         """
         Args:
             price_data: A dictionary of price DataFrames, keyed by ticker.

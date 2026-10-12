@@ -35,6 +35,7 @@ MAX_SYMBOLS = 50
 # Models
 # ---------------------------------------------------------------------------
 
+
 class PortfolioBacktestRequest(BaseModel):
     symbols: List[str] = Field(description="Constituents, two or more")
     strategy_id: str = Field(description="Registry id — must be a multi-asset strategy")
@@ -129,6 +130,7 @@ class PortfolioBacktestResponse(BaseModel):
 # Signal construction
 # ---------------------------------------------------------------------------
 
+
 def _build_signals(
     spec: registry.StrategySpec,
     model: Any,
@@ -179,9 +181,7 @@ def _build_signals(
     # for a future misdeclaration, which is precisely the case that used to be
     # silent: under id-dispatch an unlisted strategy landed here and was handed
     # each symbol's frame in isolation.
-    return {
-        symbol: model.generate_signals(frame) for symbol, frame in price_data.items()
-    }
+    return {symbol: model.generate_signals(frame) for symbol, frame in price_data.items()}
 
 
 def _run_sync(
@@ -226,6 +226,7 @@ def _run_sync(
 # ---------------------------------------------------------------------------
 # Route
 # ---------------------------------------------------------------------------
+
 
 @router.post(
     "",
@@ -291,35 +292,26 @@ async def run_portfolio_backtest(
 
     start = (
         request.start.replace(tzinfo=timezone.utc)
-        if request.start.tzinfo is None else request.start
+        if request.start.tzinfo is None
+        else request.start
     )
-    end = (
-        request.end.replace(tzinfo=timezone.utc)
-        if request.end.tzinfo is None else request.end
-    )
+    end = request.end.replace(tzinfo=timezone.utc) if request.end.tzinfo is None else request.end
 
     price_data: Dict[str, pd.DataFrame] = {}
     for symbol in request.symbols:
         asset = await repo.find_asset(symbol)
         if asset is None:
             raise HTTPException(status_code=404, detail=f"Unknown symbol: {symbol!r}")
-        records = await repo.fetch_range(
-            symbol=symbol, asset_class=None, start=start, end=end
-        )
+        records = await repo.fetch_range(symbol=symbol, asset_class=None, start=start, end=end)
         frame = records_to_frame(records)
         if frame.empty:
             raise HTTPException(
                 status_code=422,
-                detail=(
-                    f"No bars stored for {symbol!r} between "
-                    f"{start.date()} and {end.date()}."
-                ),
+                detail=(f"No bars stored for {symbol!r} between {start.date()} and {end.date()}."),
             )
         price_data[symbol] = frame
 
-    weights = request.weights or {
-        symbol: 1.0 / len(price_data) for symbol in price_data
-    }
+    weights = request.weights or {symbol: 1.0 / len(price_data) for symbol in price_data}
 
     try:
         model = spec.build(request.params)
@@ -347,9 +339,7 @@ async def run_portfolio_backtest(
             for idx, row in portfolio.iterrows()
         ]
 
-    effective_params = {
-        p.name: request.params.get(p.name, p.default) for p in spec.params
-    }
+    effective_params = {p.name: request.params.get(p.name, p.default) for p in spec.params}
 
     return PortfolioBacktestResponse(
         symbols=list(request.symbols),

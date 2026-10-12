@@ -75,8 +75,10 @@ async def run(args: argparse.Namespace) -> int:
         logger.info("%d symbol(s), mode: %s", len(symbols), mode)
 
         if args.dry_run:
-            logger.info("Dry run — writing nothing. Would ingest: %s",
-                        ", ".join(symbols[:20]) + ("…" if len(symbols) > 20 else ""))
+            logger.info(
+                "Dry run — writing nothing. Would ingest: %s",
+                ", ".join(symbols[:20]) + ("…" if len(symbols) > 20 else ""),
+            )
             return 0
 
         repo = TimescaleMarketDataRepo(session)
@@ -91,9 +93,7 @@ async def run(args: argparse.Namespace) -> int:
             repo=repo,
             symbols=symbols,
             start=(
-                datetime.combine(start, datetime.min.time(), tzinfo=timezone.utc)
-                if start
-                else None
+                datetime.combine(start, datetime.min.time(), tzinfo=timezone.utc) if start else None
             ),
             progress=progress,
             # A resume over the whole registry skips symbols already flagged
@@ -178,9 +178,7 @@ def main() -> int:
             "scripts/check_missing_days.py."
         ),
     )
-    parser.add_argument(
-        "--dry-run", action="store_true", help="Report the plan; write nothing."
-    )
+    parser.add_argument("--dry-run", action="store_true", help="Report the plan; write nothing.")
     args = parser.parse_args()
 
     try:

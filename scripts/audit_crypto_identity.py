@@ -90,14 +90,20 @@ def provider_quote(symbol: str) -> ProviderQuote:
 
 async def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--pages", type=int, default=2,
-                        help="CoinGecko pages of 100 coins to use as reference")
-    parser.add_argument("--write", action="store_true",
-                        help="record the verdicts on the asset rows")
-    parser.add_argument("--symbols", nargs="*",
-                        help="audit only these symbols instead of every crypto asset")
-    parser.add_argument("--allow-partial", action="store_true",
-                        help="write even if the reference fetch came back short")
+    parser.add_argument(
+        "--pages", type=int, default=2, help="CoinGecko pages of 100 coins to use as reference"
+    )
+    parser.add_argument(
+        "--write", action="store_true", help="record the verdicts on the asset rows"
+    )
+    parser.add_argument(
+        "--symbols", nargs="*", help="audit only these symbols instead of every crypto asset"
+    )
+    parser.add_argument(
+        "--allow-partial",
+        action="store_true",
+        help="write even if the reference fetch came back short",
+    )
     args = parser.parse_args(argv)
 
     from data_pipeline.dynamic_universe import DynamicUniverse
@@ -120,15 +126,16 @@ async def main(argv: list[str] | None = None) -> int:
     # and a renamed coin no longer answers to the old symbol.
     overrides = {}
     if CRYPTO_ID_OVERRIDES:
-        by_id = {r.coingecko_id: r for r in
-                 universe.fetch_crypto_references_by_id(CRYPTO_ID_OVERRIDES.values())}
+        by_id = {
+            r.coingecko_id: r
+            for r in universe.fetch_crypto_references_by_id(CRYPTO_ID_OVERRIDES.values())
+        }
         for symbol, coin_id in CRYPTO_ID_OVERRIDES.items():
             if coin_id in by_id:
                 overrides[symbol] = by_id[coin_id]
             else:
                 logger.warning("override %s -> %s returned nothing", symbol, coin_id)
-    logger.info("Reference set: %d ranked coins, %d override(s).",
-                len(references), len(overrides))
+    logger.info("Reference set: %d ranked coins, %d override(s).", len(references), len(overrides))
 
     # REFUSE TO WRITE FROM A SHORT REFERENCE SET. CoinGecko throttles, and a
     # throttled page does not raise — it just shortens the reference, so coins
@@ -142,7 +149,8 @@ async def main(argv: list[str] | None = None) -> int:
             "Reference fetch returned %d of an expected %d coins — almost "
             "certainly throttled. Verdicts computed from this are NOT "
             "trustworthy: a missing reference reads as UNVERIFIABLE.",
-            len(ranked), expected,
+            len(ranked),
+            expected,
         )
         if args.write and not args.allow_partial:
             logger.error(
@@ -152,9 +160,11 @@ async def main(argv: list[str] | None = None) -> int:
             return 1
 
     async with get_session() as session:
-        query = (select(AssetORM.id, AssetORM.symbol, AssetORM.metadata_)
-                 .where(AssetORM.asset_class == "crypto")
-                 .order_by(AssetORM.symbol))
+        query = (
+            select(AssetORM.id, AssetORM.symbol, AssetORM.metadata_)
+            .where(AssetORM.asset_class == "crypto")
+            .order_by(AssetORM.symbol)
+        )
         if args.symbols:
             wanted = [s.upper() for s in args.symbols]
             query = query.where(AssetORM.symbol.in_(wanted))
@@ -175,8 +185,9 @@ async def main(argv: list[str] | None = None) -> int:
             and (meta or {}).get(META_COINGECKO_ID)
         }
         if recorded:
-            by_id = {r.coingecko_id: r for r in
-                     universe.fetch_crypto_references_by_id(recorded.values())}
+            by_id = {
+                r.coingecko_id: r for r in universe.fetch_crypto_references_by_id(recorded.values())
+            }
             for symbol, coin_id in recorded.items():
                 if coin_id in by_id:
                     overrides[symbol] = by_id[coin_id]
@@ -187,9 +198,7 @@ async def main(argv: list[str] | None = None) -> int:
             reference = overrides.get(symbol) or references.get(base)
             # The verdict is about the ticker the provider is ASKED for, which
             # for a mapped symbol is not the symbol.
-            check = verify_identity(
-                symbol, reference, provider_quote(provider_symbol(symbol))
-            )
+            check = verify_identity(symbol, reference, provider_quote(provider_symbol(symbol)))
             settled = CRYPTO_IDENTITY_OVERRIDES.get(symbol)
             if settled and check.status is not Identity.SUSPECT:
                 # Say so rather than silently ignoring it: an override that no
@@ -197,30 +206,37 @@ async def main(argv: list[str] | None = None) -> int:
                 logger.warning(
                     "%s: override says %s but the computed verdict is %s — "
                     "override NOT applied (only SUSPECT can be overridden).",
-                    symbol, settled, check.status.value,
+                    symbol,
+                    settled,
+                    check.status.value,
                 )
             before = check.status
             check = apply_identity_override(check, settled)
             if check.status is not before:
-                logger.info("%s: %s -> %s by settled override.",
-                            symbol, before.value, check.status.value)
+                logger.info(
+                    "%s: %s -> %s by settled override.", symbol, before.value, check.status.value
+                )
             checks.append((asset_id, symbol, meta or {}, check))
             if index % 25 == 0:
                 logger.info("  ...%d/%d", index, len(assets))
 
         by_status = {s: [c for c in checks if c[3].status is s] for s in Identity}
-        print(f"\nReference set: {len(references)} coins "
-              f"({args.pages} page(s)).  Assets checked: {len(checks)}.\n")
-        for status in (Identity.WRONG_ASSET, Identity.SUSPECT,
-                       Identity.UNVERIFIABLE, Identity.MATCH):
+        print(
+            f"\nReference set: {len(references)} coins "
+            f"({args.pages} page(s)).  Assets checked: {len(checks)}.\n"
+        )
+        for status in (
+            Identity.WRONG_ASSET,
+            Identity.SUSPECT,
+            Identity.UNVERIFIABLE,
+            Identity.MATCH,
+        ):
             group = by_status[status]
             print(f"=== {status.value.upper()} ({len(group)}) ===")
             if status is Identity.MATCH:
                 print("  " + ", ".join(sym for _, sym, _, _ in group) + "\n")
                 continue
-            for _, _, _, check in sorted(
-                group, key=lambda c: -(c[3].price_gap or 0)
-            ):
+            for _, _, _, check in sorted(group, key=lambda c: -(c[3].price_gap or 0)):
                 print("  " + check.describe())
             print()
 
@@ -248,8 +264,10 @@ async def main(argv: list[str] | None = None) -> int:
                 update(AssetORM).where(AssetORM.id == asset_id).values(metadata_=patch)
             )
         await session.commit()
-        print(f"Recorded identity on {len(checks)} asset rows. "
-              "No bars were deleted and nothing was re-ingested.")
+        print(
+            f"Recorded identity on {len(checks)} asset rows. "
+            "No bars were deleted and nothing was re-ingested."
+        )
     return 0
 
 

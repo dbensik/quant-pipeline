@@ -42,7 +42,7 @@ def test_run_method_returns_unique_normalized_tickers(mock_fetch_crypto, fetcher
             "SOL",
             "AAPL",
         ],
-        "market_caps": {}
+        "market_caps": {},
     }
 
     # Run the method for the crypto source

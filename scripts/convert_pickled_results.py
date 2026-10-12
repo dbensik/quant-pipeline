@@ -72,8 +72,9 @@ def convert(directory: Path, dry_run: bool) -> int:
         converted += 1
 
     verb = "Would convert" if dry_run else "Converted"
-    print(f"\n{verb} {len(pickles) - skipped - failed} file(s); "
-          f"skipped {skipped}, failed {failed}.")
+    print(
+        f"\n{verb} {len(pickles) - skipped - failed} file(s); skipped {skipped}, failed {failed}."
+    )
     if not dry_run and converted:
         print("The original .pkl files are untouched; remove them when satisfied.")
     return 1 if failed else 0

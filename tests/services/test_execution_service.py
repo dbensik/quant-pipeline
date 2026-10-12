@@ -105,6 +105,7 @@ def trade(ticker, action, quantity, price, day=0):
 # ExecuteTrade
 # ---------------------------------------------------------------------------
 
+
 def test_a_fresh_trade_is_recorded():
     store = FakeStore()
     service = ExecutionService(store=store)
@@ -135,8 +136,12 @@ def test_a_named_portfolio_is_used():
     service = ExecutionService(store=store)
     service.ExecuteTrade(
         execution_pb2.TradeRequest(
-            symbol="AAPL", action="BUY", quantity=1, price=1.0,
-            timestamp=fresh(), portfolio="Growth",
+            symbol="AAPL",
+            action="BUY",
+            quantity=1,
+            price=1.0,
+            timestamp=fresh(),
+            portfolio="Growth",
         ),
         FakeContext(),
     )
@@ -152,8 +157,12 @@ def test_an_unknown_portfolio_is_rejected_not_substituted():
     service = ExecutionService(store=store)
     response = service.ExecuteTrade(
         execution_pb2.TradeRequest(
-            symbol="AAPL", action="BUY", quantity=1, price=1.0,
-            timestamp=fresh(), portfolio="Growht",
+            symbol="AAPL",
+            action="BUY",
+            quantity=1,
+            price=1.0,
+            timestamp=fresh(),
+            portfolio="Growht",
         ),
         FakeContext(),
     )
@@ -211,6 +220,7 @@ def test_an_invalid_action_is_rejected():
 # GetPortfolio
 # ---------------------------------------------------------------------------
 
+
 def test_get_portfolio_derives_cash_from_the_trade_log():
     """
     THE original bug. GetPortfolio did `state["cash"]` on a trade-log-shaped
@@ -229,9 +239,7 @@ def test_positions_are_valued_at_the_latest_close_not_entry_price():
     The old version used the entry price "as proxy for value in MVP", so
     unrealised P&L was identically zero and total equity was wrong.
     """
-    store = FakeStore(
-        trades=[trade("AAPL", "BUY", 10, 100.0)], prices={"AAPL": 150.0}
-    )
+    store = FakeStore(trades=[trade("AAPL", "BUY", 10, 100.0)], prices={"AAPL": 150.0})
     service = ExecutionService(store=store)
     response = service.GetPortfolio(execution_pb2.PortfolioRequest(), FakeContext())
 
@@ -260,17 +268,13 @@ def test_an_unknown_portfolio_is_a_not_found_status():
     store = FakeStore(known={"Growth"})
     service = ExecutionService(store=store)
     context = FakeContext()
-    service.GetPortfolio(
-        execution_pb2.PortfolioRequest(portfolio="Nope"), context
-    )
+    service.GetPortfolio(execution_pb2.PortfolioRequest(portfolio="Nope"), context)
     assert context.code is not None
     assert "No portfolio named" in context.details_text
 
 
 def test_a_short_position_reports_a_negative_quantity():
-    store = FakeStore(
-        trades=[trade("AAPL", "SELL", 5, 200.0)], prices={"AAPL": 180.0}
-    )
+    store = FakeStore(trades=[trade("AAPL", "SELL", 5, 200.0)], prices={"AAPL": 180.0})
     service = ExecutionService(store=store)
     response = service.GetPortfolio(execution_pb2.PortfolioRequest(), FakeContext())
 

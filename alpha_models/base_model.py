@@ -72,6 +72,4 @@ class BaseAlphaModel(ABC):
         called that "an interface inconsistency worth unifying eventually".
         """
         # This provides a clear error if a subclass forgets to implement the method.
-        raise NotImplementedError(
-            "Subclasses must implement the generate_signals() method."
-        )
+        raise NotImplementedError("Subclasses must implement the generate_signals() method.")

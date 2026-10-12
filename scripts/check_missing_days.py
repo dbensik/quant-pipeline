@@ -134,17 +134,14 @@ async def main(argv: list[str] | None = None) -> int:
 
         calendar = sorted(set(await days_for(by_symbol[CALENDAR_SYMBOL][0])) | fresh)
 
-        targets = (
-            [s.upper() for s in args.symbols] if args.symbols else list(by_symbol)
-        )
+        targets = [s.upper() for s in args.symbols] if args.symbols else list(by_symbol)
         for symbol in targets:
             if symbol not in by_symbol:
                 print(f"SKIP {symbol}: not a registered, undelisted equity or ETF")
                 continue
             asset_id, meta = by_symbol[symbol]
             accepted = {
-                date.fromisoformat(d)
-                for d in (meta or {}).get(META_MISSING_DAYS_ACCEPTED, [])
+                date.fromisoformat(d) for d in (meta or {}).get(META_MISSING_DAYS_ACCEPTED, [])
             }
             for day in missing_sessions(await days_for(asset_id), calendar):
                 if day in accepted:

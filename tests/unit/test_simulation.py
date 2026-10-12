@@ -119,7 +119,9 @@ def test_gbm_terminal_mean_matches_closed_form():
     mu, sigma = log_r.mean(), log_r.std(ddof=1)
     horizon, n_paths = 252, 40_000
 
-    wealth = terminal_wealth(equity_from_returns(gbm(r, n_paths, horizon, np.random.default_rng(1)), 1.0))
+    wealth = terminal_wealth(
+        equity_from_returns(gbm(r, n_paths, horizon, np.random.default_rng(1)), 1.0)
+    )
     expected = np.exp((mu + 0.5 * sigma**2) * horizon)
     # Lognormal terminal wealth: SE of the sample mean from its known variance.
     var_terminal = np.exp(2 * mu * horizon + sigma**2 * horizon) * (np.exp(sigma**2 * horizon) - 1)

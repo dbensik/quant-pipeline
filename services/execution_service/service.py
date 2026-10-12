@@ -76,8 +76,11 @@ class ExecutionService(execution_pb2_grpc.ExecutionServiceServicer):
     def ExecuteTrade(self, request, context):
         logger.info(
             "Trade request: %s %s %s @ %s in %r",
-            request.action, request.quantity, request.symbol,
-            request.price, request.portfolio or DEFAULT_PORTFOLIO,
+            request.action,
+            request.quantity,
+            request.symbol,
+            request.price,
+            request.portfolio or DEFAULT_PORTFOLIO,
         )
 
         if self._quote_expired(request.timestamp):
@@ -98,14 +101,10 @@ class ExecutionService(execution_pb2_grpc.ExecutionServiceServicer):
             # Named but absent. PortfolioManager fell back to "the only
             # portfolio" here, so a typo traded in a different book.
             logger.warning("Trade rejected: %s", exc)
-            return execution_pb2.TradeResponse(
-                success=False, message=f"Trade Rejected: {exc}"
-            )
+            return execution_pb2.TradeResponse(success=False, message=f"Trade Rejected: {exc}")
         except ValueError as exc:
             logger.warning("Trade rejected: %s", exc)
-            return execution_pb2.TradeResponse(
-                success=False, message=f"Trade Rejected: {exc}"
-            )
+            return execution_pb2.TradeResponse(success=False, message=f"Trade Rejected: {exc}")
         except Exception as exc:  # noqa: BLE001
             logger.error("Internal execution error: %s", exc, exc_info=True)
             context.set_code(grpc.StatusCode.INTERNAL)

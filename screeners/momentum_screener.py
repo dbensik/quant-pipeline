@@ -45,9 +45,7 @@ class MomentumScreener(BaseScreener):
                 continue
 
             # Calculate momentum as the percentage change over the window
-            momentum = (
-                price_series.iloc[-1] / price_series.iloc[-self.momentum_window]
-            ) - 1
+            momentum = (price_series.iloc[-1] / price_series.iloc[-self.momentum_window]) - 1
 
             if momentum >= self.min_momentum:
                 passed_tickers.append(ticker)
@@ -61,7 +59,5 @@ class MomentumScreener(BaseScreener):
             return {column_name: "N/A"}
 
         price_series = price_data["Close"]
-        momentum = (
-            price_series.iloc[-1] / price_series.iloc[-self.momentum_window]
-        ) - 1
+        momentum = (price_series.iloc[-1] / price_series.iloc[-self.momentum_window]) - 1
         return {column_name: f"{momentum:.2%}"}

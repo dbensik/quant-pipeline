@@ -68,16 +68,19 @@ META_BOUNDS_SUGGESTED_FROM = "bounds_suggested_valid_from"
 async def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--symbols", nargs="*", help="check only these")
-    parser.add_argument("--write", action="store_true",
-                        help="record findings (never deletes, never trims)")
+    parser.add_argument(
+        "--write", action="store_true", help="record findings (never deletes, never trims)"
+    )
     args = parser.parse_args(argv)
 
     from data_pipeline.dynamic_universe import DynamicUniverse
 
     async with get_session() as session:
-        query = (select(AssetORM.id, AssetORM.symbol, AssetORM.metadata_)
-                 .where(AssetORM.asset_class == "crypto")
-                 .order_by(AssetORM.symbol))
+        query = (
+            select(AssetORM.id, AssetORM.symbol, AssetORM.metadata_)
+            .where(AssetORM.asset_class == "crypto")
+            .order_by(AssetORM.symbol)
+        )
         if args.symbols:
             query = query.where(AssetORM.symbol.in_([s.upper() for s in args.symbols]))
         assets = (await session.execute(query)).all()
@@ -88,15 +91,14 @@ async def main(argv: list[str] | None = None) -> int:
             if coin_id:
                 by_id.setdefault(coin_id, []).append((asset_id, symbol, meta or {}))
 
-        no_reference = [s for _, s, m in assets
-                        if not (m or {}).get(META_COINGECKO_ID)]
+        no_reference = [s for _, s, m in assets if not (m or {}).get(META_COINGECKO_ID)]
         if not by_id:
-            logger.error("No assets carry a %s — run audit_crypto_identity.py "
-                         "first.", META_COINGECKO_ID)
+            logger.error(
+                "No assets carry a %s — run audit_crypto_identity.py first.", META_COINGECKO_ID
+            )
             return 1
 
-        bounds = {b.coingecko_id: b
-                  for b in DynamicUniverse().fetch_crypto_bounds_by_id(by_id)}
+        bounds = {b.coingecko_id: b for b in DynamicUniverse().fetch_crypto_bounds_by_id(by_id)}
         logger.info("Bounds fetched for %d of %d coin ids.", len(bounds), len(by_id))
 
         reports, unpriced = [], []
@@ -111,16 +113,17 @@ async def main(argv: list[str] | None = None) -> int:
                 # redenomination has an in-range close and an absurd intraday
                 # range, and a close-only check proposes cutting at that very
                 # bar. See AAVE-USD 2020-10-03.
-                stmt = (select(MarketDataORM.time, MarketDataORM.close,
-                               MarketDataORM.low, MarketDataORM.high)
-                        .where(MarketDataORM.asset_id == asset_id))
+                stmt = select(
+                    MarketDataORM.time, MarketDataORM.close, MarketDataORM.low, MarketDataORM.high
+                ).where(MarketDataORM.asset_id == asset_id)
                 if floor is not None:
                     stmt = stmt.where(MarketDataORM.time >= floor)
-                bars = [(t.date(), float(c), float(lo or 0), float(hi or 0))
-                        for t, c, lo, hi in (await session.execute(stmt)).all() if c]
-                reports.append(
-                    (asset_id, meta, check_bounds(symbol, bars, bound))
-                )
+                bars = [
+                    (t.date(), float(c), float(lo or 0), float(hi or 0))
+                    for t, c, lo, hi in (await session.execute(stmt)).all()
+                    if c
+                ]
+                reports.append((asset_id, meta, check_bounds(symbol, bars, bound)))
 
         # An empty series is vacuously inside any range. Reporting the 19
         # cleared wrong assets as "clean" alongside genuinely verified ones
@@ -141,8 +144,11 @@ async def main(argv: list[str] | None = None) -> int:
                 print("  " + r.describe())
             print()
         if empty:
-            print(f"NO BARS — nothing to check ({len(empty)}): "
-                  + ", ".join(r.symbol for r in empty) + "\n")
+            print(
+                f"NO BARS — nothing to check ({len(empty)}): "
+                + ", ".join(r.symbol for r in empty)
+                + "\n"
+            )
         if unpriced:
             print(f"NO BOUNDS PUBLISHED ({len(unpriced)}): {', '.join(unpriced)}")
         if no_reference:
@@ -168,8 +174,10 @@ async def main(argv: list[str] | None = None) -> int:
                 update(AssetORM).where(AssetORM.id == asset_id).values(metadata_=patch)
             )
         await session.commit()
-        print(f"\nRecorded bounds findings on {len(reports)} asset rows. "
-              "No bars were deleted and no floors were set.")
+        print(
+            f"\nRecorded bounds findings on {len(reports)} asset rows. "
+            "No bars were deleted and no floors were set."
+        )
     return 0
 
 

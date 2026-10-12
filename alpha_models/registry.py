@@ -100,9 +100,9 @@ class StrategySpec:
     #                    single unit. Filed under the "Portfolio" key.
     #   calendar_shared  only the DatetimeIndex is read; emits a rebalance
     #                    schedule every symbol shares. Uses signal == 2.
-    signal_shape: Literal[
-        "per_symbol", "wide_per_asset", "wide_portfolio", "calendar_shared"
-    ] = "per_symbol"
+    signal_shape: Literal["per_symbol", "wide_per_asset", "wide_portfolio", "calendar_shared"] = (
+        "per_symbol"
+    )
 
     # Non-empty when a strategy is known to be unsound. Surfaced through the API
     # so a consumer can warn rather than silently trusting the numbers.
@@ -170,7 +170,15 @@ _SPECS: List[StrategySpec] = [
         description="Fade moves beyond `threshold` standard deviations of a rolling mean.",
         params=[
             ParamSpec("window", "int", 20, "Lookback window", "Bars in the rolling mean", 2, 500),
-            ParamSpec("threshold", "float", 1.5, "Z-score threshold", "Std devs from the mean to trigger", 0.1, 10.0),
+            ParamSpec(
+                "threshold",
+                "float",
+                1.5,
+                "Z-score threshold",
+                "Std devs from the mean to trigger",
+                0.1,
+                10.0,
+            ),
         ],
         default_grid={
             "window": [10, 20, 30, 40, 50],
@@ -183,8 +191,24 @@ _SPECS: List[StrategySpec] = [
         cls=MovingAverageCrossoverStrategy,
         description="Long when the short moving average is above the long one.",
         params=[
-            ParamSpec("short_window", "int", 40, "Short window", "Must be smaller than the long window", 1, 500),
-            ParamSpec("long_window", "int", 100, "Long window", "Must be larger than the short window", 2, 1000),
+            ParamSpec(
+                "short_window",
+                "int",
+                40,
+                "Short window",
+                "Must be smaller than the long window",
+                1,
+                500,
+            ),
+            ParamSpec(
+                "long_window",
+                "int",
+                100,
+                "Long window",
+                "Must be larger than the short window",
+                2,
+                1000,
+            ),
         ],
         # Combinations where short >= long are rejected by the strategy's own
         # ValueError and reported as skipped — no constraint is restated here.
@@ -209,8 +233,12 @@ _SPECS: List[StrategySpec] = [
         description="Buy oversold and sell overbought on the Relative Strength Index.",
         params=[
             ParamSpec("window", "int", 14, "RSI window", "Bars in the RSI calculation", 2, 200),
-            ParamSpec("buy_threshold", "int", 30, "Buy below", "RSI level considered oversold", 1, 99),
-            ParamSpec("sell_threshold", "int", 70, "Sell above", "RSI level considered overbought", 1, 99),
+            ParamSpec(
+                "buy_threshold", "int", 30, "Buy below", "RSI level considered oversold", 1, 99
+            ),
+            ParamSpec(
+                "sell_threshold", "int", 70, "Sell above", "RSI level considered overbought", 1, 99
+            ),
         ],
     ),
     StrategySpec(
@@ -220,7 +248,9 @@ _SPECS: List[StrategySpec] = [
         description="Trade breakouts sized by Average True Range. Requires High/Low columns.",
         params=[
             ParamSpec("window", "int", 20, "ATR window", "Bars in the ATR calculation", 2, 200),
-            ParamSpec("multiplier", "float", 2.0, "ATR multiplier", "Breakout distance in ATRs", 0.1, 10.0),
+            ParamSpec(
+                "multiplier", "float", 2.0, "ATR multiplier", "Breakout distance in ATRs", 0.1, 10.0
+            ),
         ],
     ),
     StrategySpec(
@@ -230,9 +260,19 @@ _SPECS: List[StrategySpec] = [
         description="Bins historical pushes and trades the conditional response.",
         params=[
             ParamSpec("tau", "int", 5, "Tau", "Bar interval for push and response", 1, 100),
-            ParamSpec("training_window", "int", 100, "Training window", "Rolling window used to fit", 10, 2000),
+            ParamSpec(
+                "training_window",
+                "int",
+                100,
+                "Training window",
+                "Rolling window used to fit",
+                10,
+                2000,
+            ),
             ParamSpec("num_bins", "int", 50, "Bins", "Number of push bins", 2, 200),
-            ParamSpec("threshold", "float", 0.0, "Threshold", "Minimum response to act on", -1.0, 1.0),
+            ParamSpec(
+                "threshold", "float", 0.0, "Threshold", "Minimum response to act on", -1.0, 1.0
+            ),
         ],
     ),
     StrategySpec(
@@ -241,8 +281,12 @@ _SPECS: List[StrategySpec] = [
         cls=RandomForestStrategy,
         description="Random-forest classifier over lagged returns.",
         params=[
-            ParamSpec("n_estimators", "int", 100, "Trees", "Number of trees in the forest", 1, 1000),
-            ParamSpec("lookback_window", "int", 5, "Lookback", "Lagged returns used as features", 1, 100),
+            ParamSpec(
+                "n_estimators", "int", 100, "Trees", "Number of trees in the forest", 1, 1000
+            ),
+            ParamSpec(
+                "lookback_window", "int", 5, "Lookback", "Lagged returns used as features", 1, 100
+            ),
         ],
         caveat=(
             "Known look-ahead bias: the model trains on the full history before "
@@ -257,8 +301,18 @@ _SPECS: List[StrategySpec] = [
         cls=PairsTradingStrategy,
         description="Trade the spread between two cointegrated symbols.",
         params=[
-            ParamSpec("window", "int", 20, "Lookback window", "Bars in the spread's rolling stats", 2, 500),
-            ParamSpec("threshold", "float", 2.0, "Z-score threshold", "Spread std devs to trigger", 0.1, 10.0),
+            ParamSpec(
+                "window", "int", 20, "Lookback window", "Bars in the spread's rolling stats", 2, 500
+            ),
+            ParamSpec(
+                "threshold",
+                "float",
+                2.0,
+                "Z-score threshold",
+                "Spread std devs to trigger",
+                0.1,
+                10.0,
+            ),
         ],
         input_contract="multi",
         signal_shape="wide_per_asset",
@@ -270,7 +324,9 @@ _SPECS: List[StrategySpec] = [
         description="Mean-reversion on a weighted basket. Requires an explicit `weights` mapping.",
         params=[
             ParamSpec("window", "int", 20, "Lookback window", "Bars in the rolling stats", 2, 500),
-            ParamSpec("threshold", "float", 2.0, "Z-score threshold", "Std devs to trigger", 0.1, 10.0),
+            ParamSpec(
+                "threshold", "float", 2.0, "Z-score threshold", "Std devs to trigger", 0.1, 10.0
+            ),
         ],
         input_contract="multi",
         signal_shape="wide_portfolio",
@@ -283,7 +339,10 @@ _SPECS: List[StrategySpec] = [
         description="Periodically rebalance an equally weighted basket.",
         params=[
             ParamSpec(
-                "rebalance_frequency", "str", "ME", "Rebalance frequency",
+                "rebalance_frequency",
+                "str",
+                "ME",
+                "Rebalance frequency",
                 # 'ME'/'QE', not 'M'/'Q': pandas 2.2 deprecated the bare
                 # month/quarter aliases for resample and removes them in 3.0.
                 # They are pure renames — identical period counts — so this
@@ -302,7 +361,10 @@ _SPECS: List[StrategySpec] = [
         description="Trade around scheduled index rebalance dates.",
         params=[
             ParamSpec(
-                "rebalance_frequency", "str", "ME", "Rebalance frequency",
+                "rebalance_frequency",
+                "str",
+                "ME",
+                "Rebalance frequency",
                 "Pandas offset alias: ME month-end, QE quarter-end, W weekly",
             ),
         ],
@@ -324,11 +386,19 @@ _SPECS: List[StrategySpec] = [
         ),
         params=[
             ParamSpec(
-                "lookback", "int", 63, "Lookback window",
-                "Bars in the trailing-return comparison; 63 ≈ one quarter", 2, 756,
+                "lookback",
+                "int",
+                63,
+                "Lookback window",
+                "Bars in the trailing-return comparison; 63 ≈ one quarter",
+                2,
+                756,
             ),
             ParamSpec(
-                "rebalance_frequency", "str", "QE", "Rebalance frequency",
+                "rebalance_frequency",
+                "str",
+                "QE",
+                "Rebalance frequency",
                 "W, ME (month end), QE (quarter end) or YE",
             ),
         ],
@@ -351,11 +421,19 @@ _SPECS: List[StrategySpec] = [
         ),
         params=[
             ParamSpec(
-                "window", "int", 200, "Moving average window",
-                "Bars per sleeve's average; 200 ≈ the classic 10-month rule", 2, 756,
+                "window",
+                "int",
+                200,
+                "Moving average window",
+                "Bars per sleeve's average; 200 ≈ the classic 10-month rule",
+                2,
+                756,
             ),
             ParamSpec(
-                "rebalance_frequency", "str", "ME", "Rebalance frequency",
+                "rebalance_frequency",
+                "str",
+                "ME",
+                "Rebalance frequency",
                 "W, ME (month end), QE (quarter end) or YE",
             ),
         ],
@@ -373,16 +451,28 @@ _SPECS: List[StrategySpec] = [
         ),
         params=[
             ParamSpec(
-                "lookback", "int", 126, "Lookback window",
-                "Bars in the trailing-return ranking; 126 ≈ six months", 2, 756,
+                "lookback",
+                "int",
+                126,
+                "Lookback window",
+                "Bars in the trailing-return ranking; 126 ≈ six months",
+                2,
+                756,
             ),
             ParamSpec(
-                "top_n", "int", 2, "Sleeves held",
-                "How many of the supplied sleeves to hold; must be fewer than "
-                "the number supplied", 1, 20,
+                "top_n",
+                "int",
+                2,
+                "Sleeves held",
+                "How many of the supplied sleeves to hold; must be fewer than the number supplied",
+                1,
+                20,
             ),
             ParamSpec(
-                "rebalance_frequency", "str", "ME", "Rebalance frequency",
+                "rebalance_frequency",
+                "str",
+                "ME",
+                "Rebalance frequency",
                 "W, ME (month end), QE (quarter end) or YE",
             ),
         ],
@@ -398,6 +488,7 @@ REGISTRY: Dict[str, StrategySpec] = {s.id: s for s in _SPECS}
 # ---------------------------------------------------------------------------
 # Accessors
 # ---------------------------------------------------------------------------
+
 
 def all_strategies() -> List[StrategySpec]:
     """Every registered strategy, in registration order."""
@@ -419,9 +510,7 @@ def get(strategy_id: str) -> StrategySpec:
     try:
         return REGISTRY[strategy_id]
     except KeyError:
-        raise KeyError(
-            f"Unknown strategy '{strategy_id}'. Valid ids: {sorted(REGISTRY)}"
-        ) from None
+        raise KeyError(f"Unknown strategy '{strategy_id}'. Valid ids: {sorted(REGISTRY)}") from None
 
 
 def build(strategy_id: str, params: Optional[Dict[str, Any]] = None) -> BaseAlphaModel:

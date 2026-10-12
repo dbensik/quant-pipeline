@@ -45,8 +45,13 @@ class FakeFactRepo:
 def test_parse_keeps_what_was_served(aapl):
     facts = parse_company_facts(aapl, WHEN)
     assert len(facts) == 4763
-    fy25 = [f for f in facts if f.concept == "RevenueFromContractWithCustomerExcludingAssessedTax"
-            and f.period_end == date(2025, 9, 27) and f.fp == "FY"]
+    fy25 = [
+        f
+        for f in facts
+        if f.concept == "RevenueFromContractWithCustomerExcludingAssessedTax"
+        and f.period_end == date(2025, 9, 27)
+        and f.fp == "FY"
+    ]
     assert {f.value for f in fy25} == {416161000000.0}
     assert all(f.fetched_at == WHEN for f in facts)
 
@@ -61,17 +66,29 @@ def test_instants_have_no_period_start(aapl):
 
 def test_the_allow_list_is_enforced(aapl):
     doc = json.loads(json.dumps(aapl))
-    doc["facts"]["us-gaap"]["SomethingElse"] = {"units": {"USD": [{"end": "2025-09-27", "val": 1, "form": "10-K", "filed": "2025-10-31", "accn": "x"}]}}
+    doc["facts"]["us-gaap"]["SomethingElse"] = {
+        "units": {
+            "USD": [
+                {"end": "2025-09-27", "val": 1, "form": "10-K", "filed": "2025-10-31", "accn": "x"}
+            ]
+        }
+    }
     concepts = {f.concept for f in parse_company_facts(doc, WHEN)}
     assert "SomethingElse" not in concepts
     assert len(parse_company_facts(aapl, WHEN, allow=[("us-gaap", "Assets")])) == len(
-        [f for f in parse_company_facts(aapl, WHEN) if f.concept == "Assets"])
+        [f for f in parse_company_facts(aapl, WHEN) if f.concept == "Assets"]
+    )
 
 
 def test_the_same_period_in_a_later_filing_is_its_own_row(aapl):
     # FY2024 revenue appears in the FY2024 10-K and again in the FY2025 one.
-    facts = [f for f in parse_company_facts(aapl, WHEN)
-             if f.concept == "RevenueFromContractWithCustomerExcludingAssessedTax" and f.period_end == date(2024, 9, 28) and f.fp == "FY"]
+    facts = [
+        f
+        for f in parse_company_facts(aapl, WHEN)
+        if f.concept == "RevenueFromContractWithCustomerExcludingAssessedTax"
+        and f.period_end == date(2024, 9, 28)
+        and f.fp == "FY"
+    ]
     assert sorted(f.filed for f in facts) == [date(2024, 11, 1), date(2025, 10, 31)]
     assert len({f.key() for f in facts}) == 2
 
@@ -85,6 +102,17 @@ async def test_ingest_is_insert_only(aapl):
     assert first.entity_name == "Apple Inc." and first.cik == 320193
     # A restatement arrives under a new accession: a new row, the old one kept.
     old = next(f for f in repo.rows.values() if f.concept == "Assets")
-    restated = Fact(**{**old.__dict__, "accn": "0000320193-99-000001", "value": old.value + 1, "filed": date(2026, 12, 1)})
+    restated = Fact(
+        **{
+            **old.__dict__,
+            "accn": "0000320193-99-000001",
+            "value": old.value + 1,
+            "filed": date(2026, 12, 1),
+        }
+    )
     assert await repo.insert([restated, old]) == 1
-    assert {f.value for f in repo.rows.values() if f.concept == "Assets" and f.period_end == old.period_end} >= {old.value, old.value + 1}
+    assert {
+        f.value
+        for f in repo.rows.values()
+        if f.concept == "Assets" and f.period_end == old.period_end
+    } >= {old.value, old.value + 1}

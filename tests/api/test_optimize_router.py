@@ -46,6 +46,7 @@ def allocate(client: TestClient, **overrides):
 # Strategy grid search — happy path
 # ---------------------------------------------------------------------------
 
+
 def test_searches_the_whole_grid(client: TestClient):
     body = optimize(client).json()
     assert body["combinations_requested"] == 6
@@ -110,6 +111,7 @@ def test_ranked_rows_also_carry_int_parameters(client: TestClient):
 # Params must not be contaminated by metrics
 # ---------------------------------------------------------------------------
 
+
 def test_best_params_contains_no_metrics(client: TestClient):
     """
     THE regression on get_best_parameters. It recovered parameters by
@@ -139,6 +141,7 @@ def test_best_metrics_carries_the_full_metric_set(client: TestClient):
 # ---------------------------------------------------------------------------
 # Metric direction
 # ---------------------------------------------------------------------------
+
 
 def test_minimized_metric_is_not_maximized(client: TestClient):
     """
@@ -181,6 +184,7 @@ def test_trade_count_is_rejected_as_a_target(client: TestClient):
 # Invalid combinations
 # ---------------------------------------------------------------------------
 
+
 def test_invalid_combinations_are_skipped_and_reported(client: TestClient):
     """
     MACrossoverParameterGenerator hardcoded `if s >= l: continue`, so the
@@ -188,9 +192,7 @@ def test_invalid_combinations_are_skipped_and_reported(client: TestClient):
     vanished from the accounting. The strategy's own ValueError is now what
     rejects the combo, and the rejection is reported.
     """
-    body = optimize(
-        client, grid={"short_window": [10, 20, 30], "long_window": [20, 30]}
-    ).json()
+    body = optimize(client, grid={"short_window": [10, 20, 30], "long_window": [20, 30]}).json()
     assert body["combinations_requested"] == 6
     assert body["combinations_evaluated"] == 3
     assert len(body["skipped"]) == 3
@@ -210,6 +212,7 @@ def test_an_entirely_invalid_grid_is_422_not_an_empty_ranking(client: TestClient
 # ---------------------------------------------------------------------------
 # Grid validation
 # ---------------------------------------------------------------------------
+
 
 def test_unknown_grid_parameter_is_rejected_not_skipped(client: TestClient):
     """
@@ -267,9 +270,7 @@ def test_the_ported_streamlit_default_grid_still_fits(client: TestClient):
 
 
 def test_inverted_range_is_422(client: TestClient):
-    response = optimize(
-        client, grid={"short_window": {"min": 30, "max": 10}, "long_window": [40]}
-    )
+    response = optimize(client, grid={"short_window": {"min": 30, "max": 10}, "long_window": [40]})
     assert response.status_code == 422
     assert "below min" in response.json()["detail"]
 
@@ -277,6 +278,7 @@ def test_inverted_range_is_422(client: TestClient):
 # ---------------------------------------------------------------------------
 # Determinism
 # ---------------------------------------------------------------------------
+
 
 def test_same_seed_gives_identical_results(client: TestClient):
     """
@@ -334,6 +336,7 @@ def test_every_combination_faces_the_same_draws(client: TestClient):
 # Strategy contract
 # ---------------------------------------------------------------------------
 
+
 def test_a_strategy_the_old_factory_never_knew_can_be_optimized(client: TestClient):
     """
     _create_model hardcoded two display names and returned None for anything
@@ -341,9 +344,7 @@ def test_a_strategy_the_old_factory_never_knew_can_be_optimized(client: TestClie
     strategy produced an empty DataFrame rather than an error. Construction
     now goes through the registry.
     """
-    body = optimize(
-        client, strategy_id="trend_following", grid={"window": [10, 20, 30]}
-    ).json()
+    body = optimize(client, strategy_id="trend_following", grid={"window": [10, 20, 30]}).json()
     assert body["combinations_evaluated"] == 3
     assert set(body["best_params"]) == {"window"}
 
@@ -362,6 +363,7 @@ def test_unknown_strategy_is_404(client: TestClient):
 # Error paths
 # ---------------------------------------------------------------------------
 
+
 def test_unknown_symbol_is_404(client: TestClient):
     assert optimize(client, symbol="NOPE").status_code == 404
 
@@ -379,6 +381,7 @@ def test_start_after_end_is_422(client: TestClient):
 # ---------------------------------------------------------------------------
 # Portfolio weight optimization
 # ---------------------------------------------------------------------------
+
 
 def test_returns_both_optimal_allocations(client: TestClient):
     body = allocate(client).json()
@@ -444,16 +447,12 @@ def test_frontier_is_downsampled_not_truncated(client: TestClient):
     frontier's shape comes from the whole cloud — head(N) would return only
     the first draws, which is not a sample of it.
     """
-    body = allocate(
-        client, include_frontier=True, num_portfolios=500, frontier_points=50
-    ).json()
+    body = allocate(client, include_frontier=True, num_portfolios=500, frontier_points=50).json()
     assert len(body["frontier"]) <= 50
 
     full = allocate(client, include_frontier=True, num_portfolios=500).json()
     sampled_vols = {round(p["annualized_volatility"], 9) for p in body["frontier"]}
-    head_vols = {
-        round(p["annualized_volatility"], 9) for p in full["frontier"][:50]
-    }
+    head_vols = {round(p["annualized_volatility"], 9) for p in full["frontier"][:50]}
     assert sampled_vols != head_vols
 
 

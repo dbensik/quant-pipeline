@@ -104,9 +104,7 @@ def test_equity_curve_is_included_when_requested(ws_client: TestClient):
     assert set(result["equity_curve"][0]) == {"time", "total"}
 
 
-def test_matches_the_rest_endpoint_for_the_same_request(
-    ws_client: TestClient, client: TestClient
-):
+def test_matches_the_rest_endpoint_for_the_same_request(ws_client: TestClient, client: TestClient):
     """
     Two code paths, one answer. ws.py reuses _run_backtest_sync from the REST
     router precisely so they cannot diverge — this asserts that they haven't.
@@ -123,6 +121,7 @@ def test_matches_the_rest_endpoint_for_the_same_request(
 # ---------------------------------------------------------------------------
 # Error paths — the socket must report and close, never hang
 # ---------------------------------------------------------------------------
+
 
 def test_unknown_symbol_yields_an_error_message(ws_client: TestClient):
     with ws_client.websocket_connect("/api/v1/ws/backtest") as ws:

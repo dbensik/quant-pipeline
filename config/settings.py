@@ -121,6 +121,7 @@ def coingecko_headers() -> dict:
     key = coingecko_api_key()
     return {COINGECKO_KEY_HEADER: key} if key else {}
 
+
 # --- Tiingo (scripts/probe_tiingo_delisted.py) ---
 #
 # Evaluated 2026-10-04 as a free source of DELISTED price history, which Yahoo
@@ -162,11 +163,27 @@ URL_SEC_COMPANY_TICKERS = "https://www.sec.gov/files/company_tickers.json"
 #: every filing. The quarter's directory listing (JSON) names the days that
 #: exist, so a weekend or holiday is never requested (its URL answers 403
 #: AccessDenied, which must not be mistaken for a block).
-URL_SEC_DAILY_INDEX_DIR = "https://www.sec.gov/Archives/edgar/daily-index/{year}/QTR{quarter}/index.json"
-URL_SEC_DAILY_FORM_INDEX = "https://www.sec.gov/Archives/edgar/daily-index/{year}/QTR{quarter}/{name}"
+URL_SEC_DAILY_INDEX_DIR = (
+    "https://www.sec.gov/Archives/edgar/daily-index/{year}/QTR{quarter}/index.json"
+)
+URL_SEC_DAILY_FORM_INDEX = (
+    "https://www.sec.gov/Archives/edgar/daily-index/{year}/QTR{quarter}/{name}"
+)
 #: Forms whose filing changes a company's XBRL facts (amendments included).
-SEC_FACT_FORMS = ("10-K", "10-K/A", "10-Q", "10-Q/A", "10-KT", "10-KT/A", "10-QT", "10-QT/A",
-                  "20-F", "20-F/A", "40-F", "40-F/A")
+SEC_FACT_FORMS = (
+    "10-K",
+    "10-K/A",
+    "10-Q",
+    "10-Q/A",
+    "10-KT",
+    "10-KT/A",
+    "10-QT",
+    "10-QT/A",
+    "20-F",
+    "20-F/A",
+    "40-F",
+    "40-F/A",
+)
 #: The daily step looks back this many days, so mornings the Mac slept
 #: through are caught up (the job has gone seven days without running).
 SEC_REFRESH_LOOKBACK_DAYS = 7
@@ -210,12 +227,14 @@ CIK_PREDECESSORS = {
     "WBA": (104207,),
     # Found by the resolver's history-gap check 2026-10-11, each confirmed in
     # SEC submissions (successor 8-K12B / 8-K12G3, predecessor 25-NSE or 15-12):
-    "APA": (6769,),      # APACHE CORP -> APA Corp, 8-K12B 2021-03-01
-    "APO": (1411494,),   # old Apollo Global Management -> new, 8-K12B 2022-01-03
-    "BLK": (1364742,),   # old BlackRock (now 'BlackRock Finance') -> BlackRock, Inc. 2024-10
-    "MRVL": (1058057,),  # MARVELL TECHNOLOGY GROUP LTD -> Marvell Technology, Inc., 8-K12B 2021-04-20
-    "TPL": (97517,),     # TEXAS PACIFIC LAND TRUST -> Texas Pacific Land Corp, 15-12B 2021-01-25
-    "BG": (1144519,),    # BUNGE LTD -> Bunge Global SA, 8-K12G3 2023-11-01
+    "APA": (6769,),  # APACHE CORP -> APA Corp, 8-K12B 2021-03-01
+    "APO": (1411494,),  # old Apollo Global Management -> new, 8-K12B 2022-01-03
+    "BLK": (1364742,),  # old BlackRock (now 'BlackRock Finance') -> BlackRock, Inc. 2024-10
+    "MRVL": (
+        1058057,
+    ),  # MARVELL TECHNOLOGY GROUP LTD -> Marvell Technology, Inc., 8-K12B 2021-04-20
+    "TPL": (97517,),  # TEXAS PACIFIC LAND TRUST -> Texas Pacific Land Corp, 15-12B 2021-01-25
+    "BG": (1144519,),  # BUNGE LTD -> Bunge Global SA, 8-K12G3 2023-11-01
 }
 
 #: History gaps the check found and a person accepted, with why. A merger of
@@ -246,7 +265,10 @@ FUNDAMENTAL_CONCEPTS = (
     ("us-gaap", "SalesRevenueNet"),
     ("us-gaap", "CostOfGoodsAndServicesSold"),
     ("us-gaap", "OperatingIncomeLoss"),
-    ("us-gaap", "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest"),
+    (
+        "us-gaap",
+        "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
+    ),
     ("us-gaap", "IncomeTaxExpenseBenefit"),
     ("us-gaap", "InterestExpense"),
     ("us-gaap", "InterestExpenseNonoperating"),
@@ -369,7 +391,7 @@ DCF_TERMINAL_SHARE_WARN = 0.8
 DCF_REFUSED_SECTORS = {
     "Financials": "free cash flow is not meaningful for banks and insurers",
     "Real Estate": "REIT capital spending is property acquisition and development; "
-                   "REITs need an FFO/AFFO model, not a free-cash-flow DCF",
+    "REITs need an FFO/AFFO model, not a free-cash-flow DCF",
 }
 
 #: Symbols refused whatever their sector, with why. Decision 13 (approved
@@ -377,11 +399,19 @@ DCF_REFUSED_SECTORS = {
 #: that free cash flow cannot separate — the reason Financials are refused.
 #: Each recurred above 3x price in the phase 6 sweep.
 _MANAGED_CARE = "managed care: insurance float runs through operating cash flow"
-_CAPTIVE_FINANCE = "captive finance: finance receivables and the debt funding them distort FCF and net debt"
+_CAPTIVE_FINANCE = (
+    "captive finance: finance receivables and the debt funding them distort FCF and net debt"
+)
 DCF_REFUSED_SYMBOLS = {
-    "CNC": _MANAGED_CARE, "ELV": _MANAGED_CARE, "UNH": _MANAGED_CARE,
-    "CVS": _MANAGED_CARE, "HUM": _MANAGED_CARE, "MOH": _MANAGED_CARE,
-    "F": _CAPTIVE_FINANCE, "GM": _CAPTIVE_FINANCE, "KMX": _CAPTIVE_FINANCE,
+    "CNC": _MANAGED_CARE,
+    "ELV": _MANAGED_CARE,
+    "UNH": _MANAGED_CARE,
+    "CVS": _MANAGED_CARE,
+    "HUM": _MANAGED_CARE,
+    "MOH": _MANAGED_CARE,
+    "F": _CAPTIVE_FINANCE,
+    "GM": _CAPTIVE_FINANCE,
+    "KMX": _CAPTIVE_FINANCE,
 }
 
 # --- Crypto identity (core/crypto_identity.py) ---
@@ -767,9 +797,7 @@ OPTIONS_SURFACE_MAX_CONCURRENT = 1
 # GRAPHQL_PORT, and `./run_pipeline.sh api`). Running both on 8000 collides —
 # it only went unnoticed because they were never started together.
 QUANT_API_PORT = int(os.getenv("QUANT_API_PORT", "8001"))
-QUANT_API_BASE_URL = os.getenv(
-    "QUANT_API_BASE_URL", f"http://127.0.0.1:{QUANT_API_PORT}"
-)
+QUANT_API_BASE_URL = os.getenv("QUANT_API_BASE_URL", f"http://127.0.0.1:{QUANT_API_PORT}")
 QUANT_USE_API = os.getenv("QUANT_USE_API", "1").lower() in {"1", "true", "yes"}
 QUANT_API_TIMEOUT_SECONDS = float(os.getenv("QUANT_API_TIMEOUT_SECONDS", "30"))
 

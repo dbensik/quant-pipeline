@@ -56,6 +56,7 @@ def obs(day, value=4.0):
 
 # --- conversions -------------------------------------------------------------
 
+
 @pytest.mark.parametrize(
     "discount, treasury_coupon_equivalent",
     # Treasury Daily Treasury Bill Rates, 13-week, 2026-10-01 and 2026-10-07.
@@ -85,6 +86,7 @@ def test_bond_equivalent_refuses_a_tenor_its_formula_does_not_cover():
 
 # --- read rule ---------------------------------------------------------------
 
+
 def test_reading_after_the_observation_reports_its_age():
     rate = risk_free_from_observation(obs(date(2026, 10, 9)), as_of=date(2026, 10, 12))
     assert rate.obs_date == date(2026, 10, 9)
@@ -93,8 +95,12 @@ def test_reading_after_the_observation_reports_its_age():
 
 
 def test_stale_beyond_the_max_age_and_not_at_it():
-    assert not risk_free_from_observation(obs(date(2026, 10, 1)), date(2026, 10, 8), max_age_days=7).stale
-    assert risk_free_from_observation(obs(date(2026, 10, 1)), date(2026, 10, 9), max_age_days=7).stale
+    assert not risk_free_from_observation(
+        obs(date(2026, 10, 1)), date(2026, 10, 8), max_age_days=7
+    ).stale
+    assert risk_free_from_observation(
+        obs(date(2026, 10, 1)), date(2026, 10, 9), max_age_days=7
+    ).stale
 
 
 def test_an_observation_after_the_requested_date_is_refused():
@@ -119,11 +125,13 @@ async def test_nothing_on_or_before_is_none_not_the_first_later_value():
 
 # --- write rule --------------------------------------------------------------
 
+
 def fetcher_returning(rows, calls=None):
     def fetch(series, start, end_exclusive):
         if calls is not None:
             calls.append((series, start, end_exclusive))
         return list(rows)
+
     return fetch
 
 
@@ -167,7 +175,10 @@ async def test_new_york_date_decides_today_not_utc():
 async def test_a_reserved_value_never_replaces_a_stored_one():
     repo = FakeRateRepo([obs(date(2026, 10, 6), 4.037)])
     report = await ingest_rates(
-        repo, SERIES, fetcher_returning([(date(2026, 10, 6), 9.99), (date(2026, 10, 7), 4.037)]), now=NOW
+        repo,
+        SERIES,
+        fetcher_returning([(date(2026, 10, 6), 9.99), (date(2026, 10, 7), 4.037)]),
+        now=NOW,
     )
     assert report.inserted == 1
     assert (await repo.latest_on_or_before(SERIES, date(2026, 10, 6))).value == 4.037

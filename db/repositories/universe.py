@@ -50,14 +50,11 @@ class UniverseRepository:
 
     async def record_snapshot(
         self, index_name: str, symbols: List[str], taken_at: Optional[datetime] = None
-    ) -> Snapshot:
-        ...
+    ) -> Snapshot: ...
 
-    async def members_as_of(self, index_name: str, as_of: datetime) -> Membership:
-        ...
+    async def members_as_of(self, index_name: str, as_of: datetime) -> Membership: ...
 
-    async def indexes(self) -> List[str]:
-        ...
+    async def indexes(self) -> List[str]: ...
 
 
 class TimescaleUniverseRepo:
@@ -171,9 +168,7 @@ class TimescaleUniverseRepo:
         # query dated 00:00 the same day — otherwise "no snapshot at or before
         # 2026-08-09; the earliest is 2026-08-09" is a self-contradicting
         # message, which is exactly what it produced.
-        before_first = first_observed is not None and (
-            as_of.date() < first_observed.date()
-        )
+        before_first = first_observed is not None and (as_of.date() < first_observed.date())
         if first_observed is None or before_first:
             return Membership(
                 index_name=index_name,
@@ -195,9 +190,7 @@ class TimescaleUniverseRepo:
         # this date, it was there."
         # end-of-day, for the same reason: a query dated 00:00 should anchor
         # on a snapshot taken later that day.
-        day_end = datetime.combine(
-            as_of.date(), datetime.max.time(), tzinfo=timezone.utc
-        )
+        day_end = datetime.combine(as_of.date(), datetime.max.time(), tzinfo=timezone.utc)
         anchor = await self.session.execute(
             select(func.max(UniverseSnapshotORM.taken_at)).where(
                 UniverseSnapshotORM.index_name == index_name,

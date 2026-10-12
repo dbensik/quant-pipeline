@@ -48,7 +48,15 @@ class Fact:
     fetched_at: datetime
 
     def key(self) -> Tuple:
-        return (self.cik, self.taxonomy, self.concept, self.unit, self.period_start, self.period_end, self.accn)
+        return (
+            self.cik,
+            self.taxonomy,
+            self.concept,
+            self.unit,
+            self.period_start,
+            self.period_end,
+            self.accn,
+        )
 
 
 def parse_company_facts(
@@ -94,8 +102,7 @@ class FactRepository(Protocol):
         """Insert facts not already stored; return how many were new."""
         ...
 
-    async def facts(self, cik: int, concepts: Iterable[str]) -> List[Fact]:
-        ...
+    async def facts(self, cik: int, concepts: Iterable[str]) -> List[Fact]: ...
 
 
 @dataclass

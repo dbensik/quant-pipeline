@@ -12,7 +12,9 @@ class FundamentalScreener(BaseScreener):
     which are often prerequisites for fundamental analysis.
     """
 
-    def __init__(self, min_price: float = None, min_avg_volume: float = None, avg_volume_days: int = 20):
+    def __init__(
+        self, min_price: float = None, min_avg_volume: float = None, avg_volume_days: int = 20
+    ):
         """
         Args:
             min_price: Minimum closing price (latest).
@@ -31,30 +33,30 @@ class FundamentalScreener(BaseScreener):
 
         for ticker in tickers:
             df = data.get(ticker)
-            
+
             # Skip if no data
             if df is None or df.empty:
                 continue
-                
+
             # Get latest data
             latest = df.iloc[-1]
             latest_price = latest["Close"]
-            
+
             # Check Min Price
             if self.min_price is not None:
                 if latest_price < self.min_price:
                     continue
-            
+
             # Check Min Volume
             if self.min_avg_volume is not None:
                 # Calculate average volume
                 # If there isn't enough data, take what's available
                 start_idx = max(0, len(df) - self.avg_volume_days)
                 avg_vol = df["Volume"].iloc[start_idx:].mean()
-                
+
                 if avg_vol < self.min_avg_volume:
                     continue
-            
+
             passed_tickers.append(ticker)
 
         return passed_tickers
@@ -65,13 +67,10 @@ class FundamentalScreener(BaseScreener):
         """
         if price_data.empty:
             return {"Price": "N/A", "Avg Vol": "N/A"}
-            
+
         latest_price = price_data["Close"].iloc[-1]
-        
+
         start_idx = max(0, len(price_data) - self.avg_volume_days)
         avg_vol = price_data["Volume"].iloc[start_idx:].mean()
-        
-        return {
-            "Price": f"${latest_price:.2f}",
-            "Avg Vol": f"{int(avg_vol):,}"
-        }
+
+        return {"Price": f"${latest_price:.2f}", "Avg Vol": f"{int(avg_vol):,}"}

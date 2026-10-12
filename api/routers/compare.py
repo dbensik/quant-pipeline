@@ -56,6 +56,7 @@ MAX_GRID_COMBINATIONS = 500
 # Models
 # ---------------------------------------------------------------------------
 
+
 class ComparisonEquityPoint(BaseModel):
     """
     A point on a comparison curve: time and total only.
@@ -149,6 +150,7 @@ class CompareResponse(BaseModel):
 # Work
 # ---------------------------------------------------------------------------
 
+
 def _curve(frame: Optional[pd.DataFrame]) -> List[ComparisonEquityPoint]:
     if frame is None or frame.empty or "total" not in frame.columns:
         return []
@@ -201,8 +203,7 @@ def _compare_sync(
                 {
                     "strategy_id": spec.id,
                     "reason": (
-                        f"'{spec.id}' is multi-asset and cannot be compared on a "
-                        "single symbol."
+                        f"'{spec.id}' is multi-asset and cannot be compared on a single symbol."
                     ),
                 }
             )
@@ -260,9 +261,7 @@ def _compare_sync(
         # entry supplies {}, and echoing that back would leave the row unable
         # to say what produced it — the same reason /backtest and
         # /backtest/portfolio fill defaults before responding.
-        effective = {
-            p.name: params.get(p.name, p.default) for p in spec.params
-        }
+        effective = {p.name: params.get(p.name, p.default) for p in spec.params}
 
         rows.append(
             {
@@ -294,6 +293,7 @@ def _expand(grid: Dict[str, List[Any]]) -> List[Dict[str, Any]]:
 # Route
 # ---------------------------------------------------------------------------
 
+
 @router.post(
     "",
     response_model=CompareResponse,
@@ -313,8 +313,7 @@ async def compare_strategies(
         raise HTTPException(
             status_code=422,
             detail=(
-                f"{len(request.strategies)} strategies requested; the limit is "
-                f"{MAX_STRATEGIES}."
+                f"{len(request.strategies)} strategies requested; the limit is {MAX_STRATEGIES}."
             ),
         )
     if request.metric not in OPTIMIZABLE_METRICS:
@@ -342,28 +341,21 @@ async def compare_strategies(
 
     start = (
         request.start.replace(tzinfo=timezone.utc)
-        if request.start.tzinfo is None else request.start
+        if request.start.tzinfo is None
+        else request.start
     )
-    end = (
-        request.end.replace(tzinfo=timezone.utc)
-        if request.end.tzinfo is None else request.end
-    )
+    end = request.end.replace(tzinfo=timezone.utc) if request.end.tzinfo is None else request.end
 
     async def load(symbol: str) -> pd.DataFrame:
         asset = await repo.find_asset(symbol)
         if asset is None:
             raise HTTPException(status_code=404, detail=f"Unknown symbol: {symbol!r}")
-        records = await repo.fetch_range(
-            symbol=symbol, asset_class=None, start=start, end=end
-        )
+        records = await repo.fetch_range(symbol=symbol, asset_class=None, start=start, end=end)
         frame = records_to_frame(records)
         if frame.empty:
             raise HTTPException(
                 status_code=422,
-                detail=(
-                    f"No bars stored for {symbol!r} between "
-                    f"{start.date()} and {end.date()}."
-                ),
+                detail=(f"No bars stored for {symbol!r} between {start.date()} and {end.date()}."),
             )
         return frame
 
@@ -432,9 +424,7 @@ async def compare_strategies(
                 combinations_evaluated=row["combinations_evaluated"],
                 metrics=row["metrics"],
                 caveat=row["caveat"],
-                equity_curve=(
-                    _curve(row["frame"]) if request.include_equity_curves else []
-                ),
+                equity_curve=(_curve(row["frame"]) if request.include_equity_curves else []),
             )
             for row in ranked
         ],

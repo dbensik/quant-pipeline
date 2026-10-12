@@ -99,9 +99,7 @@ async def list_strategies(
     specs = registry.all_strategies()
     if input_contract:
         specs = [s for s in specs if s.input_contract == input_contract]
-    return StrategyListResponse(
-        count=len(specs), strategies=[_to_schema(s) for s in specs]
-    )
+    return StrategyListResponse(count=len(specs), strategies=[_to_schema(s) for s in specs])
 
 
 @router.get(

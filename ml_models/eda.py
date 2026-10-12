@@ -27,9 +27,7 @@ class EDA:
         )
         return self.data
 
-    def load_data_from_db(
-        self, db_path="../quant_pipeline.db", table_name="price_data"
-    ):
+    def load_data_from_db(self, db_path="../quant_pipeline.db", table_name="price_data"):
         """
         Load data from an SQLite database.
 
@@ -55,9 +53,7 @@ class EDA:
         Clean the data by dropping rows with missing values.
         """
         if self.data is None:
-            raise ValueError(
-                "Data not loaded. Call load_data() or load_data_from_db() first."
-            )
+            raise ValueError("Data not loaded. Call load_data() or load_data_from_db() first.")
         self.data.dropna(inplace=True)
         return self.data
 
@@ -156,9 +152,7 @@ if __name__ == "__main__":
 
     # Example: Using the MLDataProvider placeholder
     try:
-        ml_provider = MLDataProvider(
-            db_path="../quant_pipeline.db", table_name="price_data"
-        )
+        ml_provider = MLDataProvider(db_path="../quant_pipeline.db", table_name="price_data")
         ml_data = ml_provider.get_data()
         print("Data from MLDataProvider:")
         print(ml_data.head())

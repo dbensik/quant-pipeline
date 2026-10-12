@@ -37,8 +37,8 @@ import pytest
 from alpha_models import registry
 
 N = 300
-TRUNCATE = 30          # bars removed for the look-ahead test
-WARMUP = 150           # ignore early bars where rolling windows are filling
+TRUNCATE = 30  # bars removed for the look-ahead test
+WARMUP = 150  # ignore early bars where rolling windows are filling
 
 # (id, factory) pairs come from alpha_models/registry.py, the single source of
 # truth for strategy identity — so registering a strategy there automatically
@@ -152,7 +152,7 @@ def test_no_look_ahead(strategy_factory, fixture_name, request):
     overlap = trunc.index[WARMUP:]
     a = full.loc[overlap].fillna(0)
     b = trunc.loc[overlap].fillna(0)
-    diff = (a != b)
+    diff = a != b
     assert not diff.any(), (
         f"LOOK-AHEAD: removing the last {TRUNCATE} bars changed "
         f"{int(diff.sum())} earlier signals (first at {diff.idxmax()})"
@@ -163,15 +163,14 @@ def test_no_look_ahead(strategy_factory, fixture_name, request):
 # Multi-asset strategies — separate input contract (wide close-price frames)
 # ---------------------------------------------------------------------------
 
+
 def _make_wide_frame(n_assets: int = 3) -> pd.DataFrame:
     rng = np.random.default_rng(11)
     idx = pd.bdate_range("2022-01-03", periods=N, tz="UTC")
     data = {}
     for i in range(n_assets):
         drift = 0.0005 * (i + 1)
-        data[f"ASSET{i}"] = 100 * np.exp(
-            drift * np.arange(N) + rng.normal(0, 0.01, N).cumsum()
-        )
+        data[f"ASSET{i}"] = 100 * np.exp(drift * np.arange(N) + rng.normal(0, 0.01, N).cumsum())
     return pd.DataFrame(data, index=idx)
 
 
@@ -220,6 +219,7 @@ def test_pairs_trading_contract():
 # cointegrated_mean_reversion takes a `weights` dict that is not a ParamSpec and
 # so cannot be constructed from the registry — the caveat the registry records.
 
+
 def _multi_wide_cases():
     """
     (id, factory) for strategies whose input is a WIDE close frame.
@@ -250,15 +250,11 @@ def _multi_wide_cases():
         ),
         (
             "asset_class_trend",
-            lambda: AssetClassTrendFollowingStrategy(
-                window=50, rebalance_frequency="ME"
-            ),
+            lambda: AssetClassTrendFollowingStrategy(window=50, rebalance_frequency="ME"),
         ),
         (
             "momentum_allocation",
-            lambda: MomentumAssetAllocationStrategy(
-                lookback=20, top_n=1, rebalance_frequency="ME"
-            ),
+            lambda: MomentumAssetAllocationStrategy(lookback=20, top_n=1, rebalance_frequency="ME"),
         ),
     ]
 
@@ -293,7 +289,7 @@ def test_no_look_ahead_multi_asset_wide(strategy_id, factory):
     a = full.loc[overlap].fillna(0)
     b = trunc.loc[overlap].fillna(0)
     assert list(a.columns) == list(b.columns)
-    diff = (a != b)
+    diff = a != b
     assert not diff.to_numpy().any(), (
         f"LOOK-AHEAD in {strategy_id}: removing the last {TRUNCATE} bars "
         f"changed {int(diff.to_numpy().sum())} earlier signals"
@@ -325,7 +321,7 @@ def test_no_look_ahead_multi_asset_calendar(strategy_id, factory):
     overlap = trunc.index
     a = full.loc[overlap].fillna(0)
     b = trunc.loc[overlap].fillna(0)
-    diff = (a != b)
+    diff = a != b
     assert not diff.any(), (
         f"LOOK-AHEAD in {strategy_id}: removing the last {TRUNCATE} bars "
         f"changed {int(diff.sum())} earlier rebalance dates "
@@ -342,15 +338,14 @@ def test_no_look_ahead_multi_asset_calendar(strategy_id, factory):
 # never been asserted anywhere. These pin what each shape is allowed to emit,
 # so 2 is sanctioned deliberately rather than by omission.
 
+
 @pytest.mark.parametrize(
     "strategy_id,factory", _multi_wide_cases(), ids=[c[0] for c in _multi_wide_cases()]
 )
 def test_wide_shapes_emit_only_directional_values(strategy_id, factory):
     signals = factory().generate_signals(price_data=_make_wide_frame(2))
     values = set(pd.unique(signals.values.ravel())) - {np.nan}
-    assert values <= {-1, 0, 1, -1.0}, (
-        f"{strategy_id} emitted {values - {-1, 0, 1, -1.0}}"
-    )
+    assert values <= {-1, 0, 1, -1.0}, f"{strategy_id} emitted {values - {-1, 0, 1, -1.0}}"
 
 
 @pytest.mark.parametrize(
@@ -395,6 +390,7 @@ def test_every_registered_strategy_declares_a_wired_shape():
 # Fixture convention
 # ---------------------------------------------------------------------------
 
+
 def test_fixtures_are_timezone_aware():
     """
     Guards the convention rather than a strategy.
@@ -416,6 +412,7 @@ def test_fixtures_are_timezone_aware():
 # ---------------------------------------------------------------------------
 # Calendar strategies must not skip weekend period-ends
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize(
     "strategy_id,factory",

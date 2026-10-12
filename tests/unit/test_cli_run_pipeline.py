@@ -49,7 +49,9 @@ async def test_the_cli_calls_core_ingest():
     callers now share one write path so they cannot diverge.
     """
     with (
-        patch.object(run_pipeline, "ingest_symbols", new=AsyncMock(return_value=FakeReport())) as ingest,
+        patch.object(
+            run_pipeline, "ingest_symbols", new=AsyncMock(return_value=FakeReport())
+        ) as ingest,
         patch.object(run_pipeline, "get_session"),
     ):
         code = await run_pipeline.run(args(symbols=["AAPL"]))
@@ -62,7 +64,9 @@ async def test_the_cli_calls_core_ingest():
 @pytest.mark.asyncio
 async def test_symbols_are_upper_cased_and_blanks_dropped():
     with (
-        patch.object(run_pipeline, "ingest_symbols", new=AsyncMock(return_value=FakeReport())) as ingest,
+        patch.object(
+            run_pipeline, "ingest_symbols", new=AsyncMock(return_value=FakeReport())
+        ) as ingest,
         patch.object(run_pipeline, "get_session"),
     ):
         await run_pipeline.run(args(symbols=["aapl", "", "  ", "msft"]))
@@ -133,7 +137,9 @@ async def test_a_resume_over_the_registry_skips_flagged_symbols():
     must not re-ask the provider about symbols already known unresolvable.
     """
     with (
-        patch.object(run_pipeline, "ingest_symbols", new=AsyncMock(return_value=FakeReport())) as ingest,
+        patch.object(
+            run_pipeline, "ingest_symbols", new=AsyncMock(return_value=FakeReport())
+        ) as ingest,
         patch.object(run_pipeline, "get_session"),
         patch.object(run_pipeline, "_registered_symbols", new=AsyncMock(return_value=["AAPL"])),
     ):
@@ -149,7 +155,9 @@ async def test_naming_symbols_on_the_command_line_disables_the_skip():
     be silently dropped because the row is still flagged.
     """
     with (
-        patch.object(run_pipeline, "ingest_symbols", new=AsyncMock(return_value=FakeReport())) as ingest,
+        patch.object(
+            run_pipeline, "ingest_symbols", new=AsyncMock(return_value=FakeReport())
+        ) as ingest,
         patch.object(run_pipeline, "get_session"),
     ):
         await run_pipeline.run(args(symbols=["BNY"]))
@@ -166,7 +174,9 @@ async def test_start_is_passed_through_as_utc_midnight_and_never_overwrites():
     from datetime import date, datetime, timezone
 
     with (
-        patch.object(run_pipeline, "ingest_symbols", new=AsyncMock(return_value=FakeReport())) as ingest,
+        patch.object(
+            run_pipeline, "ingest_symbols", new=AsyncMock(return_value=FakeReport())
+        ) as ingest,
         patch.object(run_pipeline, "get_session"),
     ):
         await run_pipeline.run(args(symbols=["EIX"], start=date(2026, 8, 27)))

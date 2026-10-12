@@ -5,18 +5,21 @@ from typing import List, Optional
 class SignalStrategy(ABC):
     """
     Abstract base class for signal generation strategies.
-    Follows the Open/Closed Principle (OCP) allowing new strategies 
+    Follows the Open/Closed Principle (OCP) allowing new strategies
     to be added without modifying the generator.
     """
+
     @abstractmethod
     def evaluate(self, prediction: float) -> str:
         """Evaluate a prediction to generate a signal."""
         pass
 
+
 class ThresholdSignalStrategy(SignalStrategy):
     """
     Standard strategy that generates signals based on a fixed threshold.
     """
+
     def __init__(self, threshold: float = 0.05):
         self.threshold = threshold
 
@@ -28,14 +31,15 @@ class ThresholdSignalStrategy(SignalStrategy):
         else:
             return "Hold"
 
+
 class SignalGenerator:
     def __init__(self, strategy: Optional[SignalStrategy] = None, threshold: float = None):
         """
         Initialize the SignalGenerator.
-        
+
         Args:
             strategy: A concrete SignalStrategy instance.
-            threshold: Legacy support for threshold-based initialization. 
+            threshold: Legacy support for threshold-based initialization.
                        If provided, creates a ThresholdSignalStrategy.
         """
         if strategy:

@@ -17,12 +17,8 @@ RANGE = (480, 520)
 
 def page(symbol_header: str, symbols: list[str], with_changes: bool = True) -> str:
     """A revision: a constituents table and, optionally, the changes table."""
-    rows = "".join(
-        f"<tr><td>{s}</td><td>{s} Inc.</td></tr>" for s in symbols
-    )
-    html = (
-        f"<table><tr><th>{symbol_header}</th><th>Security</th></tr>{rows}</table>"
-    )
+    rows = "".join(f"<tr><td>{s}</td><td>{s} Inc.</td></tr>" for s in symbols)
+    html = f"<table><tr><th>{symbol_header}</th><th>Security</th></tr>{rows}</table>"
     if with_changes:
         html += (
             "<table><tr><th>Date</th><th>Added</th><th>Removed</th></tr>"
@@ -96,7 +92,9 @@ def test_share_class_tickers_are_tickers():
 
 def test_month_ends_cover_both_ends():
     assert month_ends(date(2014, 12, 31), date(2015, 2, 28)) == [
-        date(2014, 12, 31), date(2015, 1, 31), date(2015, 2, 28),
+        date(2014, 12, 31),
+        date(2015, 1, 31),
+        date(2015, 2, 28),
     ]
 
 

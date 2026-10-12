@@ -75,9 +75,7 @@ COVERED_SHARE = 0.93
 RETURN_TOLERANCE = 0.005
 
 
-def window_coverage(
-    bar_dates: Sequence[date], first: date, last: date
-) -> tuple[int, int, str]:
+def window_coverage(bar_dates: Sequence[date], first: date, last: date) -> tuple[int, int, str]:
     """
     (bars inside the window, weekdays in the window, verdict).
 
@@ -147,8 +145,12 @@ def yahoo_adjusted(symbol: str, start: date, end: date) -> pd.Series:
     import yfinance as yf
 
     frame = yf.download(
-        symbol, start=start, end=end + pd.Timedelta(days=1),
-        auto_adjust=True, progress=False, threads=False,
+        symbol,
+        start=start,
+        end=end + pd.Timedelta(days=1),
+        auto_adjust=True,
+        progress=False,
+        threads=False,
     )
     if frame.empty:
         return pd.Series(dtype=float)
@@ -174,8 +176,11 @@ def probe(candidates: pd.DataFrame, tiingo: Tiingo) -> list[dict]:
         first, last = date.fromisoformat(row.first), date.fromisoformat(row.last)
         ticker = row.tiingo_ticker
         result = {
-            "symbol": row.symbol, "case": row.case, "tiingo_ticker": ticker,
-            "window_first": first, "window_last": last,
+            "symbol": row.symbol,
+            "case": row.case,
+            "tiingo_ticker": ticker,
+            "window_first": first,
+            "window_last": last,
         }
         if not isinstance(ticker, str) or not ticker:
             report.append({**result, "verdict": "no_candidate"})
@@ -189,9 +194,12 @@ def probe(candidates: pd.DataFrame, tiingo: Tiingo) -> list[dict]:
             # which series it does have, so a reused ticker is recognisable.
             verdict = "outside"
         result.update(
-            verdict=verdict, bars=inside, expected=expected,
+            verdict=verdict,
+            bars=inside,
+            expected=expected,
             tiingo_name=meta.get("name"),
-            tiingo_start=meta.get("startDate"), tiingo_end=meta.get("endDate"),
+            tiingo_start=meta.get("startDate"),
+            tiingo_end=meta.get("endDate"),
         )
 
         if row.case == "control" and not bars.empty:
@@ -202,7 +210,12 @@ def probe(candidates: pd.DataFrame, tiingo: Tiingo) -> list[dict]:
 
         logger.info(
             "%-6s %-15s %-8s %s/%s bars  %s",
-            row.symbol, row.case, verdict, inside, expected, meta.get("name") or "",
+            row.symbol,
+            row.case,
+            verdict,
+            inside,
+            expected,
+            meta.get("name") or "",
         )
         report.append(result)
     return report
@@ -234,9 +247,19 @@ def main(argv: Optional[list[str]] = None) -> int:
     report = probe(candidates, Tiingo(headers))
 
     fields = [
-        "symbol", "case", "tiingo_ticker", "window_first", "window_last",
-        "verdict", "bars", "expected", "tiingo_name", "tiingo_start",
-        "tiingo_end", "returns_compared", "returns_off",
+        "symbol",
+        "case",
+        "tiingo_ticker",
+        "window_first",
+        "window_last",
+        "verdict",
+        "bars",
+        "expected",
+        "tiingo_name",
+        "tiingo_start",
+        "tiingo_end",
+        "returns_compared",
+        "returns_off",
     ]
     with args.report.open("w", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)

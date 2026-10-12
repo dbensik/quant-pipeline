@@ -37,6 +37,7 @@ def screen(client: TestClient, **overrides):
 # Membership
 # ---------------------------------------------------------------------------
 
+
 def test_lists_indexes_with_history(client: TestClient):
     assert client.get(BASE).json() == ["sp500"]
 
@@ -95,6 +96,7 @@ def test_snapshotting_an_unknown_index_is_422(client: TestClient):
 # ---------------------------------------------------------------------------
 # The screener's index option — where the bias actually bites
 # ---------------------------------------------------------------------------
+
 
 def test_screening_by_index_uses_membership_as_of_the_start(client: TestClient):
     """

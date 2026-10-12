@@ -61,13 +61,10 @@ WRITE_BATCH = 2_000
 class Fetcher(Protocol):
     def __call__(
         self, symbols: List[str], start_date: str, end_date: str
-    ) -> List[MarketDataRecord]:
-        ...
+    ) -> List[MarketDataRecord]: ...
 
 
-def default_fetcher(
-    symbols: List[str], start_date: str, end_date: str
-) -> List[MarketDataRecord]:
+def default_fetcher(symbols: List[str], start_date: str, end_date: str) -> List[MarketDataRecord]:
     from core.adapters import yfinance_adapter
 
     return yfinance_adapter.fetch(symbols, start_date, end_date)
@@ -420,7 +417,9 @@ async def ingest_symbols(
                 logger.warning(
                     "%s: skipped — %s. Run scripts/audit_crypto_identity.py "
                     "--symbols %s --write to verify the mapping.",
-                    symbol, unverified, symbol,
+                    symbol,
+                    unverified,
+                    symbol,
                 )
                 if progress:
                     progress(index, total, symbol)
@@ -431,9 +430,7 @@ async def ingest_symbols(
             window_start = start
             if window_start is None:
                 window_start = (
-                    newest_stored + timedelta(days=1)
-                    if newest_stored
-                    else DEFAULT_BACKFILL_START
+                    newest_stored + timedelta(days=1) if newest_stored else DEFAULT_BACKFILL_START
                 )
 
             # A cleaned asset knows where its real history starts. Clamp the
@@ -493,9 +490,7 @@ async def ingest_symbols(
                 if ceiling is not None and record.ohlcv.timestamp.utc >= ceiling:
                     outcome.skipped_after_ceiling += 1
                     continue
-                usable.append(
-                    retag(record, asset.asset_class, asset.source, symbol)
-                )
+                usable.append(retag(record, asset.asset_class, asset.source, symbol))
 
             # Plausibility is judged on the fetched run of bars, in date
             # order — the cheap check that would have surfaced 35 corrupt
@@ -522,7 +517,9 @@ async def ingest_symbols(
                 # whether Yahoo had served it empty or not at all.
                 logger.info(
                     "%s: dropped %d empty bar(s): %s",
-                    symbol, len(empty_days), ", ".join(sorted(empty_days)),
+                    symbol,
+                    len(empty_days),
+                    ", ".join(sorted(empty_days)),
                 )
 
             # Bars behind the newest stored one can only be holes being filled
@@ -531,27 +528,32 @@ async def ingest_symbols(
             persisted = 0
             if overlapping:
                 behind = [r for r in usable if r.ohlcv.timestamp.utc < newest_stored]
-                usable_new = [
-                    r for r in usable if r.ohlcv.timestamp.utc >= newest_stored
-                ]
+                usable_new = [r for r in usable if r.ohlcv.timestamp.utc >= newest_stored]
                 for start_index in range(0, len(behind), WRITE_BATCH):
-                    outcome.filled += await repo.write(
-                        behind[start_index : start_index + WRITE_BATCH],
-                        replace=False,
-                    ) or 0
+                    outcome.filled += (
+                        await repo.write(
+                            behind[start_index : start_index + WRITE_BATCH],
+                            replace=False,
+                        )
+                        or 0
+                    )
                 persisted += outcome.filled
                 if outcome.filled:
                     logger.warning(
                         "%s: filled %d missing bar(s) behind the newest stored "
                         "bar — a previous run lost them.",
-                        symbol, outcome.filled,
+                        symbol,
+                        outcome.filled,
                     )
             else:
                 usable_new = usable
             for start_index in range(0, len(usable_new), WRITE_BATCH):
-                persisted += await repo.write(
-                    usable_new[start_index : start_index + WRITE_BATCH],
-                ) or 0
+                persisted += (
+                    await repo.write(
+                        usable_new[start_index : start_index + WRITE_BATCH],
+                    )
+                    or 0
+                )
 
             # Rows the DATABASE accepted, not rows submitted. The two differ
             # whenever bars already exist, and reporting the latter made a
@@ -585,8 +587,7 @@ async def ingest_symbols(
             # re-serves bars already held, and counting those would stop a dead
             # symbol from ever being flagged.
             newer = [
-                r for r in raw
-                if newest_stored is None or r.ohlcv.timestamp.utc > newest_stored
+                r for r in raw if newest_stored is None or r.ohlcv.timestamp.utc > newest_stored
             ]
             if not newer and looks_unresolved(newest_stored, len(newer)):
                 outcome.delisted = True
@@ -635,6 +636,7 @@ async def _newest_bar(repo: Any, symbol: str) -> Optional[datetime]:
 # ---------------------------------------------------------------------------
 # Single-flight guard
 # ---------------------------------------------------------------------------
+
 
 class IngestJob:
     """

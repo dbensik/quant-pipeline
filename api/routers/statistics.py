@@ -31,6 +31,7 @@ MAX_SYMBOLS = 50
 # Models
 # ---------------------------------------------------------------------------
 
+
 class ParamSchema(BaseModel):
     name: str
     type: Literal["int", "float", "str"]
@@ -91,8 +92,13 @@ def _to_schema(spec: registry.TestSpec) -> TestSchema:
         min_symbols=registry.MIN_SYMBOLS[spec.arity],
         params=[
             ParamSchema(
-                name=p.name, type=p.type, default=p.default, label=p.label,
-                description=p.description, minimum=p.minimum, maximum=p.maximum,
+                name=p.name,
+                type=p.type,
+                default=p.default,
+                label=p.label,
+                description=p.description,
+                minimum=p.minimum,
+                maximum=p.maximum,
             )
             for p in spec.params
         ],
@@ -163,9 +169,7 @@ def _run_test_sync(
             frame, det_order=params["det_order"], k_ar_diff=params["k_ar_diff"]
         )
     if spec.id == "pca":
-        return PrincipalComponentAnalyzer(
-            frame, n_components=params["n_components"]
-        ).run()
+        return PrincipalComponentAnalyzer(frame, n_components=params["n_components"]).run()
 
     raise ValueError(f"No dispatch for test '{spec.id}'")  # pragma: no cover
 
@@ -173,6 +177,7 @@ def _run_test_sync(
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
+
 
 @router.get("", response_model=TestListResponse, summary="List available tests")
 async def list_tests() -> TestListResponse:
@@ -259,29 +264,22 @@ async def run_test(
 
     start = (
         request.start.replace(tzinfo=timezone.utc)
-        if request.start.tzinfo is None else request.start
+        if request.start.tzinfo is None
+        else request.start
     )
-    end = (
-        request.end.replace(tzinfo=timezone.utc)
-        if request.end.tzinfo is None else request.end
-    )
+    end = request.end.replace(tzinfo=timezone.utc) if request.end.tzinfo is None else request.end
 
     closes: Dict[str, pd.Series] = {}
     for symbol in request.symbols:
         asset = await repo.find_asset(symbol)
         if asset is None:
             raise HTTPException(status_code=404, detail=f"Unknown symbol: {symbol!r}")
-        records = await repo.fetch_range(
-            symbol=symbol, asset_class=None, start=start, end=end
-        )
+        records = await repo.fetch_range(symbol=symbol, asset_class=None, start=start, end=end)
         frame = records_to_frame(records)
         if frame.empty:
             raise HTTPException(
                 status_code=422,
-                detail=(
-                    f"No bars stored for {symbol!r} between "
-                    f"{start.date()} and {end.date()}."
-                ),
+                detail=(f"No bars stored for {symbol!r} between {start.date()} and {end.date()}."),
             )
         closes[symbol] = frame["Close"]
 

@@ -43,8 +43,6 @@ class IndexRebalancingStrategy(BaseAlphaModel):
         # `index.intersection(resample(freq).last().index)` dropped any period
         # whose CALENDAR end fell on a weekend — 42 of 139 monthly rebalances
         # missed on SPY over 2015-2026.
-        signals.loc[
-            rebalance_dates(price_data.index, self.rebalance_frequency), "signal"
-        ] = 2.0
+        signals.loc[rebalance_dates(price_data.index, self.rebalance_frequency), "signal"] = 2.0
 
         return signals

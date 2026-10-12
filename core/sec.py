@@ -74,7 +74,9 @@ class SECGateway:
         clock: Callable[[], float] = time.monotonic,
         sleep: Callable[[float], None] = time.sleep,
     ) -> None:
-        self.user_agent = validated_user_agent(user_agent if user_agent is not None else settings.sec_user_agent())
+        self.user_agent = validated_user_agent(
+            user_agent if user_agent is not None else settings.sec_user_agent()
+        )
         if session is None:
             import requests
 
@@ -110,16 +112,24 @@ class SECGateway:
                 )
                 self.requests_made += 1
                 return response
-            except (requests.ConnectionError, requests.Timeout, requests.exceptions.ChunkedEncodingError) as exc:
+            except (
+                requests.ConnectionError,
+                requests.Timeout,
+                requests.exceptions.ChunkedEncodingError,
+            ) as exc:
                 self.requests_made += 1
                 last = exc
-        raise RuntimeError(f"SEC request failed {TRANSPORT_RETRIES + 1} times at {url}: {last}") from last
+        raise RuntimeError(
+            f"SEC request failed {TRANSPORT_RETRIES + 1} times at {url}: {last}"
+        ) from last
 
     def get_json(self, url: str) -> Dict[str, Any]:
         response = self._get(url)
         ctype = (response.headers.get("Content-Type") or "").lower()
         if response.status_code == 429:
-            raise SECThrottledError(f"SEC throttled the client (429) at {url}; stop and retry later")
+            raise SECThrottledError(
+                f"SEC throttled the client (429) at {url}; stop and retry later"
+            )
         if response.status_code == 403 or "html" in ctype:
             title = re.search(r"<title>(.*?)</title>", response.text or "", re.S | re.I)
             raise SECBlockedError(
@@ -146,41 +156,55 @@ class SECGateway:
         response = self._get(url)
         ctype = (response.headers.get("Content-Type") or "").lower()
         if response.status_code == 429:
-            raise SECThrottledError(f"SEC throttled the client (429) at {url}; stop and retry later")
+            raise SECThrottledError(
+                f"SEC throttled the client (429) at {url}; stop and retry later"
+            )
         if "html" in ctype:
             raise SECBlockedError(f"SEC returned HTML ({response.status_code}) at {url}. Stopping.")
         if response.status_code != 200:
             raise RuntimeError(f"SEC returned {response.status_code} for {url}")
         return response.text
 
-    def recent_fact_filers(self, start: date, end: date,
-                           forms: Iterable[str] = settings.SEC_FACT_FORMS) -> Tuple[Set[int], List[date]]:
+    def recent_fact_filers(
+        self, start: date, end: date, forms: Iterable[str] = settings.SEC_FACT_FORMS
+    ) -> Tuple[Set[int], List[date]]:
         """
         CIKs that filed one of `forms` on a business day in [start, end], and
         the days whose index was read. Days come from each quarter's
         directory listing, never guessed.
         """
         wanted = set(forms)
-        quarters = sorted({(d.year, (d.month - 1) // 3 + 1)
-                           for d in (start + timedelta(n) for n in range((end - start).days + 1))})
+        quarters = sorted(
+            {
+                (d.year, (d.month - 1) // 3 + 1)
+                for d in (start + timedelta(n) for n in range((end - start).days + 1))
+            }
+        )
         ciks: Set[int] = set()
         days: List[date] = []
         for year, quarter in quarters:
-            listing = self.get_json(settings.URL_SEC_DAILY_INDEX_DIR.format(year=year, quarter=quarter))
+            listing = self.get_json(
+                settings.URL_SEC_DAILY_INDEX_DIR.format(year=year, quarter=quarter)
+            )
             for item in listing["directory"]["item"]:
                 m = re.fullmatch(r"form\.(\d{8})\.idx", item["name"])
                 if not m:
                     continue
                 day = date(int(m[1][:4]), int(m[1][4:6]), int(m[1][6:]))
                 if start <= day <= end:
-                    text = self.get_text(settings.URL_SEC_DAILY_FORM_INDEX.format(
-                        year=year, quarter=quarter, name=item["name"]))
+                    text = self.get_text(
+                        settings.URL_SEC_DAILY_FORM_INDEX.format(
+                            year=year, quarter=quarter, name=item["name"]
+                        )
+                    )
                     ciks |= {cik for form, cik, _ in parse_form_index(text) if form in wanted}
                     days.append(day)
         return ciks, sorted(days)
 
 
-_INDEX_ROW = re.compile(r"^(?P<form>\S+(?: \S+)*?)\s{2,}.*\s(?P<cik>\d+)\s+(?P<filed>\d{8})\s+edgar/")
+_INDEX_ROW = re.compile(
+    r"^(?P<form>\S+(?: \S+)*?)\s{2,}.*\s(?P<cik>\d+)\s+(?P<filed>\d{8})\s+edgar/"
+)
 
 
 def parse_form_index(text: str) -> List[Tuple[str, int, date]]:

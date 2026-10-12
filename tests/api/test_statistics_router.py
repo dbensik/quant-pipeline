@@ -18,11 +18,17 @@ def run(client: TestClient, test_id: str, symbols, **overrides):
 # Catalogue
 # ---------------------------------------------------------------------------
 
+
 def test_lists_every_registered_test(client: TestClient):
     body = client.get("/api/v1/statistics").json()
     assert body["count"] == len(body["tests"]) == 6
     assert {t["id"] for t in body["tests"]} == {
-        "adf", "kalman", "ols", "engle_granger", "johansen", "pca",
+        "adf",
+        "kalman",
+        "ols",
+        "engle_granger",
+        "johansen",
+        "pca",
     }
 
 
@@ -63,6 +69,7 @@ def test_unknown_test_404s_and_lists_valid_ids(client: TestClient):
 # ---------------------------------------------------------------------------
 # Running tests
 # ---------------------------------------------------------------------------
+
 
 def test_adf_runs_on_price_levels(client: TestClient):
     body = run(client, "adf", ["AAPL"]).json()
@@ -118,6 +125,7 @@ def test_results_are_json_safe(client: TestClient):
 # Alignment
 # ---------------------------------------------------------------------------
 
+
 def test_series_are_aligned_to_shared_dates(client: TestClient):
     """
     Crypto trades weekends and equities do not. Without an inner join, pairing
@@ -133,6 +141,7 @@ def test_series_are_aligned_to_shared_dates(client: TestClient):
 # ---------------------------------------------------------------------------
 # Error paths
 # ---------------------------------------------------------------------------
+
 
 def test_single_test_rejects_two_symbols(client: TestClient):
     response = run(client, "adf", ["AAPL", "BTC-USD"])

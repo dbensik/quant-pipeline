@@ -105,9 +105,7 @@ class PortfolioState:
     unpriced: List[str] = field(default_factory=list)
 
 
-def _apply(
-    trade: Trade, quantity: float, average_price: float
-) -> tuple[float, float, float]:
+def _apply(trade: Trade, quantity: float, average_price: float) -> tuple[float, float, float]:
     """
     Fold one trade into a running position.
 
@@ -198,9 +196,7 @@ def derive_state(
             continue
         position.last_price = float(price)
         position.market_value = position.quantity * float(price)
-        position.unrealised_pnl = (
-            float(price) - position.average_price
-        ) * position.quantity
+        position.unrealised_pnl = (float(price) - position.average_price) * position.quantity
         market_value += position.market_value
         unrealised_total += position.unrealised_pnl
 

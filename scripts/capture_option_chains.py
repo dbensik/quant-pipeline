@@ -90,6 +90,7 @@ PAUSE_SECONDS = 0.25
 # Pure pieces
 # ---------------------------------------------------------------------------
 
+
 def plan_expiries(expiries: Iterable[str], today: date, max_dte: int) -> list[str]:
     """Expiries from today through `max_dte` calendar days out, in order."""
     out = []
@@ -161,7 +162,11 @@ def write_atomically(frame: pd.DataFrame, path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 WRITTEN, SKIPPED, PARTIAL, FAILED, REFUSED = (
-    "written", "skipped", "partial", "failed", "refused",
+    "written",
+    "skipped",
+    "partial",
+    "failed",
+    "refused",
 )
 
 
@@ -202,7 +207,9 @@ def capture_ticker(
         return TickerResult(ticker, FAILED, detail=f"history: {exc!r}")
     if bar_date != today:
         return TickerResult(
-            ticker, REFUSED, bar_date=bar_date,
+            ticker,
+            REFUSED,
+            bar_date=bar_date,
             detail=f"newest daily bar is {bar_date}, not {today}",
         )
 
@@ -212,7 +219,9 @@ def capture_ticker(
         return TickerResult(ticker, FAILED, bar_date=bar_date, detail=f"expiries: {exc!r}")
     if not planned:
         return TickerResult(
-            ticker, FAILED, bar_date=bar_date,
+            ticker,
+            FAILED,
+            bar_date=bar_date,
             detail=f"no expiries within {max_dte} DTE — an empty list is a failed read",
         )
 
@@ -246,20 +255,28 @@ def capture_ticker(
             "vendor_version": vendor_version,
         }
         frames.append(
-            chain_frame(chain.calls, chain.puts, underlying=ticker, expiry=expiry,
-                        provenance=provenance)
+            chain_frame(
+                chain.calls, chain.puts, underlying=ticker, expiry=expiry, provenance=provenance
+            )
         )
         sleep(PAUSE_SECONDS)
 
     rows = sum(len(f) for f in frames)
     result = TickerResult(
-        ticker, WRITTEN, rows=rows, expiries_ok=len(frames),
-        expiries_planned=len(planned), bar_date=bar_date, failed_expiries=failed,
+        ticker,
+        WRITTEN,
+        rows=rows,
+        expiries_ok=len(frames),
+        expiries_planned=len(planned),
+        bar_date=bar_date,
+        failed_expiries=failed,
     )
 
     if rows < min_rows:
         result.status = FAILED
-        result.detail = f"{rows} contracts is below the {min_rows} floor — a failed read, not written"
+        result.detail = (
+            f"{rows} contracts is below the {min_rows} floor — a failed read, not written"
+        )
         return result
 
     frame = pd.concat(frames, ignore_index=True)
@@ -271,7 +288,9 @@ def capture_ticker(
         target = final
 
     if dry_run:
-        result.detail = (result.detail + " " if result.detail else "") + f"(dry run: would write {target})"
+        result.detail = (
+            result.detail + " " if result.detail else ""
+        ) + f"(dry run: would write {target})"
         return result
 
     write_atomically(frame, target)
@@ -285,6 +304,7 @@ def capture_ticker(
 # The run
 # ---------------------------------------------------------------------------
 
+
 def run_exit_code(results: Sequence[TickerResult]) -> int:
     """
     0 when every ticker is written or skipped, or when every ticker was
@@ -296,8 +316,11 @@ def run_exit_code(results: Sequence[TickerResult]) -> int:
     statuses = {r.status for r in results}
     if statuses <= {WRITTEN, SKIPPED}:
         return 0
-    if statuses == {REFUSED} and len({r.bar_date for r in results}) == 1 \
-            and results[0].bar_date is not None:
+    if (
+        statuses == {REFUSED}
+        and len({r.bar_date for r in results}) == 1
+        and results[0].bar_date is not None
+    ):
         return 0
     return 1
 
@@ -325,29 +348,44 @@ def main(argv: Sequence[str] | None = None) -> int:
     today = now_utc.astimezone(ET).date()
     log.info(
         "option capture: %s, trade date %s (ET), <=%d DTE, into %s%s",
-        " ".join(args.tickers), today, args.max_dte, args.out_dir,
+        " ".join(args.tickers),
+        today,
+        args.max_dte,
+        args.out_dir,
         " [DRY RUN]" if args.dry_run else "",
     )
 
     results = []
     for ticker in args.tickers:
         r = capture_ticker(
-            ticker.upper(), yf.Ticker,
-            root=args.out_dir, today=today, now_utc=now_utc,
-            max_dte=args.max_dte, min_rows=settings.OPTION_CAPTURE_MIN_ROWS,
-            dry_run=args.dry_run, vendor_version=getattr(yf, "__version__", ""),
+            ticker.upper(),
+            yf.Ticker,
+            root=args.out_dir,
+            today=today,
+            now_utc=now_utc,
+            max_dte=args.max_dte,
+            min_rows=settings.OPTION_CAPTURE_MIN_ROWS,
+            dry_run=args.dry_run,
+            vendor_version=getattr(yf, "__version__", ""),
         )
         log.info(
             "%-5s %-8s rows=%-6d expiries=%d/%d %s",
-            r.ticker, r.status.upper(), r.rows, r.expiries_ok, r.expiries_planned, r.detail,
+            r.ticker,
+            r.status.upper(),
+            r.rows,
+            r.expiries_ok,
+            r.expiries_planned,
+            r.detail,
         )
         results.append(r)
 
     code = run_exit_code(results)
     done = sum(1 for r in results if r.status in (WRITTEN, SKIPPED))
     if code == 0 and all(r.status == REFUSED for r in results):
-        log.info("MARKET CLOSED: every ticker's newest bar is %s. Nothing to capture.",
-                 results[0].bar_date)
+        log.info(
+            "MARKET CLOSED: every ticker's newest bar is %s. Nothing to capture.",
+            results[0].bar_date,
+        )
     else:
         log.info("Captured %d of %d ticker(s). exit %d", done, len(results), code)
     return code

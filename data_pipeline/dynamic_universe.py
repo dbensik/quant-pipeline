@@ -73,7 +73,10 @@ def _implausible(name: str, tickers: list, low: int, high: int, source: str) -> 
     logger.error(
         "%s scrape returned %d tickers, expected %s (%s). Refusing to report a "
         "constituent list that cannot be right.",
-        name, count, expected, source,
+        name,
+        count,
+        expected,
+        source,
     )
     return True
 
@@ -99,8 +102,7 @@ class DynamicUniverse:
         self.session.headers.update(
             {
                 "User-Agent": (
-                    "quant-pipeline/1.0 (research tool; "
-                    "https://github.com/dbensik/quant-pipeline)"
+                    "quant-pipeline/1.0 (research tool; https://github.com/dbensik/quant-pipeline)"
                 )
             }
         )
@@ -147,19 +149,13 @@ class DynamicUniverse:
             soup = BeautifulSoup(response.text, "html.parser")
             table = soup.find("table", {"id": "constituents"})
             if not table:
-                logger.error(
-                    "Could not find the constituents table on the S&P 500 Wikipedia page."
-                )
+                logger.error("Could not find the constituents table on the S&P 500 Wikipedia page.")
                 return []
 
             tickers = [
-                row.find("td").text.strip()
-                for row in table.find_all("tr")[1:]
-                if row.find("td")
+                row.find("td").text.strip() for row in table.find_all("tr")[1:] if row.find("td")
             ]
-            if _implausible(
-                "S&P 500", tickers, *SP500_EXPECTED_RANGE, URL_SP500_WIKIPEDIA
-            ):
+            if _implausible("S&P 500", tickers, *SP500_EXPECTED_RANGE, URL_SP500_WIKIPEDIA):
                 return []
 
             logger.info(f"Successfully fetched {len(tickers)} S&P 500 tickers.")
@@ -189,9 +185,7 @@ class DynamicUniverse:
         try:
             # storage_options, because pd.read_html makes its own request and
             # never sees self.session's headers.
-            tables = pd.read_html(
-                URL_DOWJONES_CONSTITUENTS, storage_options=self.session.headers
-            )
+            tables = pd.read_html(URL_DOWJONES_CONSTITUENTS, storage_options=self.session.headers)
             dow_table = next((tbl for tbl in tables if "Symbol" in tbl.columns), None)
             if dow_table is None:
                 logger.error(
@@ -214,8 +208,10 @@ class DynamicUniverse:
             # snapshot, and would quietly drop constituents from point-in-time
             # membership with nothing to indicate it.
             if _implausible(
-                "Dow Jones", tickers,
-                DOWJONES_EXPECTED_COUNT, DOWJONES_EXPECTED_COUNT,
+                "Dow Jones",
+                tickers,
+                DOWJONES_EXPECTED_COUNT,
+                DOWJONES_EXPECTED_COUNT,
                 URL_DOWJONES_CONSTITUENTS,
             ):
                 return []
@@ -229,16 +225,10 @@ class DynamicUniverse:
     def _fetch_nasdaq100_tickers(self) -> List[str]:
         """Scrapes the Wikipedia page for NASDAQ-100 constituents."""
         try:
-            tables = pd.read_html(
-                URL_NASDAQ100_WIKIPEDIA, storage_options=self.session.headers
-            )
-            nasdaq_table = next(
-                (tbl for tbl in tables if "Ticker" in tbl.columns), None
-            )
+            tables = pd.read_html(URL_NASDAQ100_WIKIPEDIA, storage_options=self.session.headers)
+            nasdaq_table = next((tbl for tbl in tables if "Ticker" in tbl.columns), None)
             if nasdaq_table is None:
-                logger.error(
-                    "Could not find a table with 'Ticker' column for NASDAQ-100."
-                )
+                logger.error("Could not find a table with 'Ticker' column for NASDAQ-100.")
                 return []
 
             tickers = nasdaq_table["Ticker"].tolist()
@@ -285,7 +275,9 @@ class DynamicUniverse:
                 break
             logger.warning(
                 "CoinGecko throttled (429); waiting %.0fs (attempt %d/%d)",
-                wait, attempt, COINGECKO_MAX_RETRIES,
+                wait,
+                attempt,
+                COINGECKO_MAX_RETRIES,
             )
             time.sleep(wait)
             wait *= 2
@@ -376,9 +368,7 @@ class DynamicUniverse:
             return []
         time.sleep(COINGECKO_REQUEST_DELAY_SECONDS)
         try:
-            data = self._coingecko_get(
-                {"vs_currency": "usd", "ids": ",".join(coin_ids)}
-            )
+            data = self._coingecko_get({"vs_currency": "usd", "ids": ",".join(coin_ids)})
         except requests.exceptions.RequestException as e:
             logger.error("CoinGecko id lookup failed: %s", e)
             return []
@@ -422,9 +412,7 @@ class DynamicUniverse:
                 low, high = item.get("atl"), item.get("ath")
                 if not item.get("id") or not low or not high or low <= 0:
                     continue
-                out.append(
-                    CoinBounds(coingecko_id=item["id"], low=float(low), high=float(high))
-                )
+                out.append(CoinBounds(coingecko_id=item["id"], low=float(low), high=float(high)))
         return out
 
     def _fetch_top_100_crypto_tickers(self) -> List[str]:

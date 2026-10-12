@@ -55,7 +55,11 @@ async def run(path: Path, dry_run: bool) -> int:
 
             tickers = [str(s).upper().strip() for s in symbols if str(s).strip()]
             unique = len(set(tickers))
-            note = "" if unique == len(tickers) else f" ({len(tickers) - unique} duplicate(s) collapsed)"
+            note = (
+                ""
+                if unique == len(tickers)
+                else f" ({len(tickers) - unique} duplicate(s) collapsed)"
+            )
             print(f"  {name!r}: {unique} symbol(s){note}")
 
             if dry_run:

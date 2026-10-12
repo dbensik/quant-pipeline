@@ -46,6 +46,7 @@ MAX_NEWS_SYMBOLS = 10
 # Models
 # ---------------------------------------------------------------------------
 
+
 class Profile(BaseModel):
     symbol: str
     long_name: Optional[str] = None
@@ -65,9 +66,7 @@ class Profile(BaseModel):
 
 class StatementLine(BaseModel):
     line_item: str
-    values: Dict[str, Optional[float]] = Field(
-        description="Period end date (ISO) to value"
-    )
+    values: Dict[str, Optional[float]] = Field(description="Period end date (ISO) to value")
 
 
 class Financials(BaseModel):
@@ -105,6 +104,7 @@ class NewsFeed(BaseModel):
 # Profile & financials
 # ---------------------------------------------------------------------------
 
+
 @router.get(
     "/{symbol}/profile",
     response_model=Profile,
@@ -134,9 +134,7 @@ async def get_financials(
     upstream: YFinanceGateway = Depends(get_upstream),
 ) -> Financials:
     try:
-        statements = await run_in_threadpool(
-            upstream.fetch_financials, symbol, quarterly
-        )
+        statements = await run_in_threadpool(upstream.fetch_financials, symbol, quarterly)
     except UpstreamError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from None
     return Financials(**statements)
@@ -145,6 +143,7 @@ async def get_financials(
 # ---------------------------------------------------------------------------
 # News
 # ---------------------------------------------------------------------------
+
 
 async def _resolve_symbols(
     symbols: Optional[List[str]],
@@ -167,9 +166,7 @@ async def _resolve_symbols(
     if portfolio:
         found = await portfolios.get_portfolio(portfolio)
         if found is None:
-            raise HTTPException(
-                status_code=404, detail=f"No portfolio named {portfolio!r}."
-            )
+            raise HTTPException(status_code=404, detail=f"No portfolio named {portfolio!r}.")
         # Open positions, not every ticker ever traded — news about a closed
         # position is not what "my portfolio's news" means.
         state = derive_state(found.trades, found.initial_cash)
@@ -178,9 +175,7 @@ async def _resolve_symbols(
     if watchlist:
         found = await watchlists.get_watchlist(watchlist)
         if found is None:
-            raise HTTPException(
-                status_code=404, detail=f"No watchlist named {watchlist!r}."
-            )
+            raise HTTPException(status_code=404, detail=f"No watchlist named {watchlist!r}.")
         return list(found.symbols), f"watchlist:{watchlist}"
 
     return list(MARKET_PROXIES), "market"
@@ -208,9 +203,7 @@ async def get_news(
     Sources are mutually exclusive and resolved in order: explicit `symbols`,
     then `portfolio`, then `watchlist`, then market proxies.
     """
-    resolved, source = await _resolve_symbols(
-        symbols, portfolio, watchlist, portfolios, watchlists
-    )
+    resolved, source = await _resolve_symbols(symbols, portfolio, watchlist, portfolios, watchlists)
 
     covered = resolved[:MAX_NEWS_SYMBOLS]
     truncated = resolved[MAX_NEWS_SYMBOLS:]

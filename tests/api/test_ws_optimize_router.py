@@ -61,6 +61,7 @@ def run_allocation(ws_client: TestClient, **overrides) -> list:
 # Grid search
 # ---------------------------------------------------------------------------
 
+
 def test_streams_accepted_progress_then_result(ws_client: TestClient):
     kinds = [m["type"] for m in run_grid(ws_client)]
     assert kinds[0] == "accepted"
@@ -163,6 +164,7 @@ def test_malformed_request_is_rejected(ws_client: TestClient):
 # Portfolio Monte Carlo
 # ---------------------------------------------------------------------------
 
+
 def test_portfolio_streams_progress_then_result(ws_client: TestClient):
     kinds = [m["type"] for m in run_allocation(ws_client)]
     assert kinds[0] == "accepted"
@@ -179,13 +181,9 @@ def test_portfolio_result_carries_both_allocations(ws_client: TestClient):
         assert result[key]["sharpe_ratio"] is not None
 
 
-def test_portfolio_result_matches_the_rest_route(
-    ws_client: TestClient, client: TestClient
-):
+def test_portfolio_result_matches_the_rest_route(ws_client: TestClient, client: TestClient):
     over_socket = run_allocation(ws_client)[-1]
-    over_http = client.post(
-        "/api/v1/optimize/portfolio", json=PORTFOLIO_REQUEST
-    ).json()
+    over_http = client.post("/api/v1/optimize/portfolio", json=PORTFOLIO_REQUEST).json()
     assert over_socket["max_sharpe"] == over_http["max_sharpe"]
     assert over_socket["min_volatility"] == over_http["min_volatility"]
 

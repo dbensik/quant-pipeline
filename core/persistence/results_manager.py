@@ -25,9 +25,7 @@ class ResultsManager:
         try:
             os.makedirs(self.results_dir, exist_ok=True)
         except OSError as e:
-            logger.error(
-                f"Failed to create results directory at {self.results_dir}: {e}"
-            )
+            logger.error(f"Failed to create results directory at {self.results_dir}: {e}")
             # Depending on the app's needs, you might want to raise the exception.
             # For now, we log the error and continue.
 
@@ -82,9 +80,7 @@ class ResultsManager:
         if not os.path.isdir(self.results_dir):
             return []
         try:
-            return sorted(
-                [f for f in os.listdir(self.results_dir) if f.endswith(".pkl")]
-            )
+            return sorted([f for f in os.listdir(self.results_dir) if f.endswith(".pkl")])
         except OSError as e:
             logger.error(f"Could not read files from {self.results_dir}: {e}")
             return []

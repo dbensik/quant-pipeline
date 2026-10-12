@@ -83,7 +83,9 @@ def dividends_before(
     ]
 
 
-def pv_dividends(divs: Sequence[Tuple[float, float]], r: float, at: float = 0.0, until: float = np.inf) -> float:
+def pv_dividends(
+    divs: Sequence[Tuple[float, float]], r: float, at: float = 0.0, until: float = np.inf
+) -> float:
     """PV as of time `at` of dividends paid in (at, until]."""
     return float(sum(a * np.exp(-r * (t - at)) for t, a in divs if at < t <= until))
 

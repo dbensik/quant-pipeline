@@ -63,9 +63,7 @@ class DataPipeline:
             return pd.DataFrame()
 
         # 2. Fetch Benchmark Data for Enrichment
-        logger.info(
-            f"Fetching benchmark data ({self.benchmark_ticker}) for enrichment..."
-        )
+        logger.info(f"Fetching benchmark data ({self.benchmark_ticker}) for enrichment...")
         benchmark_df = self.fetcher.fetch_data(
             [self.benchmark_ticker], self.start_date, self.end_date, self.granularity
         )
@@ -81,9 +79,7 @@ class DataPipeline:
 
         # 3. Enrich Data with Calculated Metrics
         logger.info("Enriching fetched data with calculated metrics...")
-        enricher = DataEnricher(
-            benchmark_returns=benchmark_returns, granularity=self.granularity
-        )
+        enricher = DataEnricher(benchmark_returns=benchmark_returns, granularity=self.granularity)
         data_to_enrich = data_long.set_index("Date")
         enriched_df = enricher.enrich_data(data_to_enrich)
 
@@ -91,9 +87,7 @@ class DataPipeline:
         final_df = enriched_df.reset_index()
 
         # This part can be improved further by making columns dynamic based on enrichment
-        existing_cols = [
-            col for col in DB_PRICE_DATA_COLUMNS if col in final_df.columns
-        ]
+        existing_cols = [col for col in DB_PRICE_DATA_COLUMNS if col in final_df.columns]
         # Ensure the core columns are always present if they exist
         core_cols = ["Date", "Ticker", "Open", "High", "Low", "Close", "Volume"]
         final_cols = core_cols + [col for col in existing_cols if col not in core_cols]

@@ -60,18 +60,13 @@ async def main() -> int:
     conn = sqlite3.connect(DEFAULT_SQLITE_PATH)
     conn.row_factory = sqlite3.Row
 
-    non_empty = (
-        "NOT (Open IS NULL AND High IS NULL AND Low IS NULL AND Close IS NULL)"
-    )
+    non_empty = "NOT (Open IS NULL AND High IS NULL AND Low IS NULL AND Close IS NULL)"
     passed = True
 
     async with get_session() as session:
-
         # -- 1. row totals ---------------------------------------------------
         print("\n[1] Row totals")
-        sq_total = conn.execute(
-            f"SELECT COUNT(*) FROM {DEFAULT_TABLE}"
-        ).fetchone()[0]
+        sq_total = conn.execute(f"SELECT COUNT(*) FROM {DEFAULT_TABLE}").fetchone()[0]
         sq_real = conn.execute(
             f"SELECT COUNT(*) FROM {DEFAULT_TABLE} WHERE {non_empty}"
         ).fetchone()[0]
@@ -90,12 +85,10 @@ async def main() -> int:
 
         # -- 2. asset registry -----------------------------------------------
         print("\n[2] Asset registry")
-        sq_tickers = {r[0] for r in conn.execute(
-            f"SELECT DISTINCT Ticker FROM {DEFAULT_TABLE}"
-        ) if r[0]}
-        rows = (await session.execute(
-            text("SELECT symbol, asset_class FROM assets")
-        )).all()
+        sq_tickers = {
+            r[0] for r in conn.execute(f"SELECT DISTINCT Ticker FROM {DEFAULT_TABLE}") if r[0]
+        }
+        rows = (await session.execute(text("SELECT symbol, asset_class FROM assets"))).all()
         ts_assets = {sym: cls for sym, cls in rows}
 
         missing = sq_tickers - set(ts_assets)
@@ -106,9 +99,7 @@ async def main() -> int:
             else fail(f"missing={sorted(missing)[:10]} extra={sorted(extra)[:10]}")
         )
 
-        misclassified = [
-            s for s, cls in ts_assets.items() if cls != classify_asset_class(s)
-        ]
+        misclassified = [s for s, cls in ts_assets.items() if cls != classify_asset_class(s)]
         passed &= (
             ok(f"asset_class correct for all {len(ts_assets)} assets")
             if not misclassified
@@ -124,15 +115,18 @@ async def main() -> int:
         sq_counts = {
             r["Ticker"]: r["n"]
             for r in conn.execute(
-                f"SELECT Ticker, COUNT(*) n FROM {DEFAULT_TABLE} "
-                f"WHERE {non_empty} GROUP BY Ticker"
+                f"SELECT Ticker, COUNT(*) n FROM {DEFAULT_TABLE} WHERE {non_empty} GROUP BY Ticker"
             )
         }
-        ts_rows = (await session.execute(text(
-            "SELECT a.symbol, COUNT(*) n, MIN(m.time) lo, MAX(m.time) hi "
-            "FROM market_data m JOIN assets a ON a.id = m.asset_id "
-            "GROUP BY a.symbol"
-        ))).all()
+        ts_rows = (
+            await session.execute(
+                text(
+                    "SELECT a.symbol, COUNT(*) n, MIN(m.time) lo, MAX(m.time) hi "
+                    "FROM market_data m JOIN assets a ON a.id = m.asset_id "
+                    "GROUP BY a.symbol"
+                )
+            )
+        ).all()
         ts_counts = {sym: n for sym, n, _, _ in ts_rows}
         ts_ranges = {sym: (lo, hi) for sym, _, lo, hi in ts_rows}
 
@@ -164,8 +158,10 @@ async def main() -> int:
                 bad_ranges.append((t, "absent"))
                 continue
             ts_lo, ts_hi = ts_ranges[t]
-            if (ts_lo.strftime("%Y-%m-%d %H:%M:%S") != lo
-                    or ts_hi.strftime("%Y-%m-%d %H:%M:%S") != hi):
+            if (
+                ts_lo.strftime("%Y-%m-%d %H:%M:%S") != lo
+                or ts_hi.strftime("%Y-%m-%d %H:%M:%S") != hi
+            ):
                 bad_ranges.append((t, f"{lo}..{hi} vs {ts_lo}..{ts_hi}"))
         passed &= (
             ok(f"all {len(sq_ranges)} tickers match on first/last timestamp")
@@ -188,14 +184,16 @@ async def main() -> int:
             }
             ts_bars = {
                 t.strftime("%Y-%m-%d %H:%M:%S"): (o, h, lo_, c, v)
-                for t, o, h, lo_, c, v in (await session.execute(
-                    text(
-                        "SELECT m.time, m.open, m.high, m.low, m.close, m.volume "
-                        "FROM market_data m JOIN assets a ON a.id = m.asset_id "
-                        "WHERE a.symbol = :sym"
-                    ),
-                    {"sym": ticker},
-                )).all()
+                for t, o, h, lo_, c, v in (
+                    await session.execute(
+                        text(
+                            "SELECT m.time, m.open, m.high, m.low, m.close, m.volume "
+                            "FROM market_data m JOIN assets a ON a.id = m.asset_id "
+                            "WHERE a.symbol = :sym"
+                        ),
+                        {"sym": ticker},
+                    )
+                ).all()
             }
 
             diffs = 0
@@ -217,8 +215,14 @@ async def main() -> int:
             )
 
     conn.close()
-    print("\n" + ("PASS — Phase 2 exit gate satisfied." if passed
-                  else "FAIL — reconciliation found differences."))
+    print(
+        "\n"
+        + (
+            "PASS — Phase 2 exit gate satisfied."
+            if passed
+            else "FAIL — reconciliation found differences."
+        )
+    )
     return 0 if passed else 1
 
 

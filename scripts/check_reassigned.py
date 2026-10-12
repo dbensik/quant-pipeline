@@ -79,9 +79,7 @@ async def main(argv: list[str] | None = None) -> int:
 
     flagged = 0
     async with get_session() as session:
-        query = select(AssetORM.id, AssetORM.symbol, AssetORM.metadata_).order_by(
-            AssetORM.symbol
-        )
+        query = select(AssetORM.id, AssetORM.symbol, AssetORM.metadata_).order_by(AssetORM.symbol)
         if args.symbols:
             query = query.where(AssetORM.symbol.in_([s.upper() for s in args.symbols]))
         elif not args.include_crypto:
@@ -91,9 +89,7 @@ async def main(argv: list[str] | None = None) -> int:
         for asset_id, symbol, meta in assets:
             rows = (
                 await session.execute(
-                    select(
-                        MarketDataORM.time, MarketDataORM.close, MarketDataORM.volume
-                    )
+                    select(MarketDataORM.time, MarketDataORM.close, MarketDataORM.volume)
                     .where(MarketDataORM.asset_id == asset_id)
                     .order_by(MarketDataORM.time)
                 )
@@ -104,8 +100,7 @@ async def main(argv: list[str] | None = None) -> int:
                 min_collapse=REASSIGNMENT_MIN_COLLAPSE,
                 min_prior_dollar_volume=REASSIGNMENT_MIN_PRIOR_DOLLAR_VOLUME,
                 cleared=frozenset(
-                    date.fromisoformat(d)
-                    for d in (meta or {}).get(META_REASSIGNMENT_CLEARED, [])
+                    date.fromisoformat(d) for d in (meta or {}).get(META_REASSIGNMENT_CLEARED, [])
                 ),
             )
             if found is None:

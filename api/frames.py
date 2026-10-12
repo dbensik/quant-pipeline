@@ -41,9 +41,7 @@ def records_to_frame(records: Sequence[MarketDataRecord]) -> pd.DataFrame:
             "Close": [r.ohlcv.close for r in records],
             "Volume": [r.ohlcv.volume for r in records],
         },
-        index=pd.DatetimeIndex(
-            [r.ohlcv.timestamp.utc for r in records], name="Timestamp"
-        ),
+        index=pd.DatetimeIndex([r.ohlcv.timestamp.utc for r in records], name="Timestamp"),
     )
     return frame.sort_index()
 

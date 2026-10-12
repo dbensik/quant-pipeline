@@ -67,9 +67,7 @@ class PairedSwitchingStrategy(BaseAlphaModel):
                 f"{price_data.shape[1]} ({list(price_data.columns)})."
             )
 
-        positions = pd.DataFrame(
-            0.0, index=price_data.index, columns=price_data.columns
-        )
+        positions = pd.DataFrame(0.0, index=price_data.index, columns=price_data.columns)
         trailing = price_data.pct_change(self.lookback, fill_method=None)
 
         for date in rebalance_dates(price_data.index, self.rebalance_frequency):

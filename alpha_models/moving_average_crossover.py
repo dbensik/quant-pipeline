@@ -48,18 +48,14 @@ class MovingAverageCrossoverStrategy(BaseAlphaModel):
             .mean()
         )
         signals["long_mavg"] = (
-            price_data["Close"]
-            .rolling(window=self.long_window, min_periods=1, center=False)
-            .mean()
+            price_data["Close"].rolling(window=self.long_window, min_periods=1, center=False).mean()
         )
 
         # --- Determine the desired state (position) ---
         # We want to be LONG (position=1) when the short MA is above the long MA.
         # We want to be FLAT (position=0) otherwise.
         # This creates a boolean series (True/False) which is then converted to float (1.0/0.0).
-        signals["position"] = (signals["short_mavg"] > signals["long_mavg"]).astype(
-            float
-        )
+        signals["position"] = (signals["short_mavg"] > signals["long_mavg"]).astype(float)
 
         # --- Convert positions (states) to signals (actions) ---
         # A signal is the change in position from the previous day.

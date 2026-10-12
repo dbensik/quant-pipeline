@@ -32,6 +32,7 @@ class ValuationData(Protocol):
     async def equity(self, symbol: str) -> Optional[Tuple[List[int], Optional[str]]]:
         """([cik, *predecessor ciks], sector); an empty list when no CIK is recorded."""
         ...
+
     async def facts(self, ciks: Iterable[int], concepts: Iterable[str]) -> List[Fact]: ...
     async def splits(self, symbol: str) -> List[Tuple[date, float]]: ...
     async def filing_dates(self, ciks: Iterable[int]) -> List[date]: ...
@@ -58,7 +59,9 @@ class Overrides:
     years: Optional[int] = None
 
 
-async def load_statements(data: ValuationData, symbol: str) -> Tuple[Statements, int, Optional[str], List[int]]:
+async def load_statements(
+    data: ValuationData, symbol: str
+) -> Tuple[Statements, int, Optional[str], List[int]]:
     """
     Facts from the asset's CIK AND its predecessors (settings.CIK_PREDECESSORS):
     a holding-company reorganisation leaves the history under the old filer.
@@ -66,18 +69,28 @@ async def load_statements(data: ValuationData, symbol: str) -> Tuple[Statements,
     """
     eq = await data.equity(symbol)
     if eq is None:
-        raise ValuationError(404, f"{symbol} is not a registered equity (ETFs and crypto have no filer)")
+        raise ValuationError(
+            404, f"{symbol} is not a registered equity (ETFs and crypto have no filer)"
+        )
     ciks, sector = eq
     cik = ciks[0] if ciks else None
     if sector in settings.DCF_REFUSED_SECTORS:
-        raise ValuationError(422, f"{symbol} is in {sector}: {settings.DCF_REFUSED_SECTORS[sector]}")
+        raise ValuationError(
+            422, f"{symbol} is in {sector}: {settings.DCF_REFUSED_SECTORS[sector]}"
+        )
     if symbol.upper() in settings.DCF_REFUSED_SYMBOLS:
-        raise ValuationError(422, f"{symbol} is refused: {settings.DCF_REFUSED_SYMBOLS[symbol.upper()]}")
+        raise ValuationError(
+            422, f"{symbol} is refused: {settings.DCF_REFUSED_SYMBOLS[symbol.upper()]}"
+        )
     if cik is None:
-        raise ValuationError(422, f"{symbol} has no CIK: run scripts/resolve_ciks.py, or the ticker is reassigned")
+        raise ValuationError(
+            422, f"{symbol} has no CIK: run scripts/resolve_ciks.py, or the ticker is reassigned"
+        )
     facts = await data.facts(ciks, ALL_CONCEPTS)
     if not facts:
-        raise ValuationError(422, f"no SEC facts stored for {symbol} (CIK {cik}): run scripts/load_fundamentals.py")
+        raise ValuationError(
+            422, f"no SEC facts stored for {symbol} (CIK {cik}): run scripts/load_fundamentals.py"
+        )
     return Statements(facts, await data.splits(symbol)), cik, sector, ciks
 
 
@@ -100,13 +113,17 @@ async def value(
     price_day, price = traded
     rate = await risk_free_rate(rates, as_of)
     if rate is None:
-        raise ValuationError(409, f"no {settings.RISK_FREE_RATE_SERIES} observation on or before {as_of}")
+        raise ValuationError(
+            409, f"no {settings.RISK_FREE_RATE_SERIES} observation on or before {as_of}"
+        )
     try:
         raw_beta = await beta_from_bars(prices, symbol, as_of)
     except ValueError as exc:
         raise ValuationError(422, f"beta unavailable: {exc}") from None
     try:
-        weekly = await beta_from_bars(prices, symbol, as_of, window=settings.DCF_BETA_WEEKLY_WINDOW, frequency="weekly")
+        weekly = await beta_from_bars(
+            prices, symbol, as_of, window=settings.DCF_BETA_WEEKLY_WINDOW, frequency="weekly"
+        )
     except ValueError:
         weekly = None
     # Decision 11: the beta USED is weekly 5y Blume-adjusted; daily 3y when
@@ -115,21 +132,31 @@ async def value(
         beta, beta_src = Beta(overrides.beta, float("nan"), 0), "given (override)"
     elif weekly is not None:
         beta = Beta(blume(weekly.beta), weekly.std_error * 2 / 3, weekly.observations)
-        beta_src = (f"weekly 5y vs {settings.DCF_BETA_BENCHMARK}, Blume-adjusted "
-                    f"(raw {weekly.beta:.3f}, SE {weekly.std_error:.3f}, {weekly.observations} weeks)")
+        beta_src = (
+            f"weekly 5y vs {settings.DCF_BETA_BENCHMARK}, Blume-adjusted "
+            f"(raw {weekly.beta:.3f}, SE {weekly.std_error:.3f}, {weekly.observations} weeks)"
+        )
     else:
         beta = raw_beta
         beta_src = f"daily 3y vs {settings.DCF_BETA_BENCHMARK} (weekly series too short), SE {raw_beta.std_error:.3f}"
 
-    built = build_inputs(st, as_of, price, rate.continuous, beta, sector=sector, growth_first=overrides.growth_first)
+    built = build_inputs(
+        st, as_of, price, rate.continuous, beta, sector=sector, growth_first=overrides.growth_first
+    )
     if isinstance(built, Refusal):
         raise ValuationError(422, built.reason)
     built.lines["beta"] = (beta.beta, beta_src)
     x = built.dcf
-    changes = {k: v for k, v in {
-        "growth_terminal": overrides.growth_terminal, "wacc": overrides.wacc,
-        "exit_multiple": overrides.exit_multiple, "years": overrides.years,
-    }.items() if v is not None}
+    changes = {
+        k: v
+        for k, v in {
+            "growth_terminal": overrides.growth_terminal,
+            "wacc": overrides.wacc,
+            "exit_multiple": overrides.exit_multiple,
+            "years": overrides.years,
+        }.items()
+        if v is not None
+    }
     if changes:
         x = DCFInputs(**{**asdict(x), **changes})
     result = run(x)
@@ -150,12 +177,27 @@ async def value(
         "implied_reason": implied.reason,
         "notes": built.notes,
         "betas": {
-            "daily_3y": {"beta": raw_beta.beta, "std_error": raw_beta.std_error, "observations": raw_beta.observations},
-            "daily_3y_blume": {"beta": blume(raw_beta.beta), "std_error": None, "observations": raw_beta.observations},
-            "weekly_5y": None if weekly is None else {"beta": weekly.beta, "std_error": weekly.std_error, "observations": weekly.observations},
+            "daily_3y": {
+                "beta": raw_beta.beta,
+                "std_error": raw_beta.std_error,
+                "observations": raw_beta.observations,
+            },
+            "daily_3y_blume": {
+                "beta": blume(raw_beta.beta),
+                "std_error": None,
+                "observations": raw_beta.observations,
+            },
+            "weekly_5y": None
+            if weekly is None
+            else {
+                "beta": weekly.beta,
+                "std_error": weekly.std_error,
+                "observations": weekly.observations,
+            },
         },
-        "overridden": sorted(changes) + (["growth_first"] if overrides.growth_first is not None else [])
-                      + (["beta"] if overrides.beta is not None else []),
+        "overridden": sorted(changes)
+        + (["growth_first"] if overrides.growth_first is not None else [])
+        + (["beta"] if overrides.beta is not None else []),
     }
     if with_grid:
         out["sensitivity"] = sensitivity(x)
@@ -180,8 +222,13 @@ class CachedPrices:
         if key not in self.cache:
             self.fetches += 1
             self.cache[key] = await self.inner.fetch_range(
-                symbol, asset_class, datetime(1990, 1, 1, tzinfo=timezone.utc),
-                datetime(2100, 1, 1, tzinfo=timezone.utc), source, adjust)
+                symbol,
+                asset_class,
+                datetime(1990, 1, 1, tzinfo=timezone.utc),
+                datetime(2100, 1, 1, tzinfo=timezone.utc),
+                source,
+                adjust,
+            )
         return [r for r in self.cache[key] if start <= r.ohlcv.timestamp.utc <= end]
 
     async def find_asset(self, *args, **kwargs):
@@ -189,7 +236,11 @@ class CachedPrices:
 
 
 async def history(
-    data: ValuationData, prices: Any, rates: RateRepository, symbol: str, since: Optional[date] = None,
+    data: ValuationData,
+    prices: Any,
+    rates: RateRepository,
+    symbol: str,
+    since: Optional[date] = None,
 ) -> List[Dict[str, Any]]:
     """Value and price on the day after each 10-K/10-Q filing. Points that cannot be valued say why."""
     st = await load_statements(data, symbol)
@@ -205,9 +256,15 @@ async def history(
             points.append({"as_of": as_of, "price": None, "per_share": None, "reason": exc.reason})
             continue
         r = v["result"]
-        points.append({
-            "as_of": as_of, "price": v["price"], "per_share": r["per_share"],
-            "exit_per_share": r["exit_per_share"], "wacc": v["discount"]["wacc"],
-            "implied_growth_first": v["implied_growth_first"], "reason": r["reason"],
-        })
+        points.append(
+            {
+                "as_of": as_of,
+                "price": v["price"],
+                "per_share": r["per_share"],
+                "exit_per_share": r["exit_per_share"],
+                "wacc": v["discount"]["wacc"],
+                "implied_growth_first": v["implied_growth_first"],
+                "reason": r["reason"],
+            }
+        )
     return points

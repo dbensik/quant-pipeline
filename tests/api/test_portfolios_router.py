@@ -18,6 +18,7 @@ BASE = "/api/v1/portfolios"
 # CRUD
 # ---------------------------------------------------------------------------
 
+
 def test_lists_portfolios(client: TestClient):
     names = [p["name"] for p in client.get(BASE).json()]
     assert names == ["Empty", "Growth"]
@@ -32,9 +33,7 @@ def test_listing_does_not_include_trade_logs(client: TestClient):
 
 
 def test_creates_a_portfolio(client: TestClient):
-    response = client.post(
-        BASE, json={"name": "New Fund", "initial_cash": 25_000.0}
-    )
+    response = client.post(BASE, json={"name": "New Fund", "initial_cash": 25_000.0})
     assert response.status_code == 201
     assert response.json()["initial_cash"] == 25_000.0
     assert "New Fund" in [p["name"] for p in client.get(BASE).json()]
@@ -70,6 +69,7 @@ def test_deleting_an_unknown_portfolio_is_404(client: TestClient):
 # ---------------------------------------------------------------------------
 # Derived state — the regression this step exists for
 # ---------------------------------------------------------------------------
+
 
 def test_state_is_derived_for_a_trade_log_portfolio(client: TestClient):
     """
@@ -137,6 +137,7 @@ def test_state_of_an_unknown_portfolio_is_404(client: TestClient):
 # Trade log
 # ---------------------------------------------------------------------------
 
+
 def test_lists_trades_oldest_first(client: TestClient):
     trades = client.get(f"{BASE}/Growth/trades").json()
     assert [t["ticker"] for t in trades] == ["AAPL", "MSFT"]
@@ -158,9 +159,7 @@ def test_recorded_trade_gets_an_id_usable_for_deletion(client: TestClient):
         json={"ticker": "AAPL", "action": "BUY", "quantity": 1, "price": 50.0},
     ).json()
     assert client.delete(f"{BASE}/Growth/trades/{created['id']}").status_code == 204
-    assert created["id"] not in [
-        t["id"] for t in client.get(f"{BASE}/Growth/trades").json()
-    ]
+    assert created["id"] not in [t["id"] for t in client.get(f"{BASE}/Growth/trades").json()]
 
 
 def test_ticker_is_normalised_to_uppercase(client: TestClient):
@@ -200,8 +199,7 @@ def test_selling_more_than_held_opens_a_short(client: TestClient):
         json={"ticker": "AAPL", "action": "SELL", "quantity": 15, "price": 120.0},
     )
     aapl = next(
-        p for p in client.get(f"{BASE}/Growth").json()["positions"]
-        if p["ticker"] == "AAPL"
+        p for p in client.get(f"{BASE}/Growth").json()["positions"] if p["ticker"] == "AAPL"
     )
     assert aapl["quantity"] == -5
 
@@ -231,6 +229,7 @@ def test_a_trade_id_from_another_portfolio_cannot_be_deleted(client: TestClient)
 # ---------------------------------------------------------------------------
 # Cash discipline
 # ---------------------------------------------------------------------------
+
 
 def test_a_buy_beyond_available_cash_is_rejected(client: TestClient):
     """
@@ -284,7 +283,10 @@ def test_costs_count_toward_the_cash_check(client: TestClient):
     """
     available = client.get(f"{BASE}/Growth").json()["cash"]
     affordable = {
-        "ticker": "AAPL", "action": "BUY", "quantity": 1, "price": available,
+        "ticker": "AAPL",
+        "action": "BUY",
+        "quantity": 1,
+        "price": available,
     }
     assert client.post(f"{BASE}/Growth/trades", json=affordable).status_code == 201
 
@@ -298,31 +300,26 @@ def test_costs_count_toward_the_cash_check(client: TestClient):
 # Rebalancing
 # ---------------------------------------------------------------------------
 
+
 def test_rebalance_returns_orders_without_recording_them(client: TestClient):
     """
     A PREVIEW. The Streamlit tool executed straight from the preview button,
     so there was no point at which the orders could be inspected and declined.
     """
     before = client.get(f"{BASE}/Growth/trades").json()
-    body = client.post(
-        f"{BASE}/Growth/rebalance", json={"target_weights": {"AAPL": 0.5}}
-    ).json()
+    body = client.post(f"{BASE}/Growth/rebalance", json={"target_weights": {"AAPL": 0.5}}).json()
     assert body["orders"]
     assert client.get(f"{BASE}/Growth/trades").json() == before
 
 
 def test_rebalance_sells_a_holding_with_no_target(client: TestClient):
-    body = client.post(
-        f"{BASE}/Growth/rebalance", json={"target_weights": {"AAPL": 1.0}}
-    ).json()
+    body = client.post(f"{BASE}/Growth/rebalance", json={"target_weights": {"AAPL": 1.0}}).json()
     actions = {o["ticker"]: o["action"] for o in body["orders"]}
     assert actions["MSFT"] == "SELL"
 
 
 def test_rebalance_reports_tickers_it_could_not_price(client: TestClient):
-    body = client.post(
-        f"{BASE}/Growth/rebalance", json={"target_weights": {"NOSUCH": 0.5}}
-    ).json()
+    body = client.post(f"{BASE}/Growth/rebalance", json={"target_weights": {"NOSUCH": 0.5}}).json()
     assert "NOSUCH" in body["unpriced"]
     assert all(o["ticker"] != "NOSUCH" for o in body["orders"])
 
@@ -337,16 +334,12 @@ def test_weights_summing_above_one_are_rejected(client: TestClient):
 
 
 def test_negative_weights_are_rejected(client: TestClient):
-    response = client.post(
-        f"{BASE}/Growth/rebalance", json={"target_weights": {"AAPL": -0.5}}
-    )
+    response = client.post(f"{BASE}/Growth/rebalance", json={"target_weights": {"AAPL": -0.5}})
     assert response.status_code == 422
 
 
 def test_rebalance_on_an_unknown_portfolio_is_404(client: TestClient):
-    response = client.post(
-        f"{BASE}/Nope/rebalance", json={"target_weights": {"AAPL": 0.5}}
-    )
+    response = client.post(f"{BASE}/Nope/rebalance", json={"target_weights": {"AAPL": 0.5}})
     assert response.status_code == 404
 
 

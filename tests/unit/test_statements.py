@@ -45,14 +45,20 @@ def test_filed_strictly_before_as_of(aapl):
 def test_revenue_is_continuous_across_the_asc606_switch(aapl):
     rev = aapl.annual("revenue", NOW)
     assert len(rev) == 19  # FY2007..FY2025
-    assert all((b.period_end - a.period_end).days <= 371 for a, b in zip(rev, rev[1:], strict=False))
+    assert all(
+        (b.period_end - a.period_end).days <= 371 for a, b in zip(rev, rev[1:], strict=False)
+    )
     concepts = {v.period_end.year: v.concept for v in rev}
     assert concepts[2010] == "SalesRevenueNet"
     assert concepts[2025] == "RevenueFromContractWithCustomerExcludingAssessedTax"
 
 
 def test_q4_is_fy_minus_three_quarters_to_the_dollar(aapl):
-    q = [v for v in aapl.quarterly("revenue", NOW) if date(2024, 9, 28) < v.period_end <= date(2025, 9, 27)]
+    q = [
+        v
+        for v in aapl.quarterly("revenue", NOW)
+        if date(2024, 9, 28) < v.period_end <= date(2025, 9, 27)
+    ]
     assert [v.derived for v in q] == [False, False, False, True]
     assert q[-1].value == 102_466_000_000  # Apple's reported FY2025 Q4
     assert sum(v.value for v in q) == 416_161_000_000
@@ -60,16 +66,25 @@ def test_q4_is_fy_minus_three_quarters_to_the_dollar(aapl):
 
 def test_ttm_is_the_last_four_contiguous_quarters(aapl):
     total, qs = aapl.ttm("revenue", NOW)
-    assert [v.period_end for v in qs] == [date(2025, 9, 27), date(2025, 12, 27), date(2026, 3, 28), date(2026, 6, 27)]
+    assert [v.period_end for v in qs] == [
+        date(2025, 9, 27),
+        date(2025, 12, 27),
+        date(2026, 3, 28),
+        date(2026, 6, 27),
+    ]
     assert total == sum(v.value for v in qs)
 
 
 @pytest.mark.parametrize(
     "as_of, expected_millions, filed",
     [
-        (date(2020, 6, 1), 4_648.913, date(2019, 10, 31)),   # pre-split, pre-split basis
-        (date(2020, 10, 1), 18_595.652, date(2019, 10, 31)),  # same filing, rescaled x4 to today's basis
-        (NOW, 18_595.651, date(2021, 10, 29)),                # restated by Apple itself: not rescaled again
+        (date(2020, 6, 1), 4_648.913, date(2019, 10, 31)),  # pre-split, pre-split basis
+        (
+            date(2020, 10, 1),
+            18_595.652,
+            date(2019, 10, 31),
+        ),  # same filing, rescaled x4 to today's basis
+        (NOW, 18_595.651, date(2021, 10, 29)),  # restated by Apple itself: not rescaled again
     ],
 )
 def test_share_counts_follow_the_split_basis_of_their_filing(aapl, as_of, expected_millions, filed):
@@ -100,39 +115,74 @@ def test_missing_is_none_not_zero(sivb):
 
 
 def _fact(concept, value, end, filed, start=None, accn="a"):
-    return Fact(1, "us-gaap", concept, "USD", start, end, value, None, None, "10-K", filed, accn, None,
-                datetime(2026, 1, 1, tzinfo=timezone.utc))
+    return Fact(
+        1,
+        "us-gaap",
+        concept,
+        "USD",
+        start,
+        end,
+        value,
+        None,
+        None,
+        "10-K",
+        filed,
+        accn,
+        None,
+        datetime(2026, 1, 1, tzinfo=timezone.utc),
+    )
 
 
 def test_a_lower_priority_concept_fills_only_periods_the_higher_one_lacks():
-    s = Statements([
-        _fact("Revenues", 10.0, date(2017, 12, 31), date(2018, 2, 1), date(2017, 1, 1)),
-        _fact("Revenues", 11.0, date(2018, 12, 31), date(2019, 2, 1), date(2018, 1, 1)),
-        _fact("RevenueFromContractWithCustomerExcludingAssessedTax", 12.0, date(2018, 12, 31), date(2019, 2, 1), date(2018, 1, 1)),
-    ])
-    assert [(v.value, v.concept[:8]) for v in s.annual("revenue", date(2020, 1, 1))] == [(10.0, "Revenues"), (12.0, "RevenueF")]
+    s = Statements(
+        [
+            _fact("Revenues", 10.0, date(2017, 12, 31), date(2018, 2, 1), date(2017, 1, 1)),
+            _fact("Revenues", 11.0, date(2018, 12, 31), date(2019, 2, 1), date(2018, 1, 1)),
+            _fact(
+                "RevenueFromContractWithCustomerExcludingAssessedTax",
+                12.0,
+                date(2018, 12, 31),
+                date(2019, 2, 1),
+                date(2018, 1, 1),
+            ),
+        ]
+    )
+    assert [(v.value, v.concept[:8]) for v in s.annual("revenue", date(2020, 1, 1))] == [
+        (10.0, "Revenues"),
+        (12.0, "RevenueF"),
+    ]
 
 
 def test_balance_priority_first_concept_wins_on_the_same_date():
     # Cash: CashAndCashEquivalents... outranks the total including restricted cash.
     end, filed = date(2025, 9, 27), date(2025, 10, 31)
-    s = Statements([
-        _fact("CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents", 40.0, end, filed, accn="b"),
-        _fact("CashAndCashEquivalentsAtCarryingValue", 35.0, end, filed, accn="a"),
-    ])
+    s = Statements(
+        [
+            _fact(
+                "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
+                40.0,
+                end,
+                filed,
+                accn="b",
+            ),
+            _fact("CashAndCashEquivalentsAtCarryingValue", 35.0, end, filed, accn="a"),
+        ]
+    )
     assert s.instant("cash", NOW).value == 35.0
     assert s.instant("cash", NOW).concept == "CashAndCashEquivalentsAtCarryingValue"
 
 
 def test_ttm_refuses_a_gap_in_the_quarters():
     q = lambda s_, e_, v: _fact("Revenues", v, e_, date(2026, 1, 1), s_)  # noqa: E731
-    s = Statements([
-        q(date(2024, 1, 1), date(2024, 3, 31), 1.0),
-        q(date(2024, 4, 1), date(2024, 6, 30), 1.0),
-        # Q3 2024 missing
-        q(date(2024, 10, 1), date(2024, 12, 31), 1.0),
-        q(date(2025, 1, 1), date(2025, 3, 31), 1.0),
-    ])
+    s = Statements(
+        [
+            q(date(2024, 1, 1), date(2024, 3, 31), 1.0),
+            q(date(2024, 4, 1), date(2024, 6, 30), 1.0),
+            # Q3 2024 missing
+            q(date(2024, 10, 1), date(2024, 12, 31), 1.0),
+            q(date(2025, 1, 1), date(2025, 3, 31), 1.0),
+        ]
+    )
     assert s.ttm("revenue", NOW) is None
 
 
@@ -143,6 +193,9 @@ def test_cash_flow_has_no_hole_where_the_filer_switched_concept(aapl):
         latest = aapl.annual("cfo", as_of)[-1]
         assert (as_of - latest.period_end).days < 460
     concepts = {v.period_end.year: v.concept for v in aapl.annual("cfo", NOW)}
-    assert concepts[2015] == "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations" or concepts[2015] == "NetCashProvidedByUsedInOperatingActivities"
+    assert (
+        concepts[2015] == "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"
+        or concepts[2015] == "NetCashProvidedByUsedInOperatingActivities"
+    )
     years = sorted(concepts)
     assert years == list(range(years[0], years[-1] + 1))  # no gap

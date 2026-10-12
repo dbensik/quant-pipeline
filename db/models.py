@@ -40,7 +40,7 @@ class AssetORM(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     symbol = Column(String, nullable=False)
     asset_class = Column(String, nullable=False)  # 'equity' | 'crypto' | 'option' | 'future'
-    source = Column(String, nullable=False)        # 'yfinance' | 'coingecko'
+    source = Column(String, nullable=False)  # 'yfinance' | 'coingecko'
     metadata_ = Column("metadata", JSONB, nullable=True)
 
     # --- corporate actions (0005) -----------------------------------------
@@ -68,9 +68,7 @@ class AssetORM(Base):
     # incompatible with AsyncSession anyway. "selectin" issues one batched SELECT and
     # works under asyncio; for large per-asset scans, query MarketDataORM directly
     # via the repository instead of traversing this relationship.
-    market_data = relationship(
-        "MarketDataORM", back_populates="asset", lazy="selectin"
-    )
+    market_data = relationship("MarketDataORM", back_populates="asset", lazy="selectin")
 
     __table_args__ = (
         UniqueConstraint("symbol", "asset_class", "source", name="uq_asset_identity"),
@@ -159,9 +157,7 @@ class CorporateActionORM(Base):
     __tablename__ = "corporate_actions"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    asset_id = Column(
-        Integer, ForeignKey("assets.id", ondelete="CASCADE"), nullable=False
-    )
+    asset_id = Column(Integer, ForeignKey("assets.id", ondelete="CASCADE"), nullable=False)
     ex_date = Column(Date, nullable=False)
     kind = Column(String, nullable=False)  # 'split' | 'dividend' | 'manual_factor'
     value = Column(Float, nullable=False)
@@ -205,9 +201,7 @@ class PortfolioORM(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False, unique=True)
     initial_cash = Column(Float, nullable=False, default=100_000.0)
-    created_at = Column(
-        DateTime(timezone=True), nullable=False, server_default=text("now()")
-    )
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("now()"))
     # Free-form: the migrated `MAG7PortTest1` carried `constituents` and
     # `weights` keys that belong to no column. Kept rather than discarded.
     metadata_ = Column("metadata", JSONB, nullable=True)
@@ -263,15 +257,13 @@ class PortfolioTradeORM(Base):
     )
 
     def __repr__(self) -> str:
-        return (
-            f"<PortfolioTradeORM {self.action} {self.quantity} "
-            f"{self.ticker} @ {self.price}>"
-        )
+        return f"<PortfolioTradeORM {self.action} {self.quantity} {self.ticker} @ {self.price}>"
 
 
 # ---------------------------------------------------------------------------
 # Watchlists
 # ---------------------------------------------------------------------------
+
 
 class WatchlistORM(Base):
     """A named list of tickers."""
@@ -280,9 +272,7 @@ class WatchlistORM(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False, unique=True)
-    created_at = Column(
-        DateTime(timezone=True), nullable=False, server_default=text("now()")
-    )
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("now()"))
 
     symbols = relationship(
         "WatchlistSymbolORM",
@@ -333,6 +323,7 @@ class WatchlistSymbolORM(Base):
 # Point-in-time universe membership
 # ---------------------------------------------------------------------------
 
+
 class UniverseMembershipORM(Base):
     """
     One observation window of a symbol's membership in an index.
@@ -354,7 +345,7 @@ class UniverseMembershipORM(Base):
     __tablename__ = "universe_membership"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    index_name = Column(String, nullable=False)   # 'sp500' | 'dow_jones' | ...
+    index_name = Column(String, nullable=False)  # 'sp500' | 'dow_jones' | ...
     symbol = Column(String, nullable=False)
     first_seen = Column(DateTime(timezone=True), nullable=False)
     #: Last snapshot in which the symbol was present. A symbol absent from a
@@ -387,9 +378,7 @@ class UniverseSnapshotORM(Base):
     taken_at = Column(DateTime(timezone=True), nullable=False)
     member_count = Column(Integer, nullable=False)
 
-    __table_args__ = (
-        Index("ix_universe_snapshots_index_taken", "index_name", "taken_at"),
-    )
+    __table_args__ = (Index("ix_universe_snapshots_index_taken", "index_name", "taken_at"),)
 
 
 class ReconstructedMembershipORM(Base):
@@ -418,21 +407,14 @@ class ReconstructedMembershipORM(Base):
     source_revision = Column(BigInteger, nullable=False)
     #: When the revision was saved — at or before the end of `as_of`.
     revision_at = Column(DateTime(timezone=True), nullable=False)
-    loaded_at = Column(
-        DateTime(timezone=True), server_default=text("now()"), nullable=False
-    )
+    loaded_at = Column(DateTime(timezone=True), server_default=text("now()"), nullable=False)
 
     __table_args__ = (
-        UniqueConstraint(
-            "index_name", "as_of", "symbol", name="uq_reconstructed_member"
-        ),
+        UniqueConstraint("index_name", "as_of", "symbol", name="uq_reconstructed_member"),
     )
 
     def __repr__(self) -> str:
-        return (
-            f"<ReconstructedMembershipORM {self.index_name}/{self.symbol}"
-            f"@{self.as_of}>"
-        )
+        return f"<ReconstructedMembershipORM {self.index_name}/{self.symbol}@{self.as_of}>"
 
 
 class RateObservationORM(Base):
@@ -457,9 +439,7 @@ class RateObservationORM(Base):
     source = Column(String, nullable=False)  # 'yfinance'
     fetched_at = Column(DateTime(timezone=True), nullable=False)
 
-    __table_args__ = (
-        UniqueConstraint("series", "obs_date", name="uq_rate_observation"),
-    )
+    __table_args__ = (UniqueConstraint("series", "obs_date", name="uq_rate_observation"),)
 
 
 class FundamentalFactORM(Base):

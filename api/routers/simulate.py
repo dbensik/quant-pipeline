@@ -73,6 +73,7 @@ Method = Literal["stationary", "iid", "gbm"]
 # Models
 # ---------------------------------------------------------------------------
 
+
 class SimulationRequest(BaseModel):
     symbol: str = Field(description="Ticker as stored, e.g. 'AAPL'")
     strategy_id: str = Field(description="Registry id, e.g. 'ma_crossover'")
@@ -119,15 +120,20 @@ class SimulationRequest(BaseModel):
         ),
     )
     block_length_days: float = Field(
-        default=settings.SIM_BLOCK_LENGTH_DAYS, ge=1.0,
+        default=settings.SIM_BLOCK_LENGTH_DAYS,
+        ge=1.0,
         description="Stationary bootstrap mean block; ignored by iid and gbm.",
     )
     ruin_threshold: float = Field(
-        default=settings.SIM_RUIN_THRESHOLD, gt=0, lt=1,
+        default=settings.SIM_RUIN_THRESHOLD,
+        gt=0,
+        lt=1,
         description="P(ruin) counts paths that ever fall below this fraction of start equity.",
     )
     include_paths: int = Field(
-        default=0, ge=0, le=settings.SIM_MAX_RETURNED_PATHS,
+        default=0,
+        ge=0,
+        le=settings.SIM_MAX_RETURNED_PATHS,
         description="How many individual sample paths to return beside the bands.",
     )
     allow_unverified: bool = Field(
@@ -214,11 +220,16 @@ class SimulationResponse(BaseModel):
 # Worker
 # ---------------------------------------------------------------------------
 
+
 def _summary(values: np.ndarray) -> PercentileSummary:
     p = np.percentile(values, PERCENTILES)
     return PercentileSummary(
-        p05=float(p[0]), p25=float(p[1]), p50=float(p[2]), p75=float(p[3]),
-        p95=float(p[4]), mean=float(values.mean()),
+        p05=float(p[0]),
+        p25=float(p[1]),
+        p50=float(p[2]),
+        p75=float(p[3]),
+        p95=float(p[4]),
+        mean=float(values.mean()),
     )
 
 
@@ -236,11 +247,13 @@ def _synthetic_frame(
     opens = np.concatenate([[float(template["Close"].iloc[0])], closes[:-1]])
     hi_ext = float(
         (template["High"] / np.maximum(template["Open"], template["Close"]) - 1.0)
-        .clip(lower=0).median()
+        .clip(lower=0)
+        .median()
     )
     lo_ext = float(
         (1.0 - template["Low"] / np.minimum(template["Open"], template["Close"]))
-        .clip(lower=0).median()
+        .clip(lower=0)
+        .median()
     )
     index = pd.bdate_range(start=template.index[0], periods=horizon, name=template.index.name)
     return pd.DataFrame(
@@ -267,8 +280,12 @@ def _simulate_sync(
     fields). Raises ValueError for anything that is the caller's fault.
     """
     results, metrics, trades = _run_backtest_sync(
-        frame, spec, request.params, request.initial_capital,
-        request.transaction_cost, request.seed,
+        frame,
+        spec,
+        request.params,
+        request.initial_capital,
+        request.transaction_cost,
+        request.seed,
     )
     trade_count = 0 if trades is None or trades.empty else len(trades)
     rng = np.random.default_rng(request.seed)
@@ -281,7 +298,7 @@ def _simulate_sync(
                 "are no strategy returns to resample. Try 'prices' mode or a "
                 "longer window."
             )
-        source = results["returns"].to_numpy()[invested[0]:]
+        source = results["returns"].to_numpy()[invested[0] :]
         horizon = _resolve_horizon(request.horizon_days, source.size)
         paths = draw(request.method, source, n_paths, horizon, rng, request.block_length_days)
         equity = equity_from_returns(paths, request.initial_capital)
@@ -335,8 +352,14 @@ def _simulate_sync(
         "resampled_from": int(source.size),
         "trade_count": trade_count,
         "bands": [
-            FanBand(step=i, p05=float(r[0]), p25=float(r[1]), p50=float(r[2]),
-                    p75=float(r[3]), p95=float(r[4]))
+            FanBand(
+                step=i,
+                p05=float(r[0]),
+                p25=float(r[1]),
+                p50=float(r[2]),
+                p75=float(r[3]),
+                p95=float(r[4]),
+            )
             for i, r in enumerate(band_matrix)
         ],
         "terminal": TerminalSummary(
@@ -359,7 +382,8 @@ def _simulate_sync(
             ruin_threshold=request.ruin_threshold,
         ),
         "sample_paths": [
-            [round(float(v), 2) for v in equity[i]] for i in range(min(request.include_paths, n_paths))
+            [round(float(v), 2) for v in equity[i]]
+            for i in range(min(request.include_paths, n_paths))
         ],
     }
     return metrics, payload
@@ -390,7 +414,10 @@ def resolve_n_paths(request: SimulationRequest) -> int:
 
 
 def compose_caveat(
-    spec: registry.StrategySpec, request: SimulationRequest, price_basis: Optional[str], trade_count: int
+    spec: registry.StrategySpec,
+    request: SimulationRequest,
+    price_basis: Optional[str],
+    trade_count: int,
 ) -> Optional[str]:
     parts: List[str] = []
     if spec.caveat:
@@ -487,13 +514,16 @@ def build_simulation_response(
 # Route
 # ---------------------------------------------------------------------------
 
+
 @router.post(
     "",
     response_model=SimulationResponse,
     summary="Monte Carlo a strategy on stored history: fan bands, drawdown and tail risk",
     responses={
         404: {"description": "Unknown symbol or strategy"},
-        422: {"description": "Invalid parameters, bad date range, no data, over a cap, or an unverified asset"},
+        422: {
+            "description": "Invalid parameters, bad date range, no data, over a cap, or an unverified asset"
+        },
     },
 )
 async def run_simulation(
@@ -507,7 +537,11 @@ async def run_simulation(
         raise HTTPException(status_code=404, detail=f"Unknown symbol: {request.symbol!r}")
     gate_asset(asset, request)
 
-    start = request.start.replace(tzinfo=timezone.utc) if request.start.tzinfo is None else request.start
+    start = (
+        request.start.replace(tzinfo=timezone.utc)
+        if request.start.tzinfo is None
+        else request.start
+    )
     end = request.end.replace(tzinfo=timezone.utc) if request.end.tzinfo is None else request.end
 
     records = await repo.fetch_range(symbol=request.symbol, asset_class=None, start=start, end=end)
@@ -523,4 +557,6 @@ async def run_simulation(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None
 
-    return build_simulation_response(asset, spec, request, n_paths, len(frame), start, end, metrics, sim)
+    return build_simulation_response(
+        asset, spec, request, n_paths, len(frame), start, end, metrics, sim
+    )

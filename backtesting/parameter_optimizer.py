@@ -91,8 +91,7 @@ class ParameterOptimizer:
     ):
         if metric not in MAXIMIZE and metric not in MINIMIZE:
             raise ValueError(
-                f"Cannot optimize for {metric!r}. "
-                f"Choose one of: {', '.join(OPTIMIZABLE_METRICS)}."
+                f"Cannot optimize for {metric!r}. Choose one of: {', '.join(OPTIMIZABLE_METRICS)}."
             )
 
         # Raises KeyError for an unknown id — the caller decides whether that

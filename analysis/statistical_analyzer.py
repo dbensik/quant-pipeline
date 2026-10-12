@@ -83,9 +83,7 @@ class StatisticalAnalyzer:
             ),
         }
 
-    def run_ols_regression(
-        self, asset_returns: pd.Series, benchmark_returns: pd.Series
-    ) -> dict:
+    def run_ols_regression(self, asset_returns: pd.Series, benchmark_returns: pd.Series) -> dict:
         """
         Performs an Ordinary Least Squares (OLS) regression to find Alpha and Beta.
         """
@@ -99,9 +97,7 @@ class StatisticalAnalyzer:
         data.columns = ["asset", "benchmark"]
 
         if len(data) < 30:
-            return {
-                "error": "Not enough overlapping data points to perform regression."
-            }
+            return {"error": "Not enough overlapping data points to perform regression."}
 
         benchmark_with_const = sm.add_constant(data["benchmark"])
         model = sm.OLS(data["asset"], benchmark_with_const).fit()
@@ -137,9 +133,7 @@ class StatisticalAnalyzer:
         cleaned_series1 = data[series1.name]
         cleaned_series2 = data[series2.name]
 
-        coint_t_statistic, p_value, crit_values = coint(
-            cleaned_series1, cleaned_series2
-        )
+        coint_t_statistic, p_value, crit_values = coint(cleaned_series1, cleaned_series2)
         is_cointegrated = p_value < 0.05
 
         series2_with_const = sm.add_constant(cleaned_series2)
@@ -160,9 +154,7 @@ class StatisticalAnalyzer:
             "interpretation": f"The series are {'likely cointegrated' if is_cointegrated else 'not cointegrated'} with a p-value of {p_value:.4f}.",
         }
 
-    def run_johansen_test(
-        self, data: pd.DataFrame, det_order: int = 0, k_ar_diff: int = 1
-    ) -> dict:
+    def run_johansen_test(self, data: pd.DataFrame, det_order: int = 0, k_ar_diff: int = 1) -> dict:
         """
         Performs the Johansen test for cointegration for multiple assets.
 
@@ -239,9 +231,7 @@ class StatisticalAnalyzer:
                 "error": f"A linear algebra error occurred, possibly due to highly correlated assets. Details: {e}"
             }
         except Exception as e:
-            return {
-                "error": f"An unexpected error occurred during the Johansen test: {e}"
-            }
+            return {"error": f"An unexpected error occurred during the Johansen test: {e}"}
 
     def run_kalman_filter_smoother(self, series: pd.Series) -> pd.DataFrame:
         """

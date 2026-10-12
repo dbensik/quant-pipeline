@@ -26,6 +26,7 @@ def ingest(client: TestClient, **overrides):
 # Writing
 # ---------------------------------------------------------------------------
 
+
 def test_writes_fetched_bars(client: TestClient, repo, fetcher):
     """
     THE point of this step. The Streamlit button shelled out to
@@ -85,6 +86,7 @@ def test_resume_reaches_back_behind_the_newest_stored_bar(client: TestClient, fe
 # Asset identity
 # ---------------------------------------------------------------------------
 
+
 def test_crypto_keeps_its_asset_class(client: TestClient, repo):
     """
     yfinance_adapter hardcodes asset_class="equity", and assets are keyed on
@@ -99,6 +101,7 @@ def test_crypto_keeps_its_asset_class(client: TestClient, repo):
 # ---------------------------------------------------------------------------
 # Failure isolation
 # ---------------------------------------------------------------------------
+
 
 def test_one_failing_symbol_does_not_end_the_run(client: TestClient, fetcher):
     fetcher.fail_for = {"MSFT"}
@@ -123,6 +126,7 @@ def test_a_failed_run_still_reports_the_others(client: TestClient, fetcher):
 # ---------------------------------------------------------------------------
 # Single-flight
 # ---------------------------------------------------------------------------
+
 
 def test_status_is_idle_between_runs(client: TestClient):
     assert client.get(f"{BASE}/status").json()["running"] is False
@@ -171,6 +175,7 @@ def test_blank_symbols_are_dropped(client: TestClient, fetcher):
 # Universe
 # ---------------------------------------------------------------------------
 
+
 def test_unknown_universe_source_is_422(client: TestClient):
     response = client.get(f"{BASE}/universe", params={"source": "ftse"})
     assert response.status_code == 422
@@ -184,6 +189,7 @@ def test_universe_source_is_required(client: TestClient):
 # ---------------------------------------------------------------------------
 # Asset registration — accepted asset classes
 # ---------------------------------------------------------------------------
+
 
 class _FakeResult:
     """Enough of a SQLAlchemy Result for add_asset's "not found" branch."""
@@ -235,9 +241,7 @@ def test_etf_is_an_accepted_asset_class(client: TestClient):
     fake = _FakeSession()
     client.app.dependency_overrides[get_db] = lambda: fake
     try:
-        response = client.post(
-            f"{BASE}/assets", json={"symbol": "SPY", "asset_class": "etf"}
-        )
+        response = client.post(f"{BASE}/assets", json={"symbol": "SPY", "asset_class": "etf"})
     finally:
         client.app.dependency_overrides.pop(get_db, None)
 
@@ -253,8 +257,6 @@ def test_etf_is_an_accepted_asset_class(client: TestClient):
 
 def test_an_unknown_asset_class_is_still_rejected(client: TestClient):
     """The guard must stay a closed set, not become a free-text column."""
-    response = client.post(
-        f"{BASE}/assets", json={"symbol": "SPY", "asset_class": "mutual_fund"}
-    )
+    response = client.post(f"{BASE}/assets", json={"symbol": "SPY", "asset_class": "mutual_fund"})
     assert response.status_code == 422
     assert "mutual_fund" in response.json()["detail"]

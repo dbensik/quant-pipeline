@@ -48,9 +48,7 @@ class UniverseFetcher:
         "BNB": "BNB-USD",
     }
 
-    def __init__(
-        self, cache_dir: str = CACHE_DIR, cache_expiry_hours: int = CACHE_EXPIRY_HOURS
-    ):
+    def __init__(self, cache_dir: str = CACHE_DIR, cache_expiry_hours: int = CACHE_EXPIRY_HOURS):
         """Initializes the fetcher."""
         self.cache_path = Path(cache_dir)
         self.cache_expiry = timedelta(hours=cache_expiry_hours)
@@ -146,16 +144,12 @@ class UniverseFetcher:
             html_io = io.StringIO(response_text)
             tables = pd.read_html(html_io, match=match_keyword)
             df = tables[0]
-            df.rename(
-                columns={ticker_col: "Ticker", sector_col: "Sector"}, inplace=True
-            )
+            df.rename(columns={ticker_col: "Ticker", sector_col: "Sector"}, inplace=True)
             df["Ticker"] = df["Ticker"].str.replace(".", "-", regex=False)
             df["Ticker"] = df["Ticker"].str.replace("NYSE:\s*", "", regex=True)
             tickers = df["Ticker"].tolist()
             sectors = (
-                pd.Series(df.Sector.values, index=df.Ticker).to_dict()
-                if "Sector" in df
-                else {}
+                pd.Series(df.Sector.values, index=df.Ticker).to_dict() if "Sector" in df else {}
             )
             logger.info(
                 f"✅ Successfully fetched {len(tickers)} constituents from {url.split('/')[-1]}."
@@ -193,9 +187,7 @@ class UniverseFetcher:
         """Public method to get Dow Jones Industrial Average constituents."""
         return self._fetch_and_parse(
             "dowjones_constituents.json",
-            lambda: self._parse_wiki_table(
-                URL_DOWJONES_WIKIPEDIA, "Company", "Symbol", "Industry"
-            ),
+            lambda: self._parse_wiki_table(URL_DOWJONES_WIKIPEDIA, "Company", "Symbol", "Industry"),
             "tickers",
             "sectors",
         )
@@ -244,16 +236,12 @@ class UniverseFetcher:
                 return None
             # The API returns the 'symbol' (e.g., 'btc') which we use as the raw ticker
             tickers = [item["symbol"] for item in api_data]
-            market_caps = {
-                item["symbol"]: item.get("market_cap", 0) for item in api_data
-            }
+            market_caps = {item["symbol"]: item.get("market_cap", 0) for item in api_data}
             logger.info(f"✅ Successfully fetched {len(tickers)} crypto pairs.")
             return {"tickers": tickers, "market_caps": market_caps}
         except requests.errors.RequestsError as e:
             logger.error(f"❌ Failed to fetch crypto data from CoinGecko: {e}")
             return None
         except Exception as e:
-            logger.exception(
-                f"❌ An unexpected error occurred while processing crypto data: {e}"
-            )
+            logger.exception(f"❌ An unexpected error occurred while processing crypto data: {e}")
             return None

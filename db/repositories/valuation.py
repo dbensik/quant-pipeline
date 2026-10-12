@@ -30,16 +30,23 @@ class TimescaleValuationRepo:
         ([cik, *predecessors], sector) for a registered equity, None if not
         one. The list is empty when no CIK is recorded.
         """
-        row = (await self.session.execute(
-            select(AssetORM.metadata_).where(AssetORM.symbol == symbol.upper(), AssetORM.asset_class == "equity")
-        )).first()
+        row = (
+            await self.session.execute(
+                select(AssetORM.metadata_).where(
+                    AssetORM.symbol == symbol.upper(), AssetORM.asset_class == "equity"
+                )
+            )
+        ).first()
         if row is None:
             return None
         meta = row[0] or {}
         cik = meta.get("cik")
         if cik is None:
             return ([], meta.get("sector"))
-        return ([int(cik), *[int(p) for p in meta.get("cik_predecessors") or []]], meta.get("sector"))
+        return (
+            [int(cik), *[int(p) for p in meta.get("cik_predecessors") or []]],
+            meta.get("sector"),
+        )
 
     async def facts(self, ciks: Iterable[int], concepts: Iterable[str]) -> List[Fact]:
         concepts = list(concepts)
@@ -59,19 +66,33 @@ class TimescaleValuationRepo:
 
     async def filing_dates(self, ciks: Iterable[int]) -> List[date]:
         rows = await self.session.execute(
-            select(FundamentalFactORM.filed).distinct()
-            .where(FundamentalFactORM.cik.in_(list(ciks)), FundamentalFactORM.form.in_(["10-K", "10-Q"]))
+            select(FundamentalFactORM.filed)
+            .distinct()
+            .where(
+                FundamentalFactORM.cik.in_(list(ciks)),
+                FundamentalFactORM.form.in_(["10-K", "10-Q"]),
+            )
             .order_by(FundamentalFactORM.filed)
         )
         return [r.filed for r in rows]
 
     async def coverage(self) -> Dict[str, object]:
-        equities = (await self.session.execute(text(
-            "SELECT count(*), count(*) FILTER (WHERE metadata ? 'cik') FROM assets WHERE asset_class = 'equity'"
-        ))).one()
-        facts = (await self.session.execute(
-            select(func.count(), func.count(func.distinct(FundamentalFactORM.cik)), func.max(FundamentalFactORM.filed))
-        )).one()
+        equities = (
+            await self.session.execute(
+                text(
+                    "SELECT count(*), count(*) FILTER (WHERE metadata ? 'cik') FROM assets WHERE asset_class = 'equity'"
+                )
+            )
+        ).one()
+        facts = (
+            await self.session.execute(
+                select(
+                    func.count(),
+                    func.count(func.distinct(FundamentalFactORM.cik)),
+                    func.max(FundamentalFactORM.filed),
+                )
+            )
+        ).one()
         return {
             "equities": int(equities[0]),
             "with_cik": int(equities[1]),

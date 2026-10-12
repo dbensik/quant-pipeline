@@ -44,9 +44,7 @@ class TrendFollowingStrategy(BaseAlphaModel):
         # --- Determine the desired state (position) ---
         # We want to be LONG (position=1) when the price is above the moving average.
         # We want to be FLAT (position=0) otherwise.
-        signals["position"] = np.where(
-            price_data["Close"] > signals["moving_avg"], 1.0, 0.0
-        )
+        signals["position"] = np.where(price_data["Close"] > signals["moving_avg"], 1.0, 0.0)
 
         # --- Convert positions (states) to signals (actions) ---
         # A signal is the change in position from the previous day.

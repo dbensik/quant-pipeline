@@ -48,9 +48,7 @@ class MeanReversionStrategy(BaseAlphaModel):
         signals["moving_std"] = price_data["Close"].rolling(window=self.window).std()
 
         # Calculate the Z-score
-        signals["z_score"] = (price_data["Close"] - signals["moving_avg"]) / signals[
-            "moving_std"
-        ]
+        signals["z_score"] = (price_data["Close"] - signals["moving_avg"]) / signals["moving_std"]
 
         # --- Determine the desired state (position) ---
         # We want to be LONG (position=1) when the price is oversold (Z-score is very low).

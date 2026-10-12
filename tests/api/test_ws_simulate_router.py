@@ -87,10 +87,14 @@ def test_returns_mode_has_no_per_path_progress(ws_client: TestClient):
 
 
 def test_errors_use_the_error_message(ws_client: TestClient):
-    assert run(ws_client, symbol="NOPE")[-1] == {"type": "error", "code": 404, "detail": "Unknown symbol: 'NOPE'"}
+    assert run(ws_client, symbol="NOPE")[-1] == {
+        "type": "error",
+        "code": 404,
+        "detail": "Unknown symbol: 'NOPE'",
+    }
     assert run(ws_client, strategy_id="nope")[-1]["code"] == 404
     assert run(ws_client, strategy_id="pairs_trading")[-1]["code"] == 422
-    assert run(ws_client, n_paths=10 ** 7)[-1]["code"] == 422
+    assert run(ws_client, n_paths=10**7)[-1]["code"] == 422
 
 
 def test_unverified_asset_is_gated_on_the_socket_too(ws_client: TestClient):
@@ -102,7 +106,9 @@ def test_unverified_asset_is_gated_on_the_socket_too(ws_client: TestClient):
 
 
 def test_never_invested_strategy_errors_after_accept(ws_client: TestClient):
-    messages = run(ws_client, strategy_id="ma_crossover", params={"short_window": 10, "long_window": 30})
+    messages = run(
+        ws_client, strategy_id="ma_crossover", params={"short_window": 10, "long_window": 30}
+    )
     assert messages[0]["type"] == "accepted"
     assert messages[-1]["type"] == "error" and "never invested" in messages[-1]["detail"]
 

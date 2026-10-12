@@ -37,9 +37,7 @@ class MomentumAssetAllocationStrategy(BaseAlphaModel):
     invested pass `weights` of 1/top_n per symbol.
     """
 
-    def __init__(
-        self, lookback: int = 126, top_n: int = 2, rebalance_frequency: str = "ME"
-    ):
+    def __init__(self, lookback: int = 126, top_n: int = 2, rebalance_frequency: str = "ME"):
         """
         Args:
             lookback: Bars in the trailing-return ranking. 126 ≈ six months.
@@ -75,9 +73,7 @@ class MomentumAssetAllocationStrategy(BaseAlphaModel):
                 "ranking does nothing."
             )
 
-        positions = pd.DataFrame(
-            0.0, index=price_data.index, columns=price_data.columns
-        )
+        positions = pd.DataFrame(0.0, index=price_data.index, columns=price_data.columns)
         trailing = price_data.pct_change(self.lookback, fill_method=None)
 
         for date in rebalance_dates(price_data.index, self.rebalance_frequency):

@@ -35,6 +35,7 @@ OLD_SPLIT = Split(date=datetime(2015, 7, 15, tzinfo=timezone.utc), ratio=7.0)
 # splits_since
 # ---------------------------------------------------------------------------
 
+
 def test_a_split_after_the_last_refresh_is_drift():
     assert splits_since([OLD_SPLIT, NFLX_SPLIT], MIGRATION) == [NFLX_SPLIT]
 
@@ -68,6 +69,7 @@ def test_no_splits_is_no_drift():
 # detect_drift
 # ---------------------------------------------------------------------------
 
+
 def test_drift_is_reported_with_the_offending_splits():
     report = detect_drift("NFLX", MIGRATION, lambda _s: [NFLX_SPLIT])
     assert report.needs_refresh is True
@@ -90,6 +92,7 @@ def test_a_provider_failure_is_not_reported_as_drift():
     Being unable to READ splits is not evidence that any occurred. Treating it
     as drift would send a caller into an expensive full backfill for nothing.
     """
+
     def explode(_symbol):
         raise RuntimeError("upstream down")
 
@@ -99,6 +102,7 @@ def test_a_provider_failure_is_not_reported_as_drift():
 # ---------------------------------------------------------------------------
 # looks_unresolved
 # ---------------------------------------------------------------------------
+
 
 def test_an_empty_fetch_with_a_stale_newest_bar_is_unresolved():
     """
@@ -124,8 +128,8 @@ def test_unresolved_does_not_mean_delisted():
     (genuinely delisted 2025-07-18) are the same input to this function, so
     they must produce the same output — the caller has to disambiguate.
     """
-    renamed_but_live = MIGRATION      # BK, which became BNY
-    genuinely_delisted = MIGRATION    # HES, Form 25-NSE 2025-07-18
+    renamed_but_live = MIGRATION  # BK, which became BNY
+    genuinely_delisted = MIGRATION  # HES, Form 25-NSE 2025-07-18
     assert (
         looks_unresolved(renamed_but_live, fetched_rows=0, now=NOW)
         is looks_unresolved(genuinely_delisted, fetched_rows=0, now=NOW)
@@ -192,8 +196,28 @@ def series(values, start=DAY0):
 
 
 #: A plausible price path, long enough to clear the overlap floor.
-WALK = [100.0, 101.5, 99.8, 103.2, 102.1, 104.7, 103.9, 105.6, 104.2, 106.8,
-        107.3, 105.1, 108.4, 109.2, 107.6, 110.1, 111.5, 109.8, 112.3, 113.0]
+WALK = [
+    100.0,
+    101.5,
+    99.8,
+    103.2,
+    102.1,
+    104.7,
+    103.9,
+    105.6,
+    104.2,
+    106.8,
+    107.3,
+    105.1,
+    108.4,
+    109.2,
+    107.6,
+    110.1,
+    111.5,
+    109.8,
+    112.3,
+    113.0,
+]
 
 
 def test_a_renamed_series_is_one_instrument():
@@ -232,9 +256,7 @@ def test_merger_arbitrage_does_not_read_as_a_rename():
     """
     acquirer = series(WALK)
     # 2.7928 with a residual basis that wanders by a few tenths of a percent.
-    target = series(
-        [v * 2.7928 * (1 + 0.0018 * ((i % 7) - 3) / 3) for i, v in enumerate(WALK)]
-    )
+    target = series([v * 2.7928 * (1 + 0.0018 * ((i % 7) - 3) / 3) for i, v in enumerate(WALK)])
     evidence = compare_series("AVB", "VMRK", target, acquirer)
     assert not evidence.same_instrument
     assert 1e-4 < evidence.spread < 1e-2  # the measured near-miss band
@@ -269,9 +291,7 @@ def test_bars_after_the_event_are_excluded_by_before():
         new[event + timedelta(days=i)] = 200.0 + i
 
     assert not compare_series("AVB", "VMRK", contaminated, new).same_instrument
-    assert compare_series(
-        "AVB", "VMRK", contaminated, new, before=event
-    ).same_instrument
+    assert compare_series("AVB", "VMRK", contaminated, new, before=event).same_instrument
 
 
 def test_ranking_puts_the_tightest_first_and_keeps_the_misses():
@@ -302,6 +322,7 @@ def test_zero_prices_are_dropped_not_divided_by():
 # ---------------------------------------------------------------------------
 # index_churn — generating the candidate
 # ---------------------------------------------------------------------------
+
 
 def stamp(day):
     return datetime(2026, 8, day, tzinfo=timezone.utc)
@@ -388,9 +409,7 @@ def test_a_trimmed_match_is_proposable():
 def test_a_trimmed_non_match_is_still_not_proposable():
     """`proposable` tightens `same_instrument`; it must not bypass it."""
     other = series([v * 1.02 + (i % 5) * 0.9 for i, v in enumerate(WALK)])
-    evidence = compare_series(
-        "AVB", "VMRK", series(WALK), other, before=DAY0 + timedelta(days=99)
-    )
+    evidence = compare_series("AVB", "VMRK", series(WALK), other, before=DAY0 + timedelta(days=99))
     assert evidence.trimmed
     assert not evidence.same_instrument
     assert not evidence.proposable
@@ -399,6 +418,7 @@ def test_a_trimmed_non_match_is_still_not_proposable():
 # ---------------------------------------------------------------------------
 # max_gap — the only signal that catches a reassigned ticker
 # ---------------------------------------------------------------------------
+
 
 def test_a_long_hole_is_found_with_the_date_it_ends():
     """
@@ -520,8 +540,10 @@ def test_a_collapse_from_placeholder_bars_is_noise():
     print. A ratio of two near-zero numbers says nothing.
     """
     days = trading_days(date(2019, 1, 2), 60)
-    junk = [(d, 35.0, 3000.0 if i < 30 and i % 2 else (20.0 if i >= 30 else 0.0))
-            for i, d in enumerate(days)]
+    junk = [
+        (d, 35.0, 3000.0 if i < 30 and i % 2 else (20.0 if i >= 30 else 0.0))
+        for i, d in enumerate(days)
+    ]
     assert detect(junk) is None
 
 

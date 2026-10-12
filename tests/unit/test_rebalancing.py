@@ -17,6 +17,7 @@ from alpha_models.rebalancing import rebalance_dates
 # Timezone
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("tz", [None, "UTC", "America/New_York"])
 def test_returned_dates_are_always_present_in_the_input_index(tz):
     """
@@ -38,13 +39,14 @@ def test_returned_dates_are_always_present_in_the_input_index(tz):
 # Completed periods only
 # ---------------------------------------------------------------------------
 
+
 def test_the_final_incomplete_period_is_excluded():
     """
     Nothing in the data says whether the last period finished or the file just
     stopped. Including it made the schedule depend on where the data ended — a
     frame ending 13 January put a 'monthly' rebalance on the 13th.
     """
-    index = pd.bdate_range("2022-01-03", "2022-03-15")   # March is partial
+    index = pd.bdate_range("2022-01-03", "2022-03-15")  # March is partial
     dates = rebalance_dates(index, "ME")
 
     assert [d.date().isoformat() for d in dates] == ["2022-01-31", "2022-02-28"]
@@ -72,6 +74,7 @@ def test_a_single_period_of_data_yields_no_rebalance():
 # Period-end dates that are not trading days
 # ---------------------------------------------------------------------------
 
+
 def test_month_ends_falling_on_a_weekend_still_rebalance():
     """
     The bug this module exists to avoid, and which basket_trading still has:
@@ -96,9 +99,8 @@ def test_month_ends_falling_on_a_weekend_still_rebalance():
 # Frequencies
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize(
-    "frequency,expected", [("ME", 11), ("QE", 3), ("W", 51)]
-)
+
+@pytest.mark.parametrize("frequency,expected", [("ME", 11), ("QE", 3), ("W", 51)])
 def test_supported_frequencies(frequency, expected):
     index = pd.bdate_range("2022-01-03", "2022-12-30")
     assert len(rebalance_dates(index, frequency)) == expected

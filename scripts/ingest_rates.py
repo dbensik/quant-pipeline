@@ -43,8 +43,13 @@ async def run(args: argparse.Namespace) -> int:
             logger.info(
                 "%s as of %s: observation %s, quoted %.3f%% (discount), "
                 "continuous %.4f%%, bond-equivalent %.4f%%, %d day(s) old%s",
-                rate.series, rate.as_of, rate.obs_date, rate.quoted_pct,
-                rate.continuous * 100, rate.bond_equivalent * 100, rate.age_days,
+                rate.series,
+                rate.as_of,
+                rate.obs_date,
+                rate.quoted_pct,
+                rate.continuous * 100,
+                rate.bond_equivalent * 100,
+                rate.age_days,
                 " — STALE" if rate.stale else "",
             )
             return 0
@@ -55,17 +60,27 @@ async def run(args: argparse.Namespace) -> int:
             return 1
     logger.info(
         "%s: requested %s..%s (exclusive), %d observation(s) served, %d new; newest stored %s",
-        report.series, report.start, report.end_exclusive, report.fetched,
-        report.inserted, report.newest,
+        report.series,
+        report.start,
+        report.end_exclusive,
+        report.fetched,
+        report.inserted,
+        report.newest,
     )
     return 0
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("--series", default=RISK_FREE_RATE_SERIES)
-    parser.add_argument("--start", type=date.fromisoformat, help="Fetch from this date; insert-only")
-    parser.add_argument("--as-of", type=date.fromisoformat, help="Print the rate for this date; writes nothing")
+    parser.add_argument(
+        "--start", type=date.fromisoformat, help="Fetch from this date; insert-only"
+    )
+    parser.add_argument(
+        "--as-of", type=date.fromisoformat, help="Print the rate for this date; writes nothing"
+    )
     args = parser.parse_args()
     try:
         return asyncio.run(run(args))

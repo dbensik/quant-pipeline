@@ -61,9 +61,7 @@ class CryptoPipeline:
             A pandas DataFrame with enriched historical data for all tickers.
             The 'Ticker' column will contain the Yahoo Finance format (e.g., 'BTC-USD').
         """
-        logger.info(
-            f"Starting batch fetch for {len(self.yahoo_tickers)} crypto tickers..."
-        )
+        logger.info(f"Starting batch fetch for {len(self.yahoo_tickers)} crypto tickers...")
 
         # --- 1. Fetch Raw Crypto Data ---
         try:
@@ -118,9 +116,7 @@ class CryptoPipeline:
         # Final cleanup and column selection
         final_df = enriched_df.reset_index()
 
-        existing_cols = [
-            col for col in DB_PRICE_DATA_COLUMNS if col in final_df.columns
-        ]
+        existing_cols = [col for col in DB_PRICE_DATA_COLUMNS if col in final_df.columns]
 
         logger.info(
             f"✅ Successfully fetched and enriched data for {final_df['Ticker'].nunique()} crypto tickers."

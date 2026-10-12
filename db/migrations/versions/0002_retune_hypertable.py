@@ -87,7 +87,8 @@ def _rebuild(chunk_interval: str, space_partitions: int | None) -> None:
         "market_data_rebuild",
         *_market_data_columns(),
         sa.ForeignKeyConstraint(
-            ["asset_id"], ["assets.id"],
+            ["asset_id"],
+            ["assets.id"],
             name="fk_market_data_rebuild_asset_id_assets",
             ondelete="CASCADE",
         ),
@@ -132,9 +133,7 @@ def _rebuild(chunk_interval: str, space_partitions: int | None) -> None:
 
     # Renaming the table does not rename its constraints — restore canonical names
     # so a later autogenerate diff stays quiet.
-    op.execute(
-        "ALTER TABLE market_data RENAME CONSTRAINT pk_market_data_rebuild TO pk_market_data"
-    )
+    op.execute("ALTER TABLE market_data RENAME CONSTRAINT pk_market_data_rebuild TO pk_market_data")
     op.execute(
         "ALTER TABLE market_data "
         "RENAME CONSTRAINT fk_market_data_rebuild_asset_id_assets "
@@ -142,10 +141,7 @@ def _rebuild(chunk_interval: str, space_partitions: int | None) -> None:
     )
     # create_hypertable named its default time index after the scratch table;
     # rename it so chunks don't inherit "..._rebuild_time_idx" forever.
-    op.execute(
-        "ALTER INDEX IF EXISTS market_data_rebuild_time_idx "
-        "RENAME TO market_data_time_idx"
-    )
+    op.execute("ALTER INDEX IF EXISTS market_data_rebuild_time_idx RENAME TO market_data_time_idx")
 
 
 def upgrade() -> None:
@@ -160,8 +156,7 @@ def upgrade() -> None:
     # (~39k scanned per 90-day chunk to return ~63). Created on the hypertable
     # parent so TimescaleDB propagates it to all current and future chunks.
     op.execute(
-        "CREATE INDEX IF NOT EXISTS ix_market_data_asset_time "
-        "ON market_data (asset_id, time DESC)"
+        "CREATE INDEX IF NOT EXISTS ix_market_data_asset_time ON market_data (asset_id, time DESC)"
     )
 
 

@@ -48,24 +48,41 @@ LINE_ITEMS: Dict[str, Tuple[str, ...]] = {
     # durations
     # IncludingAssessedTax: KHC and SJM file revenue only under it (KHC's
     # latest revenue on the list was 2014, so its growth was terminal growth).
-    "revenue": ("RevenueFromContractWithCustomerExcludingAssessedTax", "RevenueFromContractWithCustomerIncludingAssessedTax",
-                "Revenues", "SalesRevenueNet"),
+    "revenue": (
+        "RevenueFromContractWithCustomerExcludingAssessedTax",
+        "RevenueFromContractWithCustomerIncludingAssessedTax",
+        "Revenues",
+        "SalesRevenueNet",
+    ),
     "cost_of_revenue": ("CostOfGoodsAndServicesSold",),
     "operating_income": ("OperatingIncomeLoss",),
-    "pretax_income": ("IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",),
+    "pretax_income": (
+        "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
+    ),
     "income_tax": ("IncomeTaxExpenseBenefit",),
-    "interest_expense": ("InterestExpense", "InterestExpenseNonoperating", "InterestExpenseDebt", "InterestAndDebtExpense"),
+    "interest_expense": (
+        "InterestExpense",
+        "InterestExpenseNonoperating",
+        "InterestExpenseDebt",
+        "InterestAndDebtExpense",
+    ),
     #: Cash interest paid: a PROXY for expense, used only when none is reported.
     "interest_paid": ("InterestPaidNet", "InterestPaid"),
     "net_income": ("NetIncomeLoss",),
-    "d_and_a": ("DepreciationDepletionAndAmortization", "DepreciationAmortizationAndAccretionNet",
-                "DepreciationAndAmortization"),
+    "d_and_a": (
+        "DepreciationDepletionAndAmortization",
+        "DepreciationAmortizationAndAccretionNet",
+        "DepreciationAndAmortization",
+    ),
     #: The two halves, for the 77 of 104 filers without a D&A total that tag
     #: Depreciation (MSFT among them); summed per period in valuation.py.
     "depreciation": ("Depreciation",),
     "amortization_intangibles": ("AmortizationOfIntangibleAssets",),
     "share_based_comp": ("ShareBasedCompensation",),
-    "cfo": ("NetCashProvidedByUsedInOperatingActivities", "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"),
+    "cfo": (
+        "NetCashProvidedByUsedInOperatingActivities",
+        "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations",
+    ),
     "capex": (
         "PaymentsToAcquirePropertyPlantAndEquipment",
         "PaymentsToAcquireProductiveAssets",
@@ -75,16 +92,28 @@ LINE_ITEMS: Dict[str, Tuple[str, ...]] = {
     ),
     "diluted_shares": ("WeightedAverageNumberOfDilutedSharesOutstanding",),
     # instants
-    "cash": ("CashAndCashEquivalentsAtCarryingValue", "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"),
+    "cash": (
+        "CashAndCashEquivalentsAtCarryingValue",
+        "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
+    ),
     "securities_current": ("MarketableSecuritiesCurrent",),
     "securities_noncurrent": ("MarketableSecuritiesNoncurrent",),
     # Debt, in three shapes (see `debt`). The *AndCapitalLeaseObligations
     # variants include finance leases; 67 of the 97 non-financial filers that
     # pay interest but tagged no current LongTermDebt[Noncurrent] use them
     # (census 2026-10-11): CMCSA's whole $90B is DebtAndCapitalLeaseObligations.
-    "long_term_debt": ("LongTermDebt", "LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities"),
-    "long_term_debt_noncurrent": ("LongTermDebtNoncurrent", "LongTermDebtAndCapitalLeaseObligations"),
-    "long_term_debt_current": ("LongTermDebtCurrent", "LongTermDebtAndCapitalLeaseObligationsCurrent"),
+    "long_term_debt": (
+        "LongTermDebt",
+        "LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities",
+    ),
+    "long_term_debt_noncurrent": (
+        "LongTermDebtNoncurrent",
+        "LongTermDebtAndCapitalLeaseObligations",
+    ),
+    "long_term_debt_current": (
+        "LongTermDebtCurrent",
+        "LongTermDebtAndCapitalLeaseObligationsCurrent",
+    ),
     #: Long AND short term in one figure.
     "debt_combined": ("DebtLongtermAndShorttermCombinedAmount", "DebtAndCapitalLeaseObligations"),
     #: All current debt: current maturities, short-term borrowings and paper.
@@ -94,9 +123,20 @@ LINE_ITEMS: Dict[str, Tuple[str, ...]] = {
     "equity": ("StockholdersEquity",),
     "shares_outstanding": ("EntityCommonStockSharesOutstanding",),
 }
-INSTANTS = {"cash", "securities_current", "securities_noncurrent", "long_term_debt", "long_term_debt_noncurrent",
-            "long_term_debt_current", "debt_combined", "debt_current", "short_term_borrowings",
-            "commercial_paper", "equity", "shares_outstanding"}
+INSTANTS = {
+    "cash",
+    "securities_current",
+    "securities_noncurrent",
+    "long_term_debt",
+    "long_term_debt_noncurrent",
+    "long_term_debt_current",
+    "debt_combined",
+    "debt_current",
+    "short_term_borrowings",
+    "commercial_paper",
+    "equity",
+    "shares_outstanding",
+}
 SHARE_ITEMS = {"diluted_shares", "shares_outstanding"}
 ANNUAL_DAYS = (350, 380)
 QUARTER_DAYS = (80, 100)
@@ -130,7 +170,9 @@ class Statements:
                 factor *= ratio
         return f.value * factor
 
-    def _periods(self, item: str, as_of: date, span: Optional[Tuple[int, int]]) -> Dict[Tuple, Value]:
+    def _periods(
+        self, item: str, as_of: date, span: Optional[Tuple[int, int]]
+    ) -> Dict[Tuple, Value]:
         """{(start, end): Value} — per period, first concept with a visible row, latest filed."""
         out: Dict[Tuple, Value] = {}
         for concept in LINE_ITEMS[item]:
@@ -148,14 +190,20 @@ class Statements:
                     if not span[0] <= days <= span[1]:
                         continue
                 key = (f.period_start, f.period_end)
-                if key not in best or f.filed > best[key].filed or (f.filed == best[key].filed and f.accn > best[key].accn):
+                if (
+                    key not in best
+                    or f.filed > best[key].filed
+                    or (f.filed == best[key].filed and f.accn > best[key].accn)
+                ):
                     best[key] = f
             for key, f in best.items():
                 if key in out:
                     continue  # a higher-priority concept already covers this period
                 if span is not None and any(k[1] == key[1] for k in out):
                     continue  # same period end from a higher-priority concept, slightly different start
-                out[key] = Value(f.period_start, f.period_end, self._scale(item, f, as_of), f.concept, f.filed)
+                out[key] = Value(
+                    f.period_start, f.period_end, self._scale(item, f, as_of), f.concept, f.filed
+                )
         return out
 
     # -- public ------------------------------------------------------------
@@ -170,12 +218,24 @@ class Statements:
         if item in SHARE_ITEMS:
             return sorted(out, key=lambda v: v.period_end)  # averages do not subtract
         for fy in self.annual(item, as_of):
-            inside = [q for q in quarters.values() if q.period_start >= fy.period_start and q.period_end <= fy.period_end]
+            inside = [
+                q
+                for q in quarters.values()
+                if q.period_start >= fy.period_start and q.period_end <= fy.period_end
+            ]
             if len(inside) != 3 or any(q.period_end == fy.period_end for q in quarters.values()):
                 continue
             last = max(q.period_end for q in inside)
-            out.append(Value(date.fromordinal(last.toordinal() + 1), fy.period_end,
-                             fy.value - sum(q.value for q in inside), fy.concept, fy.filed, derived=True))
+            out.append(
+                Value(
+                    date.fromordinal(last.toordinal() + 1),
+                    fy.period_end,
+                    fy.value - sum(q.value for q in inside),
+                    fy.concept,
+                    fy.filed,
+                    derived=True,
+                )
+            )
         return sorted(out, key=lambda v: v.period_end)
 
     def _ttm_quarters(self, item: str, as_of: date) -> Optional[Tuple[float, List[Value]]]:
@@ -194,12 +254,20 @@ class Statements:
             return None
         fy = annual[-1]
         ytd = list(self._periods(item, as_of, (80, 300)).values())
-        current = [v for v in ytd if v.period_start is not None and (v.period_start - fy.period_end).days in (0, 1)]
+        current = [
+            v
+            for v in ytd
+            if v.period_start is not None and (v.period_start - fy.period_end).days in (0, 1)
+        ]
         if not current:
             return None
         cur = max(current, key=lambda v: v.period_end)
         target = cur.period_end.toordinal() - 364
-        prior = [v for v in ytd if v.period_start == fy.period_start and abs(v.period_end.toordinal() - target) <= 7]
+        prior = [
+            v
+            for v in ytd
+            if v.period_start == fy.period_start and abs(v.period_end.toordinal() - target) <= 7
+        ]
         if not prior:
             return None
         pri = prior[0]
@@ -211,7 +279,11 @@ class Statements:
         contiguous quarters, or FY + YTD - prior YTD, whichever ends later.
         The last Value in the list is the period the TTM ends with.
         """
-        options = [o for o in (self._ttm_quarters(item, as_of), self._ttm_ytd(item, as_of)) if o is not None]
+        options = [
+            o
+            for o in (self._ttm_quarters(item, as_of), self._ttm_ytd(item, as_of))
+            if o is not None
+        ]
         if not options:
             return None
         return max(options, key=lambda o: o[1][-1].period_end)
@@ -226,7 +298,12 @@ class Statements:
     def at_period(self, item: str, period_end: date, as_of: date) -> Optional[Value]:
         """One period's value as known at `as_of` (an instant, or an annual or quarterly duration)."""
         spans = (None,) if item in INSTANTS else (ANNUAL_DAYS, QUARTER_DAYS)
-        candidates = [v for sp in spans for v in self._periods(item, as_of, sp).values() if v.period_end == period_end]
+        candidates = [
+            v
+            for sp in spans
+            for v in self._periods(item, as_of, sp).values()
+            if v.period_end == period_end
+        ]
         return max(candidates, key=lambda v: v.period_start or date.min) if candidates else None
 
     # -- derived -------------------------------------------------------------
@@ -252,8 +329,11 @@ class Statements:
         2015-10-02 ($1.1B) and now tags the capital-lease variants ($6.0B);
         VZ's combined figure is a year older than its noncurrent + current.
         """
+
         def short(end: date) -> Tuple[float, List[Value]]:
-            v = self._instant_at("short_term_borrowings", end, as_of) or self._instant_at("commercial_paper", end, as_of)
+            v = self._instant_at("short_term_borrowings", end, as_of) or self._instant_at(
+                "commercial_paper", end, as_of
+            )
             return (v.value, [v]) if v else (0.0, [])
 
         options: List[Tuple[date, int, float, List[Value]]] = []
@@ -282,7 +362,9 @@ class Statements:
         # finance leases beside $4.5B LongTermDebt), and no shape can exceed the
         # whole. Each shape is formed alone, so taking the largest double-counts nothing.
         end, _, value, parts = max(options, key=lambda o: (o[0], o[2], -o[1]))
-        return Value(None, end, value, " + ".join(p.concept for p in parts), max(p.filed for p in parts))
+        return Value(
+            None, end, value, " + ".join(p.concept for p in parts), max(p.filed for p in parts)
+        )
 
     def total_debt(self, as_of: date) -> Optional[float]:
         d = self.debt(as_of)

@@ -51,16 +51,12 @@ class PerformanceAnalyzer:
 
         # --- Time-Based Metrics ---
         days = (self.portfolio_value.index[-1] - self.portfolio_value.index[0]).days
-        annualized_return = (
-            (1 + total_return) ** (365.0 / days) - 1 if days > 0 else 0.0
-        )
+        annualized_return = (1 + total_return) ** (365.0 / days) - 1 if days > 0 else 0.0
 
         # --- Risk & Risk-Adjusted Return Metrics ---
         annualized_volatility = self.returns.std() * np.sqrt(252)
         sharpe_ratio = (
-            annualized_return / annualized_volatility
-            if annualized_volatility != 0
-            else 0.0
+            annualized_return / annualized_volatility if annualized_volatility != 0 else 0.0
         )
 
         downside_returns = self.returns[self.returns < 0]
@@ -70,9 +66,7 @@ class PerformanceAnalyzer:
         _series, max_drawdown, max_drawdown_duration = self._calculate_drawdowns()
 
         # --- Calmar Ratio ---
-        calmar_ratio = (
-            annualized_return / abs(max_drawdown) if max_drawdown != 0 else 0.0
-        )
+        calmar_ratio = annualized_return / abs(max_drawdown) if max_drawdown != 0 else 0.0
 
         return {
             "Final Value": final_value,
@@ -135,17 +129,11 @@ class PerformanceAnalyzer:
             return np.expm1(np.log1p(x).sum())
 
         if period == "weekly":
-            return self.returns.groupby(self.returns.index.to_period("W")).apply(
-                cumulate_returns
-            )
+            return self.returns.groupby(self.returns.index.to_period("W")).apply(cumulate_returns)
         elif period == "monthly":
-            return self.returns.groupby(self.returns.index.to_period("M")).apply(
-                cumulate_returns
-            )
+            return self.returns.groupby(self.returns.index.to_period("M")).apply(cumulate_returns)
         elif period == "yearly":
-            return self.returns.groupby(self.returns.index.to_period("Y")).apply(
-                cumulate_returns
-            )
+            return self.returns.groupby(self.returns.index.to_period("Y")).apply(cumulate_returns)
         else:
             raise ValueError("Period must be one of 'weekly', 'monthly', or 'yearly'")
 

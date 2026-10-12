@@ -107,7 +107,7 @@ def run_migrations_online() -> None:
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
-        poolclass=pool.NullPool,    # single-use connection — no pooling during migrations
+        poolclass=pool.NullPool,  # single-use connection — no pooling during migrations
     )
     with connectable.connect() as connection:
         context.configure(

@@ -55,9 +55,7 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "index_name", "as_of", "symbol", name="uq_reconstructed_member"
-        ),
+        sa.UniqueConstraint("index_name", "as_of", "symbol", name="uq_reconstructed_member"),
     )
 
 

@@ -127,9 +127,7 @@ async def longest_hole(session, symbol: str) -> tuple[int, Optional[date]]:
 async def flagged_symbols(session) -> set[str]:
     """Symbols already marked unresolved. The provider may still serve bars
     under these keys, but they are not this instrument's bars."""
-    rows = await session.execute(
-        select(AssetORM.symbol).where(AssetORM.delisted_at.is_not(None))
-    )
+    rows = await session.execute(select(AssetORM.symbol).where(AssetORM.delisted_at.is_not(None)))
     return set(rows.scalars())
 
 
@@ -188,10 +186,7 @@ async def main(argv: list[str] | None = None) -> int:
         rows = await membership_rows(session, args.index)
         churn = index_churn(rows)
         registry = {
-            normalize_symbol(s)
-            for s in (
-                await session.execute(select(AssetORM.symbol))
-            ).scalars()
+            normalize_symbol(s) for s in (await session.execute(select(AssetORM.symbol))).scalars()
         }
         #: Names that joined the index, plus any current member we have never
         #: registered. The second half catches a successor that arrived before
@@ -251,9 +246,7 @@ async def main(argv: list[str] | None = None) -> int:
             # the exact corruption just removed. "Provider is ahead of us" only
             # means "we are behind" for a symbol still trading as itself.
             live = (
-                {}
-                if symbol in flagged
-                else fetch_closes(symbol, max(stored) - timedelta(days=5))
+                {} if symbol in flagged else fetch_closes(symbol, max(stored) - timedelta(days=5))
             )
             if live and max(live) > max(stored):
                 # "The provider is ahead of us" is only an ingest gap if the
@@ -267,15 +260,19 @@ async def main(argv: list[str] | None = None) -> int:
                 print(f"--- {symbol} (last bar {max(stored)}) ---")
                 if hole > MAX_CONTINUOUS_HOLE:
                     suspect.append((symbol, hole, at))
-                    print(f"    provider has bars through {max(live)}, BUT this "
-                          f"series has a {hole}-day hole ending {at}. Bars after "
-                          "a hole that long may belong to a DIFFERENT instrument "
-                          "that inherited the ticker. Do not re-ingest blindly — "
-                          "compare the pre-hole segment against a candidate.\n")
+                    print(
+                        f"    provider has bars through {max(live)}, BUT this "
+                        f"series has a {hole}-day hole ending {at}. Bars after "
+                        "a hole that long may belong to a DIFFERENT instrument "
+                        "that inherited the ticker. Do not re-ingest blindly — "
+                        "compare the pre-hole segment against a candidate.\n"
+                    )
                 else:
                     gaps.append((symbol, max(stored), max(live)))
-                    print(f"    provider has bars through {max(live)} — INGEST "
-                          "GAP, not a corporate action. Re-ingest this symbol.\n")
+                    print(
+                        f"    provider has bars through {max(live)} — INGEST "
+                        "GAP, not a corporate action. Re-ingest this symbol.\n"
+                    )
                 continue
             # Bars a provider serves under a dead ticker after the event are
             # the SUCCESSOR's prices, not this symbol's. Cut at the day it
@@ -284,8 +281,11 @@ async def main(argv: list[str] | None = None) -> int:
             scored = rank_successors(symbol, stored, candidate_closes, before=cutoff)
             hit = next((e for e in scored if e.proposable), None)
 
-            print(f"--- {symbol} (last bar {max(stored)})"
-                  + (f", left {args.index} {cutoff}" if cutoff else "") + " ---")
+            print(
+                f"--- {symbol} (last bar {max(stored)})"
+                + (f", left {args.index} {cutoff}" if cutoff else "")
+                + " ---"
+            )
             for evidence in scored[:3]:
                 print("    " + evidence.describe())
             if hit:
@@ -297,9 +297,11 @@ async def main(argv: list[str] | None = None) -> int:
                 # window full of the successor's prices scores 1.000000/0.0
                 # whether the company was renamed or acquired outright.
                 unverified.append((symbol, near))
-                print(f"    => {near.candidate} matches, but UNVERIFIED: no "
-                      "index-exit date, so post-event bars were not trimmed. "
-                      "Establish the event date before acting.")
+                print(
+                    f"    => {near.candidate} matches, but UNVERIFIED: no "
+                    "index-exit date, so post-event bars were not trimmed. "
+                    "Establish the event date before acting."
+                )
             else:
                 orphans.append(symbol)
                 print("    => no successor found; consistent with a real delisting")
@@ -307,24 +309,34 @@ async def main(argv: list[str] | None = None) -> int:
 
         print("=" * 72)
         for symbol, hole, at in suspect:
-            print(f"SUSPECT  {symbol}   {hole}-day hole ending {at}; bars after it "
-                  "may be another instrument — verify before re-ingesting")
+            print(
+                f"SUSPECT  {symbol}   {hole}-day hole ending {at}; bars after it "
+                "may be another instrument — verify before re-ingesting"
+            )
         for symbol, stored_end, live_end in gaps:
-            print(f"GAP      {symbol}   stored to {stored_end}, provider to "
-                  f"{live_end} — re-ingest, no corporate action")
+            print(
+                f"GAP      {symbol}   stored to {stored_end}, provider to "
+                f"{live_end} — re-ingest, no corporate action"
+            )
         for symbol, hit in renames:
-            print(f"RENAME   {symbol} -> {hit.candidate}   "
-                  f"(ratio {hit.ratio:.6f}, spread {hit.spread:.2e})")
+            print(
+                f"RENAME   {symbol} -> {hit.candidate}   "
+                f"(ratio {hit.ratio:.6f}, spread {hit.spread:.2e})"
+            )
         for symbol, near in unverified:
-            print(f"UNVERIFIED {symbol} -> {near.candidate}   "
-                  f"(ratio {near.ratio:.6f}, spread {near.spread:.2e}) — no event "
-                  "date; an acquisition scores identically. Do not act on this alone")
+            print(
+                f"UNVERIFIED {symbol} -> {near.candidate}   "
+                f"(ratio {near.ratio:.6f}, spread {near.spread:.2e}) — no event "
+                "date; an acquisition scores identically. Do not act on this alone"
+            )
         for symbol in orphans:
             print(f"NO MATCH {symbol}   leave flagged, or confirm against a filing")
         if too_old:
-            print(f"\nNot testable ({len(too_old)}): no bars within "
-                  f"{LOOKBACK.days} days, so no series overlaps a candidate — "
-                  f"{', '.join(too_old)}")
+            print(
+                f"\nNot testable ({len(too_old)}): no bars within "
+                f"{LOOKBACK.days} days, so no series overlaps a candidate — "
+                f"{', '.join(too_old)}"
+            )
         if renames:
             print(
                 "\nNothing was written. To act on a rename, rename the asset row "

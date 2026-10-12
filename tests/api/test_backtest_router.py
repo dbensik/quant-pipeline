@@ -18,9 +18,11 @@ def run(client: TestClient, **overrides):
 # Happy path
 # ---------------------------------------------------------------------------
 
+
 def test_returns_metrics_equity_curve_and_trades(client: TestClient):
-    body = run(client, strategy_id="ma_crossover",
-               params={"short_window": 10, "long_window": 30}).json()
+    body = run(
+        client, strategy_id="ma_crossover", params={"short_window": 10, "long_window": 30}
+    ).json()
     assert body["symbol"] == "AAPL"
     assert body["strategy_name"] == "Moving Average Crossover"
     assert body["bars"] > 0
@@ -45,8 +47,7 @@ def test_trade_count_metric_matches_the_trade_log(client: TestClient):
     passed even with the bug reintroduced. The non-zero assertion below is what
     stops that recurring.
     """
-    body = run(client, strategy_id="mean_reversion",
-               params={"window": 10, "threshold": 0.5}).json()
+    body = run(client, strategy_id="mean_reversion", params={"window": 10, "threshold": 0.5}).json()
     assert len(body["trades"]) > 0, "fixture must produce trades or this proves nothing"
     assert body["metrics"]["Trade Count"] == len(body["trades"])
 
@@ -70,14 +71,16 @@ def test_metrics_only_response_omits_curve_and_trades(client: TestClient):
 
 
 def test_unsound_strategy_returns_its_caveat(client: TestClient):
-    body = run(client, strategy_id="ml_random_forest",
-               params={"n_estimators": 5, "lookback_window": 3}).json()
+    body = run(
+        client, strategy_id="ml_random_forest", params={"n_estimators": 5, "lookback_window": 3}
+    ).json()
     assert body["caveat"] and "look-ahead" in body["caveat"].lower()
 
 
 # ---------------------------------------------------------------------------
 # Determinism
 # ---------------------------------------------------------------------------
+
 
 def test_same_seed_gives_identical_results(client: TestClient):
     """
@@ -107,9 +110,9 @@ def test_seed_defaults_to_42_so_repeat_requests_agree(client: TestClient):
 def test_different_seeds_can_differ(client: TestClient):
     """Seeding must not accidentally make slippage constant."""
     finals = {
-        run(client, strategy_id="mean_reversion",
-            params={"window": 10, "threshold": 0.5}, seed=seed)
-        .json()["metrics"]["Final Value"]
+        run(
+            client, strategy_id="mean_reversion", params={"window": 10, "threshold": 0.5}, seed=seed
+        ).json()["metrics"]["Final Value"]
         for seed in (1, 2, 3, 4, 5)
     }
     assert len(finals) > 1
@@ -118,6 +121,7 @@ def test_different_seeds_can_differ(client: TestClient):
 # ---------------------------------------------------------------------------
 # Error paths
 # ---------------------------------------------------------------------------
+
 
 def test_unknown_symbol_is_404(client: TestClient):
     assert run(client, symbol="NOPE").status_code == 404
@@ -146,8 +150,9 @@ def test_unknown_param_name_is_rejected_not_ignored(client: TestClient):
 
 def test_strategy_self_validation_surfaces_as_422(client: TestClient):
     """Strategies raise ValueError for impossible parameters — a client error."""
-    response = run(client, strategy_id="ma_crossover",
-                   params={"short_window": 100, "long_window": 50})
+    response = run(
+        client, strategy_id="ma_crossover", params={"short_window": 100, "long_window": 50}
+    )
     assert response.status_code == 422
     assert "smaller than the long window" in response.json()["detail"]
 

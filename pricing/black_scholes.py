@@ -136,6 +136,7 @@ def greeks(S, K, T, r, q, sigma, right: Right = "call") -> Greeks:
 # Implied volatility
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class ImpliedVol:
     sigma: float
@@ -197,6 +198,7 @@ def implied_vol(
         return ImpliedVol(np.nan, "at_or_above_upper_bound")
 
     if style == "european":
+
         def model(sig: float) -> float:
             return price(S, K, T, r, q, sig, right)
     else:
@@ -222,7 +224,9 @@ def implied_vol(
     return ImpliedVol(float(sigma), None)
 
 
-def implied_vol_black76_many(prices, F, K, T, r: float, is_call, bounds: tuple = OPTIONS_IV_BOUNDS, iterations: int = 80):
+def implied_vol_black76_many(
+    prices, F, K, T, r: float, is_call, bounds: tuple = OPTIONS_IV_BOUNDS, iterations: int = 80
+):
     """
     Vectorised Black-76 implied vol by bisection: monotone, so it cannot
     diverge, and 80 halvings of OPTIONS_IV_BOUNDS reach float precision.

@@ -68,6 +68,7 @@ SOURCE = "yfinance"
 # Conversions (pure)
 # ---------------------------------------------------------------------------
 
+
 def discount_price(discount_pct: float, days: int = RISK_FREE_RATE_TENOR_DAYS) -> float:
     """Price per unit face of a bill quoted at `discount_pct` (bank discount)."""
     return 1.0 - (discount_pct / 100.0) * days / 360.0
@@ -86,21 +87,22 @@ def discount_to_bond_equivalent(
     return 365.0 * d / (360.0 - d * days)
 
 
-def discount_to_continuous(
-    discount_pct: float, days: int = RISK_FREE_RATE_TENOR_DAYS
-) -> float:
+def discount_to_continuous(discount_pct: float, days: int = RISK_FREE_RATE_TENOR_DAYS) -> float:
     """Continuously compounded annual rate, as a decimal, ACT/365."""
     if days <= 0:
         raise ValueError(f"days must be positive; got {days}")
     price = discount_price(discount_pct, days)
     if price <= 0:
-        raise ValueError(f"a discount of {discount_pct}% over {days} days prices the bill at {price}")
+        raise ValueError(
+            f"a discount of {discount_pct}% over {days} days prices the bill at {price}"
+        )
     return -math.log(price) * 365.0 / days
 
 
 # ---------------------------------------------------------------------------
 # Domain objects
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class RateObservation:
@@ -156,16 +158,15 @@ def risk_free_from_observation(
 # Repository protocol (db/repositories/rates.py implements it; tests fake it)
 # ---------------------------------------------------------------------------
 
+
 class RateRepository(Protocol):
     async def insert(self, observations: List[RateObservation]) -> int:
         """Insert rows not already stored; return how many were new."""
         ...
 
-    async def newest_date(self, series: str) -> Optional[date]:
-        ...
+    async def newest_date(self, series: str) -> Optional[date]: ...
 
-    async def latest_on_or_before(self, series: str, as_of: date) -> Optional[RateObservation]:
-        ...
+    async def latest_on_or_before(self, series: str, as_of: date) -> Optional[RateObservation]: ...
 
 
 async def risk_free_rate(
@@ -188,7 +189,9 @@ async def risk_free_rate(
 RateFetcher = Callable[[str, date, date], List[Tuple[date, float]]]
 
 
-def yfinance_rate_fetcher(series: str, start: date, end_exclusive: date) -> List[Tuple[date, float]]:
+def yfinance_rate_fetcher(
+    series: str, start: date, end_exclusive: date
+) -> List[Tuple[date, float]]:
     """Daily closes from Yahoo, as served. `end_exclusive` is not returned."""
     import yfinance as yf
 

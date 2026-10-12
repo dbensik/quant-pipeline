@@ -60,6 +60,7 @@ def inputs(archive_dir):
 
 # --- the key ----------------------------------------------------------------
 
+
 @pytest.mark.parametrize(
     "change",
     [
@@ -91,7 +92,10 @@ def test_fingerprint_follows_the_pricing_source(tmp_path):
     assert pricing_fingerprint(tmp_path) != before
 
 
-@pytest.mark.parametrize("name,value", [("BINOMIAL_STEPS", 400), ("OPTIONS_MIN_BID", 0.05), ("OPTIONS_DIVIDEND_HORIZON_DAYS", 400)])
+@pytest.mark.parametrize(
+    "name,value",
+    [("BINOMIAL_STEPS", 400), ("OPTIONS_MIN_BID", 0.05), ("OPTIONS_DIVIDEND_HORIZON_DAYS", 400)],
+)
 def test_fingerprint_follows_the_pricing_settings(monkeypatch, name, value):
     before = pricing_fingerprint()
     monkeypatch.setattr(settings, name, value)
@@ -99,6 +103,7 @@ def test_fingerprint_follows_the_pricing_settings(monkeypatch, name, value):
 
 
 # --- the cache ----------------------------------------------------------------
+
 
 async def _sync(fn):
     return fn()
@@ -127,6 +132,7 @@ async def test_a_new_key_recomputes_and_overwrites_the_one_file(tmp_path, inputs
         def compute():
             calls.append(inp.key())
             return {"key": inp.key()}
+
         return compute
 
     await cache.get_or_compute(inputs, make(inputs), _sync)
@@ -160,11 +166,14 @@ def test_the_cache_refuses_to_write_invalid_json(tmp_path):
 
 
 def test_json_safe():
-    out = json_safe({"a": np.float64("nan"), "b": [np.int64(3), float("inf")], "c": date(2026, 1, 2)})
+    out = json_safe(
+        {"a": np.float64("nan"), "b": [np.int64(3), float("inf")], "c": date(2026, 1, 2)}
+    )
     assert out == {"a": None, "b": [3, None], "c": "2026-01-02"}
 
 
 # --- the archive -----------------------------------------------------------------
+
 
 def test_archive_lists_captures_and_serves_only_complete_ones(archive_dir):
     archive = ChainArchive(archive_dir)
@@ -180,6 +189,7 @@ def test_archive_lists_captures_and_serves_only_complete_ones(archive_dir):
 
 # --- the payload -----------------------------------------------------------------
 
+
 def test_surface_payload_is_valid_json_with_nulls_for_nan(inputs):
     import pandas as pd
 
@@ -193,22 +203,36 @@ def test_surface_payload_is_valid_json_with_nulls_for_nan(inputs):
     assert payload["key"] == inputs.key()
     assert len(payload["term_structure"]) == 2
     assert sum(len(v) for v in payload["smiles"].values()) > 50
-    planted = [p for p in payload["smiles"]["2026-11-20"] if p["strike"] == frame.loc[top, "strike"] and p["is_call"]]
+    planted = [
+        p
+        for p in payload["smiles"]["2026-11-20"]
+        if p["strike"] == frame.loc[top, "strike"] and p["is_call"]
+    ]
     assert planted and planted[0]["vendor_iv"] is None
 
 
 # --- the cone: point in time -----------------------------------------------------
 
+
 class BarsRepo:
     def __init__(self, closes, start=datetime(2015, 1, 2, tzinfo=timezone.utc)):
         rng = np.random.default_rng(5)
-        self.asset = Asset(symbol="XYZ", asset_class="equity", source="yfinance", price_basis="served")
+        self.asset = Asset(
+            symbol="XYZ", asset_class="equity", source="yfinance", price_basis="served"
+        )
         self.records = []
         for i, c in enumerate(closes):
             o = c * np.exp(rng.normal(0, 0.003))
             hi, lo = max(o, c) * 1.004, min(o, c) * 0.996
-            ts = Timestamp(utc=datetime.fromordinal(start.toordinal() + i).replace(tzinfo=timezone.utc))
-            self.records.append(MarketDataRecord(asset=self.asset, ohlcv=OHLCV(open=o, high=hi, low=lo, close=c, volume=1.0, timestamp=ts)))
+            ts = Timestamp(
+                utc=datetime.fromordinal(start.toordinal() + i).replace(tzinfo=timezone.utc)
+            )
+            self.records.append(
+                MarketDataRecord(
+                    asset=self.asset,
+                    ohlcv=OHLCV(open=o, high=hi, low=lo, close=c, volume=1.0, timestamp=ts),
+                )
+            )
 
     async def find_asset(self, symbol, asset_class=None):
         return self.asset if symbol == "XYZ" else None

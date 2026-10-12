@@ -37,6 +37,7 @@ class FakeClock:
 # TTLCache
 # ---------------------------------------------------------------------------
 
+
 def test_cache_returns_a_stored_value():
     cache = TTLCache(ttl=60, clock=FakeClock())
     cache.set("k", "v")
@@ -141,8 +142,11 @@ def test_unparseable_time_becomes_none_not_epoch_zero():
 # Profile normalisation
 # ---------------------------------------------------------------------------
 
+
 def test_profile_selects_the_rendered_fields():
-    profile = normalise_profile("aapl", {"symbol": "AAPL", "longName": "Apple Inc.", "sector": "Tech"})
+    profile = normalise_profile(
+        "aapl", {"symbol": "AAPL", "longName": "Apple Inc.", "sector": "Tech"}
+    )
     assert profile["symbol"] == "AAPL"
     assert profile["long_name"] == "Apple Inc."
     assert profile["sector"] == "Tech"
@@ -165,6 +169,7 @@ def test_profile_falls_back_to_the_requested_symbol():
 # ---------------------------------------------------------------------------
 # Gateway — caching and failure, with the network seam stubbed
 # ---------------------------------------------------------------------------
+
 
 class StubTicker:
     def __init__(self, symbol, calls, fail=False, news=None, info=None):
@@ -259,10 +264,22 @@ def test_news_deduplicates_across_symbols():
 
 
 def test_news_is_newest_first():
-    older = {"content": {"id": "1", "title": "Older", "pubDate": "2026-01-01T00:00:00Z",
-                         "canonicalUrl": {"url": "https://x/1"}}}
-    newer = {"content": {"id": "2", "title": "Newer", "pubDate": "2026-08-01T00:00:00Z",
-                         "canonicalUrl": {"url": "https://x/2"}}}
+    older = {
+        "content": {
+            "id": "1",
+            "title": "Older",
+            "pubDate": "2026-01-01T00:00:00Z",
+            "canonicalUrl": {"url": "https://x/1"},
+        }
+    }
+    newer = {
+        "content": {
+            "id": "2",
+            "title": "Newer",
+            "pubDate": "2026-08-01T00:00:00Z",
+            "canonicalUrl": {"url": "https://x/2"},
+        }
+    }
     gw, _ = gateway(news=[older, newer])
     assert [i["title"] for i in gw.fetch_news(["AAPL"])] == ["Newer", "Older"]
 

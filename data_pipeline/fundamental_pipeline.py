@@ -61,9 +61,7 @@ class FundamentalPipeline:
                     "BookValue": info.get("bookValue"),
                 }
                 fundamental_data.append(data_point)
-                logger.debug(
-                    f"Successfully fetched fundamental data for {ticker_symbol}."
-                )
+                logger.debug(f"Successfully fetched fundamental data for {ticker_symbol}.")
 
             except Exception as e:
                 # Log a warning for individual failures but continue the loop
@@ -73,16 +71,12 @@ class FundamentalPipeline:
                 continue
 
         if not fundamental_data:
-            logger.warning(
-                "No fundamental data was successfully fetched. Aborting database write."
-            )
+            logger.warning("No fundamental data was successfully fetched. Aborting database write.")
             return
 
         # Convert to DataFrame and write to the database
         df = pd.DataFrame(fundamental_data)
-        logger.info(
-            f"Preparing to write fundamental data for {len(df)} tickers to the database."
-        )
+        logger.info(f"Preparing to write fundamental data for {len(df)} tickers to the database.")
 
         try:
             data_to_insert = list(df.itertuples(index=False, name=None))
@@ -101,9 +95,7 @@ class FundamentalPipeline:
                 """,
                     data_to_insert,
                 )
-            logger.info(
-                f"✅ Successfully wrote/updated fundamental data for {len(df)} tickers."
-            )
+            logger.info(f"✅ Successfully wrote/updated fundamental data for {len(df)} tickers.")
         except sqlite3.Error as e:
             # Log the full exception traceback for database errors
             logger.exception(f"❌ Failed to write fundamental data to database: {e}")

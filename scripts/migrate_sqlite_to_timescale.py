@@ -87,6 +87,7 @@ MAX_ROWS_PER_INSERT = MAX_BIND_PARAMS // COLUMNS_PER_ROW  # 4095
 # Asset classification
 # ---------------------------------------------------------------------------
 
+
 def classify_asset_class(ticker: str) -> str:
     """
     Derive asset_class for a legacy ticker.
@@ -134,6 +135,7 @@ def load_ticker_metadata(conn: sqlite3.Connection) -> Dict[str, dict]:
 # ---------------------------------------------------------------------------
 # SQLite reading
 # ---------------------------------------------------------------------------
+
 
 def parse_timestamp(raw) -> datetime:
     """
@@ -201,6 +203,7 @@ def detect_time_column(conn: sqlite3.Connection, table: str) -> str:
 # Migration
 # ---------------------------------------------------------------------------
 
+
 async def migrate(
     sqlite_path: str,
     table: str = DEFAULT_TABLE,
@@ -217,7 +220,9 @@ async def migrate(
         log.warning(
             "batch-size %d exceeds the %d-row limit imposed by PostgreSQL's "
             "32767 bind-parameter cap — clamping to %d.",
-            batch_size, MAX_ROWS_PER_INSERT, MAX_ROWS_PER_INSERT,
+            batch_size,
+            MAX_ROWS_PER_INSERT,
+            MAX_ROWS_PER_INSERT,
         )
         batch_size = MAX_ROWS_PER_INSERT
 
@@ -255,7 +260,9 @@ async def migrate(
         log.info(
             "DRY RUN — would write %d rows, skip %d empty bars, of %d read. "
             "Nothing was written to TimescaleDB.",
-            total - skipped, skipped, total,
+            total - skipped,
+            skipped,
+            total,
         )
         return total, skipped, 0
 
@@ -329,7 +336,9 @@ async def migrate(
                 rows_written += await flush()
                 log.info(
                     "Progress: %d written / %d read (%d skipped)",
-                    rows_written, rows_read, rows_skipped,
+                    rows_written,
+                    rows_read,
+                    rows_skipped,
                 )
 
         rows_written += await flush()
@@ -341,12 +350,16 @@ async def migrate(
 
     log.info(
         "Migration complete — read %d, skipped %d (empty bars + malformed), written %d.",
-        rows_read, rows_skipped, rows_written,
+        rows_read,
+        rows_skipped,
+        rows_written,
     )
     if rows_read != rows_skipped + rows_written:
         log.error(
             "RECONCILIATION MISMATCH: read(%d) != skipped(%d) + written(%d)",
-            rows_read, rows_skipped, rows_written,
+            rows_read,
+            rows_skipped,
+            rows_written,
         )
     return rows_read, rows_skipped, rows_written
 
@@ -354,6 +367,7 @@ async def migrate(
 # ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(

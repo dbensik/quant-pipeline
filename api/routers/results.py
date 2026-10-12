@@ -80,9 +80,7 @@ async def save_result(
     except ResultNameError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None
     except OSError as exc:
-        raise HTTPException(
-            status_code=500, detail=f"Could not write the result: {exc}"
-        ) from None
+        raise HTTPException(status_code=500, detail=f"Could not write the result: {exc}") from None
     return SaveResultResponse(name=name)
 
 

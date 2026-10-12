@@ -75,7 +75,5 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_index("ix_universe_snapshots_index_taken", table_name="universe_snapshots")
     op.drop_table("universe_snapshots")
-    op.drop_index(
-        "ix_universe_membership_index_seen", table_name="universe_membership"
-    )
+    op.drop_index("ix_universe_membership_index_seen", table_name="universe_membership")
     op.drop_table("universe_membership")

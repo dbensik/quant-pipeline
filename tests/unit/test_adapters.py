@@ -5,6 +5,7 @@ Exit criteria verified here:
   1. fetch() always returns List[MarketDataRecord] (never a DataFrame)
   2. yf.download and requests.get are fully mocked
 """
+
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
@@ -18,16 +19,22 @@ from core.models import MarketDataRecord
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _multi_ticker_df() -> pd.DataFrame:
     """Simulate yf.download output for two tickers (MultiIndex columns)."""
     idx = pd.DatetimeIndex(["2024-01-02", "2024-01-03"], name="Date")
     cols = pd.MultiIndex.from_tuples(
         [
-            ("Close",  "AAPL"), ("Close",  "MSFT"),
-            ("High",   "AAPL"), ("High",   "MSFT"),
-            ("Low",    "AAPL"), ("Low",    "MSFT"),
-            ("Open",   "AAPL"), ("Open",   "MSFT"),
-            ("Volume", "AAPL"), ("Volume", "MSFT"),
+            ("Close", "AAPL"),
+            ("Close", "MSFT"),
+            ("High", "AAPL"),
+            ("High", "MSFT"),
+            ("Low", "AAPL"),
+            ("Low", "MSFT"),
+            ("Open", "AAPL"),
+            ("Open", "MSFT"),
+            ("Volume", "AAPL"),
+            ("Volume", "MSFT"),
         ],
         names=["Price", "Ticker"],
     )
@@ -59,8 +66,8 @@ def _coingecko_rows() -> list:
 # yfinance_adapter
 # ---------------------------------------------------------------------------
 
-class TestYFinanceAdapter:
 
+class TestYFinanceAdapter:
     @patch("core.adapters.yfinance_adapter.yf.download")
     def test_returns_list_of_market_data_records(self, mock_dl):
         mock_dl.return_value = _multi_ticker_df()
@@ -137,8 +144,8 @@ class TestYFinanceAdapter:
 # coingecko_adapter
 # ---------------------------------------------------------------------------
 
-class TestCoinGeckoAdapter:
 
+class TestCoinGeckoAdapter:
     def _mock_response(self, json_data):
         resp = MagicMock()
         resp.json.return_value = json_data
@@ -231,13 +238,25 @@ class TestCoinGeckoAdapter:
 # yfinance_adapter — served values and corporate actions (phase 3)
 # ---------------------------------------------------------------------------
 
+
 def _unadjusted_df() -> pd.DataFrame:
     """What yf.download(auto_adjust=False, actions=True) returns: MO around its
     2026-06-15 ex-date, $1.06 dividend, as served on 2026-09-27."""
     idx = pd.DatetimeIndex(["2026-06-12", "2026-06-15"], name="Date")
     cols = pd.MultiIndex.from_tuples(
-        [(c, "MO") for c in ("Adj Close", "Close", "Dividends", "High", "Low",
-                             "Open", "Stock Splits", "Volume")],
+        [
+            (c, "MO")
+            for c in (
+                "Adj Close",
+                "Close",
+                "Dividends",
+                "High",
+                "Low",
+                "Open",
+                "Stock Splits",
+                "Volume",
+            )
+        ],
         names=["Price", "Ticker"],
     )
     data = [
@@ -301,7 +320,9 @@ def test_a_failed_download_can_be_raised_instead_of_returned_empty(mock_dl):
 @patch("core.adapters.coingecko_adapter.requests.get")
 def test_coingecko_adapter_sends_the_key_as_a_header(mock_get, monkeypatch):
     monkeypatch.setenv("COINGECKO_API_KEY", "test-demo-key")
-    mock_get.return_value = MagicMock(status_code=200, json=MagicMock(return_value=_coingecko_rows()))
+    mock_get.return_value = MagicMock(
+        status_code=200, json=MagicMock(return_value=_coingecko_rows())
+    )
     coingecko_adapter.fetch(["bitcoin"], "2024-01-01", "2024-01-03")
     kwargs = mock_get.call_args.kwargs
     assert kwargs["headers"] == {"x-cg-demo-api-key": "test-demo-key"}

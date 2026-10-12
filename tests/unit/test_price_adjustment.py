@@ -114,9 +114,7 @@ def test_a_dividend_served_after_a_split_is_restored_to_its_raw_amount():
     old = Action(date(2024, 3, 5), "dividend", 0.004, LATER)
     assert raw_dividends([NVDA_SPLIT, old]) == [(date(2024, 3, 5), pytest.approx(0.04))]
     fetched_then = Action(date(2024, 3, 5), "dividend", 0.04, at(date(2024, 3, 6)))
-    assert raw_dividends([NVDA_SPLIT, fetched_then]) == [
-        (date(2024, 3, 5), pytest.approx(0.04))
-    ]
+    assert raw_dividends([NVDA_SPLIT, fetched_then]) == [(date(2024, 3, 5), pytest.approx(0.04))]
 
 
 def test_a_dividend_before_the_series_starts_changes_nothing():
@@ -127,6 +125,7 @@ def test_a_dividend_before_the_series_starts_changes_nothing():
 # ---------------------------------------------------------------------------
 # THE regression — bars fetched on different days no longer disagree
 # ---------------------------------------------------------------------------
+
 
 def test_the_seam_disappears():
     """
@@ -185,6 +184,7 @@ def test_a_dividend_served_after_a_spinoff_is_restored_too():
 # ---------------------------------------------------------------------------
 # Edges
 # ---------------------------------------------------------------------------
+
 
 def test_missing_fields_stay_missing():
     bar = ServedBar(date(2024, 6, 7), None, None, None, None, None, LATER)

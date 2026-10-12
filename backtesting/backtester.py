@@ -35,7 +35,9 @@ class Backtester:
         self.trade_log = []
         self.execution_handler = execution_handler or SimulatedExecutionHandler(seed=seed)
 
-    def run(self, price_data: pd.DataFrame, model: BaseAlphaModel, symbol_name: str = None) -> pd.DataFrame:
+    def run(
+        self, price_data: pd.DataFrame, model: BaseAlphaModel, symbol_name: str = None
+    ) -> pd.DataFrame:
         """
         Runs a backtest using a more robust, event-driven loop that delegates
         execution to a dedicated handler.
@@ -54,7 +56,11 @@ class Backtester:
         # 3. Use a stateful loop to process trades realistically
         position = 0.0
         cash = self.initial_capital
-        symbol = symbol_name if symbol_name else (price_data.name if hasattr(price_data, "name") else "Asset")
+        symbol = (
+            symbol_name
+            if symbol_name
+            else (price_data.name if hasattr(price_data, "name") else "Asset")
+        )
 
         # State is recorded into numpy arrays and assigned to the frame once,
         # after the loop. Writing three cells per bar through `iloc` was 81% of
@@ -120,14 +126,14 @@ class Backtester:
         """
         if not self.trade_log:
             return pd.DataFrame()
-        
+
         # Convert FillEvent objects to dicts, explicitly adding the property 'total_cost'
         log_data = []
         for fill in self.trade_log:
             data = vars(fill).copy()
             data["total_cost"] = fill.total_cost
             log_data.append(data)
-            
+
         return pd.DataFrame(log_data)
 
     def get_performance_metrics(self) -> dict:
@@ -140,9 +146,7 @@ class Backtester:
         analyzer = PerformanceAnalyzer(self.results, self.initial_capital)
         return analyzer.calculate_all_metrics()
 
-    def run_and_get_metrics(
-        self, price_data: pd.DataFrame, model: BaseAlphaModel
-    ) -> dict:
+    def run_and_get_metrics(self, price_data: pd.DataFrame, model: BaseAlphaModel) -> dict:
         """
         A convenience method that runs a backtest and immediately returns the
         performance metrics. Useful for optimizations.

@@ -72,7 +72,9 @@ def _rs_terms(o, h, lo, c):
     return np.log(h / c) * np.log(h / o) + np.log(lo / c) * np.log(lo / o)
 
 
-def rogers_satchell(open_, high, low, close, days_per_year: int = REALISED_VOL_DAYS_PER_YEAR) -> float:
+def rogers_satchell(
+    open_, high, low, close, days_per_year: int = REALISED_VOL_DAYS_PER_YEAR
+) -> float:
     o, h, lo, c = _arrays(open_, high, low, close)
     return _annualise(_rs_terms(o, h, lo, c).mean(), days_per_year)
 
@@ -148,6 +150,10 @@ def vol_cone(
         if values.size == 0:
             continue
         cone[w] = dict(
-            zip(CONE_STATS, (float(x) for x in np.percentile(values, [0, 25, 50, 75, 100])), strict=False)
+            zip(
+                CONE_STATS,
+                (float(x) for x in np.percentile(values, [0, 25, 50, 75, 100])),
+                strict=False,
+            )
         )
     return cone

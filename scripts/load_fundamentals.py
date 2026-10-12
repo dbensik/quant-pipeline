@@ -55,10 +55,14 @@ async def run(args: argparse.Namespace) -> int:
         repo = TimescaleFactRepo(session)
         if args.from_file:
             for path in args.from_file:
-                fetched = args.fetched_at or datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
+                fetched = args.fetched_at or datetime.fromtimestamp(
+                    path.stat().st_mtime, tz=timezone.utc
+                )
                 report = await ingest_company(repo, read_doc(path), fetched_at=fetched)
-                print(f"{path.name}: CIK {report.cik} {report.entity_name!r}: {report.served} facts in "
-                      f"{report.concepts} concepts, {report.inserted} new")
+                print(
+                    f"{path.name}: CIK {report.cik} {report.entity_name!r}: {report.served} facts in "
+                    f"{report.concepts} concepts, {report.inserted} new"
+                )
             return 0
         from sqlalchemy import text
 
@@ -66,11 +70,16 @@ async def run(args: argparse.Namespace) -> int:
 
         gateway = SECGateway()  # raises, naming SEC_USER_AGENT, if it is not set
         where = "AND symbol = ANY(:syms)" if args.symbols else ""
-        assets = (await session.execute(text(
-            "SELECT symbol, (metadata->>'cik')::int, metadata->>'cik_sec_title', "
-            "COALESCE(metadata->'cik_predecessors', '[]'::jsonb) FROM assets "
-            f"WHERE asset_class = 'equity' AND metadata ? 'cik' {where} ORDER BY symbol"
-        ), {"syms": [s.upper() for s in (args.symbols or [])]})).all()
+        assets = (
+            await session.execute(
+                text(
+                    "SELECT symbol, (metadata->>'cik')::int, metadata->>'cik_sec_title', "
+                    "COALESCE(metadata->'cik_predecessors', '[]'::jsonb) FROM assets "
+                    f"WHERE asset_class = 'equity' AND metadata ? 'cik' {where} ORDER BY symbol"
+                ),
+                {"syms": [s.upper() for s in (args.symbols or [])]},
+            )
+        ).all()
         # Each asset's own CIK, then its predecessors (titled as such); a CIK
         # shared by two share classes is fetched once.
         rows, seen = [], set()
@@ -81,11 +90,15 @@ async def run(args: argparse.Namespace) -> int:
                     rows.append((symbol if c == cik else f"{symbol}<-pred", c, t))
         if args.recent:
             end = date.today()
-            filed, days = await asyncio.to_thread(gateway.recent_fact_filers, end - timedelta(days=args.recent), end)
+            filed, days = await asyncio.to_thread(
+                gateway.recent_fact_filers, end - timedelta(days=args.recent), end
+            )
             rows = [r for r in rows if r[1] in filed]
-            print(f"daily index read for {len(days)} business days "
-                  f"({days[0] if days else '-'}..{days[-1] if days else '-'}): {len(filed)} filers of "
-                  f"10-K/10-Q/20-F/40-F, {len(rows)} in the registry")
+            print(
+                f"daily index read for {len(days)} business days "
+                f"({days[0] if days else '-'}..{days[-1] if days else '-'}): {len(filed)} filers of "
+                f"10-K/10-Q/20-F/40-F, {len(rows)} in the registry"
+            )
         for symbol, cik, title in rows:
             try:
                 doc = await asyncio.to_thread(gateway.company_facts, cik)
@@ -99,19 +112,33 @@ async def run(args: argparse.Namespace) -> int:
                 print(f"{symbol} CIK {cik}: FAILED {exc}")
                 continue
             report = await ingest_company(repo, doc)
-            flag = "" if not title or title.lower()[:12] == report.entity_name.lower()[:12] else "  MISMATCH?"
-            print(f"{symbol} CIK {cik} {report.entity_name!r}: {report.served} facts, {report.inserted} new{flag}")
+            flag = (
+                ""
+                if not title or title.lower()[:12] == report.entity_name.lower()[:12]
+                else "  MISMATCH?"
+            )
+            print(
+                f"{symbol} CIK {cik} {report.entity_name!r}: {report.served} facts, {report.inserted} new{flag}"
+            )
     return 1 if failed else 0
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     p.add_argument("--from-file", nargs="+", type=Path)
     p.add_argument("--fetched-at", type=lambda s: datetime.fromisoformat(s))
     p.add_argument("--symbols", nargs="+")
     p.add_argument("--all", action="store_true")
-    p.add_argument("--recent", type=int, metavar="DAYS", nargs="?", const=settings.SEC_REFRESH_LOOKBACK_DAYS,
-                   help=f"default {settings.SEC_REFRESH_LOOKBACK_DAYS} (SEC_REFRESH_LOOKBACK_DAYS)")
+    p.add_argument(
+        "--recent",
+        type=int,
+        metavar="DAYS",
+        nargs="?",
+        const=settings.SEC_REFRESH_LOOKBACK_DAYS,
+        help=f"default {settings.SEC_REFRESH_LOOKBACK_DAYS} (SEC_REFRESH_LOOKBACK_DAYS)",
+    )
     args = p.parse_args()
     if not (args.from_file or args.symbols or args.all or args.recent):
         p.error("give --from-file, --symbols, --all or --recent DAYS")

@@ -49,10 +49,14 @@ class RecordingRepo:
     """Minimal MarketDataRepository that records what it was asked to write."""
 
     def __init__(self, assets=None, existing=None):
-        self.assets = assets if assets is not None else {
-            "AAPL": Asset(symbol="AAPL", asset_class="equity", source="yfinance"),
-            "BTC-USD": Asset(symbol="BTC-USD", asset_class="crypto", source="yfinance"),
-        }
+        self.assets = (
+            assets
+            if assets is not None
+            else {
+                "AAPL": Asset(symbol="AAPL", asset_class="equity", source="yfinance"),
+                "BTC-USD": Asset(symbol="BTC-USD", asset_class="crypto", source="yfinance"),
+            }
+        )
         self.existing = existing or {}
         self.written = []
         self.replace_calls: list = []
@@ -82,6 +86,7 @@ def fetcher_for(records, calls=None):
 # ---------------------------------------------------------------------------
 # Empty bars
 # ---------------------------------------------------------------------------
+
 
 def test_all_null_bar_is_detected():
     assert is_empty_bar(bar("AAPL", 0, empty=True).ohlcv) is True
@@ -115,6 +120,7 @@ async def test_empty_bars_are_dropped_and_counted():
 # Asset identity
 # ---------------------------------------------------------------------------
 
+
 def test_retag_preserves_the_symbol_but_replaces_the_class():
     tagged = retag(bar("BTC-USD", 0), "crypto", "yfinance")
     assert tagged.asset.symbol == "BTC-USD"
@@ -130,15 +136,14 @@ async def test_crypto_is_not_written_as_equity():
     query uses.
     """
     repo = RecordingRepo()
-    await ingest_symbols(
-        repo, ["BTC-USD"], fetcher=fetcher_for([bar("BTC-USD", 0)])
-    )
+    await ingest_symbols(repo, ["BTC-USD"], fetcher=fetcher_for([bar("BTC-USD", 0)]))
     assert {r.asset.asset_class for r in repo.written} == {"crypto"}
 
 
 # ---------------------------------------------------------------------------
 # Resume point
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_a_symbol_with_no_history_backfills_from_the_default():
@@ -185,7 +190,11 @@ async def test_an_up_to_date_symbol_is_not_fetched():
                 MarketDataRecord(
                     asset=repo_asset(),
                     ohlcv=OHLCV(
-                        open=1, high=1, low=1, close=1, volume=1,
+                        open=1,
+                        high=1,
+                        low=1,
+                        close=1,
+                        volume=1,
                         timestamp=Timestamp(utc=future),
                     ),
                 )
@@ -205,12 +214,11 @@ def repo_asset():
 # Failure isolation
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_an_unregistered_symbol_is_reported_not_fetched():
     repo = RecordingRepo()
-    report = await ingest_symbols(
-        repo, ["NOPE"], fetcher=fetcher_for([bar("NOPE", 0)])
-    )
+    report = await ingest_symbols(repo, ["NOPE"], fetcher=fetcher_for([bar("NOPE", 0)]))
     assert "registry" in report.outcomes[0].error
     assert repo.written == []
 
@@ -221,6 +229,7 @@ async def test_one_failing_symbol_does_not_end_the_run():
     Symbols are processed one at a time precisely so this holds — a batched
     download would lose every symbol to one bad ticker.
     """
+
     def flaky(symbols, start_date, end_date):
         if symbols[0] == "BTC-USD":
             raise RuntimeError("provider exploded")
@@ -264,6 +273,7 @@ async def test_report_totals_written_across_symbols():
 # Single-flight guard
 # ---------------------------------------------------------------------------
 
+
 def test_a_second_start_is_refused_while_running():
     guard = IngestJob()
     assert guard.try_start(5) is True
@@ -294,6 +304,7 @@ def test_status_is_idle_before_any_run():
 # ---------------------------------------------------------------------------
 # Re-adjustment (corporate actions)
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_incremental_writes_do_not_overwrite():
@@ -376,13 +387,11 @@ async def test_a_flagged_symbol_is_not_re_fetched():
     """
     repo = flagged_repo()
     calls = []
-    report = await ingest_symbols(
-        repo, ["WBA"], fetcher=fetcher_for([bar("WBA", 0)], calls)
-    )
-    assert calls == []                      # the provider was never asked
+    report = await ingest_symbols(repo, ["WBA"], fetcher=fetcher_for([bar("WBA", 0)], calls))
+    assert calls == []  # the provider was never asked
     assert repo.written == []
     assert report.skipped_delisted == ["WBA"]
-    assert report.failed == []              # a skip is not a failure
+    assert report.failed == []  # a skip is not a failure
 
 
 @pytest.mark.asyncio
@@ -391,7 +400,9 @@ async def test_naming_a_symbol_explicitly_overrides_the_skip():
     repo = flagged_repo()
     calls = []
     report = await ingest_symbols(
-        repo, ["WBA"], fetcher=fetcher_for([bar("WBA", 0)], calls),
+        repo,
+        ["WBA"],
+        fetcher=fetcher_for([bar("WBA", 0)], calls),
         skip_delisted=False,
     )
     assert len(calls) == 1
@@ -403,9 +414,7 @@ async def test_an_unflagged_symbol_is_still_fetched():
     """Guards against the skip swallowing healthy symbols."""
     repo = flagged_repo(delisted_at=None)
     calls = []
-    report = await ingest_symbols(
-        repo, ["WBA"], fetcher=fetcher_for([bar("WBA", 0)], calls)
-    )
+    report = await ingest_symbols(repo, ["WBA"], fetcher=fetcher_for([bar("WBA", 0)], calls))
     assert len(calls) == 1
     assert report.skipped_delisted == []
 
@@ -418,6 +427,7 @@ async def test_an_unflagged_symbol_is_still_fetched():
 # present at the provider, so this is not an ingest fault. 35 of 99 crypto
 # series carry moves like it.
 # ---------------------------------------------------------------------------
+
 
 def test_the_tia_spike_is_implausible():
     assert implausible_jump(0.0105, 7149.415) is True
@@ -463,16 +473,18 @@ async def test_implausible_bars_are_counted_AND_STILL_WRITTEN():
     report = await ingest_symbols(
         repo,
         ["BTC-USD"],
-        fetcher=fetcher_for([
-            bar("BTC-USD", 0, close=0.0105),
-            bar("BTC-USD", 1, close=7149.415),
-            bar("BTC-USD", 2, close=298.86),
-        ]),
+        fetcher=fetcher_for(
+            [
+                bar("BTC-USD", 0, close=0.0105),
+                bar("BTC-USD", 1, close=7149.415),
+                bar("BTC-USD", 2, close=298.86),
+            ]
+        ),
     )
     outcome = report.outcomes[0]
-    assert outcome.implausible_jumps == 2      # into the spike and out of it
-    assert outcome.skipped_empty == 0          # not confused with empty bars
-    assert len(repo.written) == 3              # NOTHING was dropped
+    assert outcome.implausible_jumps == 2  # into the spike and out of it
+    assert outcome.skipped_empty == 0  # not confused with empty bars
+    assert len(repo.written) == 3  # NOTHING was dropped
     assert outcome.written == 3
 
 
@@ -494,8 +506,11 @@ async def test_jumps_are_judged_in_date_order_not_fetch_order():
     jumps that the series does not contain.
     """
     repo = RecordingRepo()
-    shuffled = [bar("AAPL", 2, close=102.0), bar("AAPL", 0, close=100.0),
-                bar("AAPL", 1, close=101.0)]
+    shuffled = [
+        bar("AAPL", 2, close=102.0),
+        bar("AAPL", 0, close=100.0),
+        bar("AAPL", 1, close=101.0),
+    ]
     report = await ingest_symbols(repo, ["AAPL"], fetcher=fetcher_for(shuffled))
     assert report.outcomes[0].implausible_jumps == 0
 
@@ -507,6 +522,7 @@ async def test_jumps_are_judged_in_date_order_not_fetch_order():
 # history, 27,076 bars. Yahoo's MNT-USD is a micro-cap called MINTY; Uniswap
 # was stored as UNICORN Token. Every daily run appended more of it.
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(autouse=True)
 def no_provider_mappings(monkeypatch):
@@ -522,10 +538,13 @@ def no_provider_mappings(monkeypatch):
 def identity_repo(status):
     """A repo whose one crypto asset carries `status` as its recorded verdict."""
     meta = {"identity_status": status} if status else {}
-    return RecordingRepo(assets={
-        "UNI-USD": Asset(symbol="UNI-USD", asset_class="crypto",
-                         source="yfinance", metadata=meta),
-    })
+    return RecordingRepo(
+        assets={
+            "UNI-USD": Asset(
+                symbol="UNI-USD", asset_class="crypto", source="yfinance", metadata=meta
+            ),
+        }
+    )
 
 
 @pytest.mark.asyncio
@@ -537,8 +556,8 @@ async def test_a_wrong_asset_is_not_fetched():
     )
     assert report.outcomes[0].skipped_identity is True
     assert report.skipped_identity == ["UNI-USD"]
-    assert calls == []            # the provider was never asked
-    assert repo.written == []     # and nothing was stored
+    assert calls == []  # the provider was never asked
+    assert repo.written == []  # and nothing was stored
 
 
 @pytest.mark.asyncio
@@ -594,7 +613,10 @@ async def test_naming_a_symbol_and_reaching_back_does_NOT_bypass_the_identity_ga
     """
     repo = identity_repo("wrong_asset")
     await ingest_symbols(
-        repo, ["UNI-USD"], start=DEFAULT_BACKFILL_START, skip_delisted=False,
+        repo,
+        ["UNI-USD"],
+        start=DEFAULT_BACKFILL_START,
+        skip_delisted=False,
         fetcher=fetcher_for([bar("UNI-USD", 0)]),
     )
     assert repo.written == []
@@ -605,7 +627,9 @@ async def test_the_gate_can_be_overridden_explicitly():
     """An operator who has fixed the mapping by hand needs a way through."""
     repo = identity_repo("wrong_asset")
     await ingest_symbols(
-        repo, ["UNI-USD"], skip_unsafe_identity=False,
+        repo,
+        ["UNI-USD"],
+        skip_unsafe_identity=False,
         fetcher=fetcher_for([bar("UNI-USD", 0)]),
     )
     assert len(repo.written) == 1
@@ -633,10 +657,13 @@ FLOOR_META = {"history_valid_from": "2024-01-03"}
 
 
 def floor_repo():
-    return RecordingRepo(assets={
-        "TIA-USD": Asset(symbol="TIA-USD", asset_class="crypto",
-                         source="yfinance", metadata=dict(FLOOR_META)),
-    })
+    return RecordingRepo(
+        assets={
+            "TIA-USD": Asset(
+                symbol="TIA-USD", asset_class="crypto", source="yfinance", metadata=dict(FLOOR_META)
+            ),
+        }
+    )
 
 
 def test_history_floor_is_read_from_metadata():
@@ -659,14 +686,17 @@ async def test_bars_before_the_floor_are_refused_even_when_fetching_from_2015():
     """
     repo = floor_repo()
     report = await ingest_symbols(
-        repo, ["TIA-USD"], start=DEFAULT_BACKFILL_START,
+        repo,
+        ["TIA-USD"],
+        start=DEFAULT_BACKFILL_START,
         fetcher=fetcher_for([bar("TIA-USD", i, close=1.0 + i) for i in range(6)]),
     )
     # START is 2024-01-01, so days 0 and 1 precede the 2024-01-03 floor.
     assert report.outcomes[0].skipped_before_floor == 2
     assert len(repo.written) == 4
-    assert all(r.ohlcv.timestamp.utc >= datetime(2024, 1, 3, tzinfo=timezone.utc)
-               for r in repo.written)
+    assert all(
+        r.ohlcv.timestamp.utc >= datetime(2024, 1, 3, tzinfo=timezone.utc) for r in repo.written
+    )
 
 
 @pytest.mark.asyncio
@@ -705,10 +735,13 @@ CEILING_META = {"history_valid_until": "2024-01-04"}
 
 
 def ceiling_repo():
-    return RecordingRepo(assets={
-        "PARA": Asset(symbol="PARA", asset_class="equity",
-                      source="yfinance", metadata=dict(CEILING_META)),
-    })
+    return RecordingRepo(
+        assets={
+            "PARA": Asset(
+                symbol="PARA", asset_class="equity", source="yfinance", metadata=dict(CEILING_META)
+            ),
+        }
+    )
 
 
 def test_history_ceiling_is_read_from_metadata():
@@ -731,14 +764,18 @@ async def test_bars_after_the_ceiling_are_refused_even_when_named_explicitly():
     """
     repo = ceiling_repo()
     report = await ingest_symbols(
-        repo, ["PARA"], start=DEFAULT_BACKFILL_START, skip_delisted=False,
+        repo,
+        ["PARA"],
+        start=DEFAULT_BACKFILL_START,
+        skip_delisted=False,
         fetcher=fetcher_for([bar("PARA", i, close=10.0 + i) for i in range(6)]),
     )
     # START is 2024-01-01, so days 3..5 fall on or after the 2024-01-04 ceiling.
     assert report.outcomes[0].skipped_after_ceiling == 3
     assert len(repo.written) == 3
-    assert all(r.ohlcv.timestamp.utc < datetime(2024, 1, 4, tzinfo=timezone.utc)
-               for r in repo.written)
+    assert all(
+        r.ohlcv.timestamp.utc < datetime(2024, 1, 4, tzinfo=timezone.utc) for r in repo.written
+    )
 
 
 @pytest.mark.asyncio
@@ -758,7 +795,9 @@ async def test_a_ceiling_already_passed_means_no_fetch_at_all():
     repo = ceiling_repo()
     calls = []
     await ingest_symbols(
-        repo, ["PARA"], start=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        repo,
+        ["PARA"],
+        start=datetime(2025, 1, 1, tzinfo=timezone.utc),
         fetcher=fetcher_for([bar("PARA", 0)], calls),
     )
     assert calls == []
@@ -773,10 +812,10 @@ async def test_an_asset_with_no_ceiling_is_unaffected():
     assert calls and calls[0][2] != ""
 
 
-
 # ---------------------------------------------------------------------------
 # Overlap — refilling a day an earlier run lost
 # ---------------------------------------------------------------------------
+
 
 class KeyedRepo(RecordingRepo):
     """Honours the primary key the way the real DO NOTHING insert does."""
@@ -784,8 +823,7 @@ class KeyedRepo(RecordingRepo):
     def __init__(self, existing):
         super().__init__(existing=existing)
         self.held = {
-            (r.asset.symbol, r.ohlcv.timestamp.utc)
-            for rows in existing.values() for r in rows
+            (r.asset.symbol, r.ohlcv.timestamp.utc) for rows in existing.values() for r in rows
         }
 
     async def write(self, records, replace: bool = False):
@@ -808,8 +846,14 @@ def recent(day_offset, close=100.0):
     ) - timedelta(days=day_offset)
     return MarketDataRecord(
         asset=Asset(symbol="AAPL", asset_class="equity", source="yfinance"),
-        ohlcv=OHLCV(open=close, high=close, low=close, close=close,
-                    volume=1000.0, timestamp=Timestamp(utc=stamp)),
+        ohlcv=OHLCV(
+            open=close,
+            high=close,
+            low=close,
+            close=close,
+            volume=1000.0,
+            timestamp=Timestamp(utc=stamp),
+        ),
     )
 
 
@@ -818,14 +862,16 @@ async def test_a_lost_day_behind_the_newest_bar_is_filled_and_counted():
     """DXCM's shape: bars on days 5 and 3 held, day 4 lost, provider now has it."""
     repo = KeyedRepo(existing={"AAPL": [recent(5), recent(3)]})
     report = await ingest_symbols(
-        repo, ["AAPL"],
+        repo,
+        ["AAPL"],
         fetcher=fetcher_for([recent(5), recent(4), recent(3), recent(2)]),
     )
     outcome = report.outcomes[0]
     assert outcome.filled == 1
     assert outcome.written == 2  # the hole plus the genuinely new day
     assert sorted(r.ohlcv.timestamp.utc for r in repo.written) == [
-        recent(4).ohlcv.timestamp.utc, recent(2).ohlcv.timestamp.utc,
+        recent(4).ohlcv.timestamp.utc,
+        recent(2).ohlcv.timestamp.utc,
     ]
     assert not outcome.delisted
 
@@ -835,7 +881,8 @@ async def test_the_overlap_never_rewrites_a_bar_already_held():
     """Re-served bars are discarded, not restated — that is a backfill's job."""
     repo = KeyedRepo(existing={"AAPL": [recent(5), recent(3)]})
     report = await ingest_symbols(
-        repo, ["AAPL"],
+        repo,
+        ["AAPL"],
         fetcher=fetcher_for([recent(5, close=1.0), recent(3, close=1.0)]),
     )
     assert report.outcomes[0].written == 0
@@ -852,7 +899,9 @@ async def test_a_dead_symbol_is_still_flagged_when_old_bars_come_back():
     """
     repo = KeyedRepo(existing={"AAPL": [bar("AAPL", 0), bar("AAPL", 1)]})
     report = await ingest_symbols(
-        repo, ["AAPL"], fetcher=fetcher_for([bar("AAPL", 0), bar("AAPL", 1)]),
+        repo,
+        ["AAPL"],
+        fetcher=fetcher_for([bar("AAPL", 0), bar("AAPL", 1)]),
     )
     assert report.outcomes[0].delisted
 
@@ -863,7 +912,9 @@ async def test_the_overlap_does_not_reach_behind_a_history_floor():
     floor_day = START + timedelta(days=25)
     repo = RecordingRepo(existing={"AAPL": [bar("AAPL", 26), bar("AAPL", 30)]})
     repo.assets["AAPL"] = Asset(
-        symbol="AAPL", asset_class="equity", source="yfinance",
+        symbol="AAPL",
+        asset_class="equity",
+        source="yfinance",
         metadata={"history_valid_from": floor_day.date().isoformat()},
     )
     await ingest_symbols(repo, ["AAPL"], fetcher=fetcher_for([], calls))
@@ -884,6 +935,7 @@ async def test_dropped_empty_bars_are_logged_by_date(caplog):
 # ---------------------------------------------------------------------------
 # Served values and corporate actions (phase 3 of the dividend-drift plan)
 # ---------------------------------------------------------------------------
+
 
 class ServedRepo(KeyedRepo):
     """KeyedRepo plus the two phase-3 methods, recording what they were given."""
@@ -951,10 +1003,15 @@ async def test_actions_outside_the_history_floor_are_not_recorded():
     floor_day = START + timedelta(days=25)
     repo = ServedRepo(existing={"AAPL": [bar("AAPL", 26)]})
     repo.assets["AAPL"] = Asset(
-        symbol="AAPL", asset_class="equity", source="yfinance",
+        symbol="AAPL",
+        asset_class="equity",
+        source="yfinance",
         metadata={"history_valid_from": floor_day.date().isoformat()},
     )
-    fetched = [with_served(bar("AAPL", 20), dividend=0.5), with_served(bar("AAPL", 27), dividend=0.6)]
+    fetched = [
+        with_served(bar("AAPL", 20), dividend=0.5),
+        with_served(bar("AAPL", 27), dividend=0.6),
+    ]
     await ingest_symbols(repo, ["AAPL"], fetcher=fetcher_for(fetched))
     assert [r.dividend for r in repo.action_calls[0]] == [0.6]
 
@@ -969,6 +1026,7 @@ async def test_actions_outside_the_history_floor_are_not_recorded():
 # a different coin into a series marked `match`.
 # ---------------------------------------------------------------------------
 
+
 def mapped_repo(verified_against):
     metadata = {"identity_status": "match"}
     if verified_against:
@@ -976,7 +1034,9 @@ def mapped_repo(verified_against):
     return RecordingRepo(
         assets={
             "UNI-USD": Asset(
-                symbol="UNI-USD", asset_class="crypto", source="yfinance",
+                symbol="UNI-USD",
+                asset_class="crypto",
+                source="yfinance",
                 metadata=metadata,
             )
         }
@@ -985,9 +1045,7 @@ def mapped_repo(verified_against):
 
 @pytest.fixture
 def uni_mapped(monkeypatch):
-    monkeypatch.setattr(
-        "core.crypto_identity.CRYPTO_PROVIDER_SYMBOLS", {"UNI-USD": "UNI7083-USD"}
-    )
+    monkeypatch.setattr("core.crypto_identity.CRYPTO_PROVIDER_SYMBOLS", {"UNI-USD": "UNI7083-USD"})
 
 
 @pytest.mark.asyncio
@@ -995,7 +1053,8 @@ async def test_a_mapped_symbol_is_fetched_under_its_provider_ticker(uni_mapped):
     calls = []
     repo = mapped_repo("UNI7083-USD")
     await ingest_symbols(
-        repo, ["UNI-USD"],
+        repo,
+        ["UNI-USD"],
         fetcher=fetcher_for([bar("UNI7083-USD", 0)], calls),
     )
     assert calls[0][0] == ("UNI7083-USD",)
@@ -1004,9 +1063,7 @@ async def test_a_mapped_symbol_is_fetched_under_its_provider_ticker(uni_mapped):
 @pytest.mark.asyncio
 async def test_bars_fetched_under_a_provider_ticker_are_stored_under_the_asset(uni_mapped):
     repo = mapped_repo("UNI7083-USD")
-    await ingest_symbols(
-        repo, ["UNI-USD"], fetcher=fetcher_for([bar("UNI7083-USD", 0)])
-    )
+    await ingest_symbols(repo, ["UNI-USD"], fetcher=fetcher_for([bar("UNI7083-USD", 0)]))
     (written,) = repo.written
     assert written.asset.symbol == "UNI-USD"
     assert written.asset.asset_class == "crypto"
@@ -1026,13 +1083,13 @@ async def test_a_mapping_never_verified_is_not_fetched(uni_mapped):
 
 @pytest.mark.asyncio
 async def test_a_mapping_edited_after_verification_is_not_fetched(monkeypatch):
-    monkeypatch.setattr(
-        "core.crypto_identity.CRYPTO_PROVIDER_SYMBOLS", {"UNI-USD": "UNI9999-USD"}
-    )
+    monkeypatch.setattr("core.crypto_identity.CRYPTO_PROVIDER_SYMBOLS", {"UNI-USD": "UNI9999-USD"})
     calls = []
     repo = mapped_repo("UNI7083-USD")
     report = await ingest_symbols(
-        repo, ["UNI-USD"], start=START,
+        repo,
+        ["UNI-USD"],
+        start=START,
         fetcher=fetcher_for([bar("UNI9999-USD", 0)], calls),
     )
     assert calls == [] and repo.written == []
@@ -1043,8 +1100,6 @@ async def test_a_mapping_edited_after_verification_is_not_fetched(monkeypatch):
 async def test_an_unmapped_symbol_is_fetched_under_its_own_name(uni_mapped):
     calls = []
     repo = RecordingRepo()
-    await ingest_symbols(
-        repo, ["BTC-USD"], fetcher=fetcher_for([bar("BTC-USD", 0)], calls)
-    )
+    await ingest_symbols(repo, ["BTC-USD"], fetcher=fetcher_for([bar("BTC-USD", 0)], calls))
     assert calls[0][0] == ("BTC-USD",)
     assert repo.written[0].asset.symbol == "BTC-USD"

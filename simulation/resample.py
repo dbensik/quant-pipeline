@@ -78,9 +78,7 @@ def stationary_bootstrap(
     return r[idx]
 
 
-def gbm(
-    returns: np.ndarray, n_paths: int, horizon: int, rng: np.random.Generator
-) -> np.ndarray:
+def gbm(returns: np.ndarray, n_paths: int, horizon: int, rng: np.random.Generator) -> np.ndarray:
     """
     Geometric Brownian motion fitted to the series: daily log returns drawn
     i.i.d. normal with the observed log-return mean and standard deviation.

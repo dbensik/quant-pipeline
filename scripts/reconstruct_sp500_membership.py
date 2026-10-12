@@ -75,10 +75,7 @@ SOURCE = "wikipedia_revision"
 #: Revisions tried per month before giving up on it.
 REVISIONS_PER_MONTH = 10
 HEADERS = {
-    "User-Agent": (
-        "quant-pipeline/1.0 (research tool; "
-        "https://github.com/dbensik/quant-pipeline)"
-    )
+    "User-Agent": ("quant-pipeline/1.0 (research tool; https://github.com/dbensik/quant-pipeline)")
 }
 
 
@@ -100,8 +97,7 @@ class Wikipedia:
                 return response.json()
             time.sleep(5 * attempt)
         raise RuntimeError(
-            f"MediaWiki refused the request five times "
-            f"(last status {response.status_code})"
+            f"MediaWiki refused the request five times (last status {response.status_code})"
         )
 
     def revisions_at(self, day: date, limit: int) -> list[tuple[int, datetime]]:
@@ -153,7 +149,9 @@ def reconstruct_month(
             return revision_id, saved_at, symbols
         logger.warning(
             "%s: revision %d rejected (%s); trying the one before it.",
-            day, revision_id, reason,
+            day,
+            revision_id,
+            reason,
         )
     return None
 
@@ -174,9 +172,9 @@ async def first_observed(session) -> Optional[date]:
 async def stored_lists(session) -> dict[date, list[str]]:
     rows = (
         await session.execute(
-            select(
-                ReconstructedMembershipORM.as_of, ReconstructedMembershipORM.symbol
-            ).where(ReconstructedMembershipORM.index_name == INDEX_NAME)
+            select(ReconstructedMembershipORM.as_of, ReconstructedMembershipORM.symbol).where(
+                ReconstructedMembershipORM.index_name == INDEX_NAME
+            )
         )
     ).all()
     lists: dict[date, list[str]] = {}
@@ -219,7 +217,11 @@ async def run(dry_run: bool, archive: Optional[Path], wiki=None) -> int:
             change = len(set(symbols) ^ set(previous)) if previous else 0
             logger.info(
                 "%s: %d members from revision %d (%s), %d changed",
-                day, len(symbols), revision_id, saved_at.date(), change,
+                day,
+                len(symbols),
+                revision_id,
+                saved_at.date(),
+                change,
             )
             previous = symbols
 
@@ -246,20 +248,19 @@ async def run(dry_run: bool, archive: Optional[Path], wiki=None) -> int:
     if archive and accepted:
         with archive.open("w", newline="") as handle:
             writer = csv.writer(handle)
-            writer.writerow(
-                ["as_of", "source_revision", "revision_at", "member_count", "symbols"]
-            )
+            writer.writerow(["as_of", "source_revision", "revision_at", "member_count", "symbols"])
             for day, revision_id, saved_at, symbols in accepted:
                 writer.writerow(
-                    [day, revision_id, saved_at.isoformat(), len(symbols),
-                     " ".join(symbols)]
+                    [day, revision_id, saved_at.isoformat(), len(symbols), " ".join(symbols)]
                 )
         logger.info("Archived %d list(s) to %s", len(accepted), archive)
 
     logger.info(
         "%s %d month(s); %d already stored; %d with no usable revision%s",
         "Would load" if dry_run else "Loaded",
-        len(accepted), len(stored), len(missing),
+        len(accepted),
+        len(stored),
+        len(missing),
         f": {', '.join(map(str, missing))}" if missing else "",
     )
     return 1 if missing else 0

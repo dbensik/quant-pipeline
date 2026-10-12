@@ -113,9 +113,7 @@ async def get_signals(
                 status_code=422, detail=f"`params` is not valid JSON: {exc}"
             ) from None
         if not isinstance(decoded, dict):
-            raise HTTPException(
-                status_code=422, detail="`params` must be a JSON object."
-            )
+            raise HTTPException(status_code=422, detail="`params` must be a JSON object.")
         strategy_params = decoded
 
     try:
@@ -141,9 +139,7 @@ async def get_signals(
     if end.tzinfo is None:
         end = end.replace(tzinfo=timezone.utc)
 
-    records = await repo.fetch_range(
-        symbol=symbol, asset_class=None, start=start, end=end
-    )
+    records = await repo.fetch_range(symbol=symbol, asset_class=None, start=start, end=end)
     frame = records_to_frame(records)
     if frame.empty:
         raise HTTPException(
@@ -169,9 +165,7 @@ async def get_signals(
                 # but the raw series legitimately has them during warm-up.
                 signal=None if pd.isna(value) else float(value),
                 close=(
-                    None
-                    if (not include_close or close is None or pd.isna(close))
-                    else float(close)
+                    None if (not include_close or close is None or pd.isna(close)) else float(close)
                 ),
             )
         )
@@ -183,9 +177,7 @@ async def get_signals(
         start=start,
         end=end,
         count=len(points),
-        params={
-            p.name: strategy_params.get(p.name, p.default) for p in spec.params
-        },
+        params={p.name: strategy_params.get(p.name, p.default) for p in spec.params},
         caveat=spec.caveat,
         signals=points,
     )

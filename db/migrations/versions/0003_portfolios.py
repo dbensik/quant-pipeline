@@ -76,9 +76,7 @@ def upgrade() -> None:
         sa.Column("costs", sa.Float(), nullable=False, server_default="0.0"),
         sa.Column("broker", sa.String(), nullable=True),
         sa.Column("notes", sa.String(), nullable=True),
-        sa.ForeignKeyConstraint(
-            ["portfolio_id"], ["portfolios.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["portfolio_id"], ["portfolios.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
@@ -89,8 +87,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index(
-        "ix_portfolio_trades_portfolio_time", table_name="portfolio_trades"
-    )
+    op.drop_index("ix_portfolio_trades_portfolio_time", table_name="portfolio_trades")
     op.drop_table("portfolio_trades")
     op.drop_table("portfolios")

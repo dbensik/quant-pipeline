@@ -122,8 +122,11 @@ async def main(argv: list[str] | None = None) -> int:
 
     print(
         "reading "
-        + ("read-time adjusted prices" if settings.SERVED_PRICES_ENABLED
-           else "STORED prices (SERVED_PRICES_ENABLED is off)")
+        + (
+            "read-time adjusted prices"
+            if settings.SERVED_PRICES_ENABLED
+            else "STORED prices (SERVED_PRICES_ENABLED is off)"
+        )
     )
     end = datetime.now(timezone.utc)
     # Calendar days generous enough for `sessions` trading days plus one prior.
@@ -135,7 +138,8 @@ async def main(argv: list[str] | None = None) -> int:
             query = query.where(AssetORM.symbol.in_([s.upper() for s in args.symbols]))
         symbols = list((await session.execute(query.order_by(AssetORM.symbol))).scalars())
         uncovered = [
-            (symbol, n) for symbol, n in (
+            (symbol, n)
+            for symbol, n in (
                 await session.execute(
                     text(
                         """SELECT a.symbol, count(*) FROM market_data m
@@ -158,8 +162,11 @@ async def main(argv: list[str] | None = None) -> int:
 
     raise_open_file_limit()
     fresh = yf.download(
-        symbols, start=start.date().isoformat(), auto_adjust=True,
-        progress=False, threads=True,
+        symbols,
+        start=start.date().isoformat(),
+        auto_adjust=True,
+        progress=False,
+        threads=True,
     )["Close"]
     if isinstance(fresh, pd.Series):
         fresh = fresh.to_frame(symbols[0])
@@ -171,7 +178,7 @@ async def main(argv: list[str] | None = None) -> int:
             no_data.append(symbol)
             continue
         both = pd.concat([ours[symbol], fresh[symbol]], axis=1, keys=["ours", "yahoo"]).dropna()
-        both = both.iloc[-(args.sessions + 1):]
+        both = both.iloc[-(args.sessions + 1) :]
         gap = (both.ours.pct_change() - both.yahoo.pct_change()).dropna() * 100
         for day, x in gap[gap.abs() >= TOLERANCE_PP].items():
             mismatches.append((symbol, day, x))

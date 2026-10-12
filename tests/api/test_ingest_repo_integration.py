@@ -47,8 +47,12 @@ def stub_fetcher(count=3, symbol=SYMBOL):
                 # Deliberately mislabelled 'equity', as yfinance_adapter does.
                 asset=Asset(symbol=symbols[0], asset_class="equity", source="yfinance"),
                 ohlcv=OHLCV(
-                    open=10.0 + i, high=11.0 + i, low=9.0 + i, close=10.5 + i,
-                    volume=100.0, timestamp=Timestamp(utc=begin + timedelta(days=i)),
+                    open=10.0 + i,
+                    high=11.0 + i,
+                    low=9.0 + i,
+                    close=10.5 + i,
+                    volume=100.0,
+                    timestamp=Timestamp(utc=begin + timedelta(days=i)),
                 ),
             )
             for i in range(count)
@@ -64,9 +68,7 @@ async def repo():
         instance = TimescaleMarketDataRepo(session)
         await _purge(session)
 
-        session.add(
-            AssetORM(symbol=SYMBOL, asset_class="crypto", source="yfinance")
-        )
+        session.add(AssetORM(symbol=SYMBOL, asset_class="crypto", source="yfinance"))
         await session.commit()
         try:
             yield instance
@@ -78,9 +80,7 @@ async def _purge(session):
     rows = await session.execute(select(AssetORM.id).where(AssetORM.symbol == SYMBOL))
     ids = list(rows.scalars().all())
     if ids:
-        await session.execute(
-            delete(MarketDataORM).where(MarketDataORM.asset_id.in_(ids))
-        )
+        await session.execute(delete(MarketDataORM).where(MarketDataORM.asset_id.in_(ids)))
         await session.execute(delete(AssetORM).where(AssetORM.id.in_(ids)))
         await session.commit()
 
@@ -101,9 +101,7 @@ async def test_bars_actually_land_in_market_data(repo):
     THE point of step 7d. The Streamlit button wrote to SQLite, so nothing it
     ingested ever reached the table the API reads.
     """
-    report = await ingest_symbols(
-        repo, [SYMBOL], start=START, fetcher=stub_fetcher(3)
-    )
+    report = await ingest_symbols(repo, [SYMBOL], start=START, fetcher=stub_fetcher(3))
     assert report.written == 3
     assert await _bar_count(repo.session) == 3
 
@@ -126,9 +124,7 @@ async def test_the_asset_class_on_disk_is_not_overwritten(repo):
     """
     await ingest_symbols(repo, [SYMBOL], start=START, fetcher=stub_fetcher(2))
 
-    rows = await repo.session.execute(
-        select(AssetORM.asset_class).where(AssetORM.symbol == SYMBOL)
-    )
+    rows = await repo.session.execute(select(AssetORM.asset_class).where(AssetORM.symbol == SYMBOL))
     classes = list(rows.scalars().all())
     assert classes == ["crypto"], "a duplicate asset row was created"
 
@@ -146,23 +142,27 @@ async def test_a_second_run_refills_a_lost_day_without_duplicating(repo):
         def fetch(symbols, start_date, end_date):
             calls.append(start_date)
             return [
-                r for r in stub_fetcher(5)(symbols, START.strftime("%Y-%m-%d"), end_date)
+                r
+                for r in stub_fetcher(5)(symbols, START.strftime("%Y-%m-%d"), end_date)
                 if (r.ohlcv.timestamp.utc - START).days in days
             ]
+
         return fetch
 
     await ingest_symbols(repo, [SYMBOL], start=START, fetcher=served({0, 2}))
     report = await ingest_symbols(repo, [SYMBOL], fetcher=served({0, 1, 2, 3, 4}))
 
     newest_after_first = START + timedelta(days=2)
-    assert calls[1] == (
-        newest_after_first - timedelta(days=INGEST_OVERLAP_DAYS)
-    ).strftime("%Y-%m-%d")
+    assert calls[1] == (newest_after_first - timedelta(days=INGEST_OVERLAP_DAYS)).strftime(
+        "%Y-%m-%d"
+    )
     assert report.outcomes[0].filled == 1
     assert report.outcomes[0].written == 3
     rows = await repo.fetch_range(
-        symbol=SYMBOL, asset_class=None,
-        start=START - timedelta(days=1), end=START + timedelta(days=10),
+        symbol=SYMBOL,
+        asset_class=None,
+        start=START - timedelta(days=1),
+        end=START + timedelta(days=10),
     )
     assert [(r.ohlcv.timestamp.utc - START).days for r in rows] == [0, 1, 2, 3, 4]
 
@@ -201,7 +201,11 @@ async def test_empty_bars_never_reach_the_table(repo):
             MarketDataRecord(
                 asset=Asset(symbol=symbols[0], asset_class="equity", source="yfinance"),
                 ohlcv=OHLCV(
-                    open=None, high=None, low=None, close=None, volume=None,
+                    open=None,
+                    high=None,
+                    low=None,
+                    close=None,
+                    volume=None,
                     timestamp=Timestamp(utc=begin),
                 ),
             )
@@ -215,6 +219,7 @@ async def test_empty_bars_never_reach_the_table(repo):
 # ---------------------------------------------------------------------------
 # Re-adjustment (corporate actions)
 # ---------------------------------------------------------------------------
+
 
 async def test_a_plain_rerun_does_not_change_stored_prices(repo):
     """
@@ -291,8 +296,14 @@ SECOND_FETCH = datetime(2026, 9, 27, 10, tzinfo=timezone.utc)
 def served_record(day, close, fetched_at, served=True, dividend=None):
     stamp = Timestamp(utc=START + timedelta(days=day))
     adjusted = OHLCV(open=close, high=close, low=close, close=close, volume=100.0, timestamp=stamp)
-    raw = OHLCV(open=close * 2, high=close * 2, low=close * 2, close=close * 2,
-                volume=100.0, timestamp=stamp)
+    raw = OHLCV(
+        open=close * 2,
+        high=close * 2,
+        low=close * 2,
+        close=close * 2,
+        volume=100.0,
+        timestamp=stamp,
+    )
     return MarketDataRecord(
         asset=Asset(symbol=SYMBOL, asset_class="crypto", source="yfinance"),
         ohlcv=adjusted,
@@ -325,10 +336,12 @@ async def test_fill_served_fills_a_null_and_never_overwrites(repo):
     re-serves both with a different value: day 0 is filled, day 1 is left as
     it was — its value only means anything with the fetch time it came with.
     """
-    await repo.write([served_record(0, 10.0, None, served=False),
-                      served_record(1, 11.0, FIRST_FETCH)])
-    filled = await repo.fill_served([served_record(0, 10.0, SECOND_FETCH),
-                                     served_record(1, 99.0, SECOND_FETCH)])
+    await repo.write(
+        [served_record(0, 10.0, None, served=False), served_record(1, 11.0, FIRST_FETCH)]
+    )
+    filled = await repo.fill_served(
+        [served_record(0, 10.0, SECOND_FETCH), served_record(1, 99.0, SECOND_FETCH)]
+    )
     assert filled == 1
     assert await _served(repo.session, 0) == (10.0, 20.0, SECOND_FETCH)
     assert await _served(repo.session, 1) == (11.0, 22.0, FIRST_FETCH)
@@ -358,8 +371,10 @@ async def test_a_refetched_action_keeps_its_first_row(repo):
 
 async def test_ingest_end_to_end_stores_served_values_and_actions(repo):
     def fetch(symbols, start_date, end_date):
-        return [served_record(0, 10.0, FIRST_FETCH),
-                served_record(1, 11.0, FIRST_FETCH, dividend=0.5)]
+        return [
+            served_record(0, 10.0, FIRST_FETCH),
+            served_record(1, 11.0, FIRST_FETCH, dividend=0.5),
+        ]
 
     report = await ingest_symbols(repo, [SYMBOL], start=START, fetcher=fetch)
     assert report.outcomes[0].written == 2
@@ -417,7 +432,9 @@ async def test_served_reads_are_adjusted_at_read_time(repo, monkeypatch):
     total = _closes(await repo.fetch_range(*window))
     assert raw == SERVED_CLOSES  # served_record stores served = 2 x the close
     factor = 1 - 1.06 / 72.10
-    assert total == [round(c * factor, 4) for c in SERVED_CLOSES[:DIV_DAY]] + SERVED_CLOSES[DIV_DAY:]
+    assert (
+        total == [round(c * factor, 4) for c in SERVED_CLOSES[:DIV_DAY]] + SERVED_CLOSES[DIV_DAY:]
+    )
 
 
 async def test_a_window_ending_before_the_dividend_is_still_adjusted_for_it(repo, monkeypatch):
@@ -433,7 +450,9 @@ async def test_a_window_starting_on_the_ex_date_is_untouched_by_that_dividend(re
     """A dividend adjusts only the bars before its ex-date."""
     monkeypatch.setattr(settings, "SERVED_PRICES_ENABLED", True)
     await _served_asset(repo)
-    got = await repo.fetch_range(SYMBOL, None, START + timedelta(days=DIV_DAY), START + timedelta(days=4))
+    got = await repo.fetch_range(
+        SYMBOL, None, START + timedelta(days=DIV_DAY), START + timedelta(days=4)
+    )
     assert _closes(got) == SERVED_CLOSES[DIV_DAY:]
 
 

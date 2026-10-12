@@ -56,12 +56,8 @@ def test_pca_fails_with_zero_variance_column():
     """
     Tests that PCA raises a ValueError when a column has zero variance.
     """
-    returns_df = create_test_data(
-        num_periods=100, num_assets=5, zero_var_cols=["ASSET_2"]
-    )
-    with pytest.raises(
-        ValueError, match="PCA cannot be computed on data with zero variance"
-    ):
+    returns_df = create_test_data(num_periods=100, num_assets=5, zero_var_cols=["ASSET_2"])
+    with pytest.raises(ValueError, match="PCA cannot be computed on data with zero variance"):
         # This pre-analysis check would typically be in the code that calls the analyzer
         zero_variance_cols = returns_df.columns[returns_df.var() < 1e-10].tolist()
         if zero_variance_cols:

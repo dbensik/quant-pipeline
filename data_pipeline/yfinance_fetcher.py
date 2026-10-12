@@ -18,9 +18,7 @@ class YFinanceFetcher(BaseDataFetcher):
         end_date: str,
         granularity: str = "1d",
     ) -> pd.DataFrame:
-        logger.info(
-            f"Fetching {granularity} data for {len(tickers)} tickers from yfinance..."
-        )
+        logger.info(f"Fetching {granularity} data for {len(tickers)} tickers from yfinance...")
         try:
             data_wide = yf.download(
                 tickers=tickers,

@@ -48,7 +48,8 @@ async def run(args: argparse.Namespace) -> int:
     cache = SurfaceCache(Path(settings.OPTIONS_SURFACE_CACHE_DIR))
     code = pricing_fingerprint()
     captures = [
-        c for c in archive.captures()
+        c
+        for c in archive.captures()
         if not c.partial
         and (not args.tickers or c.ticker in args.tickers)
         and (args.since is None or c.day >= args.since)
@@ -71,14 +72,29 @@ async def run(args: argparse.Namespace) -> int:
                 continue
             hits += hit
             computed += not hit
-            logger.info("[%d/%d] %s %s %s %.1fs", i, len(captures), cap.ticker, cap.day,
-                        "cached" if hit else "computed", time.perf_counter() - started)
-    logger.info("%d captures: %d computed, %d already cached, %d failed", len(captures), computed, hits, failed)
+            logger.info(
+                "[%d/%d] %s %s %s %.1fs",
+                i,
+                len(captures),
+                cap.ticker,
+                cap.day,
+                "cached" if hit else "computed",
+                time.perf_counter() - started,
+            )
+    logger.info(
+        "%d captures: %d computed, %d already cached, %d failed",
+        len(captures),
+        computed,
+        hits,
+        failed,
+    )
     return 1 if failed else 0
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("--tickers", nargs="+", type=str.upper)
     parser.add_argument("--since", type=date.fromisoformat)
     return asyncio.run(run(parser.parse_args()))

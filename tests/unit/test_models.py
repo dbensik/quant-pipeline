@@ -1,4 +1,5 @@
 """100% coverage on core/models/__init__.py — construction and validation."""
+
 from datetime import datetime, timezone
 
 from core.models import OHLCV, Asset, MarketDataRecord, Timestamp
@@ -6,6 +7,7 @@ from core.models import OHLCV, Asset, MarketDataRecord, Timestamp
 # ---------------------------------------------------------------------------
 # Timestamp
 # ---------------------------------------------------------------------------
+
 
 class TestTimestamp:
     def test_default_tz(self):
@@ -28,12 +30,15 @@ class TestTimestamp:
 # OHLCV
 # ---------------------------------------------------------------------------
 
+
 class TestOHLCV:
     def _ts(self) -> Timestamp:
         return Timestamp(utc=datetime(2024, 1, 1, tzinfo=timezone.utc))
 
     def test_construction(self):
-        ohlcv = OHLCV(open=100.0, high=110.0, low=95.0, close=105.0, volume=1_000_000.0, timestamp=self._ts())
+        ohlcv = OHLCV(
+            open=100.0, high=110.0, low=95.0, close=105.0, volume=1_000_000.0, timestamp=self._ts()
+        )
         assert ohlcv.open == 100.0
         assert ohlcv.high == 110.0
         assert ohlcv.low == 95.0
@@ -53,6 +58,7 @@ class TestOHLCV:
 # ---------------------------------------------------------------------------
 # Asset
 # ---------------------------------------------------------------------------
+
 
 class TestAsset:
     def test_equity(self):
@@ -92,10 +98,13 @@ class TestAsset:
 # MarketDataRecord
 # ---------------------------------------------------------------------------
 
+
 class TestMarketDataRecord:
     def _make(self, symbol: str = "AAPL") -> MarketDataRecord:
         ts = Timestamp(utc=datetime(2024, 1, 2, tzinfo=timezone.utc))
-        ohlcv = OHLCV(open=150.0, high=155.0, low=149.0, close=153.0, volume=5_000_000.0, timestamp=ts)
+        ohlcv = OHLCV(
+            open=150.0, high=155.0, low=149.0, close=153.0, volume=5_000_000.0, timestamp=ts
+        )
         asset = Asset(symbol=symbol, asset_class="equity", source="yfinance")
         return MarketDataRecord(asset=asset, ohlcv=ohlcv)
 

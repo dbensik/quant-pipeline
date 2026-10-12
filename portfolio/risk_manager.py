@@ -14,9 +14,7 @@ class RiskManager:
     risk *during* a simulation (pre-trade).
     """
 
-    def __init__(
-        self, portfolio_returns: pd.Series, constituents_returns: pd.DataFrame = None
-    ):
+    def __init__(self, portfolio_returns: pd.Series, constituents_returns: pd.DataFrame = None):
         """
         Initializes the risk analyzer with a completed history of returns.
 
@@ -52,9 +50,7 @@ class RiskManager:
         # Return as a positive value representing loss
         return abs(var) if pd.notna(var) else 0.0
 
-    def calculate_conditional_value_at_risk(
-        self, confidence_level: float = 0.95
-    ) -> float:
+    def calculate_conditional_value_at_risk(self, confidence_level: float = 0.95) -> float:
         """
         Calculates the Conditional Value at Risk (CVaR), also known as Expected Shortfall.
 

@@ -52,15 +52,11 @@ class TimescaleRateRepo:
 
     async def newest_date(self, series: str) -> Optional[date]:
         result = await self.session.execute(
-            select(func.max(RateObservationORM.obs_date)).where(
-                RateObservationORM.series == series
-            )
+            select(func.max(RateObservationORM.obs_date)).where(RateObservationORM.series == series)
         )
         return result.scalar_one_or_none()
 
-    async def latest_on_or_before(
-        self, series: str, as_of: date
-    ) -> Optional[RateObservation]:
+    async def latest_on_or_before(self, series: str, as_of: date) -> Optional[RateObservation]:
         result = await self.session.execute(
             select(RateObservationORM)
             .where(

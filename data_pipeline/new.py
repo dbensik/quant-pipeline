@@ -8,9 +8,7 @@ import pandas as pd
 # --- Setup Project Path and Logging ---
 project_root = Path(__file__).resolve().parent
 sys.path.append(str(project_root))
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 # --- Mock/Assume these imports from your project structure ---
@@ -59,9 +57,7 @@ def run_diagnostic():
 
     try:
         # 1. Fetch raw price data
-        logger.info(
-            f"Fetching raw data for {TICKERS_TO_TEST} from {START_DATE} to {END_DATE}..."
-        )
+        logger.info(f"Fetching raw data for {TICKERS_TO_TEST} from {START_DATE} to {END_DATE}...")
         fetcher = EquityPriceFetcher()
         raw_df = fetcher.fetch(tickers=TICKERS_TO_TEST, start=START_DATE, end=END_DATE)
         if raw_df.empty:
@@ -73,9 +69,7 @@ def run_diagnostic():
         logger.info("Fetching benchmark data (SPY) for enrichment...")
         spy_df = fetcher.fetch(tickers=["SPY"], start=START_DATE, end=END_DATE)
         if spy_df.empty:
-            logger.warning(
-                "Could not fetch SPY benchmark data. Beta will not be calculated."
-            )
+            logger.warning("Could not fetch SPY benchmark data. Beta will not be calculated.")
             benchmark_returns = None
         else:
             benchmark_returns = spy_df["Close"].pct_change()

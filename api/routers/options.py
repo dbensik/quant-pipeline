@@ -57,6 +57,7 @@ router = APIRouter(prefix="/api/v1/options", tags=["options"])
 # Dependencies
 # ---------------------------------------------------------------------------
 
+
 def get_chain_archive() -> ChainArchive:
     return ChainArchive(Path(settings.OPTION_CHAIN_ARCHIVE_DIR))
 
@@ -86,6 +87,7 @@ def get_pricing_fingerprint() -> str:
 # ---------------------------------------------------------------------------
 # Models (all prefixed Option/Options: see tests/api/test_openapi_contract.py)
 # ---------------------------------------------------------------------------
+
 
 class OptionsCaptureDay(BaseModel):
     day: date
@@ -239,11 +241,14 @@ class OptionsRealisedVolResponse(BaseModel):
 # Realised-vol cone from stored bars
 # ---------------------------------------------------------------------------
 
+
 class ConeUnavailable(Exception):
     pass
 
 
-async def build_cone(repo: Any, symbol: str, as_of: date, estimator: str = "yang_zhang") -> OptionsVolCone:
+async def build_cone(
+    repo: Any, symbol: str, as_of: date, estimator: str = "yang_zhang"
+) -> OptionsVolCone:
     """
     Rolling realised vol over the full stored history ENDING AT `as_of`, and
     each window's latest value. Total-adjusted log returns before a later
@@ -260,28 +265,46 @@ async def build_cone(repo: Any, symbol: str, as_of: date, estimator: str = "yang
     end = datetime.combine(as_of, time(23, 59, 59), tzinfo=timezone.utc)
     start = datetime(2000, 1, 1, tzinfo=timezone.utc)
     records = await repo.fetch_range(symbol, None, start, end, adjust="total")
-    bars = [r.ohlcv for r in records if None not in (r.ohlcv.open, r.ohlcv.high, r.ohlcv.low, r.ohlcv.close)]
+    bars = [
+        r.ohlcv
+        for r in records
+        if None not in (r.ohlcv.open, r.ohlcv.high, r.ohlcv.low, r.ohlcv.close)
+    ]
     if len(bars) < max(settings.REALISED_VOL_WINDOWS) + 2:
-        raise ConeUnavailable(f"{symbol} has {len(bars)} usable bars up to {as_of}; the cone needs more")
-    o, h, lo, c = (np.array([getattr(b, f) for b in bars], dtype=float) for f in ("open", "high", "low", "close"))
+        raise ConeUnavailable(
+            f"{symbol} has {len(bars)} usable bars up to {as_of}; the cone needs more"
+        )
+    o, h, lo, c = (
+        np.array([getattr(b, f) for b in bars], dtype=float)
+        for f in ("open", "high", "low", "close")
+    )
     cone = V.vol_cone(o, h, lo, c, settings.REALISED_VOL_WINDOWS, estimator)
     windows = []
     for w, stats in cone.items():
-        latest = V.rolling(estimator, o[-(w + 1):], h[-(w + 1):], lo[-(w + 1):], c[-(w + 1):], w)[-1]
+        latest = V.rolling(
+            estimator, o[-(w + 1) :], h[-(w + 1) :], lo[-(w + 1) :], c[-(w + 1) :], w
+        )[-1]
         windows.append(OptionsConeWindow(window=w, current=json_safe(float(latest)), **stats))
-    return OptionsVolCone(symbol=symbol, estimator=estimator, as_of=as_of, bars=len(bars), windows=windows)
+    return OptionsVolCone(
+        symbol=symbol, estimator=estimator, as_of=as_of, bars=len(bars), windows=windows
+    )
 
 
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
 
-@router.get("/archive", response_model=OptionsArchiveResponse, summary="Option-chain captures on disk")
+
+@router.get(
+    "/archive", response_model=OptionsArchiveResponse, summary="Option-chain captures on disk"
+)
 async def archive(archive: ChainArchive = Depends(get_chain_archive)) -> OptionsArchiveResponse:
     by_ticker: Dict[str, List[OptionsCaptureDay]] = {}
     total = 0
     for cap in archive.captures():
-        by_ticker.setdefault(cap.ticker, []).append(OptionsCaptureDay(day=cap.day, rows=cap.rows, partial=cap.partial))
+        by_ticker.setdefault(cap.ticker, []).append(
+            OptionsCaptureDay(day=cap.day, rows=cap.rows, partial=cap.partial)
+        )
         total += cap.rows
     return OptionsArchiveResponse(
         tickers=[OptionsArchiveTicker(ticker=t, captures=c) for t, c in sorted(by_ticker.items())],
@@ -293,12 +316,16 @@ async def archive(archive: ChainArchive = Depends(get_chain_archive)) -> Options
     "/surface",
     response_model=OptionsSurfaceResponse,
     summary="Implied-volatility surface for one ticker-day",
-    responses={404: {"description": "No complete capture for that ticker-day"},
-               409: {"description": "No risk-free rate stored on or before that day"}},
+    responses={
+        404: {"description": "No complete capture for that ticker-day"},
+        409: {"description": "No risk-free rate stored on or before that day"},
+    },
 )
 async def surface(
     ticker: str = Query(min_length=1, max_length=12),
-    day: Optional[date] = Query(default=None, description="Capture date; default the latest complete one"),
+    day: Optional[date] = Query(
+        default=None, description="Capture date; default the latest complete one"
+    ),
     archive: ChainArchive = Depends(get_chain_archive),
     cache: SurfaceCache = Depends(get_surface_cache),
     rates: RateRepository = Depends(get_rate_repo),
@@ -328,22 +355,38 @@ async def surface(
         cone, cone_reason = None, str(exc)
     return OptionsSurfaceResponse(
         **{k: v for k, v in payload.items() if k != "key"},
-        cache_hit=hit, cone=cone, cone_reason=cone_reason,
+        cache_hit=hit,
+        cone=cone,
+        cone_reason=cone_reason,
     )
 
 
 @router.get("/pricers", response_model=List[OptionPricerInfo], summary="The option pricers")
 async def list_pricers() -> List[OptionPricerInfo]:
-    return [OptionPricerInfo(id=p.id, display_name=p.display_name, description=p.description, styles=list(p.styles))
-            for p in pricers.PRICERS]
+    return [
+        OptionPricerInfo(
+            id=p.id, display_name=p.display_name, description=p.description, styles=list(p.styles)
+        )
+        for p in pricers.PRICERS
+    ]
 
 
-@router.post("/price", response_model=OptionPriceResponse, summary="Price one option with every applicable model")
+@router.post(
+    "/price",
+    response_model=OptionPriceResponse,
+    summary="Price one option with every applicable model",
+)
 async def price(request: OptionPriceRequest) -> OptionPriceResponse:
     x = pricers.PricerInputs(
-        S=request.spot, K=request.strike, T=request.expiry_years, r=request.rate,
-        q=request.dividend_yield, sigma=request.sigma, right=request.right,
-        seed=request.seed, mc_paths=request.mc_paths + (request.mc_paths % 2),
+        S=request.spot,
+        K=request.strike,
+        T=request.expiry_years,
+        r=request.rate,
+        q=request.dividend_yield,
+        sigma=request.sigma,
+        right=request.right,
+        seed=request.seed,
+        mc_paths=request.mc_paths + (request.mc_paths % 2),
     )
 
     def run() -> List[OptionModelQuote]:
@@ -352,8 +395,14 @@ async def price(request: OptionPriceRequest) -> OptionPriceResponse:
             if request.style not in spec.styles:
                 continue
             q = spec.run(x, request.style)
-            out.append(OptionModelQuote(model=spec.id, display_name=spec.display_name, style=request.style,
-                                        **json_safe(q.__dict__)))
+            out.append(
+                OptionModelQuote(
+                    model=spec.id,
+                    display_name=spec.display_name,
+                    style=request.style,
+                    **json_safe(q.__dict__),
+                )
+            )
         return out
 
     return OptionPriceResponse(style=request.style, quotes=await run_in_threadpool(run))
@@ -363,7 +412,10 @@ async def price(request: OptionPriceRequest) -> OptionPriceResponse:
     "/realised-vol",
     response_model=OptionsRealisedVolResponse,
     summary="Realised volatility and the vol cone for a symbol",
-    responses={404: {"description": "Unknown symbol"}, 422: {"description": "Not read-time adjusted, or too few bars"}},
+    responses={
+        404: {"description": "Unknown symbol"},
+        422: {"description": "Not read-time adjusted, or too few bars"},
+    },
 )
 async def realised_vol(
     symbol: str = Query(min_length=1, max_length=20),
@@ -380,10 +432,24 @@ async def realised_vol(
     except ConeUnavailable as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None
     end = datetime.combine(as_of, time(23, 59, 59), tzinfo=timezone.utc)
-    records = await repo.fetch_range(symbol, None, datetime(2000, 1, 1, tzinfo=timezone.utc), end, adjust="total")
-    bars = [r.ohlcv for r in records][-(window + 1):]
-    o, h, lo, c = (np.array([getattr(b, f) for b in bars], dtype=float) for f in ("open", "high", "low", "close"))
-    estimators = {name: json_safe(float(fn(o[1:], h[1:], lo[1:], c[1:]) if name not in ("close_to_close", "yang_zhang")
-                                       else fn(o, h, lo, c)))
-                  for name, fn in V.ESTIMATORS.items()}
-    return OptionsRealisedVolResponse(symbol=symbol, as_of=as_of, window=window, estimators=estimators, cone=cone)
+    records = await repo.fetch_range(
+        symbol, None, datetime(2000, 1, 1, tzinfo=timezone.utc), end, adjust="total"
+    )
+    bars = [r.ohlcv for r in records][-(window + 1) :]
+    o, h, lo, c = (
+        np.array([getattr(b, f) for b in bars], dtype=float)
+        for f in ("open", "high", "low", "close")
+    )
+    estimators = {
+        name: json_safe(
+            float(
+                fn(o[1:], h[1:], lo[1:], c[1:])
+                if name not in ("close_to_close", "yang_zhang")
+                else fn(o, h, lo, c)
+            )
+        )
+        for name, fn in V.ESTIMATORS.items()
+    }
+    return OptionsRealisedVolResponse(
+        symbol=symbol, as_of=as_of, window=window, estimators=estimators, cone=cone
+    )

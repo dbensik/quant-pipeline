@@ -50,9 +50,7 @@ def upgrade() -> None:
         sa.Column("watchlist_id", sa.Integer(), nullable=False),
         sa.Column("symbol", sa.String(), nullable=False),
         sa.Column("position", sa.Integer(), nullable=False, server_default="0"),
-        sa.ForeignKeyConstraint(
-            ["watchlist_id"], ["watchlists.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["watchlist_id"], ["watchlists.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("watchlist_id", "symbol", name="uq_watchlist_symbol"),
     )

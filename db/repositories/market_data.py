@@ -69,6 +69,7 @@ def _served_columns(record: MarketDataRecord) -> dict:
 # Protocol — the interface every storage backend must satisfy
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class AssetLastBar:
     """
@@ -93,9 +94,7 @@ class MarketDataRepository:
     valid MarketDataRepository — no explicit inheritance required.
     """
 
-    async def write(
-        self, records: List[MarketDataRecord], replace: bool = False
-    ) -> int:
+    async def write(self, records: List[MarketDataRecord], replace: bool = False) -> int:
         """
         Persist a batch of MarketDataRecord objects. Returns rows persisted.
 
@@ -133,9 +132,7 @@ class MarketDataRepository:
         """
         ...
 
-    async def find_asset(
-        self, symbol: str, asset_class: Optional[str] = None
-    ) -> Optional[Asset]:
+    async def find_asset(self, symbol: str, asset_class: Optional[str] = None) -> Optional[Asset]:
         """Return the registered Asset for *symbol*, or None if unknown."""
         ...
 
@@ -154,6 +151,7 @@ class MarketDataRepository:
 # TimescaleDB implementation
 # ---------------------------------------------------------------------------
 
+
 class TimescaleMarketDataRepo:
     """
     Concrete implementation backed by TimescaleDB (PostgreSQL + TimescaleDB extension).
@@ -169,9 +167,7 @@ class TimescaleMarketDataRepo:
     # Write
     # ------------------------------------------------------------------
 
-    async def write(
-        self, records: List[MarketDataRecord], replace: bool = False
-    ) -> int:
+    async def write(self, records: List[MarketDataRecord], replace: bool = False) -> int:
         """
         Upsert a batch of MarketDataRecord objects. Returns rows persisted.
 
@@ -196,22 +192,19 @@ class TimescaleMarketDataRepo:
         persisted = 0
         for record in records:
             asset_id = await self._get_or_create_asset(record.asset)
-            stmt = (
-                pg_insert(MarketDataORM)
-                .values(
-                    time=record.ohlcv.timestamp.utc,
-                    asset_id=asset_id,
-                    open=record.ohlcv.open,
-                    high=record.ohlcv.high,
-                    low=record.ohlcv.low,
-                    close=record.ohlcv.close,
-                    volume=record.ohlcv.volume,
-                    source=record.asset.source,
-                    # Served values ride along on a NEW row. An existing row
-                    # gets them only through fill_served, never from here:
-                    # replace=True below rewrites the adjusted columns alone.
-                    **_served_columns(record),
-                )
+            stmt = pg_insert(MarketDataORM).values(
+                time=record.ohlcv.timestamp.utc,
+                asset_id=asset_id,
+                open=record.ohlcv.open,
+                high=record.ohlcv.high,
+                low=record.ohlcv.low,
+                close=record.ohlcv.close,
+                volume=record.ohlcv.volume,
+                source=record.asset.source,
+                # Served values ride along on a NEW row. An existing row
+                # gets them only through fill_served, never from here:
+                # replace=True below rewrites the adjusted columns alone.
+                **_served_columns(record),
             )
             if replace:
                 stmt = stmt.on_conflict_do_update(
@@ -226,9 +219,7 @@ class TimescaleMarketDataRepo:
                     },
                 )
             else:
-                stmt = stmt.on_conflict_do_nothing(
-                    index_elements=["time", "asset_id"]
-                )
+                stmt = stmt.on_conflict_do_nothing(index_elements=["time", "asset_id"])
             result = await self.session.execute(stmt)
             # rowcount is 0 for a skipped conflict, 1 for an insert or update.
             persisted += result.rowcount or 0
@@ -473,17 +464,20 @@ class TimescaleMarketDataRepo:
             Action(a.ex_date, a.kind, a.value, a.fetched_at)
             for a in (
                 await self.session.execute(
-                    select(CorporateActionORM).where(
-                        CorporateActionORM.asset_id == asset.id
-                    )
+                    select(CorporateActionORM).where(CorporateActionORM.asset_id == asset.id)
                 )
             ).scalars()
         ]
         # Bar dates are New York trading dates; stored at 00:00 UTC of that date.
         bars = [
             ServedBar(
-                r.time.date(), r.served_open, r.served_high, r.served_low,
-                r.served_close, r.served_volume, r.fetched_at,
+                r.time.date(),
+                r.served_open,
+                r.served_high,
+                r.served_low,
+                r.served_close,
+                r.served_volume,
+                r.fetched_at,
             )
             for r in rows
         ]
@@ -503,16 +497,18 @@ class TimescaleMarketDataRepo:
                 MarketDataRecord(
                     asset=domain_asset,
                     ohlcv=OHLCV(
-                        open=b.open, high=b.high, low=b.low, close=b.close,
-                        volume=b.volume, timestamp=Timestamp(utc=r.time),
+                        open=b.open,
+                        high=b.high,
+                        low=b.low,
+                        close=b.close,
+                        volume=b.volume,
+                        timestamp=Timestamp(utc=r.time),
                     ),
                 )
             )
         return out
 
-    async def find_asset(
-        self, symbol: str, asset_class: Optional[str] = None
-    ) -> Optional[Asset]:
+    async def find_asset(self, symbol: str, asset_class: Optional[str] = None) -> Optional[Asset]:
         """
         Look up a registered asset by symbol.
 
@@ -651,9 +647,7 @@ class TimescaleMarketDataRepo:
     async def mark_delisted(self, symbol: str, when: datetime) -> None:
         """Record that `symbol` appears to have stopped trading."""
         await self.session.execute(
-            AssetORM.__table__.update()
-            .where(AssetORM.symbol == symbol)
-            .values(delisted_at=when)
+            AssetORM.__table__.update().where(AssetORM.symbol == symbol).values(delisted_at=when)
         )
         await self.session.commit()
 

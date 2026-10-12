@@ -27,6 +27,7 @@ from db.models import PortfolioORM, PortfolioTradeORM
 # Protocol
 # ---------------------------------------------------------------------------
 
+
 class PortfolioRepository:
     """
     Structural Protocol. Any class implementing these async methods is a valid
@@ -67,6 +68,7 @@ class PortfolioRepository:
 # TimescaleDB implementation
 # ---------------------------------------------------------------------------
 
+
 def _to_trade(row: PortfolioTradeORM) -> Trade:
     return Trade(
         id=str(row.id),
@@ -98,9 +100,7 @@ class TimescalePortfolioRepo:
         self.session = session
 
     async def list_portfolios(self) -> List[Portfolio]:
-        result = await self.session.execute(
-            select(PortfolioORM).order_by(PortfolioORM.name)
-        )
+        result = await self.session.execute(select(PortfolioORM).order_by(PortfolioORM.name))
         # .unique() because PortfolioORM.trades uses lazy="selectin"; without
         # it a portfolio with N trades would appear N times.
         return [_to_portfolio(row) for row in result.unique().scalars().all()]
@@ -128,9 +128,7 @@ class TimescalePortfolioRepo:
         if await self._find(name) is not None:
             raise ValueError(f"A portfolio named {name!r} already exists.")
 
-        row = PortfolioORM(
-            name=name, initial_cash=initial_cash, metadata_=metadata
-        )
+        row = PortfolioORM(name=name, initial_cash=initial_cash, metadata_=metadata)
         self.session.add(row)
         await self.session.commit()
         await self.session.refresh(row)
@@ -187,7 +185,5 @@ class TimescalePortfolioRepo:
         return bool(result.rowcount)
 
     async def _find(self, name: str) -> Optional[PortfolioORM]:
-        result = await self.session.execute(
-            select(PortfolioORM).where(PortfolioORM.name == name)
-        )
+        result = await self.session.execute(select(PortfolioORM).where(PortfolioORM.name == name))
         return result.unique().scalars().first()

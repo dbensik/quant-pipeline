@@ -18,8 +18,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.fundamentals import Fact
 from db.models import FundamentalFactORM
 
-_COLUMNS = ("cik", "taxonomy", "concept", "unit", "period_start", "period_end", "value",
-            "fy", "fp", "form", "filed", "accn", "frame", "fetched_at")
+_COLUMNS = (
+    "cik",
+    "taxonomy",
+    "concept",
+    "unit",
+    "period_start",
+    "period_end",
+    "value",
+    "fy",
+    "fp",
+    "form",
+    "filed",
+    "accn",
+    "frame",
+    "fetched_at",
+)
 _BATCH = 2000
 
 
@@ -45,6 +59,8 @@ class TimescaleFactRepo:
         result = await self.session.execute(
             select(FundamentalFactORM)
             .where(FundamentalFactORM.cik == cik, FundamentalFactORM.concept.in_(list(concepts)))
-            .order_by(FundamentalFactORM.concept, FundamentalFactORM.period_end, FundamentalFactORM.filed)
+            .order_by(
+                FundamentalFactORM.concept, FundamentalFactORM.period_end, FundamentalFactORM.filed
+            )
         )
         return [Fact(**{c: getattr(r, c) for c in _COLUMNS}) for r in result.scalars()]

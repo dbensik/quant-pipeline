@@ -73,8 +73,7 @@ def rebalance_dates(index: pd.DatetimeIndex, frequency: str) -> pd.DatetimeIndex
     alias = _PERIOD_ALIAS.get(str(frequency).upper())
     if alias is None:
         raise ValueError(
-            f"Unsupported rebalance frequency {frequency!r}. "
-            f"Valid: {sorted(set(_PERIOD_ALIAS))}"
+            f"Unsupported rebalance frequency {frequency!r}. Valid: {sorted(set(_PERIOD_ALIAS))}"
         )
     if len(index) == 0:
         return pd.DatetimeIndex([])

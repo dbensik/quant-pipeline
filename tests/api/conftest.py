@@ -54,9 +54,13 @@ START = datetime(2024, 1, 1, tzinfo=timezone.utc)
 N_BARS = 400
 
 KNOWN_ASSETS: Dict[str, Asset] = {
-    "AAPL": Asset(symbol="AAPL", asset_class="equity", source="yfinance",
-                  metadata={"sector": "Information Technology"},
-                  price_basis="served"),
+    "AAPL": Asset(
+        symbol="AAPL",
+        asset_class="equity",
+        source="yfinance",
+        metadata={"sector": "Information Technology"},
+        price_basis="served",
+    ),
     # BTC-USD deliberately has no price_basis, like real crypto: it is the
     # fixture for "not read-time adjusted", which the simulate router gates.
     "BTC-USD": Asset(symbol="BTC-USD", asset_class="crypto", source="yfinance"),
@@ -65,9 +69,13 @@ KNOWN_ASSETS: Dict[str, Asset] = {
     # weighting of them has the same volatility. That makes portfolio-weight
     # tests vacuous: a frontier over AAPL + BTC-USD is a single point. MSFT
     # follows an independent seeded path so diversification is expressible.
-    "MSFT": Asset(symbol="MSFT", asset_class="equity", source="yfinance",
-                  metadata={"sector": "Information Technology"},
-                  price_basis="served"),
+    "MSFT": Asset(
+        symbol="MSFT",
+        asset_class="equity",
+        source="yfinance",
+        metadata={"sector": "Information Technology"},
+        price_basis="served",
+    ),
     # Registered but with zero bars — mirrors the five padding-only crypto
     # tickers the migration found, and makes "unknown symbol" (404) vs "known
     # symbol, no data" (200 + empty) a testable distinction.
@@ -106,8 +114,7 @@ def _series(symbol: str) -> List[MarketDataRecord]:
     else:
         base = 100.0 if symbol == "AAPL" else 30_000.0
         closes = [
-            base * (1 + 0.0008 * i) + base * 0.02 * ((i % 20) - 10) / 10
-            for i in range(N_BARS)
+            base * (1 + 0.0008 * i) + base * 0.02 * ((i % 20) - 10) / 10 for i in range(N_BARS)
         ]
 
     records: List[MarketDataRecord] = []
@@ -133,6 +140,7 @@ def _series(symbol: str) -> List[MarketDataRecord]:
 # Fake repository
 # ---------------------------------------------------------------------------
 
+
 class FakeRepo:
     """
     In-memory MarketDataRepository.
@@ -152,18 +160,14 @@ class FakeRepo:
         #: backfill actually asks the database to overwrite.
         self.replace_calls: List[bool] = []
 
-    async def write(
-        self, records: List[MarketDataRecord], replace: bool = False
-    ) -> int:
+    async def write(self, records: List[MarketDataRecord], replace: bool = False) -> int:
         self.written.extend(records)
         self.replace_calls.append(replace)
         # Returns rows persisted, as the real repository does — the ingest
         # report counts this rather than what it submitted.
         return len(records)
 
-    async def find_asset(
-        self, symbol: str, asset_class: Optional[str] = None
-    ) -> Optional[Asset]:
+    async def find_asset(self, symbol: str, asset_class: Optional[str] = None) -> Optional[Asset]:
         asset = KNOWN_ASSETS.get(symbol)
         if asset is None:
             return None
@@ -235,12 +239,8 @@ class FakePortfolioRepo:
             created_at=START,
             metadata=None,
             trades=[
-                self._issue(
-                    Trade("AAPL", "BUY", 10, 100.0, START, costs=1.0)
-                ),
-                self._issue(
-                    Trade("MSFT", "BUY", 5, 200.0, START + timedelta(days=1))
-                ),
+                self._issue(Trade("AAPL", "BUY", 10, 100.0, START, costs=1.0)),
+                self._issue(Trade("MSFT", "BUY", 5, 200.0, START + timedelta(days=1))),
             ],
         )
         self._portfolios["Empty"] = Portfolio(
@@ -516,14 +516,19 @@ class FakeUniverseRepo:
             first = self.members.get(upper, (taken_at, taken_at))[0]
             self.members[upper] = (first, taken_at)
         return Snapshot(
-            index_name=index_name, taken_at=taken_at,
-            member_count=len(symbols), added=[], removed=[],
+            index_name=index_name,
+            taken_at=taken_at,
+            member_count=len(symbols),
+            added=[],
+            removed=[],
         )
 
     async def members_as_of(self, index_name, as_of):
         if index_name != self.index_name or as_of < self.FIRST:
             return Membership(
-                index_name=index_name, as_of=as_of, symbols=[],
+                index_name=index_name,
+                as_of=as_of,
+                symbols=[],
                 first_observed=self.FIRST if index_name == self.index_name else None,
                 last_observed=self.SECOND if index_name == self.index_name else None,
                 observed=False,
@@ -531,13 +536,14 @@ class FakeUniverseRepo:
         # Anchored on the most recent observation at or before as_of, as the
         # real repo does: a symbol seen then was in the index then.
         anchor = self.SECOND if as_of >= self.SECOND else self.FIRST
-        symbols = sorted(
-            s for s, (first, last) in self.members.items()
-            if first <= anchor <= last
-        )
+        symbols = sorted(s for s, (first, last) in self.members.items() if first <= anchor <= last)
         return Membership(
-            index_name=index_name, as_of=as_of, symbols=symbols,
-            first_observed=self.FIRST, last_observed=self.SECOND, observed=True,
+            index_name=index_name,
+            as_of=as_of,
+            symbols=symbols,
+            first_observed=self.FIRST,
+            last_observed=self.SECOND,
+            observed=True,
         )
 
     async def indexes(self):
@@ -553,6 +559,7 @@ class FakeUniverseRepo:
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def repo() -> FakeRepo:
@@ -635,7 +642,5 @@ def ws_client(repo: FakeRepo, monkeypatch) -> TestClient:
         yield object()  # never used: TimescaleMarketDataRepo is patched too
 
     monkeypatch.setattr("api.routers.ws.get_session", fake_session)
-    monkeypatch.setattr(
-        "api.routers.ws.TimescaleMarketDataRepo", lambda _session: repo
-    )
+    monkeypatch.setattr("api.routers.ws.TimescaleMarketDataRepo", lambda _session: repo)
     return TestClient(app)

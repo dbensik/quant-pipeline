@@ -24,6 +24,7 @@ def run(client: TestClient, screeners, symbols=None, **overrides):
 # Catalogue
 # ---------------------------------------------------------------------------
 
+
 def test_lists_every_registered_screener(client: TestClient):
     body = client.get("/api/v1/screeners").json()
     assert body["count"] == len(body["screeners"]) == 3
@@ -66,6 +67,7 @@ def test_unknown_screener_404s_and_lists_valid_ids(client: TestClient):
 # ---------------------------------------------------------------------------
 # Running a screen
 # ---------------------------------------------------------------------------
+
 
 def test_returns_the_symbols_that_passed(client: TestClient):
     body = run(client, [{"screener_id": "fundamental", "params": {"min_price": 0}}]).json()
@@ -128,9 +130,7 @@ def test_a_price_floor_excludes_the_cheaper_symbol(client: TestClient):
     so a floor between them must keep exactly one. A screener that ignored its
     parameters would return both.
     """
-    body = run(
-        client, [{"screener_id": "fundamental", "params": {"min_price": 1000}}]
-    ).json()
+    body = run(client, [{"screener_id": "fundamental", "params": {"min_price": 1000}}]).json()
     assert body["passed"] == ["BTC-USD"]
 
 
@@ -161,6 +161,7 @@ def test_symbols_without_data_are_counted_not_silently_failed(client: TestClient
 # Error paths
 # ---------------------------------------------------------------------------
 
+
 def test_unknown_screener_id_is_404(client: TestClient):
     assert run(client, [{"screener_id": "nope"}]).status_code == 404
 
@@ -180,9 +181,7 @@ def test_empty_screener_list_is_422(client: TestClient):
 
 
 def test_start_after_end_is_422(client: TestClient):
-    response = run(
-        client, [{"screener_id": "momentum"}], start="2024-12-31", end="2024-01-01"
-    )
+    response = run(client, [{"screener_id": "momentum"}], start="2024-12-31", end="2024-01-01")
     assert response.status_code == 422
 
 

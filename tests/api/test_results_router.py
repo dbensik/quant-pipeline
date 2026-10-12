@@ -37,6 +37,7 @@ def results_client(store: ResultStore) -> TestClient:
 # Name safety
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize(
     "name",
     ["../secrets", "../../etc/passwd", "sub/dir", "a\\b", "..", ".", "", "   "],
@@ -69,9 +70,7 @@ def test_traversal_over_http_is_422_not_404(results_client: TestClient):
 
 
 def test_saving_under_an_unsafe_name_is_422(results_client: TestClient):
-    response = results_client.post(
-        BASE, json={"name": "../escape", "payload": {"a": 1}}
-    )
+    response = results_client.post(BASE, json={"name": "../escape", "payload": {"a": 1}})
     assert response.status_code == 422
     assert "Invalid result name" in response.json()["detail"]
 
@@ -79,6 +78,7 @@ def test_saving_under_an_unsafe_name_is_422(results_client: TestClient):
 # ---------------------------------------------------------------------------
 # Round trip
 # ---------------------------------------------------------------------------
+
 
 def test_save_then_load(results_client: TestClient):
     payload = {"symbol": "AAPL", "metrics": {"Sharpe Ratio": 1.25}}
@@ -131,6 +131,7 @@ def test_an_empty_directory_lists_nothing(results_client: TestClient):
 # Encoding
 # ---------------------------------------------------------------------------
 
+
 def test_dataframes_use_the_split_layout(results_client: TestClient):
     """
     dashboard_app/api_client.py's _deserialize_data reconstructs DataFrames
@@ -148,9 +149,7 @@ def test_dataframes_use_the_split_layout(results_client: TestClient):
 def test_a_dataframe_round_trips_back_into_pandas():
     frame = pd.DataFrame({"a": [1.0, 2.0]}, index=pd.to_datetime(["2024-01-01", "2024-01-02"]))
     payload = encode(frame)
-    rebuilt = pd.DataFrame(
-        data=payload["data"], index=payload["index"], columns=payload["columns"]
-    )
+    rebuilt = pd.DataFrame(data=payload["data"], index=payload["index"], columns=payload["columns"])
     assert rebuilt["a"].tolist() == [1.0, 2.0]
     assert rebuilt.index.tolist() == ["2024-01-01T00:00:00", "2024-01-02T00:00:00"]
 
@@ -190,11 +189,7 @@ def test_an_unserialisable_object_is_described_not_dropped():
 
 
 def test_nested_structures_are_encoded_throughout(results_client: TestClient):
-    payload = {
-        "runs": [
-            {"frame": encode(pd.DataFrame({"a": [1]})), "sharpe": np.float64(2.0)}
-        ]
-    }
+    payload = {"runs": [{"frame": encode(pd.DataFrame({"a": [1]})), "sharpe": np.float64(2.0)}]}
     results_client.post(BASE, json={"name": "nested", "payload": payload})
     loaded = results_client.get(f"{BASE}/nested").json()
     assert loaded["runs"][0]["frame"]["columns"] == ["a"]
@@ -204,6 +199,7 @@ def test_nested_structures_are_encoded_throughout(results_client: TestClient):
 # ---------------------------------------------------------------------------
 # Durability
 # ---------------------------------------------------------------------------
+
 
 def test_a_partial_write_cannot_leave_an_unreadable_result(store: ResultStore):
     """

@@ -26,16 +26,14 @@ class Settings(BaseSettings):
     # host's 15432 so this project does not fight every other Postgres on the
     # machine. Inside the compose network the host port is irrelevant and
     # services address `timescaledb:5432` instead.
-    DATABASE_URL: str = (
-        "postgresql+asyncpg://quant:quant@localhost:15432/quant_pipeline"
-    )
+    DATABASE_URL: str = "postgresql+asyncpg://quant:quant@localhost:15432/quant_pipeline"
     SYNC_DATABASE_URL: str = (
         "postgresql://quant:quant@localhost:15432/quant_pipeline"  # Alembic only (sync driver)
     )
 
     class Config:
         env_file = ".env"
-        extra = "ignore"        # tolerate API_HOST, API_PORT, ENVIRONMENT etc. in the same .env
+        extra = "ignore"  # tolerate API_HOST, API_PORT, ENVIRONMENT etc. in the same .env
 
 
 settings = Settings()
@@ -46,13 +44,13 @@ engine = create_async_engine(
     echo=False,
     pool_size=10,
     max_overflow=20,
-    pool_pre_ping=True,         # reconnect silently after idle timeout
+    pool_pre_ping=True,  # reconnect silently after idle timeout
 )
 
 AsyncSessionLocal = sessionmaker(
     bind=engine,
     class_=AsyncSession,
-    expire_on_commit=False,     # keep ORM objects usable after commit without re-querying
+    expire_on_commit=False,  # keep ORM objects usable after commit without re-querying
     autoflush=False,
     autocommit=False,
 )

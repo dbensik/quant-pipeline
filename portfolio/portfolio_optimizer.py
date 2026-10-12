@@ -68,7 +68,9 @@ class PortfolioOptimizer:
             # Calculate portfolio return and volatility
             # Annualize return (assuming 252 trading days)
             portfolio_return = np.sum(self.mean_returns * weights) * 252
-            portfolio_std_dev = np.sqrt(np.dot(weights.T, np.dot(self.cov_matrix, weights))) * np.sqrt(252)
+            portfolio_std_dev = np.sqrt(
+                np.dot(weights.T, np.dot(self.cov_matrix, weights))
+            ) * np.sqrt(252)
 
             # Calculate Sharpe Ratio
             if portfolio_std_dev == 0:
@@ -76,12 +78,14 @@ class PortfolioOptimizer:
             else:
                 sharpe_ratio = (portfolio_return - self.risk_free_rate) / portfolio_std_dev
 
-            results_list.append({
-                "Annualized Return": portfolio_return,
-                "Annualized Volatility": portfolio_std_dev,
-                "Sharpe Ratio": sharpe_ratio,
-                "weights": dict(zip(self.assets, weights, strict=False))
-            })
+            results_list.append(
+                {
+                    "Annualized Return": portfolio_return,
+                    "Annualized Volatility": portfolio_std_dev,
+                    "Sharpe Ratio": sharpe_ratio,
+                    "weights": dict(zip(self.assets, weights, strict=False)),
+                }
+            )
 
             # Report progress periodically
             if callback and i % 100 == 0:
@@ -91,7 +95,7 @@ class PortfolioOptimizer:
             callback(1.0)
 
         results_df = pd.DataFrame(results_list)
-        
+
         # Find optimal portfolios
         max_sharpe_idx = results_df["Sharpe Ratio"].idxmax()
         min_vol_idx = results_df["Annualized Volatility"].idxmin()

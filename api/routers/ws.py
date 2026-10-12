@@ -173,26 +173,28 @@ async def backtest_ws(websocket: WebSocket) -> None:
 
         # -- fetch ------------------------------------------------------
         await websocket.send_json(
-            {"type": "progress", "stage": "fetching", "pct": 10,
-             "detail": f"Loading {request.symbol} history"}
+            {
+                "type": "progress",
+                "stage": "fetching",
+                "pct": 10,
+                "detail": f"Loading {request.symbol} history",
+            }
         )
 
         start = (
             request.start.replace(tzinfo=timezone.utc)
-            if request.start.tzinfo is None else request.start
+            if request.start.tzinfo is None
+            else request.start
         )
         end = (
-            request.end.replace(tzinfo=timezone.utc)
-            if request.end.tzinfo is None else request.end
+            request.end.replace(tzinfo=timezone.utc) if request.end.tzinfo is None else request.end
         )
 
         async with get_session() as session:
             repo = TimescaleMarketDataRepo(session)
             asset = await repo.find_asset(request.symbol)
             if asset is None:
-                await _send_error(
-                    websocket, f"Unknown symbol: {request.symbol!r}", 404
-                )
+                await _send_error(websocket, f"Unknown symbol: {request.symbol!r}", 404)
                 return
             records = await repo.fetch_range(
                 symbol=request.symbol, asset_class=None, start=start, end=end
@@ -202,15 +204,18 @@ async def backtest_ws(websocket: WebSocket) -> None:
         if frame.empty:
             await _send_error(
                 websocket,
-                f"No bars stored for {request.symbol!r} between "
-                f"{start.date()} and {end.date()}.",
+                f"No bars stored for {request.symbol!r} between {start.date()} and {end.date()}.",
                 422,
             )
             return
 
         await websocket.send_json(
-            {"type": "progress", "stage": "running", "pct": 40,
-             "detail": f"Running {spec.display_name} over {len(frame)} bars"}
+            {
+                "type": "progress",
+                "stage": "running",
+                "pct": 40,
+                "detail": f"Running {spec.display_name} over {len(frame)} bars",
+            }
         )
 
         # -- run --------------------------------------------------------
@@ -229,8 +234,12 @@ async def backtest_ws(websocket: WebSocket) -> None:
             return
 
         await websocket.send_json(
-            {"type": "progress", "stage": "summarising", "pct": 90,
-             "detail": "Computing performance metrics"}
+            {
+                "type": "progress",
+                "stage": "summarising",
+                "pct": 90,
+                "detail": "Computing performance metrics",
+            }
         )
 
         payload: Dict[str, Any] = {
@@ -248,9 +257,7 @@ async def backtest_ws(websocket: WebSocket) -> None:
             # that does not say what produced it cannot be reproduced or
             # compared. `initial_capital` in particular is what a client needs
             # to draw a break-even line on the equity curve.
-            "params": {
-                p.name: request.params.get(p.name, p.default) for p in spec.params
-            },
+            "params": {p.name: request.params.get(p.name, p.default) for p in spec.params},
             "seed": request.seed,
             "initial_capital": request.initial_capital,
         }
@@ -286,6 +293,7 @@ async def backtest_ws(websocket: WebSocket) -> None:
 # Same protocol again. `returns` mode finishes in well under a second and
 # reports stages only; `prices` mode runs one backtest per path and reports
 # every PROGRESS_EVERY paths from inside the worker, through the bridge.
+
 
 @router.websocket("/simulate")
 async def simulate_ws(websocket: WebSocket) -> None:
@@ -340,17 +348,21 @@ async def simulate_ws(websocket: WebSocket) -> None:
 
         # -- fetch ------------------------------------------------------
         await websocket.send_json(
-            {"type": "progress", "stage": "fetching", "pct": 5,
-             "detail": f"Loading {request.symbol} history"}
+            {
+                "type": "progress",
+                "stage": "fetching",
+                "pct": 5,
+                "detail": f"Loading {request.symbol} history",
+            }
         )
 
         start = (
             request.start.replace(tzinfo=timezone.utc)
-            if request.start.tzinfo is None else request.start
+            if request.start.tzinfo is None
+            else request.start
         )
         end = (
-            request.end.replace(tzinfo=timezone.utc)
-            if request.end.tzinfo is None else request.end
+            request.end.replace(tzinfo=timezone.utc) if request.end.tzinfo is None else request.end
         )
 
         async with get_session() as session:
@@ -372,22 +384,26 @@ async def simulate_ws(websocket: WebSocket) -> None:
         if frame.empty:
             await _send_error(
                 websocket,
-                f"No bars stored for {request.symbol!r} between "
-                f"{start.date()} and {end.date()}.",
+                f"No bars stored for {request.symbol!r} between {start.date()} and {end.date()}.",
                 422,
             )
             return
 
         # -- simulate ---------------------------------------------------
         await websocket.send_json(
-            {"type": "progress", "stage": "running", "pct": 10,
-             "detail": (
-                 f"Running {spec.display_name} over {len(frame)} bars, then "
-                 f"{n_paths:,} {request.method} paths"
-             )}
+            {
+                "type": "progress",
+                "stage": "running",
+                "pct": 10,
+                "detail": (
+                    f"Running {spec.display_name} over {len(frame)} bars, then "
+                    f"{n_paths:,} {request.method} paths"
+                ),
+            }
         )
 
         async with _ProgressBridge(websocket) as bridge:
+
             def on_progress(completed: int, total: int) -> None:
                 # Worker thread. 10% is the fetch and historical run, 85% the
                 # paths, so the bar never moves backwards.
@@ -411,8 +427,12 @@ async def simulate_ws(websocket: WebSocket) -> None:
                 return
 
         await websocket.send_json(
-            {"type": "progress", "stage": "summarising", "pct": 97,
-             "detail": "Computing bands and tail risk"}
+            {
+                "type": "progress",
+                "stage": "summarising",
+                "pct": 97,
+                "detail": "Computing bands and tail risk",
+            }
         )
 
         response = build_simulation_response(
@@ -500,17 +520,21 @@ async def optimize_strategy_ws(websocket: WebSocket) -> None:
 
         # -- fetch ------------------------------------------------------
         await websocket.send_json(
-            {"type": "progress", "stage": "fetching", "pct": 5,
-             "detail": f"Loading {request.symbol} history"}
+            {
+                "type": "progress",
+                "stage": "fetching",
+                "pct": 5,
+                "detail": f"Loading {request.symbol} history",
+            }
         )
 
         start = (
             request.start.replace(tzinfo=timezone.utc)
-            if request.start.tzinfo is None else request.start
+            if request.start.tzinfo is None
+            else request.start
         )
         end = (
-            request.end.replace(tzinfo=timezone.utc)
-            if request.end.tzinfo is None else request.end
+            request.end.replace(tzinfo=timezone.utc) if request.end.tzinfo is None else request.end
         )
 
         async with get_session() as session:
@@ -527,14 +551,14 @@ async def optimize_strategy_ws(websocket: WebSocket) -> None:
         if frame.empty:
             await _send_error(
                 websocket,
-                f"No bars stored for {request.symbol!r} between "
-                f"{start.date()} and {end.date()}.",
+                f"No bars stored for {request.symbol!r} between {start.date()} and {end.date()}.",
                 422,
             )
             return
 
         # -- search -----------------------------------------------------
         async with _ProgressBridge(websocket) as bridge:
+
             def on_progress(completed: int, total: int) -> None:
                 # Runs in the threadpool worker. 5% is fetching, 95% the
                 # search, so the bar never jumps backwards.
@@ -564,13 +588,10 @@ async def optimize_strategy_ws(websocket: WebSocket) -> None:
             return
 
         await websocket.send_json(
-            {"type": "progress", "stage": "summarising", "pct": 97,
-             "detail": "Ranking results"}
+            {"type": "progress", "stage": "summarising", "pct": 97, "detail": "Ranking results"}
         )
 
-        payload = build_optimize_payload(
-            optimizer, spec, frame, combos, request, start, end
-        )
+        payload = build_optimize_payload(optimizer, spec, frame, combos, request, start, end)
         payload["type"] = "result"
         payload["start"] = start.isoformat()
         payload["end"] = end.isoformat()
@@ -633,8 +654,7 @@ async def optimize_portfolio_ws(websocket: WebSocket) -> None:
         if len(request.symbols) < 2:
             await _send_error(
                 websocket,
-                "Weight optimization needs at least 2 symbols; "
-                f"{len(request.symbols)} given.",
+                f"Weight optimization needs at least 2 symbols; {len(request.symbols)} given.",
                 422,
             )
             return
@@ -656,16 +676,20 @@ async def optimize_portfolio_ws(websocket: WebSocket) -> None:
 
         start = (
             request.start.replace(tzinfo=timezone.utc)
-            if request.start.tzinfo is None else request.start
+            if request.start.tzinfo is None
+            else request.start
         )
         end = (
-            request.end.replace(tzinfo=timezone.utc)
-            if request.end.tzinfo is None else request.end
+            request.end.replace(tzinfo=timezone.utc) if request.end.tzinfo is None else request.end
         )
 
         await websocket.send_json(
-            {"type": "progress", "stage": "fetching", "pct": 5,
-             "detail": f"Loading {len(request.symbols)} price histories"}
+            {
+                "type": "progress",
+                "stage": "fetching",
+                "pct": 5,
+                "detail": f"Loading {len(request.symbols)} price histories",
+            }
         )
 
         price_data: Dict[str, Any] = {}
@@ -683,8 +707,7 @@ async def optimize_portfolio_ws(websocket: WebSocket) -> None:
                 if frame.empty:
                     await _send_error(
                         websocket,
-                        f"No bars stored for {symbol!r} between "
-                        f"{start.date()} and {end.date()}.",
+                        f"No bars stored for {symbol!r} between {start.date()} and {end.date()}.",
                         422,
                     )
                     return
@@ -701,6 +724,7 @@ async def optimize_portfolio_ws(websocket: WebSocket) -> None:
             return
 
         async with _ProgressBridge(websocket) as bridge:
+
             def on_progress(fraction: float) -> None:
                 bridge.publish(
                     {
@@ -714,9 +738,7 @@ async def optimize_portfolio_ws(websocket: WebSocket) -> None:
                     }
                 )
 
-            results_df = await run_in_threadpool(
-                _simulate_sync, prices, request, on_progress
-            )
+            results_df = await run_in_threadpool(_simulate_sync, prices, request, on_progress)
 
         payload = build_portfolio_payload(results_df, prices, request, start, end)
         payload = {
@@ -755,6 +777,7 @@ async def optimize_portfolio_ws(websocket: WebSocket) -> None:
 # ---------------------------------------------------------------------------
 # Ingestion
 # ---------------------------------------------------------------------------
+
 
 @router.websocket("/ingest")
 async def ingest_ws(websocket: WebSocket) -> None:
@@ -802,9 +825,7 @@ async def ingest_ws(websocket: WebSocket) -> None:
         symbols = [s.upper().strip() for s in symbols if s and s.strip()]
 
         if not symbols:
-            await _send_error(
-                websocket, "No symbols to ingest — the registry is empty.", 422
-            )
+            await _send_error(websocket, "No symbols to ingest — the registry is empty.", 422)
             return
         if len(symbols) > MAX_SYMBOLS:
             await _send_error(
@@ -833,6 +854,7 @@ async def ingest_ws(websocket: WebSocket) -> None:
         )
 
         async with _ProgressBridge(websocket) as bridge:
+
             def on_progress(completed: int, total: int, symbol: str) -> None:
                 # Runs in the threadpool worker via ingest_symbols.
                 job.note(completed, total, symbol)

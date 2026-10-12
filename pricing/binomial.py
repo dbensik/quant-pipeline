@@ -123,6 +123,7 @@ def american_price(
 # Vectorised escrowed-dividend tree (many options at once)
 # ---------------------------------------------------------------------------
 
+
 def _escrowed_tree(S_risky, K, T, r, sigma, is_call, american, steps, divs):
     """
     One CRR pass over n options at once. All arrays have shape (n,).
@@ -140,7 +141,9 @@ def _escrowed_tree(S_risky, K, T, r, sigma, is_call, american, steps, divs):
     growth = np.exp(r * dt)
     p = (growth - d) / (u - d)
     if np.any((p <= 0) | (p >= 1)):
-        raise ValueError("risk-neutral probability outside (0, 1): sigma too low for this rate and step count")
+        raise ValueError(
+            "risk-neutral probability outside (0, 1): sigma too low for this rate and step count"
+        )
     disc = np.exp(-r * dt)
     sign = np.where(is_call, 1.0, -1.0)
 
@@ -184,7 +187,9 @@ def escrowed_prices(
     European here is the same tree without early exercise, so american -
     european is the early-exercise premium on one consistent lattice.
     """
-    S_risky, K, T, sigma = (np.atleast_1d(np.asarray(x, dtype=float)) for x in (S_risky, K, T, sigma))
+    S_risky, K, T, sigma = (
+        np.atleast_1d(np.asarray(x, dtype=float)) for x in (S_risky, K, T, sigma)
+    )
     is_call = np.atleast_1d(np.asarray(is_call, dtype=bool))
     S_risky, K, T, sigma, is_call = np.broadcast_arrays(S_risky, K, T, sigma, is_call)
     if divs is None:

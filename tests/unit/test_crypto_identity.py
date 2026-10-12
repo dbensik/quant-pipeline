@@ -31,6 +31,7 @@ def check(symbol, ref_name, ref_price, prov_name, prov_price):
 # WRONG_ASSET — a decisive price gap
 # ---------------------------------------------------------------------------
 
+
 def test_uniswap_is_not_unicorn_token():
     """Measured 49,065x. The headline case: a top-50 coin, wholly wrong."""
     c = check("UNI-USD", "Uniswap", 7.24, "UNICORN Token", 0.0001475)
@@ -51,14 +52,13 @@ def test_the_same_name_can_still_be_a_different_coin():
 
 def test_the_narrowest_measured_substitution_still_reads_wrong():
     """PEPE vs PEPEGOLD at 1.697x — the smallest real gap in the audit."""
-    assert check("PEPE-USD", "Pepe", 1e-5, "PEPEGOLD", 5.9e-6).status is (
-        Identity.WRONG_ASSET
-    )
+    assert check("PEPE-USD", "Pepe", 1e-5, "PEPEGOLD", 5.9e-6).status is (Identity.WRONG_ASSET)
 
 
 # ---------------------------------------------------------------------------
 # MATCH — including the alias that fooled a human
 # ---------------------------------------------------------------------------
+
 
 def test_an_alias_is_the_same_asset():
     """
@@ -72,21 +72,18 @@ def test_an_alias_is_the_same_asset():
 
 
 def test_a_plain_match_is_a_match():
-    assert check("BTC-USD", "Bitcoin", 76677.0, "Bitcoin", 76677.06).status is (
-        Identity.MATCH
-    )
+    assert check("BTC-USD", "Bitcoin", 76677.0, "Bitcoin", 76677.06).status is (Identity.MATCH)
 
 
 def test_a_small_price_move_between_quotes_is_tolerated():
     """The two prices are fetched seconds apart; they will not be equal."""
-    assert check("ETH-USD", "Ethereum", 2453.7, "Ethereum", 2461.2).status is (
-        Identity.MATCH
-    )
+    assert check("ETH-USD", "Ethereum", 2453.7, "Ethereum", 2461.2).status is (Identity.MATCH)
 
 
 # ---------------------------------------------------------------------------
 # SUSPECT — price cannot settle a stablecoin
 # ---------------------------------------------------------------------------
+
 
 def test_a_stablecoin_with_a_wrong_name_is_suspect_not_wrong():
     """
@@ -101,14 +98,13 @@ def test_a_stablecoin_with_a_wrong_name_is_suspect_not_wrong():
 
 def test_suspect_is_reserved_for_agreeing_prices():
     """A name mismatch with a real gap is WRONG_ASSET, not SUSPECT."""
-    assert check("SUI-USD", "Sui", 1.42, "Salmonation", 0.00056).status is (
-        Identity.WRONG_ASSET
-    )
+    assert check("SUI-USD", "Sui", 1.42, "Salmonation", 0.00056).status is (Identity.WRONG_ASSET)
 
 
 # ---------------------------------------------------------------------------
 # UNVERIFIABLE — absence of evidence
 # ---------------------------------------------------------------------------
+
 
 def test_no_reference_is_not_a_failure():
     """
@@ -138,6 +134,7 @@ def test_a_missing_price_with_a_matching_name_is_still_a_match():
 # the primitives
 # ---------------------------------------------------------------------------
 
+
 def test_noise_words_do_not_distinguish_coins():
     assert normalize_name("LEO Token") == "leo"
     assert normalize_name("Pi Network") == "pi"
@@ -165,6 +162,7 @@ def test_describe_names_the_verdict():
 # index_by_symbol — CoinGecko's own symbols are not unique either
 # ---------------------------------------------------------------------------
 
+
 def test_a_symbol_collision_keeps_the_larger_coin():
     """
     `/coins/markets` is ordered by market cap, so the FIRST occurrence is the
@@ -191,6 +189,7 @@ def test_indexing_an_empty_reference_set_is_empty():
 # data quality — a second, independent axis
 # ---------------------------------------------------------------------------
 
+
 def test_an_unusable_series_is_blocked_even_when_the_identity_matches():
     """
     USDE-USD is the case that forced this axis. The ticker really IS Ethena
@@ -201,18 +200,17 @@ def test_an_unusable_series_is_blocked_even_when_the_identity_matches():
     from core.crypto_identity import metadata_allows_ingest
 
     assert metadata_allows_ingest({"identity_status": "match"}) is True
-    assert metadata_allows_ingest(
-        {"identity_status": "match", "data_quality": "unusable"}
-    ) is False
+    assert metadata_allows_ingest({"identity_status": "match", "data_quality": "unusable"}) is False
 
 
 def test_an_unrecognised_quality_value_does_not_block():
     """Consistent with identity: someone else's metadata is not a verdict."""
     from core.crypto_identity import metadata_allows_ingest
 
-    assert metadata_allows_ingest(
-        {"identity_status": "match", "data_quality": "probably fine"}
-    ) is True
+    assert (
+        metadata_allows_ingest({"identity_status": "match", "data_quality": "probably fine"})
+        is True
+    )
 
 
 def test_the_block_reason_names_the_actual_cause():
@@ -225,8 +223,11 @@ def test_the_block_reason_names_the_actual_cause():
     from core.crypto_identity import ingest_block_reason
 
     quality = ingest_block_reason(
-        {"identity_status": "match", "data_quality": "unusable",
-         "data_quality_reason": "90 of 531 bars outside all-time range"}
+        {
+            "identity_status": "match",
+            "data_quality": "unusable",
+            "data_quality_reason": "90 of 531 bars outside all-time range",
+        }
     )
     assert "unusable" in quality
     assert "Identity is not the problem" in quality
@@ -253,6 +254,7 @@ def test_nothing_to_explain_when_ingestion_is_allowed():
 # ---------------------------------------------------------------------------
 # Settled overrides — a human decision the audit must not recompute away
 # ---------------------------------------------------------------------------
+
 
 def suspect(symbol="BUIDL-USD"):
     return check(symbol, "BlackRock USD Institutional", 1.0, "DFOhub", 0.708)

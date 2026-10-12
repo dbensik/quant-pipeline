@@ -74,7 +74,9 @@ def resolve(
     for symbol in symbols:
         r = _resolve_one(symbol.upper(), tickers, renames, reissued, overrides)
         if r.cik is not None and r.symbol in predecessors:
-            r = Resolution(r.symbol, r.cik, r.how, r.sec_title, tuple(int(c) for c in predecessors[r.symbol]))
+            r = Resolution(
+                r.symbol, r.cik, r.how, r.sec_title, tuple(int(c) for c in predecessors[r.symbol])
+            )
         out.append(r)
     return out
 

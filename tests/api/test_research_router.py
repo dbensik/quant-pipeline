@@ -18,6 +18,7 @@ BASE = "/api/v1/research"
 # Profile
 # ---------------------------------------------------------------------------
 
+
 def test_returns_a_company_profile(client: TestClient):
     body = client.get(f"{BASE}/AAPL/profile").json()
     assert body["symbol"] == "AAPL"
@@ -55,6 +56,7 @@ def test_upstream_failure_is_503_not_500(client: TestClient):
 # Financials
 # ---------------------------------------------------------------------------
 
+
 def test_returns_three_statements(client: TestClient):
     body = client.get(f"{BASE}/AAPL/financials").json()
     assert {r["line_item"] for r in body["income_statement"]} == {
@@ -79,6 +81,7 @@ def test_statement_periods_are_iso_dates(client: TestClient):
 # News
 # ---------------------------------------------------------------------------
 
+
 def test_news_items_carry_a_real_title_and_url(client: TestClient):
     """
     THE regression. yfinance 1.2.0 nests items under `content`, but the
@@ -98,9 +101,7 @@ def test_news_deduplicates_a_story_shared_by_two_symbols(client: TestClient):
     The widget deduped on `link`, which yfinance 1.x does not emit, so ten
     stories collapsed onto the single key None — verified against live data.
     """
-    items = client.get(
-        f"{BASE}/news", params={"symbols": ["AAPL", "MSFT"]}
-    ).json()["items"]
+    items = client.get(f"{BASE}/news", params={"symbols": ["AAPL", "MSFT"]}).json()["items"]
     titles = [i["title"] for i in items]
     assert titles.count("Tech selloff") == 1
     assert len(titles) == 2
@@ -113,9 +114,7 @@ def test_news_is_newest_first(client: TestClient):
 
 
 def test_limit_truncates_the_feed(client: TestClient):
-    body = client.get(
-        f"{BASE}/news", params={"symbols": ["AAPL", "MSFT"], "limit": 1}
-    ).json()
+    body = client.get(f"{BASE}/news", params={"symbols": ["AAPL", "MSFT"], "limit": 1}).json()
     assert len(body["items"]) == 1
 
 
@@ -163,9 +162,7 @@ def test_a_portfolio_with_no_open_positions_is_empty_not_the_market(client: Test
 
 
 def test_explicit_symbols_win_over_a_watchlist(client: TestClient):
-    body = client.get(
-        f"{BASE}/news", params={"symbols": ["TSLA"], "watchlist": "MAG7"}
-    ).json()
+    body = client.get(f"{BASE}/news", params={"symbols": ["TSLA"], "watchlist": "MAG7"}).json()
     assert body["symbols"] == ["TSLA"]
     assert body["source"] == "symbols"
 
@@ -202,9 +199,7 @@ def test_total_upstream_failure_is_503_not_an_empty_feed(client: TestClient):
 
 def test_one_broken_symbol_does_not_blank_the_feed(client: TestClient):
     """A single delisted ticker in a watchlist must not empty the whole feed."""
-    body = client.get(
-        f"{BASE}/news", params={"symbols": ["AAPL", "BROKEN"]}
-    ).json()
+    body = client.get(f"{BASE}/news", params={"symbols": ["AAPL", "BROKEN"]}).json()
     assert body["items"]
 
 

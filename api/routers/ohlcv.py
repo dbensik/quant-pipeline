@@ -24,6 +24,7 @@ router = APIRouter(prefix="/api/v1/ohlcv", tags=["ohlcv"])
 # Response models
 # ---------------------------------------------------------------------------
 
+
 class OHLCVBar(BaseModel):
     """A single OHLCV bar. Price fields are nullable — the legacy data has gaps."""
 
@@ -48,6 +49,7 @@ class OHLCVResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
+
 
 @router.get(
     "/{symbol}",
@@ -78,15 +80,11 @@ async def get_ohlcv(
     not an error.
     """
     if start > end:
-        raise HTTPException(
-            status_code=422, detail="`start` must not be after `end`."
-        )
+        raise HTTPException(status_code=422, detail="`start` must not be after `end`.")
 
     asset = await repo.find_asset(symbol, asset_class)
     if asset is None:
-        raise HTTPException(
-            status_code=404, detail=f"Unknown symbol: {symbol!r}"
-        )
+        raise HTTPException(status_code=404, detail=f"Unknown symbol: {symbol!r}")
 
     # market_data stores timezone-aware UTC. Naive query params are interpreted
     # as UTC rather than rejected, so ?start=2023-01-01 works as expected.

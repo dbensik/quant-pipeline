@@ -82,7 +82,7 @@ def _ttm_or_annual(st: Statements, item: str, as_of: date) -> Tuple[Optional[flo
     a = st.annual(item, as_of)
     if a and (as_of - a[-1].period_end).days <= MAX_ANNUAL_AGE_DAYS:
         return a[-1].value, f"FY to {a[-1].period_end}"
-    last = (t[1][-1].period_end if t else (a[-1].period_end if a else None))
+    last = t[1][-1].period_end if t else (a[-1].period_end if a else None)
     return None, f"not reported{f' since {last}' if last else ''}"
 
 
@@ -106,8 +106,10 @@ def default_growth(st: Statements, as_of: date) -> Tuple[float, str]:
         years, cagr = min(cagrs.items(), key=lambda kv: kv[1])
         clamped = min(max(cagr, GROWTH_CLAMP[0]), GROWTH_CLAMP[1])
         shown = " and ".join(f"{y}-year {c:.2%}" for y, c in sorted(cagrs.items()))
-        return clamped, (f"lower revenue CAGR ({shown}) to FY {rev[-1].period_end}, includes acquisitions"
-                         + (f"; clamped to {clamped:.0%}" if clamped != cagr else ""))
+        return clamped, (
+            f"lower revenue CAGR ({shown}) to FY {rev[-1].period_end}, includes acquisitions"
+            + (f"; clamped to {clamped:.0%}" if clamped != cagr else "")
+        )
     return settings.DCF_TERMINAL_GROWTH, "too little revenue history: terminal growth used"
 
 
@@ -132,8 +134,10 @@ def build_inputs(
         # Missing capex is NOT zero: treating it as zero made APA's free cash
         # flow its whole operating cash flow (DCF $323 against a $45 price).
         # APA's current filer has tagged no standard capex concept since 2022.
-        return Refusal(f"capital expenditure not reported in a standard concept ({capex_src}); "
-                       "free cash flow cannot be formed")
+        return Refusal(
+            f"capital expenditure not reported in a standard concept ({capex_src}); "
+            "free cash flow cannot be formed"
+        )
     sbc, sbc_src = _ttm_or_annual(st, "share_based_comp", as_of)
     interest, interest_src = _ttm_or_annual(st, "interest_expense", as_of)
     if interest is None:
@@ -150,7 +154,9 @@ def build_inputs(
         notes.append("interest expense filed as a negative number: its magnitude is used")
     tax = st.effective_tax_rate(as_of)
     if tax is None or not 0 <= tax < 1:
-        notes.append(f"effective tax rate unavailable ({tax}); {FALLBACK_TAX_RATE:.0%} statutory used")
+        notes.append(
+            f"effective tax rate unavailable ({tax}); {FALLBACK_TAX_RATE:.0%} statutory used"
+        )
         tax = FALLBACK_TAX_RATE
 
     # Balances get the same age rule as trailing flows. Missing debt is NOT
@@ -166,14 +172,19 @@ def build_inputs(
             notes.append(f"latest debt balance is from {debt_v.period_end} (fiscal year end)")
     elif interest is not None and interest > 0:
         last = f"; latest on file is {debt_v.period_end}" if debt_v else ""
-        return Refusal(f"interest is reported ({interest_src}) but no debt balance within "
-                       f"{MAX_ANNUAL_AGE_DAYS} days in a standard concept{last}; net debt cannot be formed")
+        return Refusal(
+            f"interest is reported ({interest_src}) but no debt balance within "
+            f"{MAX_ANNUAL_AGE_DAYS} days in a standard concept{last}; net debt cannot be formed"
+        )
     else:
         debt, debt_src = 0.0, "none on file and no interest reported: treated as debt-free"
         notes.append("no debt balance and no interest on file: treated as debt-free")
     liquid = st.liquid_assets(as_of)
     if liquid is not None and (as_of - liquid.period_end).days <= MAX_ANNUAL_AGE_DAYS:
-        net_debt, net_src = debt - liquid.value, f"debt - ({liquid.concept}), balance {liquid.period_end}"
+        net_debt, net_src = (
+            debt - liquid.value,
+            f"debt - ({liquid.concept}), balance {liquid.period_end}",
+        )
     else:
         net_debt, net_src = debt, "debt only: no cash balance on file"
         stale = f" since {liquid.period_end}" if liquid else ""
@@ -188,14 +199,17 @@ def build_inputs(
         stale_cover = shares_v
         # The newest of the quarterly and annual averages: Fox's FY (to
         # 2026-06-30) is newer than its last filed quarter (2026-03-31).
-        diluted = sorted(st.quarterly("diluted_shares", as_of) + st.annual("diluted_shares", as_of),
-                         key=lambda v: (v.period_end, v.filed))
+        diluted = sorted(
+            st.quarterly("diluted_shares", as_of) + st.annual("diluted_shares", as_of),
+            key=lambda v: (v.period_end, v.filed),
+        )
         if not diluted or (as_of - diluted[-1].period_end).days > MAX_TTM_AGE_DAYS:
-            return Refusal("no share count on file within "
-                           f"{MAX_TTM_AGE_DAYS} days of this date")
+            return Refusal(f"no share count on file within {MAX_TTM_AGE_DAYS} days of this date")
         shares_v, shares_src = diluted[-1], "latest diluted weighted average"
         if stale_cover is not None:
-            notes.append(f"cover-page share count is from {stale_cover.period_end} (stale): diluted average used")
+            notes.append(
+                f"cover-page share count is from {stale_cover.period_end} (stale): diluted average used"
+            )
     shares = shares_v.value
 
     market_cap = price * shares
@@ -218,12 +232,23 @@ def build_inputs(
         dep, dep_src = _ttm_or_annual(st, "depreciation", as_of)
         amort, amort_src = _ttm_or_annual(st, "amortization_intangibles", as_of)
         if dep is not None and amort is not None and amort_src == dep_src:
-            da, da_src, da_label = dep + amort, dep_src, "depreciation + amortisation of intangibles"
+            da, da_src, da_label = (
+                dep + amort,
+                dep_src,
+                "depreciation + amortisation of intangibles",
+            )
         elif dep is not None:
-            da, da_src, da_label = dep, dep_src, "depreciation only (no amortisation on file for the period)"
+            da, da_src, da_label = (
+                dep,
+                dep_src,
+                "depreciation only (no amortisation on file for the period)",
+            )
     ebitda = op + da if op is not None and da is not None else None
-    ebitda_src = (f"operating income ({op_src}) + {da_label} ({da_src})" if ebitda is not None
-                  else "operating income + D&A: not both on file")
+    ebitda_src = (
+        f"operating income ({op_src}) + {da_label} ({da_src})"
+        if ebitda is not None
+        else "operating income + D&A: not both on file"
+    )
 
     if growth_first is None:
         growth_first, growth_src = default_growth(st, as_of)
@@ -231,30 +256,48 @@ def build_inputs(
         growth_src = "given"
 
     dcf = DCFInputs(
-        base_fcf=base_fcf, growth_first=growth_first, growth_terminal=settings.DCF_TERMINAL_GROWTH,
-        wacc=discount.wacc, net_debt=net_debt, shares=shares,
-        exit_metric_base=ebitda, exit_multiple=settings.DCF_EXIT_MULTIPLE if ebitda else None,
+        base_fcf=base_fcf,
+        growth_first=growth_first,
+        growth_terminal=settings.DCF_TERMINAL_GROWTH,
+        wacc=discount.wacc,
+        net_debt=net_debt,
+        shares=shares,
+        exit_metric_base=ebitda,
+        exit_multiple=settings.DCF_EXIT_MULTIPLE if ebitda else None,
     )
     lines = {
-        "cfo": (cfo, cfo_src), "capex": (capex, capex_src),
+        "cfo": (cfo, cfo_src),
+        "capex": (capex, capex_src),
         "after_tax_interest": (after_tax_interest, interest_src),
-        "share_based_comp": (sbc, sbc_src + ("; subtracted" if subtract_sbc else "; NOT subtracted")),
-        "base_fcf": (base_fcf, "CFO - capex + after-tax interest" + (" - SBC" if subtract_sbc else "")),
+        "share_based_comp": (
+            sbc,
+            sbc_src + ("; subtracted" if subtract_sbc else "; NOT subtracted"),
+        ),
+        "base_fcf": (
+            base_fcf,
+            "CFO - capex + after-tax interest" + (" - SBC" if subtract_sbc else ""),
+        ),
         "tax_rate": (tax, "effective, latest fiscal year"),
         "total_debt": (debt, debt_src),
         "net_debt": (net_debt, net_src),
         "shares": (shares, f"{shares_src}, period {shares_v.period_end}, filed {shares_v.filed}"),
         "ebitda": (ebitda, ebitda_src),
         "growth_first": (growth_first, growth_src),
-        "beta": (beta.beta, f"vs {settings.DCF_BETA_BENCHMARK}, {beta.observations} daily returns, SE {beta.std_error:.3f}"),
+        "beta": (
+            beta.beta,
+            f"vs {settings.DCF_BETA_BENCHMARK}, {beta.observations} daily returns, SE {beta.std_error:.3f}",
+        ),
         "risk_free": (risk_free, "^IRX continuous, as of the valuation date"),
     }
-    return ValuationInputs(dcf=dcf, discount=discount, price=price, market_cap=market_cap, lines=lines, notes=notes)
+    return ValuationInputs(
+        dcf=dcf, discount=discount, price=price, market_cap=market_cap, lines=lines, notes=notes
+    )
 
 
 # ---------------------------------------------------------------------------
 # Prices from the market-data repository
 # ---------------------------------------------------------------------------
+
 
 async def price_as_traded(repo: Any, symbol: str, as_of: date) -> Optional[Tuple[date, float]]:
     """The last close on or before `as_of`, AS TRADED (adjust='none')."""
@@ -267,10 +310,14 @@ async def price_as_traded(repo: Any, symbol: str, as_of: date) -> Optional[Tuple
     return last.timestamp.utc.date(), float(last.close)
 
 
-async def beta_from_bars(repo: Any, symbol: str, as_of: date,
-                         window: int = settings.DCF_BETA_WINDOW_DAYS,
-                         benchmark: str = settings.DCF_BETA_BENCHMARK,
-                         frequency: str = "daily") -> Beta:
+async def beta_from_bars(
+    repo: Any,
+    symbol: str,
+    as_of: date,
+    window: int = settings.DCF_BETA_WINDOW_DAYS,
+    benchmark: str = settings.DCF_BETA_BENCHMARK,
+    frequency: str = "daily",
+) -> Beta:
     """
     Total-return log returns joined ON DATE with the benchmark's. `daily`
     uses the last `window` sessions (decision 4: 756, about 3 years);
@@ -296,7 +343,7 @@ async def beta_from_bars(repo: Any, symbol: str, as_of: date,
         common = sorted(last_of_week.values())
     elif frequency != "daily":
         raise ValueError(f"frequency must be daily or weekly; got {frequency!r}")
-    days = common[-(window + 1):]
+    days = common[-(window + 1) :]
     if len(days) < 31:
         raise ValueError(f"only {len(days)} common sessions with {benchmark}")
     ra = np.diff(np.log([a[d] for d in days]))

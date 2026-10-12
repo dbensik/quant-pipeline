@@ -76,13 +76,18 @@ def pricing_fingerprint(pricing_dir: Optional[Path] = None) -> str:
     for name in PRICING_SOURCES:
         h.update(name.encode())
         h.update((pricing_dir / name).read_bytes())
-    h.update(json.dumps({k: getattr(settings, k) for k in PRICING_SETTINGS}, sort_keys=True, default=str).encode())
+    h.update(
+        json.dumps(
+            {k: getattr(settings, k) for k in PRICING_SETTINGS}, sort_keys=True, default=str
+        ).encode()
+    )
     return h.hexdigest()
 
 
 # ---------------------------------------------------------------------------
 # Archive
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class CaptureFile:
@@ -131,6 +136,7 @@ class ChainArchive:
 # Inputs
 # ---------------------------------------------------------------------------
 
+
 class DividendHistory(Protocol):
     async def dividend_history(self, symbol: str, on_or_before: date) -> List[Tuple[date, float]]:
         """Ex-date and amount of every recorded dividend up to a date."""
@@ -155,7 +161,9 @@ class SurfaceInputs:
             "day": self.capture.day.isoformat(),
             "file": self.file_sha256,
             "rate": [self.rate_series, self.rate_obs_date.isoformat(), repr(self.rate_quoted_pct)],
-            "dividends": [[d.ex_date.isoformat(), repr(d.amount), d.projected] for d in self.dividends],
+            "dividends": [
+                [d.ex_date.isoformat(), repr(d.amount), d.projected] for d in self.dividends
+            ],
             "code": self.code,
         }
         return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
@@ -167,12 +175,15 @@ def file_sha256(path: Path) -> str:
 
 def projected_dividends(history: Sequence[Tuple[date, float]], day: date) -> Tuple[Dividend, ...]:
     known = [(d, a) for d, a in history if d <= day]
-    return tuple(project_dividends(known, day, day + timedelta(days=settings.OPTIONS_DIVIDEND_HORIZON_DAYS)))
+    return tuple(
+        project_dividends(known, day, day + timedelta(days=settings.OPTIONS_DIVIDEND_HORIZON_DAYS))
+    )
 
 
 # ---------------------------------------------------------------------------
 # The surface payload (JSON-safe)
 # ---------------------------------------------------------------------------
+
 
 def json_safe(value: Any) -> Any:
     """Recursively: numpy -> Python, NaN/Inf -> None, dates -> ISO strings."""
@@ -202,10 +213,11 @@ def build_surface(frame: pd.DataFrame, inputs: SurfaceInputs) -> Dict[str, Any]:
     started = time.perf_counter()
     result = price_chain(frame, inputs.rate_continuous, list(inputs.dividends))
     ts = term_structure(result)
-    smiles = {
-        expiry: _records(smile(result.rows, expiry))
-        for expiry in result.expiries["expiry"]
-    } if not result.expiries.empty else {}
+    smiles = (
+        {expiry: _records(smile(result.rows, expiry)) for expiry in result.expiries["expiry"]}
+        if not result.expiries.empty
+        else {}
+    )
     payload = {
         "key": inputs.key(),
         "ticker": inputs.capture.ticker,
@@ -236,6 +248,7 @@ def build_surface(frame: pd.DataFrame, inputs: SurfaceInputs) -> Dict[str, Any]:
 # Cache
 # ---------------------------------------------------------------------------
 
+
 class SurfaceCache:
     """
     One JSON file per ticker-day under `root`, holding its key. A request
@@ -244,7 +257,9 @@ class SurfaceCache:
     a global semaphore queues misses across ticker-days.
     """
 
-    def __init__(self, root: Path, max_concurrent: int = settings.OPTIONS_SURFACE_MAX_CONCURRENT) -> None:
+    def __init__(
+        self, root: Path, max_concurrent: int = settings.OPTIONS_SURFACE_MAX_CONCURRENT
+    ) -> None:
         self.root = Path(root)
         self._locks: Dict[str, asyncio.Lock] = {}
         self._slots = asyncio.Semaphore(max_concurrent)
@@ -296,13 +311,17 @@ class NoRateError(LookupError):
     pass
 
 
-async def surface_inputs(capture: CaptureFile, rates: Any, dividends: DividendHistory, code: str) -> SurfaceInputs:
+async def surface_inputs(
+    capture: CaptureFile, rates: Any, dividends: DividendHistory, code: str
+) -> SurfaceInputs:
     """Everything a surface depends on, read as of the capture date."""
     from core.rates import risk_free_rate
 
     rate = await risk_free_rate(rates, capture.day)
     if rate is None:
-        raise NoRateError(f"No {settings.RISK_FREE_RATE_SERIES} observation on or before {capture.day}")
+        raise NoRateError(
+            f"No {settings.RISK_FREE_RATE_SERIES} observation on or before {capture.day}"
+        )
     history = await dividends.dividend_history(capture.ticker, capture.day)
     return SurfaceInputs(
         capture=capture,
@@ -320,4 +339,5 @@ async def surface_inputs(capture: CaptureFile, rates: Any, dividends: DividendHi
 def compute_for(inputs: SurfaceInputs) -> Callable[[], Dict[str, Any]]:
     def compute() -> Dict[str, Any]:
         return build_surface(pd.read_parquet(inputs.capture.path), inputs)
+
     return compute

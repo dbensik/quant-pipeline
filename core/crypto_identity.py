@@ -269,9 +269,7 @@ def provider_symbol(symbol: str) -> str:
     return CRYPTO_PROVIDER_SYMBOLS.get(symbol, symbol)
 
 
-def provider_mapping_unverified(
-    symbol: str, metadata: Optional[dict]
-) -> Optional[str]:
+def provider_mapping_unverified(symbol: str, metadata: Optional[dict]) -> Optional[str]:
     """
     Why a mapped symbol must not be fetched yet, or None when it may be.
 
@@ -351,9 +349,7 @@ def ingest_block_reason(metadata: Optional[dict]) -> Optional[str]:
     )
 
 
-def apply_identity_override(
-    check: IdentityCheck, override: Optional[str]
-) -> IdentityCheck:
+def apply_identity_override(check: IdentityCheck, override: Optional[str]) -> IdentityCheck:
     """
     Replace a computed verdict with one a human settled, keeping the evidence.
 

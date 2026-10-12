@@ -97,9 +97,7 @@ def load(con):
     )
     actions = defaultdict(list)
     for r in acts.itertuples():
-        actions[r.symbol].append(
-            Action(r.ex_date, r.kind, r.value, r.fetched_at.to_pydatetime())
-        )
+        actions[r.symbol].append(Action(r.ex_date, r.kind, r.value, r.fetched_at.to_pydatetime()))
     return bars, actions
 
 
@@ -107,8 +105,15 @@ def mismatches(g: pd.DataFrame, acts: list) -> tuple[list, dict]:
     """Days where engine 'total' and stored returns differ by >= TOLERANCE_PP,
     and each dividend's yield in the engine's raw basis."""
     served = [
-        ServedBar(r.d, r.served_open, r.served_high, r.served_low, r.served_close,
-                  r.served_volume, r.fetched_at.to_pydatetime())
+        ServedBar(
+            r.d,
+            r.served_open,
+            r.served_high,
+            r.served_low,
+            r.served_close,
+            r.served_volume,
+            r.fetched_at.to_pydatetime(),
+        )
         for r in g.itertuples()
     ]
     total = pd.Series([b.close for b in adjust(served, acts, "total")], index=g.d)
@@ -167,8 +172,7 @@ def _matches_running_sum(gap, day, yields):
 def _cancels(by_day, pair, symbol):
     pairs = [pair] + ([FILL_PAIRS["*"]] if pair != FILL_PAIRS["*"] else [])
     return any(
-        a in by_day and b in by_day and abs(by_day[a] + by_day[b]) <= FILL_PAIR_PP
-        for a, b in pairs
+        a in by_day and b in by_day and abs(by_day[a] + by_day[b]) <= FILL_PAIR_PP for a, b in pairs
     )
 
 
@@ -209,26 +213,38 @@ def main(argv=None) -> int:
             verdict = "fail: unexplained mismatch"
         else:
             verdict = "pass"
-        verdicts.append({
-            "symbol": symbol, "verdict": verdict, "bars": v["bars"],
-            "uncovered": v["uncovered"],
-            "explained": Counter(d["kind"] for d in days if d["kind"] != "unexplained"),
-            "unexplained": unexplained,
-        })
+        verdicts.append(
+            {
+                "symbol": symbol,
+                "verdict": verdict,
+                "bars": v["bars"],
+                "uncovered": v["uncovered"],
+                "explained": Counter(d["kind"] for d in days if d["kind"] != "unexplained"),
+                "unexplained": unexplained,
+            }
+        )
 
-    print(f"seam dates (>= {SEAM_MIN_SYMBOLS} symbols): "
-          + ", ".join(f"{d} ({day_counts[d]})" for d in sorted(seams)))
+    print(
+        f"seam dates (>= {SEAM_MIN_SYMBOLS} symbols): "
+        + ", ".join(f"{d} ({day_counts[d]})" for d in sorted(seams))
+    )
     print("verdicts:", dict(Counter(v["verdict"] for v in verdicts)))
     kinds = Counter()
     for v in verdicts:
         kinds.update(v["explained"])
-    print("explained mismatch days:", dict(kinds),
-          "| unexplained:", sum(len(v["unexplained"]) for v in verdicts))
+    print(
+        "explained mismatch days:",
+        dict(kinds),
+        "| unexplained:",
+        sum(len(v["unexplained"]) for v in verdicts),
+    )
     for v in verdicts:
         if v["verdict"] != "pass":
-            detail = (f"{v['uncovered']} of {v['bars']} bars without served values"
-                      if v["uncovered"] else
-                      "; ".join(f"{d['day']} {d['gap_pp']:+}pp" for d in v["unexplained"][:6]))
+            detail = (
+                f"{v['uncovered']} of {v['bars']} bars without served values"
+                if v["uncovered"]
+                else "; ".join(f"{d['day']} {d['gap_pp']:+}pp" for d in v["unexplained"][:6])
+            )
             print(f"  {v['symbol']:8} {v['verdict']:30} {detail}")
     if args.report:
         Path(args.report).write_text(json.dumps(verdicts, indent=1, default=str))

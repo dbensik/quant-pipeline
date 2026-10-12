@@ -46,6 +46,7 @@ MAX_SYMBOLS = 50
 # Grid specification
 # ---------------------------------------------------------------------------
 
+
 class RangeSpec(BaseModel):
     """An inclusive numeric sweep. `{"min": 10, "max": 30, "step": 5}`."""
 
@@ -82,9 +83,7 @@ def _expand_axis(axis: GridAxis, param: registry.ParamSpec) -> List[Any]:
     return values
 
 
-def expand_grid(
-    grid: Dict[str, GridAxis], spec: registry.StrategySpec
-) -> List[Dict[str, Any]]:
+def expand_grid(grid: Dict[str, GridAxis], spec: registry.StrategySpec) -> List[Dict[str, Any]]:
     """
     Cartesian product of the requested axes.
 
@@ -99,8 +98,7 @@ def expand_grid(
     unknown = sorted(set(grid) - set(known))
     if unknown:
         raise ValueError(
-            f"Unknown parameter(s) for '{spec.id}': {unknown}. "
-            f"Known: {sorted(known)}."
+            f"Unknown parameter(s) for '{spec.id}': {unknown}. Known: {sorted(known)}."
         )
 
     names = list(grid)
@@ -119,6 +117,7 @@ def expand_grid(
 # ---------------------------------------------------------------------------
 # Strategy optimization
 # ---------------------------------------------------------------------------
+
 
 class StrategyOptimizeRequest(BaseModel):
     symbol: str
@@ -178,9 +177,7 @@ class StrategyOptimizeResponse(BaseModel):
     combinations_evaluated: int
     best_params: Dict[str, Any]
     best_metrics: Dict[str, Any]
-    results: List[Dict[str, Any]] = Field(
-        description="Ranked best-first, truncated to top_n"
-    )
+    results: List[Dict[str, Any]] = Field(description="Ranked best-first, truncated to top_n")
     skipped: List[SkippedCombination] = Field(
         default_factory=list,
         description=(
@@ -240,12 +237,8 @@ def build_optimize_payload(
         "combinations_evaluated": (
             0 if optimizer.results_df is None else len(optimizer.results_df)
         ),
-        "best_params": {
-            k: _json_safe(v) for k, v in optimizer.get_best_parameters().items()
-        },
-        "best_metrics": {
-            k: _json_safe(v) for k, v in optimizer.get_best_metrics().items()
-        },
+        "best_params": {k: _json_safe(v) for k, v in optimizer.get_best_parameters().items()},
+        "best_metrics": {k: _json_safe(v) for k, v in optimizer.get_best_metrics().items()},
         "results": results,
         "skipped": optimizer.skipped,
         "caveat": spec.caveat,
@@ -327,34 +320,25 @@ async def optimize_strategy(
 
     start = (
         request.start.replace(tzinfo=timezone.utc)
-        if request.start.tzinfo is None else request.start
+        if request.start.tzinfo is None
+        else request.start
     )
-    end = (
-        request.end.replace(tzinfo=timezone.utc)
-        if request.end.tzinfo is None else request.end
-    )
+    end = request.end.replace(tzinfo=timezone.utc) if request.end.tzinfo is None else request.end
 
     asset = await repo.find_asset(request.symbol)
     if asset is None:
-        raise HTTPException(
-            status_code=404, detail=f"Unknown symbol: {request.symbol!r}"
-        )
-    records = await repo.fetch_range(
-        symbol=request.symbol, asset_class=None, start=start, end=end
-    )
+        raise HTTPException(status_code=404, detail=f"Unknown symbol: {request.symbol!r}")
+    records = await repo.fetch_range(symbol=request.symbol, asset_class=None, start=start, end=end)
     frame = records_to_frame(records)
     if frame.empty:
         raise HTTPException(
             status_code=422,
             detail=(
-                f"No bars stored for {request.symbol!r} between "
-                f"{start.date()} and {end.date()}."
+                f"No bars stored for {request.symbol!r} between {start.date()} and {end.date()}."
             ),
         )
 
-    optimizer = await run_in_threadpool(
-        _optimize_sync, frame, spec.id, combos, request, None
-    )
+    optimizer = await run_in_threadpool(_optimize_sync, frame, spec.id, combos, request, None)
 
     # Every combination rejected is a client error, not an empty result set.
     # Returning 200 with best_params={} would read as "searched and found
@@ -377,6 +361,7 @@ async def optimize_strategy(
 # ---------------------------------------------------------------------------
 # Portfolio weight optimization
 # ---------------------------------------------------------------------------
+
 
 class PortfolioOptimizeRequest(BaseModel):
     symbols: List[str] = Field(description="Two or more assets to allocate across")
@@ -451,10 +436,8 @@ def _simulate_sync(
         risk_free_rate=request.risk_free_rate,
         seed=request.seed,
     )
-    results_df, _max_sharpe_weights, _min_vol_weights = (
-        optimizer.simulate_random_portfolios(
-            num_portfolios=request.num_portfolios, callback=progress_callback
-        )
+    results_df, _max_sharpe_weights, _min_vol_weights = optimizer.simulate_random_portfolios(
+        num_portfolios=request.num_portfolios, callback=progress_callback
     )
     return results_df
 
@@ -512,10 +495,7 @@ async def optimize_portfolio(
     if len(request.symbols) < 2:
         raise HTTPException(
             status_code=422,
-            detail=(
-                "Weight optimization needs at least 2 symbols; "
-                f"{len(request.symbols)} given."
-            ),
+            detail=(f"Weight optimization needs at least 2 symbols; {len(request.symbols)} given."),
         )
     if len(request.symbols) > MAX_SYMBOLS:
         raise HTTPException(
@@ -525,29 +505,22 @@ async def optimize_portfolio(
 
     start = (
         request.start.replace(tzinfo=timezone.utc)
-        if request.start.tzinfo is None else request.start
+        if request.start.tzinfo is None
+        else request.start
     )
-    end = (
-        request.end.replace(tzinfo=timezone.utc)
-        if request.end.tzinfo is None else request.end
-    )
+    end = request.end.replace(tzinfo=timezone.utc) if request.end.tzinfo is None else request.end
 
     price_data: Dict[str, pd.DataFrame] = {}
     for symbol in request.symbols:
         asset = await repo.find_asset(symbol)
         if asset is None:
             raise HTTPException(status_code=404, detail=f"Unknown symbol: {symbol!r}")
-        records = await repo.fetch_range(
-            symbol=symbol, asset_class=None, start=start, end=end
-        )
+        records = await repo.fetch_range(symbol=symbol, asset_class=None, start=start, end=end)
         frame = records_to_frame(records)
         if frame.empty:
             raise HTTPException(
                 status_code=422,
-                detail=(
-                    f"No bars stored for {symbol!r} between "
-                    f"{start.date()} and {end.date()}."
-                ),
+                detail=(f"No bars stored for {symbol!r} between {start.date()} and {end.date()}."),
             )
         price_data[symbol] = frame
 

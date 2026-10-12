@@ -35,9 +35,7 @@ def fetch(
         params = {"vs_currency": vs_currency, "days": days}
 
         try:
-            resp = requests.get(
-                url, params=params, headers=coingecko_headers(), timeout=10
-            )
+            resp = requests.get(url, params=params, headers=coingecko_headers(), timeout=10)
             resp.raise_for_status()
             rows = resp.json()  # [[timestamp_ms, open, high, low, close], ...]
         except Exception as e:

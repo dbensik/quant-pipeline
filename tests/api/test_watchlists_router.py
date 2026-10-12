@@ -49,18 +49,14 @@ def test_duplicates_collapse_keeping_the_first_position(client: TestClient):
     The unique constraint would reject a repeat outright; keeping the first
     occurrence is what a list of tickers means to the UI.
     """
-    body = client.put(
-        f"{BASE}/Dupes", json={"symbols": ["AAPL", "MSFT", "aapl", "NVDA"]}
-    ).json()
+    body = client.put(f"{BASE}/Dupes", json={"symbols": ["AAPL", "MSFT", "aapl", "NVDA"]}).json()
     assert body["symbols"] == ["AAPL", "MSFT", "NVDA"]
 
 
 def test_order_is_preserved(client: TestClient):
     """A set would not preserve the arrangement the user chose."""
     symbols = ["NVDA", "AAPL", "TSLA", "MSFT"]
-    assert client.put(f"{BASE}/Ordered", json={"symbols": symbols}).json()[
-        "symbols"
-    ] == symbols
+    assert client.put(f"{BASE}/Ordered", json={"symbols": symbols}).json()["symbols"] == symbols
 
 
 def test_an_empty_list_is_allowed(client: TestClient):
@@ -70,9 +66,7 @@ def test_an_empty_list_is_allowed(client: TestClient):
 
 
 def test_too_many_symbols_is_422(client: TestClient):
-    response = client.put(
-        f"{BASE}/Huge", json={"symbols": [f"T{i}" for i in range(501)]}
-    )
+    response = client.put(f"{BASE}/Huge", json={"symbols": [f"T{i}" for i in range(501)]})
     assert response.status_code == 422
     assert "limit is 500" in response.json()["detail"]
 
@@ -96,9 +90,7 @@ def test_filtering_by_symbol(client: TestClient):
 
 
 def test_symbol_filter_is_case_insensitive(client: TestClient):
-    assert [w["name"] for w in client.get(BASE, params={"symbol": "aapl"}).json()] == [
-        "MAG7"
-    ]
+    assert [w["name"] for w in client.get(BASE, params={"symbol": "aapl"}).json()] == ["MAG7"]
 
 
 def test_symbol_filter_matching_nothing_returns_empty(client: TestClient):

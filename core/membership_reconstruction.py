@@ -109,10 +109,7 @@ def judge(
     if previous is not None:
         changed = len(set(symbols) ^ set(previous))
         if changed > max_change:
-            return (
-                f"{changed} symbols differ from the previous month, "
-                f"more than {max_change}"
-            )
+            return f"{changed} symbols differ from the previous month, more than {max_change}"
     return None
 
 

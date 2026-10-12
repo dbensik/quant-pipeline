@@ -60,7 +60,11 @@ def _black_scholes(x: PricerInputs, style: str) -> Quote:
     g = bs.greeks(x.S, x.K, x.T, x.r, x.q, x.sigma, x.right)
     return Quote(
         price=bs.price(x.S, x.K, x.T, x.r, x.q, x.sigma, x.right),
-        delta=g.delta, gamma=g.gamma, vega=g.vega, theta=g.theta, rho=g.rho,
+        delta=g.delta,
+        gamma=g.gamma,
+        vega=g.vega,
+        theta=g.theta,
+        rho=g.rho,
     )
 
 
@@ -69,7 +73,10 @@ def _crr(x: PricerInputs, style: str) -> Quote:
         a = american_price(x.S, x.K, x.T, x.r, x.q, x.sigma, x.right, steps=x.steps)
         price, premium = a.american, a.early_exercise_premium
     else:
-        price, premium = crr_price(x.S, x.K, x.T, x.r, x.q, x.sigma, x.right, american=False, steps=x.steps), None
+        price, premium = (
+            crr_price(x.S, x.K, x.T, x.r, x.q, x.sigma, x.right, american=False, steps=x.steps),
+            None,
+        )
     # Delta and gamma by bumping spot on the same tree (1% of S, central).
     h = 0.01 * x.S
     american = style == "american"
@@ -84,26 +91,34 @@ def _crr(x: PricerInputs, style: str) -> Quote:
 
 
 def _monte_carlo(x: PricerInputs, style: str) -> Quote:
-    mc = european_mc(x.S, x.K, x.T, x.r, x.q, x.sigma, x.right, np.random.default_rng(x.seed), paths=x.mc_paths)
+    mc = european_mc(
+        x.S, x.K, x.T, x.r, x.q, x.sigma, x.right, np.random.default_rng(x.seed), paths=x.mc_paths
+    )
     return Quote(price=mc.price, std_error=mc.std_error, delta=mc.delta)
 
 
 PRICERS: List[PricerSpec] = [
     PricerSpec(
-        "black_scholes", "Black-Scholes-Merton",
+        "black_scholes",
+        "Black-Scholes-Merton",
         "Closed form with a continuous dividend yield. European exercise only.",
-        ("european",), _black_scholes,
+        ("european",),
+        _black_scholes,
     ),
     PricerSpec(
-        "crr_tree", "Cox-Ross-Rubinstein tree",
+        "crr_tree",
+        "Cox-Ross-Rubinstein tree",
         f"{BINOMIAL_STEPS}-step binomial tree, N and N+1 averaged. American or European; "
         "the American price reports its early-exercise premium separately.",
-        ("european", "american"), _crr,
+        ("european", "american"),
+        _crr,
     ),
     PricerSpec(
-        "monte_carlo", "Monte Carlo (antithetic)",
+        "monte_carlo",
+        "Monte Carlo (antithetic)",
         "Risk-neutral GBM, seeded, standard error over antithetic pairs. European only.",
-        ("european",), _monte_carlo,
+        ("european",),
+        _monte_carlo,
     ),
 ]
 

@@ -67,15 +67,16 @@ logger = logging.getLogger("repair-bad-extremes")
 async def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--symbols", nargs="*")
-    parser.add_argument("--asset-class", default=None,
-                        help="restrict to equity / crypto / etf (default: all)")
-    parser.add_argument("--apply", action="store_true",
-                        help="null the extremes (the close is never touched)")
+    parser.add_argument(
+        "--asset-class", default=None, help="restrict to equity / crypto / etf (default: all)"
+    )
+    parser.add_argument(
+        "--apply", action="store_true", help="null the extremes (the close is never touched)"
+    )
     args = parser.parse_args(argv)
 
     async with get_session() as session:
-        query = (select(AssetORM.id, AssetORM.symbol, AssetORM.metadata_)
-                 .order_by(AssetORM.symbol))
+        query = select(AssetORM.id, AssetORM.symbol, AssetORM.metadata_).order_by(AssetORM.symbol)
         if args.asset_class:
             query = query.where(AssetORM.asset_class == args.asset_class)
         if args.symbols:
@@ -90,27 +91,37 @@ async def main(argv: list[str] | None = None) -> int:
                 skipped_wrong.append(sym)
                 continue
             assets.append((i, sym, m or {}))
-        logger.info("Scanning %d assets. No reference data needed — a bad tick "
-                    "is judged against its own bar.", len(assets))
+        logger.info(
+            "Scanning %d assets. No reference data needed — a bad tick "
+            "is judged against its own bar.",
+            len(assets),
+        )
 
         victims, total = [], 0
         for asset_id, symbol, meta in assets:
             floor = history_floor(meta)
-            stmt = (select(MarketDataORM.time, MarketDataORM.close,
-                           MarketDataORM.low, MarketDataORM.high,
-                           MarketDataORM.open)
-                    .where(MarketDataORM.asset_id == asset_id))
+            stmt = select(
+                MarketDataORM.time,
+                MarketDataORM.close,
+                MarketDataORM.low,
+                MarketDataORM.high,
+                MarketDataORM.open,
+            ).where(MarketDataORM.asset_id == asset_id)
             if floor is not None:
                 stmt = stmt.where(MarketDataORM.time >= floor)
-            bad = [(t, c, lo, hi) for t, c, lo, hi, op
-                   in (await session.execute(stmt)).all()
-                   if has_bad_extremes(c, lo, hi, op)]
+            bad = [
+                (t, c, lo, hi)
+                for t, c, lo, hi, op in (await session.execute(stmt)).all()
+                if has_bad_extremes(c, lo, hi, op)
+            ]
             if bad:
                 victims.append((asset_id, symbol, bad))
                 total += len(bad)
 
-        print(f"\n{total} bar(s) across {len(victims)} symbol(s) have a sound "
-              f"close and a corrupt extreme.\n")
+        print(
+            f"\n{total} bar(s) across {len(victims)} symbol(s) have a sound "
+            f"close and a corrupt extreme.\n"
+        )
         for _, symbol, bad in sorted(victims, key=lambda v: -len(v[2])):
             print(f"  {symbol:12} {len(bad):3} bar(s)")
             for t, c, lo, hi in bad[:2]:
@@ -118,8 +129,10 @@ async def main(argv: list[str] | None = None) -> int:
 
         if skipped_wrong:
             holding = [s for s in skipped_wrong]
-            print(f"\nSkipped {len(holding)} symbol(s) already flagged wrong_asset "
-                  f"— their whole series belongs to another coin.")
+            print(
+                f"\nSkipped {len(holding)} symbol(s) already flagged wrong_asset "
+                f"— their whole series belongs to another coin."
+            )
 
         if not args.apply:
             print("\nNothing written. Re-run with --apply to null these extremes.")
@@ -133,8 +146,9 @@ async def main(argv: list[str] | None = None) -> int:
                     .values(high=None, low=None)
                 )
         await session.commit()
-        print(f"\nNulled high and low on {total} bar(s). "
-              "No close was changed and no bar was deleted.")
+        print(
+            f"\nNulled high and low on {total} bar(s). No close was changed and no bar was deleted."
+        )
     return 0
 
 

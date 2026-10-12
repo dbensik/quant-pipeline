@@ -59,8 +59,7 @@ async def list_watchlists(
         names = set(await repo.watchlists_containing(symbol))
         watchlists = [w for w in watchlists if w.name in names]
     return [
-        WatchlistOut(name=w.name, symbols=w.symbols, created_at=w.created_at)
-        for w in watchlists
+        WatchlistOut(name=w.name, symbols=w.symbols, created_at=w.created_at) for w in watchlists
     ]
 
 
@@ -77,9 +76,7 @@ async def get_watchlist(
     found = await repo.get_watchlist(name)
     if found is None:
         raise HTTPException(status_code=404, detail=f"No watchlist named {name!r}.")
-    return WatchlistOut(
-        name=found.name, symbols=found.symbols, created_at=found.created_at
-    )
+    return WatchlistOut(name=found.name, symbols=found.symbols, created_at=found.created_at)
 
 
 @router.put(
@@ -102,15 +99,11 @@ async def save_watchlist(
     if len(request.symbols) > MAX_SYMBOLS:
         raise HTTPException(
             status_code=422,
-            detail=(
-                f"{len(request.symbols)} symbols given; the limit is {MAX_SYMBOLS}."
-            ),
+            detail=(f"{len(request.symbols)} symbols given; the limit is {MAX_SYMBOLS}."),
         )
 
     saved = await repo.save_watchlist(name, request.symbols)
-    return WatchlistOut(
-        name=saved.name, symbols=saved.symbols, created_at=saved.created_at
-    )
+    return WatchlistOut(name=saved.name, symbols=saved.symbols, created_at=saved.created_at)
 
 
 @router.delete(

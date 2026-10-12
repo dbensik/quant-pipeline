@@ -65,9 +65,7 @@ class AssetClassTrendFollowingStrategy(BaseAlphaModel):
                 f"got {price_data.shape[1]}."
             )
 
-        positions = pd.DataFrame(
-            0.0, index=price_data.index, columns=price_data.columns
-        )
+        positions = pd.DataFrame(0.0, index=price_data.index, columns=price_data.columns)
         # min_periods=window: a partially-filled average would compare price to
         # a mean of ten bars and call it a 200-day trend.
         sma = price_data.rolling(self.window, min_periods=self.window).mean()

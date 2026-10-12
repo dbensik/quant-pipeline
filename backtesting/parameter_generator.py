@@ -51,7 +51,6 @@ class MACrossoverParameterGenerator(BaseParameterGenerator):
 class MeanReversionParameterGenerator(BaseParameterGenerator):
     """Generates parameter combinations for the Mean Reversion strategy."""
 
-
     @staticmethod
     def generate_grid(window_range, threshold_range) -> list:
         """Generates a list of parameter dictionaries for the grid search."""

@@ -15,31 +15,50 @@ import pytest
 
 from scripts import capture_option_chains as cap
 
-TODAY = date(2026, 9, 15)                                  # a Tuesday
-NOW = datetime(2026, 9, 15, 19, 45, tzinfo=UTC)   # 15:45 ET
+TODAY = date(2026, 9, 15)  # a Tuesday
+NOW = datetime(2026, 9, 15, 19, 45, tzinfo=UTC)  # 15:45 ET
 
 VENDOR_COLUMNS = [
-    "contractSymbol", "lastTradeDate", "strike", "lastPrice", "bid", "ask",
-    "change", "percentChange", "volume", "openInterest", "impliedVolatility",
-    "inTheMoney", "contractSize", "currency",
+    "contractSymbol",
+    "lastTradeDate",
+    "strike",
+    "lastPrice",
+    "bid",
+    "ask",
+    "change",
+    "percentChange",
+    "volume",
+    "openInterest",
+    "impliedVolatility",
+    "inTheMoney",
+    "contractSize",
+    "currency",
 ]
 
 
 def vendor_frame(n: int, bid: float = 1.0) -> pd.DataFrame:
-    return pd.DataFrame({
-        "contractSymbol": [f"X{i}" for i in range(n)],
-        "lastTradeDate": pd.Timestamp("2026-09-15 19:40", tz="UTC"),
-        "strike": [700.0 + i for i in range(n)],
-        "lastPrice": 1.5, "bid": bid, "ask": 1.6, "change": 0.0,
-        "percentChange": 0.0, "volume": 10.0, "openInterest": 5,
-        "impliedVolatility": 0.2, "inTheMoney": False,
-        "contractSize": "REGULAR", "currency": "USD",
-    })
+    return pd.DataFrame(
+        {
+            "contractSymbol": [f"X{i}" for i in range(n)],
+            "lastTradeDate": pd.Timestamp("2026-09-15 19:40", tz="UTC"),
+            "strike": [700.0 + i for i in range(n)],
+            "lastPrice": 1.5,
+            "bid": bid,
+            "ask": 1.6,
+            "change": 0.0,
+            "percentChange": 0.0,
+            "volume": 10.0,
+            "openInterest": 5,
+            "impliedVolatility": 0.2,
+            "inTheMoney": False,
+            "contractSize": "REGULAR",
+            "currency": "USD",
+        }
+    )
 
 
 class FakeTicker:
-    def __init__(self, symbol, *, expiries, bar_date=TODAY, fail=(), rows=10,
-                 fail_times=None):
+    def __init__(self, symbol, *, expiries, bar_date=TODAY, fail=(), rows=10, fail_times=None):
         self.symbol = symbol
         self._expiries = expiries
         self._bar_date = bar_date
@@ -64,9 +83,13 @@ class FakeTicker:
             self._fail_times[expiry] -= 1
             raise RuntimeError("transient")
         return SimpleNamespace(
-            calls=vendor_frame(self._rows), puts=vendor_frame(self._rows, bid=0.0),
-            underlying={"regularMarketPrice": 761.0, "regularMarketTime": 1789457100,
-                        "marketState": "REGULAR"},
+            calls=vendor_frame(self._rows),
+            puts=vendor_frame(self._rows, bid=0.0),
+            underlying={
+                "regularMarketPrice": 761.0,
+                "regularMarketTime": 1789457100,
+                "marketState": "REGULAR",
+            },
         )
 
 
@@ -76,15 +99,23 @@ def exp(days: int) -> str:
 
 def run(tmp_path, fake, **kw):
     return cap.capture_ticker(
-        fake.symbol, lambda _s: fake, root=tmp_path, today=TODAY, now_utc=NOW,
-        max_dte=kw.pop("max_dte", 120), min_rows=kw.pop("min_rows", 20),
-        sleep=lambda _s: None, vendor_version="1.2.0", **kw,
+        fake.symbol,
+        lambda _s: fake,
+        root=tmp_path,
+        today=TODAY,
+        now_utc=NOW,
+        max_dte=kw.pop("max_dte", 120),
+        min_rows=kw.pop("min_rows", 20),
+        sleep=lambda _s: None,
+        vendor_version="1.2.0",
+        **kw,
     )
 
 
 # ---------------------------------------------------------------------------
 # Expiry planning
 # ---------------------------------------------------------------------------
+
 
 def test_plan_keeps_today_through_max_dte_and_drops_the_rest():
     got = cap.plan_expiries([exp(121), exp(0), exp(120), exp(-1), exp(30)], TODAY, 120)
@@ -95,13 +126,14 @@ def test_plan_keeps_today_through_max_dte_and_drops_the_rest():
 # What gets written
 # ---------------------------------------------------------------------------
 
+
 def test_writes_raw_vendor_columns_plus_structure_and_provenance(tmp_path):
     fake = FakeTicker("SPY", expiries=[exp(1), exp(8)])
     r = run(tmp_path, fake)
     assert r.status == cap.WRITTEN
     frame = pd.read_parquet(tmp_path / "SPY" / "2026-09-15.parquet")
 
-    assert len(frame) == 40                         # 2 expiries x (10 calls + 10 puts)
+    assert len(frame) == 40  # 2 expiries x (10 calls + 10 puts)
     assert set(VENDOR_COLUMNS) <= set(frame.columns)
     assert sorted(frame["right"].unique()) == ["C", "P"]
     assert sorted(frame["expiry"].unique()) == [exp(1), exp(8)]
@@ -122,6 +154,7 @@ def test_zero_bids_are_kept_not_filtered(tmp_path):
 # ---------------------------------------------------------------------------
 # Skip, partial, retry
 # ---------------------------------------------------------------------------
+
 
 def test_an_existing_capture_is_skipped_without_touching_the_vendor(tmp_path):
     (tmp_path / "SPY").mkdir()
@@ -167,6 +200,7 @@ def test_a_transient_failure_is_retried_within_the_run(tmp_path):
 # Refusals and floors
 # ---------------------------------------------------------------------------
 
+
 def test_a_stale_bar_date_is_refused_and_nothing_is_written(tmp_path):
     """Holiday fire: yfinance serves yesterday's chain without an error."""
     fake = FakeTicker("SPY", expiries=[exp(1)], bar_date=TODAY - timedelta(days=1))
@@ -198,17 +232,21 @@ def test_dry_run_writes_nothing(tmp_path):
 # Exit code
 # ---------------------------------------------------------------------------
 
+
 def R(status, bar=TODAY):
     return cap.TickerResult("X", status, bar_date=bar)
 
 
-@pytest.mark.parametrize("statuses,code", [
-    ([cap.WRITTEN, cap.SKIPPED], 0),
-    ([cap.WRITTEN, cap.FAILED], 1),        # "5 of 6, exit 0" is how days vanish
-    ([cap.WRITTEN, cap.PARTIAL], 1),
-    ([cap.WRITTEN, cap.REFUSED], 1),       # mixed refusal: the market WAS open
-    ([], 1),
-])
+@pytest.mark.parametrize(
+    "statuses,code",
+    [
+        ([cap.WRITTEN, cap.SKIPPED], 0),
+        ([cap.WRITTEN, cap.FAILED], 1),  # "5 of 6, exit 0" is how days vanish
+        ([cap.WRITTEN, cap.PARTIAL], 1),
+        ([cap.WRITTEN, cap.REFUSED], 1),  # mixed refusal: the market WAS open
+        ([], 1),
+    ],
+)
 def test_exit_code(statuses, code):
     assert cap.run_exit_code([R(s) for s in statuses]) == code
 
@@ -219,7 +257,12 @@ def test_every_ticker_refused_on_one_earlier_date_is_a_closed_market():
 
 
 def test_refusals_on_different_dates_are_not_a_closed_market():
-    assert cap.run_exit_code([
-        R(cap.REFUSED, TODAY - timedelta(days=1)),
-        R(cap.REFUSED, TODAY - timedelta(days=4)),
-    ]) == 1
+    assert (
+        cap.run_exit_code(
+            [
+                R(cap.REFUSED, TODAY - timedelta(days=1)),
+                R(cap.REFUSED, TODAY - timedelta(days=4)),
+            ]
+        )
+        == 1
+    )

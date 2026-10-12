@@ -25,7 +25,7 @@ from sqlalchemy.dialects import postgresql
 # Alembic revision identifiers
 # ---------------------------------------------------------------------------
 revision = "0001_initial_schema"
-down_revision = None          # first migration in the chain
+down_revision = None  # first migration in the chain
 branch_labels = None
 depends_on = None
 
@@ -33,6 +33,7 @@ depends_on = None
 # ---------------------------------------------------------------------------
 # Upgrade — apply changes
 # ---------------------------------------------------------------------------
+
 
 def upgrade() -> None:
     # ------------------------------------------------------------------
@@ -46,9 +47,7 @@ def upgrade() -> None:
         sa.Column("source", sa.String(), nullable=False),
         sa.Column("metadata", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_assets")),
-        sa.UniqueConstraint(
-            "symbol", "asset_class", "source", name="uq_asset_identity"
-        ),
+        sa.UniqueConstraint("symbol", "asset_class", "source", name="uq_asset_identity"),
     )
 
     # ------------------------------------------------------------------
@@ -101,9 +100,7 @@ def upgrade() -> None:
     # 2. Composite index: (asset_id, time DESC) — optimised for per-asset
     #    time-range queries used by fetch_range().  TimescaleDB propagates
     #    this index across all chunks automatically.
-    op.execute(
-        "CREATE INDEX ix_market_data_asset_time ON market_data (asset_id, time DESC)"
-    )
+    op.execute("CREATE INDEX ix_market_data_asset_time ON market_data (asset_id, time DESC)")
 
     # 3. Optional: enable TimescaleDB compression (comment out if not needed)
     # op.execute(
@@ -122,6 +119,7 @@ def upgrade() -> None:
 # ---------------------------------------------------------------------------
 # Downgrade — undo changes
 # ---------------------------------------------------------------------------
+
 
 def downgrade() -> None:
     # Drop in reverse order of creation.

@@ -21,21 +21,32 @@ from core.models import OHLCV, Asset, MarketDataRecord, Timestamp
 from core.rates import RateObservation
 
 FIX = Path(__file__).resolve().parents[1] / "fixtures"
-AAPL_FACTS = parse_company_facts(json.loads(gzip.open(FIX / "companyfacts_aapl_2026-10-08.json.gz").read()),
-                                 datetime(2026, 10, 8, tzinfo=timezone.utc))
+AAPL_FACTS = parse_company_facts(
+    json.loads(gzip.open(FIX / "companyfacts_aapl_2026-10-08.json.gz").read()),
+    datetime(2026, 10, 8, tzinfo=timezone.utc),
+)
 
 
 # Apple's real facts split at 2024-01-01 between a "predecessor" CIK 1 and a
 # "successor" CIK 2: the holding-company reorganisation shape (XOM, APA, ...).
 SPLIT_AT = date(2024, 1, 1)
-CHAINED = {1: [f for f in AAPL_FACTS if f.filed < SPLIT_AT], 2: [f for f in AAPL_FACTS if f.filed >= SPLIT_AT]}
+CHAINED = {
+    1: [f for f in AAPL_FACTS if f.filed < SPLIT_AT],
+    2: [f for f in AAPL_FACTS if f.filed >= SPLIT_AT],
+}
 
 
 class FakeValuationData:
-    EQUITIES = {"AAPL": ([320193], "Information Technology"), "JPM": ([19617], "Financials"),
-                "PARA": ([], "Communication Services"), "MSFT": ([789019], "Information Technology"),
-                "REORG": ([2, 1], "Information Technology"), "SUCCONLY": ([2], "Information Technology"),
-                "PLD": ([1045609], "Real Estate"), "UNH": ([731766], "Health Care")}
+    EQUITIES = {
+        "AAPL": ([320193], "Information Technology"),
+        "JPM": ([19617], "Financials"),
+        "PARA": ([], "Communication Services"),
+        "MSFT": ([789019], "Information Technology"),
+        "REORG": ([2, 1], "Information Technology"),
+        "SUCCONLY": ([2], "Information Technology"),
+        "PLD": ([1045609], "Real Estate"),
+        "UNH": ([731766], "Health Care"),
+    }
 
     async def equity(self, symbol):
         return self.EQUITIES.get(symbol.upper())
@@ -57,7 +68,13 @@ class FakeValuationData:
         return sorted({f.filed for f in facts if f.form in ("10-K", "10-Q") and f.filed >= since})
 
     async def coverage(self):
-        return {"equities": 4, "with_cik": 3, "facts": len(AAPL_FACTS), "ciks_with_facts": 1, "newest_filed": date(2026, 7, 31)}
+        return {
+            "equities": 4,
+            "with_cik": 3,
+            "facts": len(AAPL_FACTS),
+            "ciks_with_facts": 1,
+            "newest_filed": date(2026, 7, 31),
+        }
 
 
 class Bars:
@@ -66,8 +83,13 @@ class Bars:
         rng = np.random.default_rng(3)
         days = [date(2023, 1, 2) + timedelta(days=i) for i in range(1380)]
         spy = 400 * np.exp(np.cumsum(rng.normal(0, 0.01, len(days))))
-        aapl = 150 * np.exp(np.cumsum(1.1 * np.diff(np.log(np.r_[400, spy])) + rng.normal(0, 0.008, len(days))))
-        self.series = {"SPY": dict(zip(days, spy, strict=False)), "AAPL": dict(zip(days, aapl, strict=False))}
+        aapl = 150 * np.exp(
+            np.cumsum(1.1 * np.diff(np.log(np.r_[400, spy])) + rng.normal(0, 0.008, len(days)))
+        )
+        self.series = {
+            "SPY": dict(zip(days, spy, strict=False)),
+            "AAPL": dict(zip(days, aapl, strict=False)),
+        }
         self.series["REORG"] = self.series["SUCCONLY"] = self.series["AAPL"]
 
     async def fetch_range(self, symbol, asset_class, start, end, source=None, adjust="total"):
@@ -81,15 +103,38 @@ class Bars:
                 px = px * 4
             ts = datetime(d.year, d.month, d.day, tzinfo=timezone.utc)
             if start <= ts <= end:
-                out.append(MarketDataRecord(asset=Asset(symbol=symbol, asset_class="equity", source="yfinance"),
-                                            ohlcv=OHLCV(open=px, high=px, low=px, close=px, volume=1.0, timestamp=Timestamp(utc=ts))))
+                out.append(
+                    MarketDataRecord(
+                        asset=Asset(symbol=symbol, asset_class="equity", source="yfinance"),
+                        ohlcv=OHLCV(
+                            open=px,
+                            high=px,
+                            low=px,
+                            close=px,
+                            volume=1.0,
+                            timestamp=Timestamp(utc=ts),
+                        ),
+                    )
+                )
         return out
 
 
 class Rates:
     def __init__(self, rows=True):
-        self.rows = [RateObservation("^IRX", date(2023, 1, 3) + timedelta(days=i), 4.0, "test", datetime(2026, 1, 1, tzinfo=timezone.utc))
-                     for i in range(0, 1400, 7)] if rows else []
+        self.rows = (
+            [
+                RateObservation(
+                    "^IRX",
+                    date(2023, 1, 3) + timedelta(days=i),
+                    4.0,
+                    "test",
+                    datetime(2026, 1, 1, tzinfo=timezone.utc),
+                )
+                for i in range(0, 1400, 7)
+            ]
+            if rows
+            else []
+        )
 
     async def insert(self, obs):
         return 0
@@ -114,13 +159,23 @@ def vclient(client):
 
 def test_coverage(vclient):
     body = vclient.get("/api/v1/valuation/coverage").json()
-    assert body == {"equities": 4, "with_cik": 3, "facts": len(AAPL_FACTS), "ciks_with_facts": 1, "newest_filed": "2026-07-31"}
+    assert body == {
+        "equities": 4,
+        "with_cik": 3,
+        "facts": len(AAPL_FACTS),
+        "ciks_with_facts": 1,
+        "newest_filed": "2026-07-31",
+    }
 
 
 def test_statements_as_of(vclient):
     body = vclient.get("/api/v1/valuation/AAPL/statements", params={"as_of": "2026-10-08"}).json()
     rev = body["annual"]["revenue"][-1]
-    assert (rev["period_end"], rev["value"], rev["filed"]) == ("2025-09-27", 416161000000.0, "2025-10-31")
+    assert (rev["period_end"], rev["value"], rev["filed"]) == (
+        "2025-09-27",
+        416161000000.0,
+        "2025-10-31",
+    )
     assert body["ttm_through"]["cfo"] == "2026-06-27"
     assert body["balances"]["securities_noncurrent"]["value"] > 0
     # The same request a day before the 10-K was filed does not see FY2025.
@@ -142,28 +197,42 @@ def test_dcf_returns_a_value_its_inputs_and_where_each_came_from(vclient):
 
 
 def test_overrides_are_applied_and_reported(vclient):
-    base = vclient.post("/api/v1/valuation/dcf", json={"symbol": "AAPL", "as_of": "2026-10-08"}).json()
-    lower = vclient.post("/api/v1/valuation/dcf", json={"symbol": "AAPL", "as_of": "2026-10-08", "wacc": 0.07, "growth_first": 0.10}).json()
-    assert lower["result"]["inputs"]["wacc"] == 0.07 and lower["result"]["inputs"]["growth_first"] == 0.10
+    base = vclient.post(
+        "/api/v1/valuation/dcf", json={"symbol": "AAPL", "as_of": "2026-10-08"}
+    ).json()
+    lower = vclient.post(
+        "/api/v1/valuation/dcf",
+        json={"symbol": "AAPL", "as_of": "2026-10-08", "wacc": 0.07, "growth_first": 0.10},
+    ).json()
+    assert (
+        lower["result"]["inputs"]["wacc"] == 0.07
+        and lower["result"]["inputs"]["growth_first"] == 0.10
+    )
     assert sorted(lower["overridden"]) == ["growth_first", "wacc"] and base["overridden"] == []
     assert lower["result"]["per_share"] > base["result"]["per_share"]
 
 
 def test_an_impossible_grid_cell_is_null_not_an_error(vclient):
-    body = vclient.post("/api/v1/valuation/dcf", json={"symbol": "AAPL", "as_of": "2026-10-08", "wacc": 0.03, "growth_terminal": 0.03}).json()
+    body = vclient.post(
+        "/api/v1/valuation/dcf",
+        json={"symbol": "AAPL", "as_of": "2026-10-08", "wacc": 0.03, "growth_terminal": 0.03},
+    ).json()
     assert body["result"]["per_share"] is None and "terminal growth" in body["result"]["reason"]
     assert any(v is None for row in body["sensitivity"]["per_share"] for v in row)
 
 
-@pytest.mark.parametrize("payload,status,fragment", [
-    ({"symbol": "JPM"}, 422, "banks and insurers"),
-    ({"symbol": "PLD"}, 422, "FFO/AFFO"),
-    ({"symbol": "UNH"}, 422, "managed care"),
-    ({"symbol": "PARA"}, 422, "no CIK"),
-    ({"symbol": "MSFT"}, 422, "no SEC facts"),
-    ({"symbol": "SPY"}, 404, "not a registered equity"),
-    ({"symbol": "AAPL", "as_of": "2022-06-01"}, 422, "no AAPL price"),
-])
+@pytest.mark.parametrize(
+    "payload,status,fragment",
+    [
+        ({"symbol": "JPM"}, 422, "banks and insurers"),
+        ({"symbol": "PLD"}, 422, "FFO/AFFO"),
+        ({"symbol": "UNH"}, 422, "managed care"),
+        ({"symbol": "PARA"}, 422, "no CIK"),
+        ({"symbol": "MSFT"}, 422, "no SEC facts"),
+        ({"symbol": "SPY"}, 404, "not a registered equity"),
+        ({"symbol": "AAPL", "as_of": "2022-06-01"}, 422, "no AAPL price"),
+    ],
+)
 def test_refusals_say_why(vclient, payload, status, fragment):
     r = vclient.post("/api/v1/valuation/dcf", json=payload)
     assert r.status_code == status and fragment in r.json()["detail"]
@@ -177,15 +246,23 @@ def test_no_rate_is_409(vclient):
 
 def test_history_is_one_point_the_day_after_each_filing(vclient):
     body = vclient.get("/api/v1/valuation/AAPL/history").json()
-    filed = sorted({f.filed for f in AAPL_FACTS if f.form in ("10-K", "10-Q") and f.filed >= date(2025, 1, 1)})
-    assert [p["as_of"] for p in body["points"]] == [(d + timedelta(days=1)).isoformat() for d in filed]
+    filed = sorted(
+        {f.filed for f in AAPL_FACTS if f.form in ("10-K", "10-Q") and f.filed >= date(2025, 1, 1)}
+    )
+    assert [p["as_of"] for p in body["points"]] == [
+        (d + timedelta(days=1)).isoformat() for d in filed
+    ]
     valued = [p for p in body["points"] if p["per_share"] is not None]
     assert valued and all(p["price"] > 0 for p in valued)
 
 
 def test_a_reorganised_company_is_valued_from_its_whole_filer_chain(vclient):
-    apple = vclient.post("/api/v1/valuation/dcf", json={"symbol": "AAPL", "as_of": "2026-10-08"}).json()
-    chain = vclient.post("/api/v1/valuation/dcf", json={"symbol": "REORG", "as_of": "2026-10-08"}).json()
+    apple = vclient.post(
+        "/api/v1/valuation/dcf", json={"symbol": "AAPL", "as_of": "2026-10-08"}
+    ).json()
+    chain = vclient.post(
+        "/api/v1/valuation/dcf", json={"symbol": "REORG", "as_of": "2026-10-08"}
+    ).json()
     assert chain["cik"] == 2 and chain["predecessor_ciks"] == [1]
     # Same facts, split across two filers: the same valuation, to the cent.
     assert chain["result"]["per_share"] == pytest.approx(apple["result"]["per_share"], rel=1e-12)
@@ -193,7 +270,9 @@ def test_a_reorganised_company_is_valued_from_its_whole_filer_chain(vclient):
     # What the successor alone loses is the long history: its filings still
     # carry three years of comparatives, but nothing before them.
     full = vclient.get("/api/v1/valuation/REORG/statements", params={"as_of": "2026-10-08"}).json()
-    alone = vclient.get("/api/v1/valuation/SUCCONLY/statements", params={"as_of": "2026-10-08"}).json()
+    alone = vclient.get(
+        "/api/v1/valuation/SUCCONLY/statements", params={"as_of": "2026-10-08"}
+    ).json()
     years_full = [p["period_end"][:4] for p in full["annual"]["revenue"]]
     years_alone = [p["period_end"][:4] for p in alone["annual"]["revenue"]]
     assert years_full[0] == "2007" and years_alone[0] >= "2021"
@@ -208,7 +287,9 @@ def test_history_of_a_reorganised_company_includes_its_predecessor_filings(vclie
 
 
 def test_beta_alternatives_are_reported_and_an_override_is_used(vclient):
-    base = vclient.post("/api/v1/valuation/dcf", json={"symbol": "AAPL", "as_of": "2026-10-08"}).json()
+    base = vclient.post(
+        "/api/v1/valuation/dcf", json={"symbol": "AAPL", "as_of": "2026-10-08"}
+    ).json()
     b = base["betas"]
     assert set(b) == {"daily_3y", "daily_3y_blume", "weekly_5y"}
     assert b["daily_3y_blume"]["beta"] == pytest.approx(2 / 3 * b["daily_3y"]["beta"] + 1 / 3)
@@ -217,10 +298,13 @@ def test_beta_alternatives_are_reported_and_an_override_is_used(vclient):
     # beta of decision 4 is still reported.
     assert base["lines"]["beta"]["value"] == pytest.approx(2 / 3 * b["weekly_5y"]["beta"] + 1 / 3)
     assert base["lines"]["beta"]["source"].startswith("weekly 5y")
-    over = vclient.post("/api/v1/valuation/dcf", json={"symbol": "AAPL", "as_of": "2026-10-08", "beta": 1.5}).json()
-    assert over["discount"]["cost_of_equity"] == pytest.approx(over["lines"]["risk_free"]["value"] + 1.5 * 0.045)
+    over = vclient.post(
+        "/api/v1/valuation/dcf", json={"symbol": "AAPL", "as_of": "2026-10-08", "beta": 1.5}
+    ).json()
+    assert over["discount"]["cost_of_equity"] == pytest.approx(
+        over["lines"]["risk_free"]["value"] + 1.5 * 0.045
+    )
     assert "beta" in over["overridden"] and over["betas"] == base["betas"]
-
 
 
 @pytest.mark.asyncio
@@ -234,7 +318,9 @@ async def test_history_reads_each_series_once_and_matches_uncached_values():
     expected = []
     for filed in await data.filing_dates([320193]):
         try:
-            v = await svc.value(data, Bars(), rates, "AAPL", filed + timedelta(days=1), with_grid=False)
+            v = await svc.value(
+                data, Bars(), rates, "AAPL", filed + timedelta(days=1), with_grid=False
+            )
             expected.append(v["result"]["per_share"])
         except svc.ValuationError:
             expected.append(None)

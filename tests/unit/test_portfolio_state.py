@@ -41,6 +41,7 @@ def trade(ticker, action, quantity, price, day=0, costs=0.0, ident=None):
 # Cash
 # ---------------------------------------------------------------------------
 
+
 def test_empty_log_leaves_cash_untouched():
     state = derive_state([], 100_000.0)
     assert state.cash == 100_000.0
@@ -73,6 +74,7 @@ def test_costs_reduce_cash_on_both_sides():
 # ---------------------------------------------------------------------------
 # Average cost
 # ---------------------------------------------------------------------------
+
 
 def test_adding_to_a_position_re_averages():
     state = derive_state(
@@ -127,6 +129,7 @@ def test_flipping_through_zero_rebases_on_the_trade_price():
 # Realised P&L, including shorts
 # ---------------------------------------------------------------------------
 
+
 def test_long_closed_above_cost_is_a_gain():
     state = derive_state(
         [trade("AAPL", "BUY", 10, 100.0), trade("AAPL", "SELL", 10, 130.0, day=1)],
@@ -176,6 +179,7 @@ def test_realised_pnl_survives_the_position_being_closed():
 # Ordering
 # ---------------------------------------------------------------------------
 
+
 def test_average_cost_is_order_dependent_and_the_log_is_sorted():
     """
     Feeding the same trades in reverse must give the same answer, because
@@ -200,19 +204,16 @@ def test_average_cost_is_order_dependent_and_the_log_is_sorted():
         trade("AAPL", "SELL", 15, 300.0, day=1),
         trade("AAPL", "BUY", 10, 100.0, day=2),
     ]
-    assert derive_state(shuffled, 100_000.0).realised_pnl != pytest.approx(
-        forward.realised_pnl
-    )
+    assert derive_state(shuffled, 100_000.0).realised_pnl != pytest.approx(forward.realised_pnl)
 
 
 # ---------------------------------------------------------------------------
 # Market value and unrealised P&L
 # ---------------------------------------------------------------------------
 
+
 def test_unrealised_pnl_uses_the_supplied_price():
-    state = derive_state(
-        [trade("AAPL", "BUY", 10, 100.0)], 100_000.0, prices={"AAPL": 130.0}
-    )
+    state = derive_state([trade("AAPL", "BUY", 10, 100.0)], 100_000.0, prices={"AAPL": 130.0})
     position = state.positions[0]
     assert position.market_value == pytest.approx(1_300.0)
     assert position.unrealised_pnl == pytest.approx(300.0)
@@ -223,9 +224,7 @@ def test_short_position_unrealised_pnl_has_the_right_sign():
     """A short gains when the price falls; quantity is negative, so the
     (price - average) * quantity form already handles it — but only if the
     sign of quantity is preserved rather than abs()'d."""
-    state = derive_state(
-        [trade("AAPL", "SELL", 10, 100.0)], 100_000.0, prices={"AAPL": 80.0}
-    )
+    state = derive_state([trade("AAPL", "SELL", 10, 100.0)], 100_000.0, prices={"AAPL": 80.0})
     assert state.positions[0].unrealised_pnl == pytest.approx(200.0)
 
 
@@ -255,6 +254,7 @@ def test_no_prices_means_no_market_value():
 # The regression this step exists for
 # ---------------------------------------------------------------------------
 
+
 def test_a_trade_log_portfolio_yields_cash_without_a_cash_field():
     """
     THE regression. Both portfolios in the live portfolios.json were
@@ -272,10 +272,9 @@ def test_a_trade_log_portfolio_yields_cash_without_a_cash_field():
 # Rebalancing
 # ---------------------------------------------------------------------------
 
+
 def test_rebalancing_targets_a_share_of_total_equity():
-    state = derive_state(
-        [trade("AAPL", "BUY", 10, 100.0)], 100_000.0, prices={"AAPL": 100.0}
-    )
+    state = derive_state([trade("AAPL", "BUY", 10, 100.0)], 100_000.0, prices={"AAPL": 100.0})
     # Equity = 99,000 cash + 1,000 AAPL = 100,000. A 50% MSFT target at $50
     # needs 50,000 of MSFT = 1,000 shares.
     orders = rebalancing_orders(state, {"MSFT": 0.5}, {"AAPL": 100.0, "MSFT": 50.0})
@@ -287,9 +286,7 @@ def test_rebalancing_targets_a_share_of_total_equity():
 def test_rebalancing_sells_a_holding_with_no_target():
     """A position absent from target_weights has a target of zero, so it must
     be sold down — not merely left alone."""
-    state = derive_state(
-        [trade("AAPL", "BUY", 10, 100.0)], 100_000.0, prices={"AAPL": 100.0}
-    )
+    state = derive_state([trade("AAPL", "BUY", 10, 100.0)], 100_000.0, prices={"AAPL": 100.0})
     orders = rebalancing_orders(state, {}, {"AAPL": 100.0})
     assert [(o["ticker"], o["action"]) for o in orders] == [("AAPL", "SELL")]
 
@@ -300,14 +297,10 @@ def test_rebalancing_skips_orders_below_the_minimum():
     the portfolio already met exactly, so the order list was empty at every
     minimum — including zero — and the threshold was never exercised.
     """
-    state = derive_state(
-        [trade("AAPL", "BUY", 10, 100.0)], 100_000.0, prices={"AAPL": 100.0}
-    )
+    state = derive_state([trade("AAPL", "BUY", 10, 100.0)], 100_000.0, prices={"AAPL": 100.0})
     # Equity 100,000; AAPL currently 1,000. A 1.5% target is 1,500, so the
     # order is worth 500 — above a 10 minimum, below a 1,000 one.
-    included = rebalancing_orders(
-        state, {"AAPL": 0.015}, {"AAPL": 100.0}, minimum_order_value=10.0
-    )
+    included = rebalancing_orders(state, {"AAPL": 0.015}, {"AAPL": 100.0}, minimum_order_value=10.0)
     assert [(o["ticker"], o["quantity"]) for o in included] == [("AAPL", 5)]
 
     excluded = rebalancing_orders(

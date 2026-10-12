@@ -97,22 +97,15 @@ async def take_snapshot(
     if index_name not in UNIVERSE_SOURCES:
         raise HTTPException(
             status_code=422,
-            detail=(
-                f"Unknown index {index_name!r}. "
-                f"Choose one of: {', '.join(UNIVERSE_SOURCES)}."
-            ),
+            detail=(f"Unknown index {index_name!r}. Choose one of: {', '.join(UNIVERSE_SOURCES)}."),
         )
 
     from data_pipeline.dynamic_universe import DynamicUniverse
 
     try:
-        symbols = await run_in_threadpool(
-            DynamicUniverse().get_tickers, index_name
-        )
+        symbols = await run_in_threadpool(DynamicUniverse().get_tickers, index_name)
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(
-            status_code=503, detail=f"Could not read {index_name}: {exc}"
-        ) from None
+        raise HTTPException(status_code=503, detail=f"Could not read {index_name}: {exc}") from None
 
     if not symbols:
         # Empty means the scrape failed; DynamicUniverse returns [] for both.
@@ -143,9 +136,7 @@ async def take_snapshot(
 )
 async def members(
     index_name: str,
-    as_of: Optional[datetime] = Query(
-        default=None, description="Defaults to now."
-    ),
+    as_of: Optional[datetime] = Query(default=None, description="Defaults to now."),
     repo: TimescaleUniverseRepo = Depends(get_universe_repo),
 ) -> MembershipResult:
     when = as_of or datetime.now(timezone.utc)

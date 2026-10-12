@@ -96,17 +96,13 @@ def test_an_edge_bar_just_BELOW_the_published_low_is_tolerated():
     """
     op = CoinBounds("optimism", 0.080689, 4.84)
     assert 0.0799 < op.low
-    assert check_bounds("OP-USD", series([0.0799, 1.0, 2.0]), op).verdict is (
-        Bounds.CLEAN
-    )
+    assert check_bounds("OP-USD", series([0.0799, 1.0, 2.0]), op).verdict is (Bounds.CLEAN)
 
 
 def test_the_tolerance_is_not_a_blank_cheque():
     """A bar an order of magnitude out is still a violation."""
     op = CoinBounds("optimism", 0.080689, 4.84)
-    assert check_bounds("OP-USD", series([0.0004, 1.0, 2.0]), op).verdict is (
-        Bounds.TRIM
-    )
+    assert check_bounds("OP-USD", series([0.0004, 1.0, 2.0]), op).verdict is (Bounds.TRIM)
     assert BOUNDS_TOLERANCE < 0.2
 
 
@@ -154,9 +150,7 @@ def test_a_straddle_bar_is_caught_only_when_low_and_high_are_checked():
     assert with_range.valid_from == date(2020, 10, 4)
     assert with_range.outside == 2
 
-    close_only = check_bounds(
-        "AAVE-USD", [(d, c) for d, c, _, _ in REDENOMINATION], AAVE
-    )
+    close_only = check_bounds("AAVE-USD", [(d, c) for d, c, _, _ in REDENOMINATION], AAVE)
     assert close_only.valid_from == date(2020, 10, 3)  # one bar short
 
 
@@ -172,9 +166,7 @@ def test_a_zero_price_is_absent_not_worthless():
 
 def test_close_only_bars_still_work():
     """The two-tuple form stays valid; most callers have only closes."""
-    assert check_bounds("X", [(date(2024, 1, 1), 100.0)], AAVE).verdict is (
-        Bounds.CLEAN
-    )
+    assert check_bounds("X", [(date(2024, 1, 1), 100.0)], AAVE).verdict is (Bounds.CLEAN)
 
 
 # ---------------------------------------------------------------------------
@@ -185,6 +177,7 @@ def test_close_only_bars_still_work():
 # grazed CoinGecko's recorded high, which is drawn from a different exchange
 # set than the bar.
 # ---------------------------------------------------------------------------
+
 
 def test_a_stablecoin_high_of_three_dollars_is_a_bad_tick():
     """DAI 2021-11-16: closed at 1.0012 with a high of 3.6684 — 3.66x."""
@@ -231,8 +224,8 @@ def test_a_liquidation_cascade_is_NOT_a_bad_tick():
     cascade, and a symmetric threshold would have deleted genuine history —
     the same mistake nearly made with AAVE's redenomination.
     """
-    assert has_bad_extremes(0.694529, 0.33155, 0.901145, 0.70) is False   # ONDO 0.48x
-    assert has_bad_extremes(2.2775, 0.715719, 3.335158, 2.30) is False    # RENDER 0.31x
+    assert has_bad_extremes(0.694529, 0.33155, 0.901145, 0.70) is False  # ONDO 0.48x
+    assert has_bad_extremes(2.2775, 0.715719, 3.335158, 2.30) is False  # RENDER 0.31x
 
 
 def test_a_low_far_beyond_any_crash_is_still_caught():

@@ -6,7 +6,7 @@ from typing import Optional
 @dataclass
 class Timestamp:
     utc: datetime
-    tz: str = 'UTC'
+    tz: str = "UTC"
 
 
 @dataclass
@@ -23,7 +23,7 @@ class OHLCV:
 class Asset:
     symbol: str
     asset_class: str  # 'equity' | 'crypto' | 'option' | 'future'
-    source: str       # 'yfinance' | 'coingecko'
+    source: str  # 'yfinance' | 'coingecko'
     metadata: dict = field(default_factory=dict)
     #: Set when the provider stopped serving this symbol. Carried on the domain
     #: object so `core.ingest` can skip it without a second query — before this

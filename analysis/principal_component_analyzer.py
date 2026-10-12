@@ -40,7 +40,7 @@ class PrincipalComponentAnalyzer:
             "components": pd.DataFrame(
                 self.pca.components_,
                 columns=self.returns_df.columns,
-                index=[f"PC_{i+1}" for i in range(self.pca.n_components_)],
+                index=[f"PC_{i + 1}" for i in range(self.pca.n_components_)],
             ),
             "eigenvalues": self.pca.explained_variance_,
         }

@@ -104,23 +104,62 @@ def run(x: DCFInputs) -> DCFResult:
     if exit_warning:
         early.append(exit_warning)
     if x.wacc <= x.growth_terminal:
-        return DCFResult(x, path, fcf, pv, None, None, None, None, None, None, exit_ev, exit_ps,
-                         reason=f"wacc {x.wacc:.4f} <= terminal growth {x.growth_terminal:.4f}: no Gordon value",
-                         warnings=early)
+        return DCFResult(
+            x,
+            path,
+            fcf,
+            pv,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            exit_ev,
+            exit_ps,
+            reason=f"wacc {x.wacc:.4f} <= terminal growth {x.growth_terminal:.4f}: no Gordon value",
+            warnings=early,
+        )
     if x.shares <= 0:
-        return DCFResult(x, path, fcf, pv, None, None, None, None, None, None, exit_ev, exit_ps,
-                         reason="share count is not positive", warnings=early)
+        return DCFResult(
+            x,
+            path,
+            fcf,
+            pv,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            exit_ev,
+            exit_ps,
+            reason="share count is not positive",
+            warnings=early,
+        )
     tv = fcf[-1] * (1.0 + x.growth_terminal) / (x.wacc - x.growth_terminal)
     pv_tv = tv * discount[-1]
     ev = sum(pv) + pv_tv
     equity = ev - x.net_debt
     result = DCFResult(
-        inputs=x, growth_path=path, fcf=fcf, pv_fcf=pv, terminal_value=tv, pv_terminal=pv_tv,
-        enterprise_value=ev, equity_value=equity, per_share=equity / x.shares,
-        terminal_share=pv_tv / ev if ev else None, exit_enterprise_value=exit_ev, exit_per_share=exit_ps,
+        inputs=x,
+        growth_path=path,
+        fcf=fcf,
+        pv_fcf=pv,
+        terminal_value=tv,
+        pv_terminal=pv_tv,
+        enterprise_value=ev,
+        equity_value=equity,
+        per_share=equity / x.shares,
+        terminal_share=pv_tv / ev if ev else None,
+        exit_enterprise_value=exit_ev,
+        exit_per_share=exit_ps,
         warnings=early,
     )
-    if result.terminal_share is not None and result.terminal_share > settings.DCF_TERMINAL_SHARE_WARN:
+    if (
+        result.terminal_share is not None
+        and result.terminal_share > settings.DCF_TERMINAL_SHARE_WARN
+    ):
         result.warnings.append(
             f"terminal value is {result.terminal_share:.0%} of enterprise value: "
             "the valuation is mostly the terminal assumption"
@@ -191,6 +230,7 @@ def reverse_dcf(
 # ---------------------------------------------------------------------------
 # Discount rate
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class Beta:
@@ -263,12 +303,16 @@ def wacc(
     estimated = interest_expense is None or debt <= 0
     if estimated:
         kd = risk_free + debt_spread
-        notes.append(f"no interest expense reported: cost of debt estimated as risk-free + {debt_spread:.2%}")
+        notes.append(
+            f"no interest expense reported: cost of debt estimated as risk-free + {debt_spread:.2%}"
+        )
     else:
         kd = interest_expense / debt
         if kd < risk_free + debt_spread:
-            notes.append(f"reported interest is {kd:.2%} of debt, below risk-free + {debt_spread:.2%}: "
-                         f"cost of debt raised to {risk_free + debt_spread:.2%} (market, not book)")
+            notes.append(
+                f"reported interest is {kd:.2%} of debt, below risk-free + {debt_spread:.2%}: "
+                f"cost of debt raised to {risk_free + debt_spread:.2%} (market, not book)"
+            )
             kd = risk_free + debt_spread
     debt = max(debt, 0.0)
     total = equity_market_value + debt

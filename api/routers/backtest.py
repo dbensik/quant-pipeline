@@ -27,6 +27,7 @@ router = APIRouter(prefix="/api/v1/backtest", tags=["backtest"])
 # Models
 # ---------------------------------------------------------------------------
 
+
 class BacktestRequest(BaseModel):
     symbol: str = Field(description="Ticker as stored, e.g. 'AAPL'")
     strategy_id: str = Field(description="Registry id, e.g. 'ma_crossover'")
@@ -93,6 +94,7 @@ class BacktestResponse(BaseModel):
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _json_safe(value: Any) -> Any:
     """
     Make numpy/pandas values JSON-encodable.
@@ -144,6 +146,7 @@ def _run_backtest_sync(
 # Route
 # ---------------------------------------------------------------------------
 
+
 @router.post(
     "",
     response_model=BacktestResponse,
@@ -183,23 +186,22 @@ async def run_backtest(
 
     asset = await repo.find_asset(request.symbol)
     if asset is None:
-        raise HTTPException(
-            status_code=404, detail=f"Unknown symbol: {request.symbol!r}"
-        )
+        raise HTTPException(status_code=404, detail=f"Unknown symbol: {request.symbol!r}")
 
-    start = request.start.replace(tzinfo=timezone.utc) if request.start.tzinfo is None else request.start
+    start = (
+        request.start.replace(tzinfo=timezone.utc)
+        if request.start.tzinfo is None
+        else request.start
+    )
     end = request.end.replace(tzinfo=timezone.utc) if request.end.tzinfo is None else request.end
 
-    records = await repo.fetch_range(
-        symbol=request.symbol, asset_class=None, start=start, end=end
-    )
+    records = await repo.fetch_range(symbol=request.symbol, asset_class=None, start=start, end=end)
     frame = records_to_frame(records)
     if frame.empty:
         raise HTTPException(
             status_code=422,
             detail=(
-                f"No bars stored for {request.symbol!r} between "
-                f"{start.date()} and {end.date()}."
+                f"No bars stored for {request.symbol!r} between {start.date()} and {end.date()}."
             ),
         )
 
@@ -239,9 +241,7 @@ async def run_backtest(
             for record in trades.to_dict(orient="records")
         ]
 
-    effective_params = {
-        p.name: request.params.get(p.name, p.default) for p in spec.params
-    }
+    effective_params = {p.name: request.params.get(p.name, p.default) for p in spec.params}
 
     return BacktestResponse(
         symbol=asset.symbol,

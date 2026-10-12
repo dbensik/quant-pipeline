@@ -47,6 +47,7 @@ MAX_NAME_LENGTH = 100
 # Models
 # ---------------------------------------------------------------------------
 
+
 class TradeIn(BaseModel):
     ticker: str
     action: str = Field(description="BUY or SELL")
@@ -109,9 +110,7 @@ class CreatePortfolioRequest(BaseModel):
 
 
 class RebalanceRequest(BaseModel):
-    target_weights: Dict[str, float] = Field(
-        description="Ticker to target weight of total equity"
-    )
+    target_weights: Dict[str, float] = Field(description="Ticker to target weight of total equity")
     minimum_order_value: float = Field(
         default=10.0, ge=0, description="Skip orders smaller than this"
     )
@@ -140,6 +139,7 @@ class RebalancePreview(BaseModel):
 # ---------------------------------------------------------------------------
 # Pricing helper
 # ---------------------------------------------------------------------------
+
 
 async def _latest_prices(
     tickers: List[str], market: TimescaleMarketDataRepo
@@ -207,9 +207,7 @@ def _state_response(
     )
 
 
-async def _require(
-    name: str, repo: TimescalePortfolioRepo
-) -> Portfolio:
+async def _require(name: str, repo: TimescalePortfolioRepo) -> Portfolio:
     """
     Load a portfolio or 404.
 
@@ -227,6 +225,7 @@ async def _require(
 # ---------------------------------------------------------------------------
 # Portfolio CRUD
 # ---------------------------------------------------------------------------
+
 
 @router.get("", response_model=List[PortfolioSummary], summary="List portfolios")
 async def list_portfolios(
@@ -290,6 +289,7 @@ async def delete_portfolio(
 # Derived state
 # ---------------------------------------------------------------------------
 
+
 @router.get(
     "/{name}",
     response_model=PortfolioStateOut,
@@ -327,6 +327,7 @@ async def get_portfolio_state(
 # ---------------------------------------------------------------------------
 # Trade log
 # ---------------------------------------------------------------------------
+
 
 @router.get(
     "/{name}/trades",
@@ -407,9 +408,7 @@ async def add_trade(
         # Checked against state INCLUDING this trade, not against a running
         # balance, so an out-of-order backdated trade is judged on the same
         # basis as the log it joins.
-        projected = derive_state(
-            portfolio.trades + [domain], portfolio.initial_cash
-        )
+        projected = derive_state(portfolio.trades + [domain], portfolio.initial_cash)
         if projected.cash < 0:
             current = derive_state(portfolio.trades, portfolio.initial_cash)
             raise HTTPException(
@@ -462,6 +461,7 @@ async def delete_trade(
 # Rebalancing
 # ---------------------------------------------------------------------------
 
+
 @router.post(
     "/{name}/rebalance",
     response_model=RebalancePreview,
@@ -484,9 +484,7 @@ async def preview_rebalance(
     inspected and declined.
     """
     if any(weight < 0 for weight in request.target_weights.values()):
-        raise HTTPException(
-            status_code=422, detail="Target weights must not be negative."
-        )
+        raise HTTPException(status_code=422, detail="Target weights must not be negative.")
     total = sum(request.target_weights.values())
     if total > 1.0 + 1e-9:
         raise HTTPException(

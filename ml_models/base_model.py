@@ -12,7 +12,9 @@ class BaseMLModel(ABC):
     def __init__(self, model_name: str, parameters: dict):
         self.model_name = model_name
         self.parameters = parameters
-        self.model = None  # This will hold the trained model object (e.g., from sklearn, tensorflow)
+        self.model = (
+            None  # This will hold the trained model object (e.g., from sklearn, tensorflow)
+        )
 
     @abstractmethod
     def create_features(

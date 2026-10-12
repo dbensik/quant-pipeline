@@ -94,7 +94,7 @@ class PortfolioBacktester:
                 # Use asof to get the most recent price if the current timestamp is a holiday
                 price_series = price_data[ticker]["Close"]
                 current_price = price_series.asof(timestamp)
-                
+
                 if pd.notna(current_price):
                     current_prices[ticker] = current_price
                     current_holdings_value += (
@@ -115,8 +115,7 @@ class PortfolioBacktester:
             portfolio_signal_df = signals_data.get("Portfolio")
             portfolio_signal = (
                 portfolio_signal_df.loc[timestamp, "signal"]
-                if portfolio_signal_df is not None
-                and timestamp in portfolio_signal_df.index
+                if portfolio_signal_df is not None and timestamp in portfolio_signal_df.index
                 else 0
             )
 
@@ -124,8 +123,7 @@ class PortfolioBacktester:
                 ticker_signal_df = signals_data.get(ticker)
                 ticker_signal = (
                     ticker_signal_df.loc[timestamp, "signal"]
-                    if ticker_signal_df is not None
-                    and timestamp in ticker_signal_df.index
+                    if ticker_signal_df is not None and timestamp in ticker_signal_df.index
                     else 0
                 )
 
@@ -145,58 +143,54 @@ class PortfolioBacktester:
                 # --- Signal Execution Logic ---
                 if signal == 1 and np.isclose(current_position, 0):  # Directional Buy
                     quantity = 0
-                    
+
                     if self.enable_vol_targeting:
                         # Calculate rolling volatility (20-day)
                         price_series = price_data[ticker]["Close"]
                         # Get data up to current timestamp
                         # Using searchsorted to find position efficiently, or just slicing if index is datetime
                         # Assuming index is datetime and sorted
-                        
+
                         # Optimization: We already have current price. We need historical.
                         # This slice might be slow inside a loop, but fine for MVP.
-                        hist_slice = price_series[:timestamp].tail(21) # 20 days returns needs 21 prices
-                        
+                        hist_slice = price_series[:timestamp].tail(
+                            21
+                        )  # 20 days returns needs 21 prices
+
                         if len(hist_slice) > 10:
                             returns = hist_slice.pct_change().dropna()
                             asset_vol = returns.std() * np.sqrt(252)
-                            
+
                             quantity = self.risk_manager.calculate_volatility_adjusted_size(
                                 portfolio_equity=portfolio.loc[timestamp, "total"],
                                 asset_volatility=asset_vol,
                                 target_volatility=self.target_volatility,
-                                asset_price=current_price
+                                asset_price=current_price,
                             )
                     else:
                         # Fixed Weight Sizing
-                        target_value = portfolio.loc[
-                            timestamp, "total"
-                        ] * target_weights.get(ticker, 0)
+                        target_value = portfolio.loc[timestamp, "total"] * target_weights.get(
+                            ticker, 0
+                        )
                         quantity = int(target_value / current_price)
-                        
+
                     if quantity > 0:
                         order = OrderEvent(timestamp, ticker, "MKT", quantity, "BUY")
 
                 elif signal == -1 and current_position > 0:  # Directional Sell
-                    order = OrderEvent(
-                        timestamp, ticker, "MKT", int(current_position), "SELL"
-                    )
+                    order = OrderEvent(timestamp, ticker, "MKT", int(current_position), "SELL")
 
                 elif signal == 2:  # Rebalance Signal
                     # Rebalancing logic for vol targeting is complex (needs to re-eval everything).
                     # For now, we only apply vol targeting on INITIAL ENTRY (Signal 1).
                     # Standard rebalance uses fixed weights.
-                    
-                    target_value = portfolio.loc[
-                        timestamp, "total"
-                    ] * target_weights.get(ticker, 0)
+
+                    target_value = portfolio.loc[timestamp, "total"] * target_weights.get(ticker, 0)
                     target_quantity = int(target_value / current_price)
                     trade_quantity = target_quantity - current_position
 
                     if trade_quantity > 0:
-                        order = OrderEvent(
-                            timestamp, ticker, "MKT", int(trade_quantity), "BUY"
-                        )
+                        order = OrderEvent(timestamp, ticker, "MKT", int(trade_quantity), "BUY")
                     elif trade_quantity < 0:
                         order = OrderEvent(
                             timestamp, ticker, "MKT", int(abs(trade_quantity)), "SELL"
@@ -206,12 +200,8 @@ class PortfolioBacktester:
                     continue
 
                 # --- 5. Risk and Execution ---
-                portfolio.loc[timestamp, f"{order.symbol}_price"] = current_prices[
-                    ticker
-                ]
-                approved_order = self.risk_manager.assess_order(
-                    order, portfolio.loc[timestamp]
-                )
+                portfolio.loc[timestamp, f"{order.symbol}_price"] = current_prices[ticker]
+                approved_order = self.risk_manager.assess_order(order, portfolio.loc[timestamp])
                 if not approved_order:
                     continue
 
@@ -226,7 +216,7 @@ class PortfolioBacktester:
                     elif fill_event.direction == "SELL":
                         portfolio.loc[timestamp, "cash"] += fill_event.total_cost
                         portfolio.loc[timestamp, f"{ticker}_pos"] -= fill_event.quantity
-                    
+
                     # Convert to dict and add the computed property 'total_cost'
                     trade_data = vars(fill_event).copy()
                     trade_data["total_cost"] = fill_event.total_cost

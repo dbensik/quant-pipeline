@@ -28,6 +28,7 @@ def band_values(body, key):
 # Output shape and internal consistency
 # ---------------------------------------------------------------------------
 
+
 def test_bands_start_at_initial_capital_and_are_ordered(client: TestClient):
     body = run(client, initial_capital=50_000.0).json()
     first = body["bands"][0]
@@ -81,7 +82,13 @@ def test_historical_metrics_are_the_real_backtest(client: TestClient):
     sim = run(client, **TRADING).json()
     bt = client.post(
         "/api/v1/backtest",
-        json={"symbol": "AAPL", **WINDOW, **TRADING, "include_equity_curve": False, "include_trades": False},
+        json={
+            "symbol": "AAPL",
+            **WINDOW,
+            **TRADING,
+            "include_equity_curve": False,
+            "include_trades": False,
+        },
     ).json()
     assert sim["historical"] == bt["metrics"]
     assert sim["drawdown"]["historical_depth"] == bt["metrics"]["Max Drawdown"]
@@ -97,7 +104,9 @@ def test_risk_rows_come_from_the_simulated_equity(client: TestClient):
     for mode in ("returns", "prices"):
         body = run(client, **TRADING, mode=mode, n_paths=50).json()
         one_day = next(r for r in body["risk"]["rows"] if r["horizon_days"] == 1)
-        assert body["bands"][1]["p05"] == pytest.approx(100_000.0 * (1.0 - one_day["var_95"]), rel=1e-9), mode
+        assert body["bands"][1]["p05"] == pytest.approx(
+            100_000.0 * (1.0 - one_day["var_95"]), rel=1e-9
+        ), mode
 
 
 def test_returns_mode_resamples_from_the_first_invested_bar(client: TestClient):
@@ -119,10 +128,19 @@ def test_prob_loss_counts_strictly_losing_paths(client: TestClient):
     prob_loss against the returned sample paths — the two are computed
     separately, so they can only agree if both use a strict comparison.
     """
-    body = run(client, strategy_id="ma_crossover", params={"short_window": 10, "long_window": 30},
-               mode="prices", n_paths=40, horizon_days=45, include_paths=40).json()
+    body = run(
+        client,
+        strategy_id="ma_crossover",
+        params={"short_window": 10, "long_window": 30},
+        mode="prices",
+        n_paths=40,
+        horizon_days=45,
+        include_paths=40,
+    ).json()
     finals = [p[-1] for p in body["sample_paths"]]
-    assert any(f == 100_000.0 for f in finals), "fixture must produce a flat path or this proves nothing"
+    assert any(f == 100_000.0 for f in finals), (
+        "fixture must produce a flat path or this proves nothing"
+    )
     assert body["terminal"]["prob_loss"] == pytest.approx(sum(f < 100_000.0 for f in finals) / 40)
 
 
@@ -142,6 +160,7 @@ def test_no_sample_paths_by_default(client: TestClient):
 # ---------------------------------------------------------------------------
 # Determinism and the knobs that must matter
 # ---------------------------------------------------------------------------
+
 
 def test_seed_is_two_sided(client: TestClient):
     a = run(client, seed=1).json()
@@ -178,13 +197,18 @@ def test_prices_mode_reruns_the_strategy(client: TestClient):
 
 def test_prices_mode_default_path_count_is_the_rerun_default(client: TestClient):
     from config import settings
+
     body = {"symbol": "AAPL", **WINDOW, **TRADING, "mode": "prices", "horizon_days": 10}
-    assert client.post("/api/v1/simulate", json=body).json()["n_paths"] == settings.SIM_DEFAULT_RERUN_PATHS
+    assert (
+        client.post("/api/v1/simulate", json=body).json()["n_paths"]
+        == settings.SIM_DEFAULT_RERUN_PATHS
+    )
 
 
 # ---------------------------------------------------------------------------
 # Caveats
 # ---------------------------------------------------------------------------
+
 
 def test_returns_mode_on_a_trading_strategy_carries_the_path_caveat(client: TestClient):
     body = run(client, **TRADING, mode="returns").json()
@@ -201,14 +225,20 @@ def test_prices_mode_has_no_path_caveat(client: TestClient):
 
 
 def test_strategy_caveat_is_passed_through(client: TestClient):
-    body = run(client, strategy_id="ml_random_forest", mode="prices", n_paths=2,
-               params={"n_estimators": 5, "lookback_window": 3}).json()
+    body = run(
+        client,
+        strategy_id="ml_random_forest",
+        mode="prices",
+        n_paths=2,
+        params={"n_estimators": 5, "lookback_window": 3},
+    ).json()
     assert "look-ahead" in body["caveat"].lower()
 
 
 # ---------------------------------------------------------------------------
 # Gates and errors
 # ---------------------------------------------------------------------------
+
 
 def test_unverified_asset_is_refused_by_default(client: TestClient):
     response = run(client, symbol="BTC-USD")
@@ -224,20 +254,28 @@ def test_unverified_asset_runs_with_the_flag_and_says_so(client: TestClient):
 
 def test_path_cap_is_per_mode(client: TestClient):
     from config import settings
+
     assert run(client, n_paths=settings.SIM_MAX_PATHS + 1).status_code == 422
     assert run(client, mode="prices", n_paths=settings.SIM_MAX_RERUN_PATHS + 1).status_code == 422
-    assert run(client, mode="prices", n_paths=settings.SIM_MAX_RERUN_PATHS + 1,
-               horizon_days=5).status_code == 422
+    assert (
+        run(
+            client, mode="prices", n_paths=settings.SIM_MAX_RERUN_PATHS + 1, horizon_days=5
+        ).status_code
+        == 422
+    )
 
 
 def test_horizon_cap(client: TestClient):
     from config import settings
+
     assert run(client, horizon_days=settings.SIM_MAX_HORIZON_DAYS + 1).status_code == 422
 
 
 def test_never_invested_strategy_cannot_be_resampled_in_returns_mode(client: TestClient):
     # ma_crossover 10/30 makes zero trades on this fixture.
-    response = run(client, strategy_id="ma_crossover", params={"short_window": 10, "long_window": 30})
+    response = run(
+        client, strategy_id="ma_crossover", params={"short_window": 10, "long_window": 30}
+    )
     assert response.status_code == 422
     assert "never invested" in response.json()["detail"]
 
@@ -263,6 +301,7 @@ def test_empty_window(client: TestClient):
 # Worker contract that the response cannot show
 # ---------------------------------------------------------------------------
 
+
 def test_prices_mode_seeds_each_path_from_its_index(monkeypatch):
     """
     Path i's slippage RNG is seeded `seed + i`, so a result never depends on
@@ -287,8 +326,14 @@ def test_prices_mode_seeds_each_path_from_its_index(monkeypatch):
     monkeypatch.setattr(simulate, "Backtester", Recording)
     frame = records_to_frame(_series("AAPL"))
     request = simulate.SimulationRequest(
-        symbol="AAPL", strategy_id="buy_and_hold", start=datetime(2024, 1, 1),
-        end=datetime(2024, 12, 31), mode="prices", n_paths=4, horizon_days=10, seed=7,
+        symbol="AAPL",
+        strategy_id="buy_and_hold",
+        start=datetime(2024, 1, 1),
+        end=datetime(2024, 12, 31),
+        mode="prices",
+        n_paths=4,
+        horizon_days=10,
+        seed=7,
     )
     simulate._simulate_sync(frame, registry.get("buy_and_hold"), request, 4)
     # The historical run is seeded with the request seed via _run_backtest_sync

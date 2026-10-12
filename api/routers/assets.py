@@ -45,9 +45,7 @@ class AssetListResponse(BaseModel):
     summary="List registered assets",
 )
 async def list_assets(
-    asset_class: Optional[str] = Query(
-        default=None, description="Filter by 'equity' or 'crypto'"
-    ),
+    asset_class: Optional[str] = Query(default=None, description="Filter by 'equity' or 'crypto'"),
     search: Optional[str] = Query(
         default=None, description="Case-insensitive symbol substring match"
     ),

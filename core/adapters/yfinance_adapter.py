@@ -63,11 +63,7 @@ def fetch(
 
     # Normalise to long format (Date, Ticker)
     if isinstance(raw.columns, pd.MultiIndex):
-        long = (
-            raw.stack(level=1, future_stack=True)
-            .rename_axis(["Date", "Ticker"])
-            .reset_index()
-        )
+        long = raw.stack(level=1, future_stack=True).rename_axis(["Date", "Ticker"]).reset_index()
     else:
         long = raw.reset_index()
         long["Ticker"] = clean[0]
@@ -85,9 +81,7 @@ def fetch(
         )
         # Absent only from hand-built frames; the real download always has it.
         ratio = (
-            float(row["Adj Close"]) / served.close
-            if "Adj Close" in row and served.close
-            else 1.0
+            float(row["Adj Close"]) / served.close if "Adj Close" in row and served.close else 1.0
         )
         records.append(
             MarketDataRecord(

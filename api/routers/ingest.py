@@ -50,6 +50,7 @@ UNIVERSE_SOURCES = ("sp500", "dow_jones", "nasdaq100", "top_100_crypto")
 # Models
 # ---------------------------------------------------------------------------
 
+
 class IngestRequest(BaseModel):
     # An unknown field is an error, not ignored: `full_backfill` was removed on
     # 2026-09-28, and a stale client sending it must not be quietly handed a
@@ -116,9 +117,7 @@ class AssetOut(BaseModel):
 class DriftedSymbol(BaseModel):
     symbol: str
     last_full_refresh_at: Optional[datetime] = None
-    splits: List[Dict[str, Any]] = Field(
-        description="Splits newer than the last full refresh"
-    )
+    splits: List[Dict[str, Any]] = Field(description="Splits newer than the last full refresh")
     detail: str
 
 
@@ -132,9 +131,7 @@ class DataHealthResponse(BaseModel):
             "that read the stored columns. There is no restating write."
         )
     )
-    delisted: List[str] = Field(
-        description="Marked as no longer trading by a previous ingest"
-    )
+    delisted: List[str] = Field(description="Marked as no longer trading by a previous ingest")
     unrefreshed: List[str] = Field(
         description=(
             "Stored columns never restated, so their adjustment as-of date is "
@@ -200,6 +197,7 @@ class DataFreshnessResponse(BaseModel):
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def to_response(report: IngestReport) -> IngestResponse:
     return IngestResponse(
         symbols=report.symbols,
@@ -231,6 +229,7 @@ async def all_registered_symbols(session: AsyncSession) -> List[str]:
 # Routes
 # ---------------------------------------------------------------------------
 
+
 @router.get("/status", response_model=IngestStatus, summary="Current ingest state")
 async def ingest_status() -> IngestStatus:
     return IngestStatus(**job.status())
@@ -258,9 +257,7 @@ async def run_ingest(
     symbols = request.symbols or await all_registered_symbols(session)
     symbols = [s.upper().strip() for s in symbols if s and s.strip()]
     if not symbols:
-        raise HTTPException(
-            status_code=422, detail="No symbols to ingest — the registry is empty."
-        )
+        raise HTTPException(status_code=422, detail="No symbols to ingest — the registry is empty.")
     if len(symbols) > MAX_SYMBOLS:
         raise HTTPException(
             status_code=422,
@@ -322,8 +319,7 @@ async def add_asset(
         raise HTTPException(
             status_code=422,
             detail=(
-                "asset_class must be 'equity', 'crypto' or 'etf'; "
-                f"got {request.asset_class!r}."
+                f"asset_class must be 'equity', 'crypto' or 'etf'; got {request.asset_class!r}."
             ),
         )
 
@@ -343,9 +339,7 @@ async def add_asset(
             created=False,
         )
 
-    row = AssetORM(
-        symbol=symbol, asset_class=request.asset_class, source=request.source
-    )
+    row = AssetORM(symbol=symbol, asset_class=request.asset_class, source=request.source)
     session.add(row)
     await session.commit()
     return AssetOut(
@@ -385,9 +379,7 @@ def summarise_freshness(
     stale_rows = [r for r in live if is_stale(r)]
     # Oldest first: no bars at all sorts before any dated bar, because "never
     # ingested" is the worse condition.
-    stale_rows.sort(
-        key=lambda r: (r.last_bar is not None, -(_age_days(as_of, r.last_bar) or 0))
-    )
+    stale_rows.sort(key=lambda r: (r.last_bar is not None, -(_age_days(as_of, r.last_bar) or 0)))
 
     by_class: List[ClassFreshness] = []
     for asset_class in sorted({r.asset_class for r in live}):
@@ -483,9 +475,9 @@ async def data_health(
     from core.corporate_actions import detect_drift, yfinance_splits
 
     result = await session.execute(
-        select(
-            AssetORM.symbol, AssetORM.last_full_refresh_at, AssetORM.delisted_at
-        ).order_by(AssetORM.symbol)
+        select(AssetORM.symbol, AssetORM.last_full_refresh_at, AssetORM.delisted_at).order_by(
+            AssetORM.symbol
+        )
     )
     rows = list(result.all())
     if symbols:
@@ -509,17 +501,14 @@ async def data_health(
         if last_refresh is None:
             unrefreshed.append(symbol)
 
-        report = await run_in_threadpool(
-            detect_drift, symbol, last_refresh, yfinance_splits
-        )
+        report = await run_in_threadpool(detect_drift, symbol, last_refresh, yfinance_splits)
         if report.needs_refresh and last_refresh is not None:
             drifted.append(
                 DriftedSymbol(
                     symbol=symbol,
                     last_full_refresh_at=last_refresh,
                     splits=[
-                        {"date": s.date.date().isoformat(), "ratio": s.ratio}
-                        for s in report.splits
+                        {"date": s.date.date().isoformat(), "ratio": s.ratio} for s in report.splits
                     ],
                     detail=report.describe(),
                 )

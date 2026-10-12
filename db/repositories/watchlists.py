@@ -33,21 +33,19 @@ class Watchlist:
 # Protocol
 # ---------------------------------------------------------------------------
 
+
 class WatchlistRepository:
     """Structural Protocol — no explicit inheritance required."""
 
-    async def list_watchlists(self) -> List[Watchlist]:
-        ...
+    async def list_watchlists(self) -> List[Watchlist]: ...
 
-    async def get_watchlist(self, name: str) -> Optional[Watchlist]:
-        ...
+    async def get_watchlist(self, name: str) -> Optional[Watchlist]: ...
 
     async def save_watchlist(self, name: str, symbols: List[str]) -> Watchlist:
         """Create or replace a watchlist's symbols wholesale."""
         ...
 
-    async def delete_watchlist(self, name: str) -> bool:
-        ...
+    async def delete_watchlist(self, name: str) -> bool: ...
 
     async def watchlists_containing(self, symbol: str) -> List[str]:
         """Names of every watchlist holding `symbol`."""
@@ -57,6 +55,7 @@ class WatchlistRepository:
 # ---------------------------------------------------------------------------
 # TimescaleDB implementation
 # ---------------------------------------------------------------------------
+
 
 def _to_watchlist(row: WatchlistORM) -> Watchlist:
     return Watchlist(
@@ -71,9 +70,7 @@ class TimescaleWatchlistRepo:
         self.session = session
 
     async def list_watchlists(self) -> List[Watchlist]:
-        result = await self.session.execute(
-            select(WatchlistORM).order_by(WatchlistORM.name)
-        )
+        result = await self.session.execute(select(WatchlistORM).order_by(WatchlistORM.name))
         # .unique() because `symbols` uses lazy="selectin"; without it a list
         # with N symbols would appear N times.
         return [_to_watchlist(row) for row in result.unique().scalars().all()]
@@ -148,7 +145,5 @@ class TimescaleWatchlistRepo:
         return list(result.scalars().all())
 
     async def _find(self, name: str) -> Optional[WatchlistORM]:
-        result = await self.session.execute(
-            select(WatchlistORM).where(WatchlistORM.name == name)
-        )
+        result = await self.session.execute(select(WatchlistORM).where(WatchlistORM.name == name))
         return result.unique().scalars().first()

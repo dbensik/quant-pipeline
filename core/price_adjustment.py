@@ -226,9 +226,7 @@ def _dividend_factors(raw: Sequence[Bar], actions: Sequence[Action]) -> _Cumulat
     return _Cumulative(events)
 
 
-def adjust(
-    bars: Sequence[ServedBar], actions: Sequence[Action], mode: str = "total"
-) -> List[Bar]:
+def adjust(bars: Sequence[ServedBar], actions: Sequence[Action], mode: str = "total") -> List[Bar]:
     """Served bars to `mode` ('none' | 'split' | 'total'), in date order."""
     if mode not in MODES:
         raise ValueError(f"mode must be one of {MODES}, not {mode!r}")

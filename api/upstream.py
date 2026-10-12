@@ -88,6 +88,7 @@ class TTLCache:
 # Normalisation
 # ---------------------------------------------------------------------------
 
+
 def _first_url(*candidates: Any) -> Optional[str]:
     for candidate in candidates:
         if isinstance(candidate, dict):
@@ -125,9 +126,7 @@ def normalise_news_item(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             "id": str(content.get("id") or raw.get("id") or ""),
             "title": content.get("title"),
             "summary": content.get("summary") or content.get("description"),
-            "url": _first_url(
-                content.get("canonicalUrl"), content.get("clickThroughUrl")
-            ),
+            "url": _first_url(content.get("canonicalUrl"), content.get("clickThroughUrl")),
             "publisher": provider.get("displayName") if isinstance(provider, dict) else None,
             "published_at": _parse_time(published),
         }
@@ -209,11 +208,7 @@ def _frame_to_statement(frame: Any) -> List[Dict[str, Any]]:
     for line_item, series in frame.iterrows():
         values: Dict[str, Any] = {}
         for period, value in series.items():
-            key = (
-                period.date().isoformat()
-                if hasattr(period, "date")
-                else str(period)
-            )
+            key = period.date().isoformat() if hasattr(period, "date") else str(period)
             values[key] = None if pd.isna(value) else float(value)
         rows.append({"line_item": str(line_item), "values": values})
     return rows
@@ -222,6 +217,7 @@ def _frame_to_statement(frame: Any) -> List[Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 # Gateway
 # ---------------------------------------------------------------------------
+
 
 class YFinanceGateway:
     """Cached, normalised access to yfinance. The network boundary."""
@@ -288,9 +284,7 @@ class YFinanceGateway:
                     ticker.cashflow,
                 )
         except Exception as exc:  # noqa: BLE001
-            raise UpstreamError(
-                f"Could not fetch financials for {symbol!r}: {exc}"
-            ) from exc
+            raise UpstreamError(f"Could not fetch financials for {symbol!r}: {exc}") from exc
 
         statements = {
             "symbol": symbol,
@@ -320,6 +314,7 @@ class YFinanceGateway:
         failures = 0
 
         if pending:
+
             def fetch_one(symbol: str):
                 try:
                     return symbol, self._ticker(symbol).news or []
@@ -336,9 +331,7 @@ class YFinanceGateway:
                     self.news_cache.set(symbol, [i for i in items if i and i.get("title")])
 
             if failures == len(pending):
-                raise UpstreamError(
-                    "Could not fetch news for any of: " + ", ".join(pending)
-                )
+                raise UpstreamError("Could not fetch news for any of: " + ", ".join(pending))
 
         merged: Dict[str, Dict[str, Any]] = {}
         for symbol in wanted:

@@ -54,6 +54,7 @@ def _raise(exc: svc.ValuationError):
 # Models (all prefixed Valuation: see tests/api/test_openapi_contract.py)
 # ---------------------------------------------------------------------------
 
+
 class ValuationCoverage(BaseModel):
     equities: int
     with_cik: int
@@ -89,7 +90,9 @@ class ValuationRequest(BaseModel):
     wacc: Optional[float] = Field(default=None, gt=0, le=0.5)
     exit_multiple: Optional[float] = Field(default=None, gt=0, le=100)
     years: Optional[int] = Field(default=None, ge=1, le=20)
-    beta: Optional[float] = Field(default=None, ge=-1, le=4, description="Replaces the daily 3-year beta")
+    beta: Optional[float] = Field(
+        default=None, ge=-1, le=4, description="Replaces the daily 3-year beta"
+    )
 
 
 class ValuationBeta(BaseModel):
@@ -149,13 +152,17 @@ class ValuationResult(BaseModel):
 class ValuationGrid(BaseModel):
     wacc: List[float]
     growth_terminal: List[float]
-    per_share: List[List[Optional[float]]] = Field(description="Rows by WACC, columns by terminal growth; null where wacc <= growth")
+    per_share: List[List[Optional[float]]] = Field(
+        description="Rows by WACC, columns by terminal growth; null where wacc <= growth"
+    )
 
 
 class ValuationResponse(BaseModel):
     symbol: str
     cik: int
-    predecessor_ciks: List[int] = Field(description="Earlier filers read with `cik` (holding-company reorganisations)")
+    predecessor_ciks: List[int] = Field(
+        description="Earlier filers read with `cik` (holding-company reorganisations)"
+    )
     sector: Optional[str]
     as_of: date
     price: float = Field(description="Close AS TRADED on price_date: the basis of the share count")
@@ -167,7 +174,9 @@ class ValuationResponse(BaseModel):
     implied_growth_first: Optional[float] = Field(description="First-year growth the price implies")
     implied_reason: Optional[str]
     notes: List[str]
-    betas: Dict[str, Optional[ValuationBeta]] = Field(description="daily_3y (decision 4, the default), daily_3y_blume, weekly_5y")
+    betas: Dict[str, Optional[ValuationBeta]] = Field(
+        description="daily_3y (decision 4, the default), daily_3y_blume, weekly_5y"
+    )
     overridden: List[str]
     sensitivity: ValuationGrid
 
@@ -191,17 +200,42 @@ class ValuationHistory(BaseModel):
 # Routes
 # ---------------------------------------------------------------------------
 
+
 @router.get("/coverage", response_model=ValuationCoverage, summary="What fundamentals are stored")
 async def coverage(data: svc.ValuationData = Depends(get_valuation_data)) -> ValuationCoverage:
     return ValuationCoverage(**await data.coverage())
 
 
-ANNUAL_ITEMS = ("revenue", "operating_income", "net_income", "cfo", "capex", "share_based_comp", "d_and_a", "diluted_shares")
-BALANCE_ITEMS = ("cash", "securities_current", "securities_noncurrent", "long_term_debt", "commercial_paper", "equity", "shares_outstanding")
+ANNUAL_ITEMS = (
+    "revenue",
+    "operating_income",
+    "net_income",
+    "cfo",
+    "capex",
+    "share_based_comp",
+    "d_and_a",
+    "diluted_shares",
+)
+BALANCE_ITEMS = (
+    "cash",
+    "securities_current",
+    "securities_noncurrent",
+    "long_term_debt",
+    "commercial_paper",
+    "equity",
+    "shares_outstanding",
+)
 
 
-@router.get("/{symbol}/statements", response_model=ValuationStatements, summary="Standardised line items as of a date",
-            responses={404: {"description": "Not a registered equity"}, 422: {"description": "No CIK or no facts"}})
+@router.get(
+    "/{symbol}/statements",
+    response_model=ValuationStatements,
+    summary="Standardised line items as of a date",
+    responses={
+        404: {"description": "Not a registered equity"},
+        422: {"description": "No CIK or no facts"},
+    },
+)
 async def statements(
     symbol: str,
     as_of: Optional[date] = Query(default=None),
@@ -215,7 +249,9 @@ async def statements(
     item = lambda v: ValuationLineItem(**v.__dict__) if v else None  # noqa: E731
     ttm = {k: st.ttm(k, as_of) for k in ANNUAL_ITEMS if k != "diluted_shares"}
     return ValuationStatements(
-        symbol=symbol.upper(), cik=cik, as_of=as_of,
+        symbol=symbol.upper(),
+        cik=cik,
+        as_of=as_of,
         annual={k: [item(v) for v in st.annual(k, as_of)] for k in ANNUAL_ITEMS},
         ttm={k: (t[0] if t else None) for k, t in ttm.items()},
         ttm_through={k: (t[1][-1].period_end if t else None) for k, t in ttm.items()},
@@ -223,10 +259,16 @@ async def statements(
     )
 
 
-@router.post("/dcf", response_model=ValuationResponse, summary="Discounted cash flow valuation as of a date",
-             responses={404: {"description": "Not a registered equity"},
-                        409: {"description": "No risk-free rate stored for the date"},
-                        422: {"description": "Cannot be valued: the reason is in `detail`"}})
+@router.post(
+    "/dcf",
+    response_model=ValuationResponse,
+    summary="Discounted cash flow valuation as of a date",
+    responses={
+        404: {"description": "Not a registered equity"},
+        409: {"description": "No risk-free rate stored for the date"},
+        422: {"description": "Cannot be valued: the reason is in `detail`"},
+    },
+)
 async def dcf(
     request: ValuationRequest,
     data: svc.ValuationData = Depends(get_valuation_data),
@@ -235,18 +277,34 @@ async def dcf(
 ) -> ValuationResponse:
     try:
         out = await svc.value(
-            data, prices, rates, request.symbol.upper(), request.as_of or _today(),
-            svc.Overrides(request.growth_first, request.beta, request.growth_terminal, request.wacc,
-                          request.exit_multiple, request.years),
+            data,
+            prices,
+            rates,
+            request.symbol.upper(),
+            request.as_of or _today(),
+            svc.Overrides(
+                request.growth_first,
+                request.beta,
+                request.growth_terminal,
+                request.wacc,
+                request.exit_multiple,
+                request.years,
+            ),
         )
     except svc.ValuationError as exc:
         _raise(exc)
     return ValuationResponse(**json_safe(out))
 
 
-@router.get("/{symbol}/history", response_model=ValuationHistory,
-            summary="DCF value against price the day after each 10-K/10-Q filing",
-            responses={404: {"description": "Not a registered equity"}, 422: {"description": "No CIK or no facts"}})
+@router.get(
+    "/{symbol}/history",
+    response_model=ValuationHistory,
+    summary="DCF value against price the day after each 10-K/10-Q filing",
+    responses={
+        404: {"description": "Not a registered equity"},
+        422: {"description": "No CIK or no facts"},
+    },
+)
 async def value_history(
     symbol: str,
     since: Optional[date] = Query(default=None),

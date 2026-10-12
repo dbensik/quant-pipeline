@@ -87,8 +87,11 @@ class FakeTiingo:
 
 def candidate(**overrides):
     row = {
-        "symbol": "PARA", "case": "reused", "tiingo_ticker": "PARA",
-        "first": "2019-01-02", "last": "2019-12-31",
+        "symbol": "PARA",
+        "case": "reused",
+        "tiingo_ticker": "PARA",
+        "first": "2019-01-02",
+        "last": "2019-12-31",
     }
     return pd.DataFrame([{**row, **overrides}])
 

@@ -82,22 +82,16 @@ class DriftReport:
 
     def describe(self) -> str:
         when = (
-            self.last_full_refresh_at.date().isoformat()
-            if self.last_full_refresh_at
-            else "never"
+            self.last_full_refresh_at.date().isoformat() if self.last_full_refresh_at else "never"
         )
-        events = ", ".join(
-            f"{s.ratio:g}:1 on {s.date.date().isoformat()}" for s in self.splits
-        )
+        events = ", ".join(f"{s.ratio:g}:1 on {s.date.date().isoformat()}" for s in self.splits)
         return (
             f"{self.symbol}: {events} — series last restated {when}, so bars "
             "before and after are adjusted to different dates."
         )
 
 
-def splits_since(
-    all_splits: Sequence[Split], since: Optional[datetime]
-) -> List[Split]:
+def splits_since(all_splits: Sequence[Split], since: Optional[datetime]) -> List[Split]:
     """
     Splits that postdate the last full refresh.
 
@@ -326,11 +320,7 @@ def _relative_spread(values: Sequence[float]) -> Optional[float]:
         return None
     ordered = sorted(values)
     middle = len(ordered) // 2
-    median = (
-        ordered[middle]
-        if len(ordered) % 2
-        else (ordered[middle - 1] + ordered[middle]) / 2
-    )
+    median = ordered[middle] if len(ordered) % 2 else (ordered[middle - 1] + ordered[middle]) / 2
     if median <= 0:
         return None
     return (ordered[-1] - ordered[0]) / median
@@ -362,24 +352,16 @@ def compare_series(
     dates = sorted(shared)[-window:]
 
     ratios = [
-        old_closes[d] / new_closes[d]
-        for d in dates
-        if old_closes[d] > 0 and new_closes[d] > 0
+        old_closes[d] / new_closes[d] for d in dates if old_closes[d] > 0 and new_closes[d] > 0
     ]
     trimmed = before is not None
     if len(ratios) < SUCCESSOR_MIN_OVERLAP:
-        return SuccessorEvidence(
-            old_symbol, candidate, overlap=len(ratios), trimmed=trimmed
-        )
+        return SuccessorEvidence(old_symbol, candidate, overlap=len(ratios), trimmed=trimmed)
 
     spread = _relative_spread(ratios)
     ordered = sorted(ratios)
     middle = len(ordered) // 2
-    median = (
-        ordered[middle]
-        if len(ordered) % 2
-        else (ordered[middle - 1] + ordered[middle]) / 2
-    )
+    median = ordered[middle] if len(ordered) % 2 else (ordered[middle - 1] + ordered[middle]) / 2
     return SuccessorEvidence(
         old_symbol,
         candidate,
@@ -408,9 +390,7 @@ def rank_successors(
         for name, closes in candidates.items()
     ]
     # Unusable comparisons sort last rather than first.
-    return sorted(
-        scored, key=lambda e: e.spread if e.spread is not None else float("inf")
-    )
+    return sorted(scored, key=lambda e: e.spread if e.spread is not None else float("inf"))
 
 
 # ---------------------------------------------------------------------------
@@ -573,8 +553,8 @@ def detect_reassignment(
     worst: Optional[ReassignmentBreak] = None
     i = window
     while i <= len(clean) - window // 2:
-        prior = median(dv[i - window:i])
-        after = median(dv[i:i + window])
+        prior = median(dv[i - window : i])
+        after = median(dv[i : i + window])
         # A median barely moves when one bar crosses the boundary, so every
         # boundary within half a window of the real one scores alike. Anchor
         # it: report the FIRST bar below the midpoint whose three predecessors
@@ -586,7 +566,7 @@ def detect_reassignment(
         if (
             prior < min_prior_dollar_volume
             or (after > 0 and prior / after < min_collapse)
-            or not (median(dv[i - 3:i]) >= midpoint > dv[i])
+            or not (median(dv[i - 3 : i]) >= midpoint > dv[i])
         ):
             i += 1
             continue
@@ -598,8 +578,8 @@ def detect_reassignment(
             prior_dollar_volume=prior,
             after_dollar_volume=after,
             price_ratio=(
-                median(c for _, c, _ in clean[i - window:i])
-                / max(median(c for _, c, _ in clean[i:i + window]), 1e-12)
+                median(c for _, c, _ in clean[i - window : i])
+                / max(median(c for _, c, _ in clean[i : i + window]), 1e-12)
             ),
             gap_days=(clean[i][0] - clean[i - 1][0]).days,
         )
@@ -609,9 +589,7 @@ def detect_reassignment(
     return worst
 
 
-def missing_sessions(
-    held: Sequence[date], calendar: Sequence[date]
-) -> List[date]:
+def missing_sessions(held: Sequence[date], calendar: Sequence[date]) -> List[date]:
     """
     Trading sessions inside a series' own span that it has no bar for.
 

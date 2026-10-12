@@ -34,8 +34,12 @@ RENAMES = ROOT / "research" / "sp500-ticker-renames-2026-10-04.csv"
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--tickers-file", type=Path, help="A saved company_tickers.json; no network")
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        "--tickers-file", type=Path, help="A saved company_tickers.json; no network"
+    )
     parser.add_argument("--write", action="store_true", help="Record the CIKs in assets.metadata")
     args = parser.parse_args()
 
@@ -65,13 +69,27 @@ def main() -> int:
     results = resolve([s for s, _, _ in registry], tickers, renames, reassigned)
 
     how = Counter(r.how.split(":")[0] for r in results)
-    print(f"{len(results)} equities against {len(tickers)} tickers ({source}), {len(renames)} rename symbols")
+    print(
+        f"{len(results)} equities against {len(tickers)} tickers ({source}), {len(renames)} rename symbols"
+    )
     for k, v in how.most_common():
         print(f"  {k}: {v}")
-    unresolved = [f"{r.symbol}{' [reassigned ticker]' if r.how == 'reassigned_ticker' else ''}" for r in results if r.cik is None]
-    print("unresolved:", ", ".join(f"{s}{' (delisted)' if s.split(' ')[0] in delisted else ''}" for s in unresolved) or "none")
+    unresolved = [
+        f"{r.symbol}{' [reassigned ticker]' if r.how == 'reassigned_ticker' else ''}"
+        for r in results
+        if r.cik is None
+    ]
+    print(
+        "unresolved:",
+        ", ".join(f"{s}{' (delisted)' if s.split(' ')[0] in delisted else ''}" for s in unresolved)
+        or "none",
+    )
     for r in results:
-        if r.how.startswith("ticker_map_variant") or r.how in ("rename_csv", "override") or r.predecessors:
+        if (
+            r.how.startswith("ticker_map_variant")
+            or r.how in ("rename_csv", "override")
+            or r.predecessors
+        ):
             pred = f" + predecessors {list(r.predecessors)}" if r.predecessors else ""
             print(f"  {r.symbol}: CIK {r.cik} via {r.how}{pred} {r.sec_title or ''}")
 
@@ -98,7 +116,9 @@ def main() -> int:
             continue
         if filed and sym in first_bar and (min(filed) - first_bar[sym]).days > CIK_HISTORY_GAP_DAYS:
             gaps.append(f"{sym} (filings from {min(filed)}, bars from {first_bar[sym]})")
-    print(f"history gap > {CIK_HISTORY_GAP_DAYS} days (possible predecessor CIK): {', '.join(gaps) or 'none'}")
+    print(
+        f"history gap > {CIK_HISTORY_GAP_DAYS} days (possible predecessor CIK): {', '.join(gaps) or 'none'}"
+    )
 
     if not args.write:
         print("dry run: nothing written (pass --write)")
@@ -110,8 +130,17 @@ def main() -> int:
         cur.execute(
             "UPDATE assets SET metadata = COALESCE(metadata, '{}'::jsonb) || %s::jsonb "
             "WHERE symbol = %s AND asset_class = 'equity'",
-            (json.dumps({"cik": r.cik, "cik_source": f"{r.how}; {source}", "cik_sec_title": r.sec_title,
-                         "cik_predecessors": list(r.predecessors)}), r.symbol),
+            (
+                json.dumps(
+                    {
+                        "cik": r.cik,
+                        "cik_source": f"{r.how}; {source}",
+                        "cik_sec_title": r.sec_title,
+                        "cik_predecessors": list(r.predecessors),
+                    }
+                ),
+                r.symbol,
+            ),
         )
         n += cur.rowcount
     conn.commit()

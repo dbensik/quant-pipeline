@@ -13,9 +13,9 @@ CoinGecko's stable `id` and `name`, appends `-USD`, and hands the result to
 Yahoo:
 
 ```python
-symbol = item.get("symbol", "").upper()      # "mnt" -> "MNT"
+symbol = item.get("symbol", "").upper()  # "mnt" -> "MNT"
 clean_symbol = symbol.split("-")[0].split(" ")[0]
-tickers.append(f"{clean_symbol}-USD")        # -> "MNT-USD"
+tickers.append(f"{clean_symbol}-USD")  # -> "MNT-USD"
 ```
 
 A ticker is not an identifier. Yahoo's `MNT-USD` is a micro-cap called MINTY.
