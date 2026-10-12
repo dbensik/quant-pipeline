@@ -21,9 +21,8 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from db.repositories.watchlists import TimescaleWatchlistRepo
-
 from api.dependencies import get_watchlist_repo
+from db.repositories.watchlists import TimescaleWatchlistRepo
 
 logger = logging.getLogger(__name__)
 

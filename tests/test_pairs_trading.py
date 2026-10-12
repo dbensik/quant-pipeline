@@ -1,7 +1,8 @@
 import pandas as pd
-import numpy as np
 import pytest
+
 from alpha_models.pairs_trading import PairsTradingStrategy
+
 
 @pytest.fixture
 def strategy():

@@ -1,9 +1,11 @@
-import os
 import json
+import os
 from abc import ABC, abstractmethod
-from typing import List, Dict, Optional
 from datetime import datetime
+from typing import Dict, List, Optional
+
 from services.crypto.hasher import Hasher
+
 
 class LogRepository(ABC):
     """

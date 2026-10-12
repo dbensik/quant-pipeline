@@ -33,11 +33,10 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.dependencies import get_db, get_fetcher, get_market_data_repo
 from core.ingest import IngestReport, ingest_symbols, job
 from db.models import AssetORM
 from db.repositories.market_data import AssetLastBar, TimescaleMarketDataRepo
-
-from api.dependencies import get_db, get_fetcher, get_market_data_repo
 
 logger = logging.getLogger(__name__)
 

@@ -33,7 +33,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import settings
-from core.models import Asset, OHLCV, MarketDataRecord, Timestamp
+from core.models import OHLCV, Asset, MarketDataRecord, Timestamp
 from core.price_adjustment import MODES as ADJUST_MODES
 from core.price_adjustment import Action, ServedBar
 from core.price_adjustment import adjust as adjust_prices

@@ -28,6 +28,7 @@ from services.execution_service.portfolio_store import PortfolioNotFound
 from services.execution_service.service import ExecutionService
 from services.proto import execution_pb2
 
+
 def fresh() -> str:
     """
     A quote timestamp from RIGHT NOW.

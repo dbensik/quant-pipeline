@@ -3,6 +3,7 @@ import pandas as pd
 
 from analysis.performance_analyzer import PerformanceAnalyzer
 from execution.simulated_handler import SimulatedExecutionHandler
+
 from .events import OrderEvent
 from .risk_manager import PortfolioRiskManager
 

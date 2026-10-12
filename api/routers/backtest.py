@@ -15,11 +15,10 @@ from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from alpha_models import registry
-from backtesting.backtester import Backtester
-from db.repositories.market_data import TimescaleMarketDataRepo
-
 from api.dependencies import get_market_data_repo
 from api.frames import records_to_frame
+from backtesting.backtester import Backtester
+from db.repositories.market_data import TimescaleMarketDataRepo
 
 router = APIRouter(prefix="/api/v1/backtest", tags=["backtest"])
 

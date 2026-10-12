@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
+
 from .base_model import BaseAlphaModel
+
 
 class RSIStrategy(BaseAlphaModel):
     """

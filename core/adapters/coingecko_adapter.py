@@ -5,7 +5,7 @@ from typing import List
 import requests
 
 from config.settings import coingecko_headers
-from core.models import Asset, MarketDataRecord, OHLCV, Timestamp
+from core.models import OHLCV, Asset, MarketDataRecord, Timestamp
 
 logger = logging.getLogger(__name__)
 

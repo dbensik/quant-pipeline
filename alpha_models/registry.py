@@ -23,9 +23,9 @@ Phase 3 — FastAPI routers for the React UI
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Literal, Optional, Type
 
-from alpha_models.base_model import BaseAlphaModel
 from alpha_models.asset_class_trend import AssetClassTrendFollowingStrategy
 from alpha_models.atr_breakout import ATRBreakoutStrategy
+from alpha_models.base_model import BaseAlphaModel
 from alpha_models.basket_trading import BasketTradingStrategy
 from alpha_models.buy_and_hold import BuyAndHoldStrategy
 from alpha_models.cointegrated_mean_reversion import CointegratedMeanReversionStrategy
@@ -39,7 +39,6 @@ from alpha_models.pairs_trading import PairsTradingStrategy
 from alpha_models.push_response_strategy import PushResponseStrategy
 from alpha_models.rsi_strategy import RSIStrategy
 from alpha_models.trend_following import TrendFollowingStrategy
-
 
 ParamType = Literal["int", "float", "str"]
 

@@ -11,9 +11,7 @@ every point-in-time query for that day.
 Phase 5 — scheduled maintenance
 """
 
-from unittest.mock import AsyncMock, patch
-
-import pytest
+from unittest.mock import patch
 
 from db.repositories.universe import Snapshot
 

@@ -38,8 +38,8 @@ from api.dependencies import (
     get_universe_repo,
     get_watchlist_repo,
 )
-from api.upstream import YFinanceGateway, get_upstream
 from api.main import app
+from api.upstream import YFinanceGateway, get_upstream
 from core.models import OHLCV, Asset, MarketDataRecord, Timestamp
 from core.portfolio import Portfolio, Trade
 from db.repositories.market_data import AssetLastBar

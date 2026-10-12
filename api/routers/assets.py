@@ -13,9 +13,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import noload
 
-from db.models import AssetORM, MarketDataORM
-
 from api.dependencies import get_db
+from db.models import AssetORM, MarketDataORM
 
 router = APIRouter(prefix="/api/v1/assets", tags=["assets"])
 

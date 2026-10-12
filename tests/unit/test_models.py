@@ -1,9 +1,7 @@
 """100% coverage on core/models/__init__.py — construction and validation."""
-import pytest
 from datetime import datetime, timezone
 
-from core.models import Asset, MarketDataRecord, OHLCV, Timestamp
-
+from core.models import OHLCV, Asset, MarketDataRecord, Timestamp
 
 # ---------------------------------------------------------------------------
 # Timestamp

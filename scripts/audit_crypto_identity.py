@@ -42,6 +42,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from sqlalchemy import select, update  # noqa: E402
 
+from config.settings import (  # noqa: E402
+    CRYPTO_ID_OVERRIDES,
+    CRYPTO_IDENTITY_OVERRIDES,
+    CRYPTO_PROVIDER_SYMBOLS,
+)
 from core.crypto_identity import (  # noqa: E402
     META_COINGECKO_ID,
     META_IDENTITY_CHECKED_AT,
@@ -53,11 +58,6 @@ from core.crypto_identity import (  # noqa: E402
     apply_identity_override,
     provider_symbol,
     verify_identity,
-)
-from config.settings import (  # noqa: E402
-    CRYPTO_ID_OVERRIDES,
-    CRYPTO_IDENTITY_OVERRIDES,
-    CRYPTO_PROVIDER_SYMBOLS,
 )
 from db.models import AssetORM  # noqa: E402
 from db.session import get_session  # noqa: E402

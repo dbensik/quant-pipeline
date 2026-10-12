@@ -11,8 +11,6 @@ visible beside the default, never reported alone.
 
 from __future__ import annotations
 
-from typing import Callable, Dict
-
 import numpy as np
 
 METHODS = ("stationary", "iid", "gbm")

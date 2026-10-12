@@ -1,8 +1,11 @@
 import sqlite3
+
 import pandas as pd
 import pytest
-from data_pipeline.time_series_normalizer import TimeSeriesNormalizer, SqlitePriceRepository
-from config.settings import DB_PRICE_TABLE, DB_NORMALIZED_TABLE
+
+from config.settings import DB_NORMALIZED_TABLE, DB_PRICE_TABLE
+from data_pipeline.time_series_normalizer import SqlitePriceRepository, TimeSeriesNormalizer
+
 
 @pytest.fixture
 def db_connection():

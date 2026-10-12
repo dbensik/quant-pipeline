@@ -39,7 +39,6 @@ BALANCES AGE TOO
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
@@ -47,7 +46,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 
 from config import settings
-from modeling.dcf import DCFInputs, WACC, Beta, regress_beta, wacc
+from modeling.dcf import WACC, Beta, DCFInputs, regress_beta, wacc
 from modeling.statements import Statements
 
 FALLBACK_TAX_RATE = 0.21

@@ -10,12 +10,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text
-
 from fastapi.responses import JSONResponse
-
-from app.core.config import settings
-from db.session import engine as db_engine
+from sqlalchemy import text
 
 from api.routers import (
     assets,
@@ -39,7 +35,8 @@ from api.routers import (
     watchlists,
     ws,
 )
-
+from app.core.config import settings
+from db.session import engine as db_engine
 
 # ---------------------------------------------------------------------------
 # Lifespan — startup / shutdown hooks

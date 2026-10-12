@@ -23,7 +23,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.portfolio import Portfolio, Trade
 from db.models import PortfolioORM, PortfolioTradeORM
 
-
 # ---------------------------------------------------------------------------
 # Protocol
 # ---------------------------------------------------------------------------

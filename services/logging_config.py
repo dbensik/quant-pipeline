@@ -1,6 +1,7 @@
 import logging
 import sys
 
+
 def configure_logging(name: str = "quant_pipeline", level: int = logging.INFO):
     """
     Configures a standard logger with a consistent format.

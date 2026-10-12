@@ -15,10 +15,9 @@ from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from analysis import registry
-from db.repositories.market_data import TimescaleMarketDataRepo
-
 from api.dependencies import get_market_data_repo
 from api.frames import records_to_frame
+from db.repositories.market_data import TimescaleMarketDataRepo
 
 router = APIRouter(prefix="/api/v1/statistics", tags=["statistics"])
 

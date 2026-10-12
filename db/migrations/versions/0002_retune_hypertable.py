@@ -46,8 +46,8 @@ migration.
 Phase 2 — TimescaleDB Schema & Repository Layer
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 revision = "0002_retune_hypertable"
 down_revision = "0001_initial_schema"

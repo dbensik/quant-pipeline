@@ -83,9 +83,8 @@ def test_every_advertised_universe_source_is_actually_fetchable():
     This asserts the two lists agree, which is cheaper than discovering it
     from a 503 again.
     """
-    from data_pipeline.dynamic_universe import DynamicUniverse
-
     from api.routers.ingest import UNIVERSE_SOURCES
+    from data_pipeline.dynamic_universe import DynamicUniverse
 
     known = set(DynamicUniverse()._source_map)
     unmapped = sorted(set(UNIVERSE_SOURCES) - known)

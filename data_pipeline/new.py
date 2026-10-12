@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 
 # --- Mock/Assume these imports from your project structure ---
 try:
-    from data_pipeline.equity_price_fetcher import EquityPriceFetcher
     from data_pipeline.data_enricher import DataEnricher
+    from data_pipeline.equity_price_fetcher import EquityPriceFetcher
 except ImportError:
     logger.error(
         "Could not import necessary pipeline components. "

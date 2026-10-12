@@ -13,10 +13,10 @@ from config.settings import (
     CACHE_DIR,
     CACHE_EXPIRY_HOURS,
     URL_COINGECKO_API,
-    coingecko_headers,
     URL_DOWJONES_WIKIPEDIA,
     URL_NASDAQ100_WIKIPEDIA,
     URL_SP500_WIKIPEDIA,
+    coingecko_headers,
 )
 
 # Setup logger for this module

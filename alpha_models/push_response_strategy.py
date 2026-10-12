@@ -3,7 +3,6 @@ import pandas as pd
 
 from .base_model import BaseAlphaModel
 
-
 # from tqdm import trange  # Using tqdm for progress visualization in long backtests
 
 

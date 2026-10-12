@@ -112,7 +112,7 @@ class TestSignalContract:
         signals = strategy_factory().generate_signals(price_data=df.copy())["signal"]
         non_nan = signals.dropna()
         assert len(non_nan) > 0, "signals must not be all-NaN"
-        invalid = set(non_nan.unique()) - {-1, 0, 1, -1.0, 0.0, 1.0}
+        invalid = set(non_nan.unique()) - {-1, 0, 1, -1.0}
         assert not invalid, f"invalid signal values: {invalid}"
 
 
@@ -185,7 +185,7 @@ def test_cointegrated_mean_reversion_contract():
     assert "signal" in signals.columns
     non_nan = signals["signal"].dropna()
     assert len(non_nan) > 0
-    assert set(non_nan.unique()) <= {-1, 0, 1, -1.0, 0.0, 1.0}
+    assert set(non_nan.unique()) <= {-1, 0, 1, -1.0}
 
 
 def test_pairs_trading_contract():
@@ -204,7 +204,7 @@ def test_pairs_trading_contract():
     assert list(signals.columns) == list(wide.columns), "one position column per leg"
     assert signals.index.equals(wide.index)
     vals = set(pd.unique(signals.values.ravel())) - {np.nan}
-    assert vals <= {-1, 0, 1, -1.0, 0.0, 1.0}, f"invalid position values: {vals}"
+    assert vals <= {-1, 0, 1, -1.0}, f"invalid position values: {vals}"
 
 
 # ---------------------------------------------------------------------------
@@ -348,8 +348,8 @@ def test_no_look_ahead_multi_asset_calendar(strategy_id, factory):
 def test_wide_shapes_emit_only_directional_values(strategy_id, factory):
     signals = factory().generate_signals(price_data=_make_wide_frame(2))
     values = set(pd.unique(signals.values.ravel())) - {np.nan}
-    assert values <= {-1, 0, 1, -1.0, 0.0, 1.0}, (
-        f"{strategy_id} emitted {values - {-1, 0, 1, -1.0, 0.0, 1.0}}"
+    assert values <= {-1, 0, 1, -1.0}, (
+        f"{strategy_id} emitted {values - {-1, 0, 1, -1.0}}"
     )
 
 
@@ -367,7 +367,7 @@ def test_calendar_shape_emits_the_rebalance_code(strategy_id, factory):
     """
     signals = factory().generate_signals(price_data=FIXTURES["trend"])["signal"]
     values = set(signals.dropna().unique())
-    assert values <= {0, 2, 0.0, 2.0}, f"{strategy_id} emitted {values}"
+    assert values <= {0, 2}, f"{strategy_id} emitted {values}"
     assert 2.0 in values, "a rebalance schedule that never rebalances is broken"
 
 

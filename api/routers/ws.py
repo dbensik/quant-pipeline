@@ -41,11 +41,10 @@ from fastapi.concurrency import run_in_threadpool
 from pydantic import ValidationError
 
 from alpha_models import registry
-from db.repositories.market_data import TimescaleMarketDataRepo
-from db.session import get_session
-
 from api.frames import frames_to_wide_close, records_to_frame
 from api.routers.backtest import BacktestRequest, _json_safe, _run_backtest_sync
+from db.repositories.market_data import TimescaleMarketDataRepo
+from db.session import get_session
 
 logger = logging.getLogger(__name__)
 
@@ -769,13 +768,13 @@ async def ingest_ws(websocket: WebSocket) -> None:
     Client sends one JSON message matching IngestRequest; the server replies
     accepted / progress* / result | error, then closes.
     """
-    from core.ingest import IngestReport, ingest_symbols, job
     from api.routers.ingest import (
         MAX_SYMBOLS,
         IngestRequest,
         all_registered_symbols,
         to_response,
     )
+    from core.ingest import IngestReport, ingest_symbols, job
 
     await websocket.accept()
 

@@ -6,6 +6,7 @@ import yfinance as yf
 from curl_cffi import requests
 
 from config.settings import DB_PRICE_DATA_COLUMNS
+
 from .data_enricher import DataEnricher
 
 logger = logging.getLogger(__name__)

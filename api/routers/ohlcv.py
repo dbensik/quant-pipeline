@@ -14,9 +14,8 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel, Field
 
-from db.repositories.market_data import TimescaleMarketDataRepo
-
 from api.dependencies import get_market_data_repo
+from db.repositories.market_data import TimescaleMarketDataRepo
 
 router = APIRouter(prefix="/api/v1/ohlcv", tags=["ohlcv"])
 

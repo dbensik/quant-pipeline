@@ -5,7 +5,7 @@ from typing import List, Optional
 import pandas as pd
 import yfinance as yf
 
-from core.models import Asset, MarketDataRecord, OHLCV, Timestamp
+from core.models import OHLCV, Asset, MarketDataRecord, Timestamp
 
 logger = logging.getLogger(__name__)
 

@@ -27,7 +27,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from config import settings  # noqa: E402
-from core.options_surface import ChainArchive, NoRateError, SurfaceCache, compute_for, pricing_fingerprint, surface_inputs  # noqa: E402
+from core.options_surface import (  # noqa: E402
+    ChainArchive,
+    NoRateError,
+    SurfaceCache,
+    compute_for,
+    pricing_fingerprint,
+    surface_inputs,
+)
 from db.repositories.dividends import TimescaleDividendRepo  # noqa: E402
 from db.repositories.rates import TimescaleRateRepo  # noqa: E402
 from db.session import AsyncSessionLocal  # noqa: E402

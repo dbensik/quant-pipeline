@@ -23,6 +23,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from api.dependencies import get_market_data_repo, get_portfolio_repo
 from core.portfolio import (
     ACTIONS,
     BUY,
@@ -34,8 +35,6 @@ from core.portfolio import (
 )
 from db.repositories.market_data import TimescaleMarketDataRepo
 from db.repositories.portfolios import TimescalePortfolioRepo
-
-from api.dependencies import get_market_data_repo, get_portfolio_repo
 
 logger = logging.getLogger(__name__)
 

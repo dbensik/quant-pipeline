@@ -23,10 +23,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
-from db.repositories.universe import TimescaleUniverseRepo
-
 from api.dependencies import get_universe_repo
 from api.routers.ingest import UNIVERSE_SOURCES
+from db.repositories.universe import TimescaleUniverseRepo
 
 logger = logging.getLogger(__name__)
 

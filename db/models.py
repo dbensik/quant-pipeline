@@ -10,14 +10,14 @@ from sqlalchemy import (
     CheckConstraint,
     Column,
     Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
     Integer,
     String,
-    Float,
-    DateTime,
-    ForeignKey,
     Text,
     UniqueConstraint,
-    Index,
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB

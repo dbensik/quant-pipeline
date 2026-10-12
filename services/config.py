@@ -1,5 +1,6 @@
 import os
 
+
 class ServiceConfig:
     """
     Central configuration for all Quant Pipeline services.

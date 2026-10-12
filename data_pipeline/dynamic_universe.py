@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import TYPE_CHECKING, List
 
 import pandas as pd
 import requests
@@ -7,14 +7,19 @@ from bs4 import BeautifulSoup
 
 # --- Centralized Configuration Import ---
 from config.settings import (
-    URL_COINGECKO_API,
-    coingecko_headers,
     DOWJONES_EXPECTED_COUNT,
-    URL_DOWJONES_CONSTITUENTS,
     SP500_EXPECTED_RANGE,
+    URL_COINGECKO_API,
+    URL_DOWJONES_CONSTITUENTS,
     URL_NASDAQ100_WIKIPEDIA,
     URL_SP500_WIKIPEDIA,
+    coingecko_headers,
 )
+
+if TYPE_CHECKING:
+    # Annotation-only: the methods that build these import them locally.
+    from core.crypto_identity import CoinReference
+    from core.price_bounds import CoinBounds
 
 logger = logging.getLogger(__name__)
 
@@ -308,11 +313,10 @@ class DynamicUniverse:
         derivatives sitting below the top 200 — and those can only be recorded
         as unverified. Widen it to shrink that bucket.
         """
-        from core.crypto_identity import CoinReference
-
         import time
 
         from config.settings import COINGECKO_REQUEST_DELAY_SECONDS
+        from core.crypto_identity import CoinReference
 
         references: List[CoinReference] = []
         for page in range(1, pages + 1):
@@ -362,11 +366,10 @@ class DynamicUniverse:
         the symbol GRAM after Toncoin's rename, so neither is findable by
         symbol however deep you page.
         """
-        from core.crypto_identity import CoinReference
-
         import time
 
         from config.settings import COINGECKO_REQUEST_DELAY_SECONDS
+        from core.crypto_identity import CoinReference
 
         coin_ids = list(coin_ids)
         if not coin_ids:

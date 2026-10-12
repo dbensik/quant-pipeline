@@ -1,5 +1,7 @@
 from typing import Any
+
 import pandas as pd
+
 
 class DataSerializer:
     """Helper to serialize complex objects (like DataFrames) for JSON response."""

@@ -3,6 +3,7 @@ import logging
 import pandas as pd
 
 from config.settings import DB_PRICE_DATA_COLUMNS
+
 from .base_fetcher import BaseDataFetcher
 from .data_enricher import DataEnricher
 

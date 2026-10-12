@@ -12,9 +12,9 @@ Phase 2 — TimescaleDB Schema & Repository Layer
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
+from pydantic_settings import BaseSettings
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
-from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):

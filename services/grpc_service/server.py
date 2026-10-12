@@ -1,22 +1,20 @@
-import grpc
-from concurrent import futures
 import json
 import random
+from concurrent import futures
 from datetime import datetime, timedelta
-import yfinance as yf
+
+import grpc
 import pandas as pd
+import yfinance as yf
 
-from services.proto import signals_pb2
-from services.proto import signals_pb2_grpc
-from services.proto import execution_pb2_grpc
-from services.execution_service.service import ExecutionService
-
-from services.crypto.signer import Signer
-from services.crypto.hasher import Hasher
-from services.crypto.audit_log import AuditLog
 from alpha_models.mean_reversion import MeanReversionStrategy
 from services.config import ServiceConfig
+from services.crypto.audit_log import AuditLog
+from services.crypto.hasher import Hasher
+from services.crypto.signer import Signer
+from services.execution_service.service import ExecutionService
 from services.logging_config import configure_logging
+from services.proto import execution_pb2_grpc, signals_pb2, signals_pb2_grpc
 
 logger = configure_logging("SignalService")
 

@@ -8,18 +8,16 @@ Phase 5 — decommissioning Streamlit
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi import APIRouter, Depends, HTTPException, Path
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
-from db.repositories.market_data import TimescaleMarketDataRepo
-from screeners import registry
-from screeners.base_screener import BaseScreener
-
-from db.repositories.universe import TimescaleUniverseRepo
-
 from api.dependencies import get_market_data_repo, get_universe_repo
 from api.frames import records_to_frame
+from db.repositories.market_data import TimescaleMarketDataRepo
+from db.repositories.universe import TimescaleUniverseRepo
+from screeners import registry
+from screeners.base_screener import BaseScreener
 
 router = APIRouter(prefix="/api/v1/screeners", tags=["screeners"])
 

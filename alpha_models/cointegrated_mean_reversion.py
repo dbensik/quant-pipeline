@@ -1,4 +1,5 @@
 import pandas as pd
+
 from .base_model import BaseAlphaModel
 
 

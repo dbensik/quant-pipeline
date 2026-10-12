@@ -119,8 +119,8 @@ def test_interest_add_back_is_after_tax(aapl):
 def test_stale_revenue_is_not_a_growth_rate():
     # Revenue known only to FY2020 (APA's case: its current filer's revenue
     # concept is not on the list), valued in 2026: terminal growth, and why.
-    from modeling.valuation import default_growth
     from core.fundamentals import Fact
+    from modeling.valuation import default_growth
 
     def rev(year, v):
         return Fact(1, "us-gaap", "Revenues", "USD", date(year, 1, 1), date(year, 12, 31), v, year, "FY", "10-K",
@@ -319,8 +319,8 @@ def test_at_one_balance_date_a_component_shape_loses_to_the_whole():
 
 def test_default_growth_is_the_lower_of_three_and_five_year_cagr():
     # LVS's shape: a rebound inflates the 3-year CAGR; the 5-year is lower.
-    from modeling.valuation import default_growth
     from core.fundamentals import Fact
+    from modeling.valuation import default_growth
 
     def rev(year, v):
         return Fact(1, "us-gaap", "Revenues", "USD", date(year, 1, 1), date(year, 12, 31), v, year, "FY", "10-K",

@@ -17,8 +17,8 @@ below are manual additions — Alembic does not know about TimescaleDB DDL.
 Phase 2 — TimescaleDB Schema & Repository Layer
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # ---------------------------------------------------------------------------

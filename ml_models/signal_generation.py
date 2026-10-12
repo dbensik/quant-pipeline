@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
+
 class SignalStrategy(ABC):
     """
     Abstract base class for signal generation strategies.

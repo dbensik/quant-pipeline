@@ -20,18 +20,17 @@ Phase 5 — decommissioning Streamlit
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
+from api.dependencies import get_portfolio_repo, get_watchlist_repo
+from api.upstream import UpstreamError, YFinanceGateway, get_upstream
 from core.portfolio import derive_state
 from db.repositories.portfolios import TimescalePortfolioRepo
 from db.repositories.watchlists import TimescaleWatchlistRepo
-
-from api.dependencies import get_portfolio_repo, get_watchlist_repo
-from api.upstream import UpstreamError, YFinanceGateway, get_upstream
 
 logger = logging.getLogger(__name__)
 
