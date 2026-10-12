@@ -180,7 +180,7 @@ def _benchmark_metrics(
     portfolio = pd.DataFrame({"total": values})
     portfolio["returns"] = portfolio["total"].pct_change().fillna(0)
 
-    analyzer = PerformanceAnalyzer(portfolio, initial_capital)
+    analyzer = PerformanceAnalyzer(portfolio, initial_capital=initial_capital)
     return analyzer.calculate_all_metrics(), portfolio
 
 

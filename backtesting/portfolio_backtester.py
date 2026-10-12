@@ -232,5 +232,5 @@ class PortfolioBacktester:
         """Calculates performance metrics by delegating to the PerformanceAnalyzer."""
         if self.results is None or self.results.empty:
             return {}
-        analyzer = PerformanceAnalyzer(self.results, self.initial_capital)
+        analyzer = PerformanceAnalyzer(self.results, initial_capital=self.initial_capital)
         return analyzer.calculate_all_metrics()

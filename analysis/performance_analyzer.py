@@ -19,6 +19,7 @@ class PerformanceAnalyzer:
     def __init__(
         self,
         portfolio_history: pd.DataFrame,
+        *,
         benchmark_history: Optional[pd.DataFrame] = None,
         initial_capital: float = 100000.0,
     ):
@@ -29,6 +30,12 @@ class PerformanceAnalyzer:
             portfolio_history: A DataFrame with 'total', 'returns', and 'trades' columns.
             benchmark_history: An optional DataFrame for a benchmark, with a 'total' column.
             initial_capital: The starting capital for calculating total return.
+
+        Everything after the history is keyword-only. Until 2026-10-12 every
+        caller passed `(history, initial_capital)`, which bound the capital to
+        `benchmark_history` and left initial_capital at 100000: a 50,000 run
+        that gained 1.6% reported a total return of -49.2%. Only the API was
+        exposed — the UI never sends a capital, so it always got the default.
         """
         if portfolio_history is None or portfolio_history.empty:
             raise ValueError("Portfolio history DataFrame cannot be None or empty.")
@@ -157,7 +164,9 @@ class PerformanceAnalyzer:
         bench_stats = None
         if self.benchmark is not None and not self.benchmark.empty:
             # Use a separate analyzer instance for the benchmark
-            bench_analyzer = PerformanceAnalyzer(self.benchmark, self.initial_capital)
+            bench_analyzer = PerformanceAnalyzer(
+                self.benchmark, initial_capital=self.initial_capital
+            )
             bench_stats = bench_analyzer.calculate_all_metrics()
             bench_stats["drawdown_series"], _, _ = bench_analyzer._calculate_drawdowns()
             bench_stats["cum_returns"] = (1 + bench_analyzer.returns).cumprod()

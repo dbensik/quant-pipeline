@@ -205,3 +205,29 @@ def test_trade_count_honours_explicit_trades_column(price_frame):
         ]
         == 2
     )
+
+
+def test_metrics_use_the_backtest_capital_not_the_default(price_frame):
+    """
+    PerformanceAnalyzer(results, initial_capital) bound the capital to
+    `benchmark_history`, so every metric measured against 100000 whatever the
+    run started with. Verified failing before the fix: reported -0.49 here.
+    """
+    bt = Backtester(initial_capital=50_000.0, seed=42)
+    results = bt.run(
+        price_data=price_frame,
+        model=registry.build("ma_crossover", {"short_window": 10, "long_window": 30}),
+    )
+    expected = results["total"].iloc[-1] / 50_000.0 - 1.0
+    assert bt.get_performance_metrics()["Total Return"] == pytest.approx(expected)
+
+
+def test_analyzer_options_are_keyword_only(price_frame):
+    from analysis.performance_analyzer import PerformanceAnalyzer
+
+    results = Backtester(seed=42).run(
+        price_data=price_frame,
+        model=registry.build("ma_crossover", {"short_window": 10, "long_window": 30}),
+    )
+    with pytest.raises(TypeError):
+        PerformanceAnalyzer(results, 50_000.0)

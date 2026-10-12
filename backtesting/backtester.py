@@ -143,7 +143,7 @@ class Backtester:
         if self.results is None or self.results.empty:
             return {}  # Return empty dict if no results exist
 
-        analyzer = PerformanceAnalyzer(self.results, self.initial_capital)
+        analyzer = PerformanceAnalyzer(self.results, initial_capital=self.initial_capital)
         return analyzer.calculate_all_metrics()
 
     def run_and_get_metrics(self, price_data: pd.DataFrame, model: BaseAlphaModel) -> dict:
