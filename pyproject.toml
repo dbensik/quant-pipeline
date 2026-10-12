@@ -96,6 +96,17 @@ markers = [
     "integration: requires a live TimescaleDB",
 ]
 
+# Lint config, read by the ruff CLI, the pre-commit hook and CI alike. Format
+# (ruff format) is deliberately NOT enabled yet: a first format pass would
+# rewrite most of the codebase and wants its own commit.
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["notebooks", "data"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B"]
+
 # This tells setuptools to automatically find all the packages in your project
 # (like 'dashboard_app', 'data_pipeline', etc.) without you having to list them manually.
 [tool.setuptools.packages.find]
@@ -109,5 +120,6 @@ package-mode = false
 dev = [
     "pytest (>=9.0.2,<10.0.0)",
     "pytest-asyncio (>=1.3.0,<2.0.0)",
-    "httpx (>=0.28.1,<0.29.0)"
+    "httpx (>=0.28.1,<0.29.0)",
+    "ruff (>=0.16.10,<0.17.0)"
 ]

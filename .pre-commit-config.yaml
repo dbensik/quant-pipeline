@@ -9,3 +9,10 @@ repos:
     hooks:
       - id: check-added-large-files
         args: ["--maxkb=5000"]
+  # Lint only. ruff-format is deliberately not enabled yet: a first format pass
+  # would rewrite most of the codebase and wants its own reviewed commit.
+  # Keep rev in step with the ruff pin in pyproject.toml's dev group.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.10
+    hooks:
+      - id: ruff-check
