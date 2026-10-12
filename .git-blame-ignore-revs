@@ -1,0 +1,6 @@
+# Bulk reformat commits. git blame skips these when configured with
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+# (GitHub reads this file automatically.)
+
+# ruff format, first pass (2026-10-11)
+3c3d13cc21db255ec4dd076d08b1b7d60109559b

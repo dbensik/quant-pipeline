@@ -95,9 +95,8 @@ markers = [
     "integration: requires a live TimescaleDB",
 ]
 
-# Lint config, read by the ruff CLI, the pre-commit hook and CI alike. Format
-# (ruff format) is deliberately NOT enabled yet: a first format pass would
-# rewrite most of the codebase and wants its own commit.
+# Lint and format config, read by the ruff CLI, the pre-commit hooks and CI
+# alike. The first format pass is listed in .git-blame-ignore-revs.
 [tool.ruff]
 line-length = 100
 target-version = "py311"

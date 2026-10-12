@@ -9,4 +9,5 @@ jobs:
         with: {python-version: "3.11"}
       - run: pipx install poetry && poetry install --no-interaction
       - run: poetry run ruff check .
+      - run: poetry run ruff format --check .
       - run: poetry run pytest
