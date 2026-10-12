@@ -12,6 +12,7 @@ describe the Streamlit dashboard and `docker-compose` services as they were
 before the migration below; they are kept as history.
 
 ### Changed
+- **Portfolio optimizer uses the stored risk-free rate** (2026-10-12): the Sharpe ratio in `/optimize/portfolio` (REST and websocket) subtracts the mean `^IRX` bond-equivalent rate over the window's sessions instead of a constant 0.02. The response carries `risk_free_source`, and the Optimize page shows it. A window the stored series does not cover is 422; `risk_free_rate` in the request still overrides. Over 2023–2025 the constant was 2.8 points low: SPY/AGG/GLD max Sharpe 2.05 → 1.82.
 - **Backtester runs 50x faster** (2026-10-07): per-bar state is recorded in numpy arrays instead of three pandas cell writes; 291 ms → 5 ms a run, bit-identical on 56 real runs. Grid search and the Monte Carlo re-run mode inherit it.
 - **TimescaleDB is the store** (2026-08-07 to 08-09). Bars moved from SQLite to a TimescaleDB hypertable; the SQLite pipeline and its orchestrator were retired, and the CLI and `POST /api/v1/ingest` share one write path, `core/ingest.py`.
 - **React replaces Streamlit** (2026-08-09). Every dashboard feature was ported to a FastAPI router and a React page, then `dashboard_app/` and the Streamlit dependency were deleted.

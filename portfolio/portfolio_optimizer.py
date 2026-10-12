@@ -11,13 +11,15 @@ class PortfolioOptimizer:
     def __init__(
         self,
         price_data: pd.DataFrame,
-        risk_free_rate: float = 0.02,
+        risk_free_rate: float,
         seed: int = 42,
     ):
         """
         Args:
             price_data: DataFrame of asset prices (Close).
             risk_free_rate: Annualized risk-free rate for Sharpe calculation.
+                  Required: a 0.02 default stood in for every window, and the
+                  API now resolves the stored ^IRX rate over the window.
             seed: Seed for the weight-sampling RNG. This used to draw from the
                   global numpy RNG, so the same universe and date range
                   returned different "optimal" weights on every run and a

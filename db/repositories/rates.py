@@ -5,7 +5,8 @@ TimescaleDB implementation of core.rates.RateRepository.
 
 Insert-only: ON CONFLICT DO NOTHING on (series, obs_date), so a re-served
 value never replaces a stored one. Reads take the newest observation ON OR
-BEFORE a date; there is no exact-date lookup to misuse.
+BEFORE a date, or every observation in a date range for a caller that joins
+them itself; there is no exact-date lookup to misuse.
 """
 
 from __future__ import annotations
@@ -76,3 +77,26 @@ class TimescaleRateRepo:
             source=row.source,
             fetched_at=row.fetched_at,
         )
+
+    async def observations_between(
+        self, series: str, start: date, end: date
+    ) -> List[RateObservation]:
+        result = await self.session.execute(
+            select(RateObservationORM)
+            .where(
+                RateObservationORM.series == series,
+                RateObservationORM.obs_date >= start,
+                RateObservationORM.obs_date <= end,
+            )
+            .order_by(RateObservationORM.obs_date)
+        )
+        return [
+            RateObservation(
+                series=row.series,
+                obs_date=row.obs_date,
+                value=row.value,
+                source=row.source,
+                fetched_at=row.fetched_at,
+            )
+            for row in result.scalars()
+        ]

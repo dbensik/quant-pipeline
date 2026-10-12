@@ -16,23 +16,31 @@ import itertools
 import logging
 import math
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from alpha_models import registry
-from api.dependencies import get_market_data_repo
+from api.dependencies import get_db, get_market_data_repo
 from api.frames import frames_to_wide_close, records_to_frame
 from api.routers.backtest import _json_safe
 from backtesting.parameter_optimizer import OPTIMIZABLE_METRICS, ParameterOptimizer
+from core.rates import RateRepository, RiskFreeCoverageError, risk_free_over
 from db.repositories.market_data import TimescaleMarketDataRepo
+from db.repositories.rates import TimescaleRateRepo
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/optimize", tags=["optimize"])
+
+
+async def get_optimize_rates(session: AsyncSession = Depends(get_db)) -> RateRepository:
+    return TimescaleRateRepo(session)
+
 
 # Cap on grid size. Set from the case being ported rather than a round number:
 # the Streamlit MA-crossover defaults were a 21x21 grid (441 combinations)
@@ -368,7 +376,15 @@ class PortfolioOptimizeRequest(BaseModel):
     start: datetime
     end: datetime
     num_portfolios: int = Field(default=5_000, gt=0, le=MAX_PORTFOLIOS)
-    risk_free_rate: float = Field(default=0.02)
+    risk_free_rate: Optional[float] = Field(
+        default=None,
+        description=(
+            "Annual risk-free rate for the Sharpe ratio. Omitted, it is the "
+            "stored ^IRX bond-equivalent rate averaged over the window's "
+            "sessions; this used to default to a constant 0.02 whatever the "
+            "window, which is 2-4 points off for 2022 onward."
+        ),
+    )
     seed: Optional[int] = Field(
         default=42,
         description=(
@@ -406,6 +422,9 @@ class PortfolioOptimizeResponse(BaseModel):
     bars: int
     num_portfolios: int
     risk_free_rate: float
+    risk_free_source: str = Field(
+        description="Where risk_free_rate came from: the request, or ^IRX over the window"
+    )
     seed: Optional[int]
     max_sharpe: AllocationPoint
     min_volatility: AllocationPoint
@@ -421,8 +440,35 @@ def _row_to_allocation(row: pd.Series) -> AllocationPoint:
     )
 
 
+async def resolve_risk_free(
+    request: PortfolioOptimizeRequest, prices: pd.DataFrame, rates: RateRepository
+) -> Tuple[float, str]:
+    """
+    The annual rate the Sharpe ratio subtracts, and a line saying where from.
+
+    A rate in the request is used as given and the store is never read. Else
+    each return period is set against the bill rate known at its START, so
+    the window's last print is not needed and nothing is read ahead.
+    Raises RiskFreeCoverageError when the store has a gap in the window.
+    """
+    if request.risk_free_rate is not None:
+        return request.risk_free_rate, "supplied in the request"
+    # pct_change() drops the first row: N prices make N-1 returns, each
+    # starting on one of the first N-1 dates.
+    sessions = sorted({ts.date() for ts in pd.DatetimeIndex(prices.index[:-1])})
+    window = await risk_free_over(rates, sessions)
+    return window.rate, window.describe()
+
+
+def risk_free_refusal(exc: RiskFreeCoverageError) -> str:
+    return (
+        f"No stored risk-free rate covers this window ({exc}). Pass risk_free_rate to supply one."
+    )
+
+
 def _simulate_sync(
     prices: pd.DataFrame,
+    risk_free_rate: float,
     request: PortfolioOptimizeRequest,
     progress_callback: Optional[Callable[[float], None]] = None,
 ) -> pd.DataFrame:
@@ -433,7 +479,7 @@ def _simulate_sync(
 
     optimizer = PortfolioOptimizer(
         price_data=prices,
-        risk_free_rate=request.risk_free_rate,
+        risk_free_rate=risk_free_rate,
         seed=request.seed,
     )
     results_df, _max_sharpe_weights, _min_vol_weights = optimizer.simulate_random_portfolios(
@@ -448,6 +494,7 @@ def build_portfolio_payload(
     request: PortfolioOptimizeRequest,
     start: datetime,
     end: datetime,
+    risk_free: Tuple[float, str],
 ) -> Dict[str, Any]:
     max_sharpe = results_df.loc[results_df["Sharpe Ratio"].idxmax()]
     min_vol = results_df.loc[results_df["Annualized Volatility"].idxmin()]
@@ -468,7 +515,8 @@ def build_portfolio_payload(
         "end": end,
         "bars": len(prices),
         "num_portfolios": request.num_portfolios,
-        "risk_free_rate": request.risk_free_rate,
+        "risk_free_rate": risk_free[0],
+        "risk_free_source": risk_free[1],
         "seed": request.seed,
         "max_sharpe": _row_to_allocation(max_sharpe),
         "min_volatility": _row_to_allocation(min_vol),
@@ -488,6 +536,7 @@ def build_portfolio_payload(
 async def optimize_portfolio(
     request: PortfolioOptimizeRequest,
     repo: TimescaleMarketDataRepo = Depends(get_market_data_repo),
+    rates: RateRepository = Depends(get_optimize_rates),
 ) -> PortfolioOptimizeResponse:
     if request.start > request.end:
         raise HTTPException(status_code=422, detail="`start` must not be after `end`.")
@@ -535,8 +584,13 @@ async def optimize_portfolio(
             ),
         )
 
-    results_df = await run_in_threadpool(_simulate_sync, prices, request, None)
+    try:
+        risk_free = await resolve_risk_free(request, prices, rates)
+    except RiskFreeCoverageError as exc:
+        raise HTTPException(status_code=422, detail=risk_free_refusal(exc)) from exc
+
+    results_df = await run_in_threadpool(_simulate_sync, prices, risk_free[0], request, None)
 
     return PortfolioOptimizeResponse(
-        **build_portfolio_payload(results_df, prices, request, start, end)
+        **build_portfolio_payload(results_df, prices, request, start, end, risk_free)
     )

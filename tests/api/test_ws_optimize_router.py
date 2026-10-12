@@ -198,3 +198,18 @@ def test_portfolio_unknown_symbol_is_a_404_error(ws_client: TestClient):
     message = run_allocation(ws_client, symbols=["AAPL", "NOPE"])[-1]
     assert message["type"] == "error"
     assert message["code"] == 404
+
+
+def test_allocation_result_reports_the_window_rate(ws_client: TestClient):
+    result = run_allocation(ws_client)[-1]
+    assert result["type"] == "result"
+    assert result["risk_free_source"].startswith("^IRX bond-equivalent")
+    assert result["risk_free_rate"] != 0.02
+
+
+def test_allocation_without_a_stored_rate_is_an_error(ws_client: TestClient, rates):
+    rates.quoted_pct = None
+    error = run_allocation(ws_client)[-1]
+    assert error["type"] == "error"
+    assert error["code"] == 422
+    assert "risk_free_rate" in error["detail"]

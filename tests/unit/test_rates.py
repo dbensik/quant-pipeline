@@ -15,11 +15,14 @@ from config.settings import INGEST_OVERLAP_DAYS, RISK_FREE_RATE_HISTORY_START
 from core.rates import (
     RateIngestError,
     RateObservation,
+    RiskFreeCoverageError,
     discount_price,
     discount_to_bond_equivalent,
     discount_to_continuous,
     ingest_rates,
+    mean_risk_free_over,
     risk_free_from_observation,
+    risk_free_over,
     risk_free_rate,
 )
 
@@ -48,6 +51,10 @@ class FakeRateRepo:
     async def latest_on_or_before(self, series, as_of):
         days = [d for (s, d) in self.rows if s == series and d <= as_of]
         return self.rows[(series, max(days))] if days else None
+
+    async def observations_between(self, series, start, end):
+        days = sorted(d for (s, d) in self.rows if s == series and start <= d <= end)
+        return [self.rows[(series, d)] for d in days]
 
 
 def obs(day, value=4.0):
@@ -190,3 +197,49 @@ async def test_an_empty_fetch_is_an_error_and_writes_nothing():
     with pytest.raises(RateIngestError, match="no observations"):
         await ingest_rates(repo, SERIES, fetcher_returning([]), now=NOW)
     assert len(repo.rows) == 1
+
+
+# --- a rate over a window ------------------------------------------------------
+
+
+def test_window_rate_is_the_mean_of_the_joined_rates():
+    """Mean of the per-session bond-equivalent rates, not the last one."""
+    rows = [obs(date(2026, 10, 5), 4.0), obs(date(2026, 10, 6), 2.0)]
+    window = mean_risk_free_over(rows, [date(2026, 10, 5), date(2026, 10, 6)])
+    expected = (discount_to_bond_equivalent(4.0) + discount_to_bond_equivalent(2.0)) / 2
+    assert window.rate == pytest.approx(expected)
+    assert window.sessions == 2
+    assert window.max_age_days == 0
+
+
+def test_window_rate_weights_by_session_not_by_observation():
+    """
+    A crypto weekend is three sessions on Friday's print. Averaging the
+    observations instead would give Friday one vote out of two, not three.
+    """
+    rows = [obs(date(2026, 10, 9), 4.0), obs(date(2026, 10, 12), 2.0)]
+    sessions = [date(2026, 10, 9), date(2026, 10, 10), date(2026, 10, 11), date(2026, 10, 12)]
+    window = mean_risk_free_over(rows, sessions)
+    expected = (3 * discount_to_bond_equivalent(4.0) + discount_to_bond_equivalent(2.0)) / 4
+    assert window.rate == pytest.approx(expected)
+    assert window.max_age_days == 2
+
+
+def test_window_rate_refuses_a_session_before_the_series():
+    with pytest.raises(RiskFreeCoverageError, match="no observation on or before 2026-10-02"):
+        mean_risk_free_over([obs(date(2026, 10, 5))], [date(2026, 10, 2), date(2026, 10, 5)])
+
+
+def test_window_rate_refuses_to_reach_across_a_gap():
+    rows = [obs(date(2026, 9, 1)), obs(date(2026, 10, 5))]
+    with pytest.raises(RiskFreeCoverageError, match="days old"):
+        mean_risk_free_over(rows, [date(2026, 9, 1), date(2026, 9, 15), date(2026, 10, 5)])
+
+
+@pytest.mark.asyncio
+async def test_window_rate_reads_back_far_enough_for_the_first_session():
+    """A Monday-holiday first session needs the Friday before the window."""
+    repo = FakeRateRepo([obs(date(2026, 10, 9), 4.0), obs(date(2026, 10, 13), 4.0)])
+    window = await risk_free_over(repo, [date(2026, 10, 12), date(2026, 10, 13)], SERIES)
+    assert window.rate == pytest.approx(discount_to_bond_equivalent(4.0))
+    assert window.describe().startswith("^IRX bond-equivalent, mean over 2 sessions")

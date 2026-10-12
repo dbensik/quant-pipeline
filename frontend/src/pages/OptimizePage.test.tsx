@@ -69,7 +69,8 @@ const WEIGHTS = {
   end: '2024-12-31',
   bars: 250,
   num_portfolios: 4000,
-  risk_free_rate: 0.02,
+  risk_free_rate: 0.0412,
+  risk_free_source: '^IRX bond-equivalent, mean over 250 sessions 2024-01-02..2024-12-30',
   seed: 42,
   max_sharpe: {
     annualized_return: 0.343,
@@ -233,6 +234,15 @@ describe('OptimizePage — portfolio weights', () => {
     expect(await screen.findByText('Max Sharpe')).toBeInTheDocument()
     expect(screen.getByText('Min volatility')).toBeInTheDocument()
     expect(screen.getByText('70.0%')).toBeInTheDocument()
+  })
+
+  it('says which risk-free rate the Sharpe ratios are net of', async () => {
+    vi.spyOn(api, 'optimizePortfolio').mockResolvedValue(WEIGHTS as never)
+    renderPage(<OptimizePage />)
+    await userEvent.click(await screen.findByRole('button', { name: /Find weights/ }))
+
+    expect(await screen.findByText(/net of a 4\.\d+% risk-free rate/)).toBeInTheDocument()
+    expect(screen.getByText(/\^IRX bond-equivalent, mean over 250 sessions/)).toBeInTheDocument()
   })
 
   it('surfaces a rejected universe', async () => {

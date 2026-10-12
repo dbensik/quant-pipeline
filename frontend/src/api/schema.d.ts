@@ -2247,9 +2247,9 @@ export interface components {
             num_portfolios: number;
             /**
              * Risk Free Rate
-             * @default 0.02
+             * @description Annual risk-free rate for the Sharpe ratio. Omitted, it is the stored ^IRX bond-equivalent rate averaged over the window's sessions; this used to default to a constant 0.02 whatever the window, which is 2-4 points off for 2022 onward.
              */
-            risk_free_rate: number;
+            risk_free_rate?: number | null;
             /**
              * Seed
              * @description Seed for weight sampling. Monte Carlo weights were drawn from the global numpy RNG, so the same request returned different optimal allocations each time.
@@ -2289,6 +2289,11 @@ export interface components {
             num_portfolios: number;
             /** Risk Free Rate */
             risk_free_rate: number;
+            /**
+             * Risk Free Source
+             * @description Where risk_free_rate came from: the request, or ^IRX over the window
+             */
+            risk_free_source: string;
             /** Seed */
             seed: number | null;
             max_sharpe: components["schemas"]["AllocationPoint"];

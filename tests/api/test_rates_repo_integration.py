@@ -59,3 +59,18 @@ async def test_on_or_before_skips_a_holiday_and_never_looks_ahead(repo):
     holiday = await repo.latest_on_or_before(SERIES, date(2026, 10, 12))
     assert holiday.obs_date == date(2026, 10, 9)
     assert await repo.latest_on_or_before(SERIES, date(2026, 10, 8)) is None
+
+
+async def test_observations_between_is_inclusive_and_oldest_first(repo):
+    await repo.insert(
+        [
+            obs(date(2026, 10, 13), 4.10),
+            obs(date(2026, 10, 6), 4.03),
+            obs(date(2026, 10, 9), 4.02),
+            obs(date(2026, 10, 14), 4.20),
+        ]
+    )
+    rows = await repo.observations_between(SERIES, date(2026, 10, 6), date(2026, 10, 13))
+    assert [r.obs_date for r in rows] == [date(2026, 10, 6), date(2026, 10, 9), date(2026, 10, 13)]
+    assert [r.value for r in rows] == [4.03, 4.02, 4.10]
+    assert await repo.observations_between(SERIES, date(2026, 10, 7), date(2026, 10, 8)) == []

@@ -43,6 +43,7 @@ READ RULE
 from __future__ import annotations
 
 import asyncio
+import bisect
 import logging
 import math
 from dataclasses import dataclass
@@ -168,6 +169,12 @@ class RateRepository(Protocol):
 
     async def latest_on_or_before(self, series: str, as_of: date) -> Optional[RateObservation]: ...
 
+    async def observations_between(
+        self, series: str, start: date, end: date
+    ) -> List[RateObservation]:
+        """Every stored observation with start <= obs_date <= end, oldest first."""
+        ...
+
 
 async def risk_free_rate(
     repo: RateRepository,
@@ -179,6 +186,116 @@ async def risk_free_rate(
     if observation is None:
         return None
     return risk_free_from_observation(observation, as_of)
+
+
+# ---------------------------------------------------------------------------
+# A rate over a window (a historical Sharpe ratio)
+# ---------------------------------------------------------------------------
+
+
+class RiskFreeCoverageError(ValueError):
+    """The stored series does not cover every session of the window."""
+
+
+@dataclass(frozen=True)
+class WindowRiskFreeRate:
+    """
+    The mean bond-equivalent rate over a run of sessions.
+
+    A historical Sharpe ratio subtracts the rate from a MEAN return over the
+    window, so the rate must be a mean over the same window too: one value as
+    of the end date applies 2025's ~4% to 2015-2021's ~0%. The mean of
+    (r_t - rf_t) is mean(r_t) - mean(rf_t), so averaging the joined rates is
+    exact, not an approximation.
+
+    Bond-equivalent, not continuous: the optimizer annualizes a simple
+    arithmetic mean, and a bond-equivalent yield is the simple annual rate.
+    The DCF discounts and compounds, so it reads `continuous` instead.
+    """
+
+    series: str
+    rate: float
+    sessions: int
+    first_session: date
+    last_session: date
+    #: The oldest observation any session had to fall back on, in days.
+    max_age_days: int
+
+    def describe(self) -> str:
+        return (
+            f"{self.series} bond-equivalent, mean over {self.sessions} sessions "
+            f"{self.first_session}..{self.last_session}"
+        )
+
+
+def mean_risk_free_over(
+    observations: List[RateObservation],
+    sessions: List[date],
+    days: int = RISK_FREE_RATE_TENOR_DAYS,
+    max_age_days: int = RISK_FREE_RATE_MAX_AGE_DAYS,
+) -> WindowRiskFreeRate:
+    """
+    Pure: join each session to the observation on or before it, and average.
+
+    On or before, as for a single date: bond holidays are stock sessions, and
+    crypto trades at weekends. A session whose observation is older than
+    `max_age_days` refuses rather than reaching back across a gap in the
+    series, and so does a session before the first observation.
+    """
+    if not sessions:
+        raise RiskFreeCoverageError("no sessions to average a risk-free rate over")
+    ordered = sorted(observations, key=lambda o: o.obs_date)
+    if not ordered:
+        raise RiskFreeCoverageError(
+            f"no risk-free observations stored for {min(sessions)}..{max(sessions)}"
+        )
+    obs_dates = [o.obs_date for o in ordered]
+    rates = [discount_to_bond_equivalent(o.value, days) for o in ordered]
+
+    total = 0.0
+    oldest = 0
+    for session in sessions:
+        i = bisect.bisect_right(obs_dates, session) - 1
+        if i < 0:
+            raise RiskFreeCoverageError(
+                f"{ordered[0].series}: no observation on or before {session}; "
+                f"the stored series starts {obs_dates[0]}"
+            )
+        age = (session - obs_dates[i]).days
+        if age > max_age_days:
+            raise RiskFreeCoverageError(
+                f"{ordered[0].series}: the newest observation on or before {session} "
+                f"is {obs_dates[i]}, {age} days old (limit {max_age_days})"
+            )
+        total += rates[i]
+        oldest = max(oldest, age)
+
+    return WindowRiskFreeRate(
+        series=ordered[0].series,
+        rate=total / len(sessions),
+        sessions=len(sessions),
+        first_session=min(sessions),
+        last_session=max(sessions),
+        max_age_days=oldest,
+    )
+
+
+async def risk_free_over(
+    repo: RateRepository,
+    sessions: List[date],
+    series: str = RISK_FREE_RATE_SERIES,
+) -> WindowRiskFreeRate:
+    """The mean rate over `sessions`; raises RiskFreeCoverageError on a gap."""
+    if not sessions:
+        raise RiskFreeCoverageError("no sessions to average a risk-free rate over")
+    # Reach back far enough that the first session can find its observation.
+    start = min(sessions) - timedelta(days=RISK_FREE_RATE_MAX_AGE_DAYS)
+    observations = await repo.observations_between(series, start, max(sessions))
+    if not observations:
+        raise RiskFreeCoverageError(
+            f"{series}: nothing stored for {min(sessions)}..{max(sessions)}"
+        )
+    return mean_risk_free_over(observations, sessions)
 
 
 # ---------------------------------------------------------------------------

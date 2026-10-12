@@ -25,7 +25,7 @@ Phase 3/4 — API router tests
 
 from contextlib import asynccontextmanager
 from dataclasses import replace
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
 import pytest
@@ -39,9 +39,11 @@ from api.dependencies import (
     get_watchlist_repo,
 )
 from api.main import app
+from api.routers.optimize import get_optimize_rates
 from api.upstream import YFinanceGateway, get_upstream
 from core.models import OHLCV, Asset, MarketDataRecord, Timestamp
 from core.portfolio import Portfolio, Trade
+from core.rates import RateObservation
 from db.repositories.market_data import AssetLastBar
 from db.repositories.universe import Membership, Snapshot
 from db.repositories.watchlists import Watchlist
@@ -591,9 +593,44 @@ def universe_repo() -> "FakeUniverseRepo":
     return FakeUniverseRepo()
 
 
+class FakeRates:
+    """
+    A ^IRX series quoted at `quoted_pct` (bank discount) on every weekday
+    from `first` on, or nothing at all. Weekdays only, as the real series:
+    a weekend session must reach back to Friday.
+    """
+
+    def __init__(self, quoted_pct: Optional[float] = 2.0, first: date = date(2015, 1, 2)):
+        self.quoted_pct = quoted_pct
+        self.first = first
+        self.calls = 0
+
+    async def latest_on_or_before(self, series, as_of):
+        rows = await self.observations_between(series, as_of - timedelta(days=7), as_of)
+        return rows[-1] if rows else None
+
+    async def observations_between(self, series, start, end):
+        self.calls += 1
+        if self.quoted_pct is None:
+            return []
+        fetched = datetime(2026, 10, 1, tzinfo=timezone.utc)
+        day, rows = max(start, self.first), []
+        while day <= end:
+            if day.weekday() < 5:
+                rows.append(RateObservation(series, day, self.quoted_pct, "test", fetched))
+            day += timedelta(days=1)
+        return rows
+
+
+@pytest.fixture
+def rates() -> FakeRates:
+    return FakeRates()
+
+
 @pytest.fixture
 def client(
     repo: FakeRepo,
+    rates: FakeRates,
     portfolio_repo: "FakePortfolioRepo",
     watchlist_repo: "FakeWatchlistRepo",
     upstream: "StubGateway",
@@ -607,6 +644,7 @@ def client(
     app.dependency_overrides[get_upstream] = lambda: upstream
     app.dependency_overrides[get_fetcher] = lambda: fetcher
     app.dependency_overrides[get_universe_repo] = lambda: universe_repo
+    app.dependency_overrides[get_optimize_rates] = lambda: rates
     try:
         yield TestClient(app)
     finally:
@@ -614,7 +652,7 @@ def client(
 
 
 @pytest.fixture
-def ws_client(repo: FakeRepo, monkeypatch) -> TestClient:
+def ws_client(repo: FakeRepo, rates: FakeRates, monkeypatch) -> TestClient:
     """
     TestClient for the websocket route.
 
@@ -643,4 +681,5 @@ def ws_client(repo: FakeRepo, monkeypatch) -> TestClient:
 
     monkeypatch.setattr("api.routers.ws.get_session", fake_session)
     monkeypatch.setattr("api.routers.ws.TimescaleMarketDataRepo", lambda _session: repo)
+    monkeypatch.setattr("api.routers.ws.TimescaleRateRepo", lambda _session: rates)
     return TestClient(app)

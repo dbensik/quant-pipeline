@@ -44,6 +44,7 @@ from alpha_models import registry
 from api.frames import frames_to_wide_close, records_to_frame
 from api.routers.backtest import BacktestRequest, _json_safe, _run_backtest_sync
 from db.repositories.market_data import TimescaleMarketDataRepo
+from db.repositories.rates import TimescaleRateRepo
 from db.session import get_session
 
 logger = logging.getLogger(__name__)
@@ -627,7 +628,10 @@ async def optimize_portfolio_ws(websocket: WebSocket) -> None:
         PortfolioOptimizeRequest,
         _simulate_sync,
         build_portfolio_payload,
+        resolve_risk_free,
+        risk_free_refusal,
     )
+    from core.rates import RiskFreeCoverageError
 
     await websocket.accept()
 
@@ -713,15 +717,22 @@ async def optimize_portfolio_ws(websocket: WebSocket) -> None:
                     return
                 price_data[symbol] = frame
 
-        prices = frames_to_wide_close(price_data).dropna()
-        if len(prices) < 3:
-            await _send_error(
-                websocket,
-                f"Only {len(prices)} dates are common to all symbols; at least "
-                "3 are needed to estimate a covariance matrix.",
-                422,
-            )
-            return
+            prices = frames_to_wide_close(price_data).dropna()
+            if len(prices) < 3:
+                await _send_error(
+                    websocket,
+                    f"Only {len(prices)} dates are common to all symbols; at least "
+                    "3 are needed to estimate a covariance matrix.",
+                    422,
+                )
+                return
+
+            # Inside the session: the rate is read from the same database.
+            try:
+                risk_free = await resolve_risk_free(request, prices, TimescaleRateRepo(session))
+            except RiskFreeCoverageError as exc:
+                await _send_error(websocket, risk_free_refusal(exc), 422)
+                return
 
         async with _ProgressBridge(websocket) as bridge:
 
@@ -738,9 +749,11 @@ async def optimize_portfolio_ws(websocket: WebSocket) -> None:
                     }
                 )
 
-            results_df = await run_in_threadpool(_simulate_sync, prices, request, on_progress)
+            results_df = await run_in_threadpool(
+                _simulate_sync, prices, risk_free[0], request, on_progress
+            )
 
-        payload = build_portfolio_payload(results_df, prices, request, start, end)
+        payload = build_portfolio_payload(results_df, prices, request, start, end, risk_free)
         payload = {
             "type": "result",
             **{

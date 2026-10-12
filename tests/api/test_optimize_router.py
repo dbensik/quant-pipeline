@@ -474,3 +474,77 @@ def test_too_few_common_dates_is_422(client: TestClient):
     response = allocate(client, start="2024-01-01", end="2024-01-02")
     assert response.status_code == 422
     assert "covariance" in response.json()["detail"]
+
+
+# ---------------------------------------------------------------------------
+# Risk-free rate: the stored ^IRX series over the window, not a constant
+# ---------------------------------------------------------------------------
+
+
+def with_rates(client: TestClient, rates):
+    from api.main import app
+    from api.routers.optimize import get_optimize_rates
+
+    app.dependency_overrides[get_optimize_rates] = lambda: rates
+    return client
+
+
+def test_rate_defaults_to_irx_over_the_window(client: TestClient):
+    """
+    Omitted, the rate is ^IRX — the conftest series quotes 2.00% bank
+    discount, whose bond-equivalent is 2.0305%, not the 0.02 that every
+    request used to get whatever its window.
+    """
+    from core.rates import discount_to_bond_equivalent
+
+    body = allocate(client).json()
+    assert body["risk_free_rate"] == pytest.approx(discount_to_bond_equivalent(2.0))
+    assert body["risk_free_rate"] != 0.02
+    assert body["risk_free_source"].startswith("^IRX bond-equivalent, mean over")
+
+
+def test_a_supplied_rate_is_used_and_the_store_is_never_read(client: TestClient, rates):
+    body = allocate(client, risk_free_rate=0.035).json()
+    assert body["risk_free_rate"] == 0.035
+    assert body["risk_free_source"] == "supplied in the request"
+    assert rates.calls == 0
+
+
+def test_the_stored_rate_changes_the_allocation(client: TestClient):
+    """
+    The rate must reach the Sharpe ratio, not just the response: a higher
+    rate moves the tangency portfolio. Verified failing against the old code,
+    where both requests below were optimized at the constant 0.02.
+    """
+    from tests.api.conftest import FakeRates
+
+    low = allocate(with_rates(client, FakeRates(0.5)), num_portfolios=500).json()
+    high = allocate(with_rates(client, FakeRates(8.0)), num_portfolios=500).json()
+    assert low["max_sharpe"]["sharpe_ratio"] > high["max_sharpe"]["sharpe_ratio"]
+    assert low["max_sharpe"]["weights"] != high["max_sharpe"]["weights"]
+
+
+def test_no_stored_rate_is_422_naming_the_override(client: TestClient):
+    from tests.api.conftest import FakeRates
+
+    with_rates(client, FakeRates(None))
+    response = allocate(client)
+    assert response.status_code == 422
+    assert "risk_free_rate" in response.json()["detail"]
+    # ...and the override it names does work.
+    assert allocate(client, risk_free_rate=0.03).status_code == 200
+
+
+def test_a_window_starting_before_the_series_is_422(client: TestClient):
+    """
+    The first sessions would have no rate. Averaging only the covered part
+    would quietly report a rate for a window the series does not span.
+    """
+    from datetime import date
+
+    from tests.api.conftest import FakeRates
+
+    with_rates(client, FakeRates(2.0, first=date(2024, 6, 3)))
+    response = allocate(client)
+    assert response.status_code == 422
+    assert "2024-06-03" in response.json()["detail"]

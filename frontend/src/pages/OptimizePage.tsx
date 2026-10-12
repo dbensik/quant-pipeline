@@ -340,6 +340,13 @@ export function OptimizePage() {
             ) : null}
 
             {portfolioRun.data ? (
+              <p className="text-xs text-muted-foreground">
+                Sharpe ratios net of a {percent(portfolioRun.data.risk_free_rate)} risk-free
+                rate ({portfolioRun.data.risk_free_source}).
+              </p>
+            ) : null}
+
+            {portfolioRun.data ? (
               <div className="grid gap-4 sm:grid-cols-2">
                 {(
                   [
