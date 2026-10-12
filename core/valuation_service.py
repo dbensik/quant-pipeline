@@ -87,10 +87,12 @@ async def value(
     rates: RateRepository,
     symbol: str,
     as_of: date,
-    overrides: Overrides = Overrides(),
+    overrides: Optional[Overrides] = None,
     statements: Optional[Tuple[Statements, int, Optional[str], List[int]]] = None,
     with_grid: bool = True,
 ) -> Dict[str, Any]:
+    if overrides is None:
+        overrides = Overrides()
     st, cik, sector, ciks = statements or await load_statements(data, symbol)
     traded = await price_as_traded(prices, symbol, as_of)
     if traded is None:

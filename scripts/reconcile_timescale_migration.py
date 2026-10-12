@@ -204,7 +204,7 @@ async def main() -> int:
                 if ts_vals is None:
                     diffs += 1
                     continue
-                for a, b in zip(sq_vals, ts_vals):
+                for a, b in zip(sq_vals, ts_vals, strict=False):
                     if a is None and b is None:
                         continue
                     if a is None or b is None or abs(float(a) - float(b)) > TOLERANCE:

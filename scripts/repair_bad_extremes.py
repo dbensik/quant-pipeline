@@ -125,7 +125,7 @@ async def main(argv: list[str] | None = None) -> int:
             print("\nNothing written. Re-run with --apply to null these extremes.")
             return 0
 
-        for asset_id, symbol, bad in victims:
+        for asset_id, _symbol, bad in victims:
             for t, _, _, _ in bad:
                 await session.execute(
                     update(MarketDataORM)

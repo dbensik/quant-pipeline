@@ -31,12 +31,12 @@ class BaseMLModel(ABC):
         """Generates predictions from a trained model."""
         pass
 
-    def save(self, path: str):
+    def save(self, path: str):  # noqa: B027 — optional hook, not abstract
         """Saves the trained model to a file."""
         # Logic to serialize the model object (e.g., using pickle or joblib)...
         pass
 
-    @classmethod
+    @classmethod  # noqa: B027 — optional hook, not abstract
     def load(cls, path: str):
         """Loads a trained model from a file."""
         # Logic to deserialize a model object...

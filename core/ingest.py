@@ -31,6 +31,7 @@ Phase 5 — decommissioning Streamlit
 
 from __future__ import annotations
 
+import functools
 import logging
 import threading
 from dataclasses import dataclass, field, replace
@@ -45,7 +46,7 @@ from core.crypto_identity import (
     provider_mapping_unverified,
     provider_symbol,
 )
-from core.models import Asset, MarketDataRecord, OHLCV, Timestamp
+from core.models import OHLCV, Asset, MarketDataRecord
 
 logger = logging.getLogger(__name__)
 
@@ -467,7 +468,8 @@ async def ingest_symbols(
                 if floor is not None and window_start < floor:
                     window_start = floor
 
-            call = lambda: fetcher(  # noqa: E731 — bound per iteration
+            call = functools.partial(
+                fetcher,
                 [fetch_symbol],
                 window_start.strftime("%Y-%m-%d"),
                 window_end.strftime("%Y-%m-%d"),
@@ -500,7 +502,7 @@ async def ingest_symbols(
             # crypto series on the day they were ingested instead of two
             # years later.
             in_order = sorted(usable, key=lambda r: r.ohlcv.timestamp.utc)
-            for earlier, later in zip(in_order, in_order[1:]):
+            for earlier, later in zip(in_order, in_order[1:], strict=False):
                 if implausible_jump(earlier.ohlcv.close, later.ohlcv.close):
                     outcome.implausible_jumps += 1
             if outcome.implausible_jumps:

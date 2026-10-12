@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 
+
 class PortfolioOptimizer:
     """
     Performs portfolio optimization using Monte Carlo simulations to find
@@ -79,7 +80,7 @@ class PortfolioOptimizer:
                 "Annualized Return": portfolio_return,
                 "Annualized Volatility": portfolio_std_dev,
                 "Sharpe Ratio": sharpe_ratio,
-                "weights": dict(zip(self.assets, weights))
+                "weights": dict(zip(self.assets, weights, strict=False))
             })
 
             # Report progress periodically

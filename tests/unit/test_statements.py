@@ -45,7 +45,7 @@ def test_filed_strictly_before_as_of(aapl):
 def test_revenue_is_continuous_across_the_asc606_switch(aapl):
     rev = aapl.annual("revenue", NOW)
     assert len(rev) == 19  # FY2007..FY2025
-    assert all((b.period_end - a.period_end).days <= 371 for a, b in zip(rev, rev[1:]))
+    assert all((b.period_end - a.period_end).days <= 371 for a, b in zip(rev, rev[1:], strict=False))
     concepts = {v.period_end.year: v.concept for v in rev}
     assert concepts[2010] == "SalesRevenueNet"
     assert concepts[2025] == "RevenueFromContractWithCustomerExcludingAssessedTax"

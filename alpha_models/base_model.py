@@ -13,7 +13,7 @@ class BaseAlphaModel(ABC):
     Backtester class is responsible for evaluating those signals.
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs):  # noqa: B027 — optional hook, not abstract
         """
         The constructor for the base model.
 

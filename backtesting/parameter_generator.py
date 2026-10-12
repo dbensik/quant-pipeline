@@ -2,8 +2,6 @@ import itertools
 from abc import ABC, abstractmethod
 from typing import Dict, Iterator, Tuple
 
-import numpy as np
-
 
 class BaseParameterGenerator(ABC):
     """
@@ -43,10 +41,10 @@ class MACrossoverParameterGenerator(BaseParameterGenerator):
     def generate_grid(short_window_range, long_window_range) -> list:
         """Generates a list of parameter dictionaries for the grid search."""
         grid = []
-        for s, l in itertools.product(short_window_range, long_window_range):
-            if s >= l:
+        for s, lw in itertools.product(short_window_range, long_window_range):
+            if s >= lw:
                 continue
-            grid.append({"short_window": s, "long_window": l})
+            grid.append({"short_window": s, "long_window": lw})
         return grid
 
 

@@ -24,12 +24,11 @@ from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from alpha_models import registry
-from backtesting.parameter_optimizer import OPTIMIZABLE_METRICS, ParameterOptimizer
-from db.repositories.market_data import TimescaleMarketDataRepo
-
 from api.dependencies import get_market_data_repo
 from api.frames import frames_to_wide_close, records_to_frame
 from api.routers.backtest import _json_safe
+from backtesting.parameter_optimizer import OPTIMIZABLE_METRICS, ParameterOptimizer
+from db.repositories.market_data import TimescaleMarketDataRepo
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +113,7 @@ def expand_grid(
             "Widen the step or narrow the range."
         )
 
-    return [dict(zip(names, combo)) for combo in itertools.product(*axes)]
+    return [dict(zip(names, combo, strict=False)) for combo in itertools.product(*axes)]
 
 
 # ---------------------------------------------------------------------------

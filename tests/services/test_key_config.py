@@ -1,9 +1,11 @@
-import os
 import base64
+
 import pytest
-from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ed25519
+
 from services.crypto.signer import Signer
+
 
 def test_signer_from_config_ephemeral():
     # When no key is provided, it should generate a new one
@@ -37,5 +39,5 @@ def test_signer_from_config_persistent(monkeypatch):
 
 def test_signer_invalid_key():
     # Invalid length
-    with pytest.raises(Exception):
+    with pytest.raises(Exception):  # noqa: B017 — any rejection of a short key passes
         Signer.from_config("short")

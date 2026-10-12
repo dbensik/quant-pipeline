@@ -11,9 +11,8 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
+from core.adapters import coingecko_adapter, yfinance_adapter
 from core.models import MarketDataRecord
-from core.adapters import yfinance_adapter, coingecko_adapter
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -112,7 +111,7 @@ class TestYFinanceAdapter:
     def test_dot_in_ticker_sanitised(self, mock_dl):
         df = _single_ticker_df()
         mock_dl.return_value = df
-        result = yfinance_adapter.fetch(["BRK.B"], "2024-01-01", "2024-01-03")
+        yfinance_adapter.fetch(["BRK.B"], "2024-01-01", "2024-01-03")
         # BRK.B → BRK-B passed to yfinance; symbol on record reflects yfinance name
         assert mock_dl.call_args.kwargs["tickers"] == ["BRK-B"]
 

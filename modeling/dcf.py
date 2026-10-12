@@ -87,7 +87,7 @@ def run(x: DCFInputs) -> DCFResult:
         level *= 1.0 + g
         fcf.append(level)
     discount = [(1.0 + x.wacc) ** -t for t in range(1, x.years + 1)]
-    pv = [f * d for f, d in zip(fcf, discount)]
+    pv = [f * d for f, d in zip(fcf, discount, strict=False)]
 
     exit_ev = exit_ps = None
     exit_warning = None

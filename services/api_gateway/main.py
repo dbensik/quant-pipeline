@@ -1,10 +1,10 @@
-import pickle
 import os
+import pickle
+from typing import Any, List
+
 import pandas as pd
-from typing import List, Any
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 
 from config.settings import RESULTS_DIR
 
@@ -76,7 +76,7 @@ def get_result(filename: str):
         json_data = serialize_for_api(data)
         return json_data
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to load result: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to load result: {str(e)}") from e
 
 if __name__ == "__main__":
     import uvicorn

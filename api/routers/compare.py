@@ -34,16 +34,15 @@ from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from alpha_models import registry
+from api.dependencies import get_market_data_repo
+from api.frames import records_to_frame
+from api.routers.backtest import _json_safe, _run_backtest_sync
 from backtesting.parameter_optimizer import (
     MINIMIZE,
     OPTIMIZABLE_METRICS,
     ParameterOptimizer,
 )
 from db.repositories.market_data import TimescaleMarketDataRepo
-
-from api.dependencies import get_market_data_repo
-from api.frames import records_to_frame
-from api.routers.backtest import _json_safe, _run_backtest_sync
 
 logger = logging.getLogger(__name__)
 
@@ -286,7 +285,7 @@ def _expand(grid: Dict[str, List[Any]]) -> List[Dict[str, Any]]:
 
     names = list(grid)
     return [
-        dict(zip(names, combo))
+        dict(zip(names, combo, strict=False))
         for combo in itertools.product(*(grid[name] for name in names))
     ]
 

@@ -48,7 +48,9 @@ def _fd(fn, x, h):
 @pytest.mark.parametrize("S,K,T,r,q,s", GRID[::3])
 def test_greeks_match_central_differences(S, K, T, r, q, s, right):
     g = bs.greeks(S, K, T, r, q, s, right)
-    P = lambda **kw: bs.price(**{**dict(S=S, K=K, T=T, r=r, q=q, sigma=s, right=right), **kw})
+    def P(**kw):
+        return bs.price(**{**dict(S=S, K=K, T=T, r=r, q=q, sigma=s, right=right), **kw})
+
     assert g.delta == pytest.approx(_fd(lambda x: P(S=x), S, 1e-4 * S), abs=1e-6)
     # Gamma's bump is scaled to the option's own width, S sigma sqrt(T): a
     # fixed 1% of spot is a third of a standard deviation for a 0.05-year,
@@ -334,7 +336,7 @@ def test_yang_zhang_known_answer_where_k_matters():
     #   var = 2.33333e-4 * 1.1017964 = 2.570858e-4; sqrt(var * 252) = 0.254530
     gaps, moves = [0.01, -0.01, 0.02], [0.02, -0.01, 0.00]
     o, c = [1.0], [1.0]
-    for g, m in zip(gaps, moves):
+    for g, m in zip(gaps, moves, strict=False):
         o.append(c[-1] * np.exp(g))
         c.append(o[-1] * np.exp(m))
     o, c = np.array(o), np.array(c)

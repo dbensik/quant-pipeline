@@ -148,6 +148,6 @@ def vol_cone(
         if values.size == 0:
             continue
         cone[w] = dict(
-            zip(CONE_STATS, (float(x) for x in np.percentile(values, [0, 25, 50, 75, 100])))
+            zip(CONE_STATS, (float(x) for x in np.percentile(values, [0, 25, 50, 75, 100])), strict=False)
         )
     return cone

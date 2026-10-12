@@ -18,7 +18,13 @@ import pytest
 from pricing import black_scholes as bs
 from pricing.binomial import crr_price, escrowed_prices
 from pricing.chains import expiry_time, normalise, price_chain, term_structure
-from pricing.dividends import Dividend, dividends_before, near_ex_date, project_dividends, pv_dividends
+from pricing.dividends import (
+    Dividend,
+    dividends_before,
+    near_ex_date,
+    project_dividends,
+    pv_dividends,
+)
 
 CAPTURED = datetime(2026, 10, 7, 19, 45, tzinfo=timezone.utc)  # 15:45 New York
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "spy_chain_2026-10-07_slice.parquet"
@@ -38,7 +44,7 @@ def synthetic_chain(prices_for, expiries, strikes, spot_recorded=100.0, half_spr
         T = years_to(e)
         for is_call in (True, False):
             p = prices_for(e, T, np.asarray(strikes, float), is_call)
-            for k, v in zip(strikes, p):
+            for k, v in zip(strikes, p, strict=False):
                 rows.append(
                     dict(
                         underlying="SYN", expiry=e, right="C" if is_call else "P", strike=float(k),

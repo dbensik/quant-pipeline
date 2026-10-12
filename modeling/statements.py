@@ -182,7 +182,7 @@ class Statements:
         qs = self.quarterly(item, as_of)[-4:]
         if len(qs) < 4:
             return None
-        for a, b in zip(qs, qs[1:]):
+        for a, b in zip(qs, qs[1:], strict=False):
             if (b.period_start - a.period_end).days > 7:
                 return None
         return sum(q.value for q in qs), qs

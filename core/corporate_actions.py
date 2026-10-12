@@ -504,7 +504,7 @@ def max_gap(days: Sequence[date]) -> tuple[int, Optional[date]]:
     misses the only fact that matters.
     """
     worst, at = 0, None
-    for earlier, later in zip(days, list(days)[1:]):
+    for earlier, later in zip(days, list(days)[1:], strict=False):
         span = (later - earlier).days
         if span > worst:
             worst, at = span, later

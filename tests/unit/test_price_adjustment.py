@@ -151,7 +151,7 @@ def test_the_seam_disappears():
         served(days[2], raw_prices[2], at(date(2024, 6, 11))),
         served(days[3], raw_prices[3], at(date(2024, 6, 12))),
     ]
-    at_once = [served(d, p, LATER) for d, p in zip(days, split_prices)]
+    at_once = [served(d, p, LATER) for d, p in zip(days, split_prices, strict=False)]
     for mode in ("none", "split", "total"):
         assert closes(adjust(staggered, [NVDA_SPLIT, div], mode)) == closes(
             adjust(at_once, [NVDA_SPLIT, div], mode)

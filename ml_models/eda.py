@@ -5,14 +5,14 @@ import pandas as pd
 
 
 class EDA:
-    def __init__(self, filepath=None, parse_dates=["Date"], index_col="Date"):
+    def __init__(self, filepath=None, parse_dates=None, index_col="Date"):
         """
         Initialize the EDA module.
         - If a filepath is provided, use it to load data from a CSV.
         - Otherwise, you can load data from the database.
         """
         self.filepath = filepath
-        self.parse_dates = parse_dates
+        self.parse_dates = ["Date"] if parse_dates is None else parse_dates
         self.index_col = index_col
         self.data = None
 
@@ -103,12 +103,12 @@ class MLDataProvider:
         self,
         db_path="quant_pipeline.db",
         table_name="price_data",
-        parse_dates=["Date"],
+        parse_dates=None,
         index_col="Date",
     ):
         self.db_path = db_path
         self.table_name = table_name
-        self.parse_dates = parse_dates
+        self.parse_dates = ["Date"] if parse_dates is None else parse_dates
         self.index_col = index_col
 
     def get_data(self):

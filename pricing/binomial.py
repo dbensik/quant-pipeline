@@ -65,7 +65,7 @@ def _tree_price(S, K, T, r, q, sigma, right, american, steps):
     j = np.arange(steps + 1)
     spot = S * u ** (steps - 2 * j)  # node prices at expiry, highest first
     value = np.maximum(sign * (spot - K), 0.0)
-    for n in range(steps - 1, -1, -1):
+    for _n in range(steps - 1, -1, -1):
         value = disc * (p * value[:-1] + (1.0 - p) * value[1:])
         if american:
             spot = spot[:-1] / u  # one level back: S * u**(n - 2j)

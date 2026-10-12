@@ -108,6 +108,12 @@ select = ["E4", "E7", "E9", "F", "I", "B"]
 
 # FastAPI declares parameters through call-defaults by design; B008 is a false
 # positive for these.
+# Scripts put the project root on sys.path before importing it, and several
+# test modules import per section by design.
+[tool.ruff.lint.per-file-ignores]
+"scripts/*" = ["E402"]
+"tests/**" = ["E402"]
+
 [tool.ruff.lint.flake8-bugbear]
 extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path"]
 

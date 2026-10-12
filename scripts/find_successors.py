@@ -45,8 +45,8 @@ import asyncio
 import logging
 import sys
 from datetime import date, timedelta
-from typing import Optional
 from pathlib import Path
+from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -55,8 +55,8 @@ from sqlalchemy import func, select  # noqa: E402
 from core.corporate_actions import (  # noqa: E402
     MAX_CONTINUOUS_HOLE,
     Membership,
-    max_gap,
     index_churn,
+    max_gap,
     normalize_symbol,
     rank_successors,
 )
@@ -154,7 +154,7 @@ async def membership_rows(session, index_name: str) -> list[Membership]:
             ).where(UniverseMembershipORM.index_name == index_name)
         )
     ).all()
-    return [Membership(s, f, l) for s, f, l in rows]
+    return [Membership(s, f, last) for s, f, last in rows]
 
 
 def fetch_closes(symbol: str, since: date) -> dict[date, float]:

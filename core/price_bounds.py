@@ -142,7 +142,7 @@ def check_bounds(
         outside=outside,
         lowest=min(closes),
         highest=max(closes),
-        examples=[(bar[0], bar[1]) for bar, bad in zip(ordered, flags) if bad][:5],
+        examples=[(bar[0], bar[1]) for bar, bad in zip(ordered, flags, strict=False) if bad][:5],
     )
     if outside == 0:
         return report

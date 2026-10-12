@@ -1,8 +1,8 @@
-import sys
 import json
+import sys
 
-from services.crypto.signer import Signer
 from services.crypto.hasher import Hasher
+
 
 def verify_integration():
     """
@@ -32,6 +32,7 @@ def verify_integration():
     # Execute query against the running GraphQL Gateway (HTTP)
     # This ensures we test the full stack (Gateway -> Async Resolver -> gRPC -> Service)
     import requests
+
     from services.config import ServiceConfig
     
     url = ServiceConfig.get_graphql_url()
@@ -57,7 +58,6 @@ def verify_integration():
     signature = data['signature']
     payload_json = data['payloadJson']
     features_hash = data['featuresHash']
-    public_key_id = data['publicKeyId']
     
     # Re-calculate hash from the raw JSON payload
     # This ensures that 'featuresHash' wasn't spoofed; it must match the data content.
@@ -82,11 +82,11 @@ def verify_integration():
         print("FAIL: Signature missing/empty.")
 
     print("\n--- 3. Verifying Audit Log ---")
-    from services.crypto.audit_log import AuditLog
-    from services.config import ServiceConfig
-    
     # Check if log file exists
     import os
+
+    from services.config import ServiceConfig
+    from services.crypto.audit_log import AuditLog
     if not os.path.exists(ServiceConfig.AUDIT_LOG_PATH):
         print(f"FAIL: {ServiceConfig.AUDIT_LOG_PATH} not found.")
     else:

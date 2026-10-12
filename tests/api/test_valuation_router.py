@@ -67,7 +67,7 @@ class Bars:
         days = [date(2023, 1, 2) + timedelta(days=i) for i in range(1380)]
         spy = 400 * np.exp(np.cumsum(rng.normal(0, 0.01, len(days))))
         aapl = 150 * np.exp(np.cumsum(1.1 * np.diff(np.log(np.r_[400, spy])) + rng.normal(0, 0.008, len(days))))
-        self.series = {"SPY": dict(zip(days, spy)), "AAPL": dict(zip(days, aapl))}
+        self.series = {"SPY": dict(zip(days, spy, strict=False)), "AAPL": dict(zip(days, aapl, strict=False))}
         self.series["REORG"] = self.series["SUCCONLY"] = self.series["AAPL"]
 
     async def fetch_range(self, symbol, asset_class, start, end, source=None, adjust="total"):

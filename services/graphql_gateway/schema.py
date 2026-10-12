@@ -1,18 +1,15 @@
-import strawberry
-import grpc
-import json
+import asyncio
 from typing import List, Optional
-from strawberry.scalars import JSON
 
-from services.proto import execution_pb2
-from services.proto import execution_pb2_grpc
-from services.proto import signals_pb2
-from services.proto import signals_pb2_grpc
+import grpc
+import strawberry
+from strawberry.scalars import JSON
 
 # Import legacy components
 from core.persistence.results_manager import ResultsManager
-from services.utils import DataSerializer
 from services.config import ServiceConfig
+from services.proto import execution_pb2, execution_pb2_grpc, signals_pb2, signals_pb2_grpc
+from services.utils import DataSerializer
 
 # ... existing imports ...
 
@@ -69,7 +66,7 @@ class TradeResponseType:
     transaction_id: Optional[str]
     filled_price: Optional[float]
 
-import asyncio
+
 
 @strawberry.type
 class Query:
@@ -91,7 +88,7 @@ class Query:
                 payload_json=resp.payload_json
             )
         except grpc.RpcError as e:
-            raise Exception(f"Failed to fetch signal: {e.details()}")
+            raise Exception(f"Failed to fetch signal: {e.details()}") from e
 
     @strawberry.field
     async def portfolio(self, name: Optional[str] = None) -> PortfolioType:
@@ -120,7 +117,7 @@ class Query:
                 total_equity=resp.total_equity
             )
         except grpc.RpcError as e:
-            raise Exception(f"Failed to fetch portfolio: {e.details()}")
+            raise Exception(f"Failed to fetch portfolio: {e.details()}") from e
 
     @strawberry.field
     def results(self) -> List[str]:

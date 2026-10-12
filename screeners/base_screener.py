@@ -13,7 +13,7 @@ class BaseScreener(ABC):
     a filtered subset of those tickers that meet specific criteria.
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs):  # noqa: B027 — optional hook, not abstract
         """
         The constructor for the base screener. Subclasses can accept
         specific parameters for their screening logic.
