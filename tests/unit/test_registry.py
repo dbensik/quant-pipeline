@@ -9,6 +9,7 @@ was silent — nothing failed, the numbers were just wrong:
   3. Strategy identity was duplicated across three files and had drifted.
 """
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -120,9 +121,10 @@ def test_same_seed_gives_identical_results(price_frame):
         bt = Backtester(seed=42)
         bt.run(
             price_data=price_frame,
+            cash_accrual=np.zeros(len(price_frame)),
             model=registry.build("ma_crossover", {"short_window": 10, "long_window": 30}),
         )
-        runs.append((bt.get_performance_metrics(risk_free_rate=0.0), len(bt.get_trade_log())))
+        runs.append((bt.get_performance_metrics(), len(bt.get_trade_log())))
 
     first_metrics, first_trades = runs[0]
     for metrics, trades in runs[1:]:
@@ -138,9 +140,10 @@ def test_different_seeds_give_different_draws(price_frame):
         bt = Backtester(seed=seed)
         bt.run(
             price_data=price_frame,
+            cash_accrual=np.zeros(len(price_frame)),
             model=registry.build("ma_crossover", {"short_window": 10, "long_window": 30}),
         )
-        finals.append(bt.get_performance_metrics(risk_free_rate=0.0)["Final Value"])
+        finals.append(bt.get_performance_metrics()["Final Value"])
     assert len(set(finals)) > 1
 
 
@@ -181,8 +184,12 @@ def test_trade_count_matches_trade_log(price_frame, strategy_id, params):
     trades no matter how much it traded.
     """
     bt = Backtester(seed=42)
-    bt.run(price_data=price_frame, model=registry.build(strategy_id, params))
-    assert bt.get_performance_metrics(risk_free_rate=0.0)["Trade Count"] == len(bt.get_trade_log())
+    bt.run(
+        price_data=price_frame,
+        cash_accrual=np.zeros(len(price_frame)),
+        model=registry.build(strategy_id, params),
+    )
+    assert bt.get_performance_metrics()["Trade Count"] == len(bt.get_trade_log())
 
 
 def test_trade_count_honours_explicit_trades_column(price_frame):
@@ -192,6 +199,7 @@ def test_trade_count_honours_explicit_trades_column(price_frame):
     bt = Backtester(seed=42)
     results = bt.run(
         price_data=price_frame,
+        cash_accrual=np.zeros(len(price_frame)),
         model=registry.build("ma_crossover", {"short_window": 10, "long_window": 30}),
     )
     results = results.copy()
@@ -201,7 +209,7 @@ def test_trade_count_honours_explicit_trades_column(price_frame):
 
     assert (
         PerformanceAnalyzer(
-            results, initial_capital=100000.0, risk_free_rate=0.0
+            results, initial_capital=100000.0, risk_free_accrual=np.zeros(len(results))
         ).calculate_all_metrics()["Trade Count"]
         == 2
     )
@@ -216,10 +224,11 @@ def test_metrics_use_the_backtest_capital_not_the_default(price_frame):
     bt = Backtester(initial_capital=50_000.0, seed=42)
     results = bt.run(
         price_data=price_frame,
+        cash_accrual=np.zeros(len(price_frame)),
         model=registry.build("ma_crossover", {"short_window": 10, "long_window": 30}),
     )
     expected = results["total"].iloc[-1] / 50_000.0 - 1.0
-    assert bt.get_performance_metrics(risk_free_rate=0.0)["Total Return"] == pytest.approx(expected)
+    assert bt.get_performance_metrics()["Total Return"] == pytest.approx(expected)
 
 
 def test_analyzer_options_are_keyword_only(price_frame):
@@ -227,7 +236,43 @@ def test_analyzer_options_are_keyword_only(price_frame):
 
     results = Backtester(seed=42).run(
         price_data=price_frame,
+        cash_accrual=np.zeros(len(price_frame)),
         model=registry.build("ma_crossover", {"short_window": 10, "long_window": 30}),
     )
     with pytest.raises(TypeError):
-        PerformanceAnalyzer(results, 50_000.0, risk_free_rate=0.0)
+        PerformanceAnalyzer(results, 50_000.0, risk_free_accrual=np.zeros(len(results)))
+
+
+def test_idle_cash_earns_the_accrual_and_a_cash_run_scores_zero(price_frame):
+    """
+    Cash compounds by the accrual at the start of each bar. A run that never
+    trades IS the cash account, so its Sharpe is 0, not the order-1 artefact
+    a scalar rate subtracted from its CAGR produced.
+    """
+    accrual = np.full(len(price_frame), 0.04 / 365)
+    accrual[0] = 0.0
+    bt = Backtester(seed=42)
+    results = bt.run(
+        price_data=price_frame,
+        # Both averages longer than the frame: no signal, no trade.
+        model=registry.build("ma_crossover", {"short_window": 500, "long_window": 1000}),
+        cash_accrual=accrual,
+    )
+    assert len(bt.get_trade_log()) == 0
+    expected = 100000.0 * np.cumprod(1.0 + accrual)
+    assert results["cash"].to_numpy() == pytest.approx(expected, rel=1e-12)
+    assert bt.get_performance_metrics()["Sharpe Ratio"] == 0.0
+
+
+def test_zero_accrual_is_the_old_run_bit_for_bit(price_frame):
+    """cash * (1.0 + 0.0) is cash: a zero accrual cannot move a run."""
+    model = {"short_window": 10, "long_window": 30}
+    a = Backtester(seed=42)
+    first = a.run(
+        price_data=price_frame,
+        model=registry.build("ma_crossover", model),
+        cash_accrual=np.zeros(len(price_frame)),
+    )
+    m = a.get_performance_metrics()
+    assert m["Sharpe Ratio"] == m["Annualized Return"] / m["Annualized Volatility"]
+    assert (first["cash"].to_numpy() > 0).all()

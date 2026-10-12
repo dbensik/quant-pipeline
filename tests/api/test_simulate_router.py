@@ -6,8 +6,11 @@ probabilities, the caveat — never on a field that merely echoes the request.
 Phase 2 of research/monte-carlo-plan-2026-10-07.md.
 """
 
+import numpy as np
 import pytest
 from fastapi.testclient import TestClient
+
+from api.risk_free import ResolvedRiskFree
 
 WINDOW = {"start": "2024-01-01", "end": "2024-12-31"}
 # mean_reversion 10/0.5 trades on this fixture (see test_backtest_router.py);
@@ -136,6 +139,9 @@ def test_prob_loss_counts_strictly_losing_paths(client: TestClient):
         n_paths=40,
         horizon_days=45,
         include_paths=40,
+        # Idle cash earns the risk-free rate, so only a zero rate leaves a
+        # path that never trades exactly flat.
+        risk_free_rate=0.0,
     ).json()
     finals = [p[-1] for p in body["sample_paths"]]
     assert any(f == 100_000.0 for f in finals), (
@@ -272,9 +278,12 @@ def test_horizon_cap(client: TestClient):
 
 
 def test_never_invested_strategy_cannot_be_resampled_in_returns_mode(client: TestClient):
-    # ma_crossover 10/30 makes zero trades on this fixture.
+    # 400/900 never signals: neither average exists inside a one-year window.
+    # 10/30 was used until 2026-10-12, but it DOES signal — its one entry was
+    # an all-cash order the fill's slippage and commission made unaffordable,
+    # which the backtester drops. Interest on cash made that order affordable.
     response = run(
-        client, strategy_id="ma_crossover", params={"short_window": 10, "long_window": 30}
+        client, strategy_id="ma_crossover", params={"short_window": 400, "long_window": 900}
     )
     assert response.status_code == 422
     assert "never invested" in response.json()["detail"]
@@ -335,7 +344,8 @@ def test_prices_mode_seeds_each_path_from_its_index(monkeypatch):
         horizon_days=10,
         seed=7,
     )
-    simulate._simulate_sync(frame, registry.get("buy_and_hold"), request, 4, 0.0)
+    zero_rate = ResolvedRiskFree(0.0, "test", np.zeros(len(frame)))
+    simulate._simulate_sync(frame, registry.get("buy_and_hold"), request, 4, zero_rate)
     # The historical run is seeded with the request seed via _run_backtest_sync
     # (which builds its own Backtester, not patched here); the four paths follow.
     assert seeds[-4:] == [7, 8, 9, 10]

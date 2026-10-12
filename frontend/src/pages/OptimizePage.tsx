@@ -250,8 +250,8 @@ export function OptimizePage() {
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Sharpe net of a {percent(result.risk_free_rate)} risk-free rate (
-                  {result.risk_free_source}).
+                  Idle cash earns a {percent(result.risk_free_rate)} risk-free rate (
+                  {result.risk_free_source}); Sharpe is measured against it.
                 </p>
 
                 {(result.skipped ?? []).length > 0 ? (

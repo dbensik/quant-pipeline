@@ -21,6 +21,7 @@ from core.rates import (
     discount_to_continuous,
     ingest_rates,
     mean_risk_free_over,
+    period_accruals,
     risk_free_from_observation,
     risk_free_over,
     risk_free_rate,
@@ -243,3 +244,36 @@ async def test_window_rate_reads_back_far_enough_for_the_first_session():
     window = await risk_free_over(repo, [date(2026, 10, 12), date(2026, 10, 13)], SERIES)
     assert window.rate == pytest.approx(discount_to_bond_equivalent(4.0))
     assert window.describe().startswith("^IRX bond-equivalent, mean over 2 sessions")
+
+
+# --- interest on cash, bar by bar ------------------------------------------------
+
+
+def test_a_monday_bar_earns_three_days():
+    """A bond-equivalent yield is simple on a 365-day year: calendar days."""
+    fri, mon, tue = date(2026, 10, 9), date(2026, 10, 12), date(2026, 10, 13)
+    accrual = period_accruals([fri, mon, tue], [0.0365, 0.0365])
+    assert accrual[0] == 0.0
+    assert accrual[1] == pytest.approx(3 * 0.0001)
+    assert accrual[2] == pytest.approx(0.0001)
+
+
+def test_a_bar_earns_the_rate_known_at_its_start():
+    accrual = period_accruals(
+        [date(2026, 10, 5), date(2026, 10, 6), date(2026, 10, 7)], [0.0365, 0.073]
+    )
+    assert list(accrual) == pytest.approx([0.0, 0.0001, 0.0002])
+
+
+def test_accruals_refuse_misaligned_rates():
+    with pytest.raises(ValueError, match="3 dates make 2 periods"):
+        period_accruals([date(2026, 10, 5), date(2026, 10, 6), date(2026, 10, 7)], [0.04])
+
+
+def test_window_rate_keeps_each_sessions_rate_in_order():
+    rows = [obs(date(2026, 10, 5), 4.0), obs(date(2026, 10, 6), 2.0)]
+    window = mean_risk_free_over(rows, [date(2026, 10, 6), date(2026, 10, 5)])
+    assert window.per_session == (
+        discount_to_bond_equivalent(2.0),
+        discount_to_bond_equivalent(4.0),
+    )

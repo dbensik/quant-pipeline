@@ -9,6 +9,11 @@ import pandas as pd
 import seaborn as sns
 from matplotlib.ticker import FuncFormatter
 
+#: Below this annualized volatility the Sharpe ratio is reported as 0. A
+#: cash-only run's excess return is floating-point noise (~1e-17 a bar), and
+#: a ratio of two noise terms is noise; any real position is far above it.
+SHARPE_MIN_VOLATILITY = 1e-9
+
 
 class PerformanceAnalyzer:
     """
@@ -22,7 +27,7 @@ class PerformanceAnalyzer:
         *,
         benchmark_history: Optional[pd.DataFrame] = None,
         initial_capital: float = 100000.0,
-        risk_free_rate: float,
+        risk_free_accrual: np.ndarray,
     ):
         """
         Initializes the analyzer with the results of a backtest.
@@ -31,10 +36,12 @@ class PerformanceAnalyzer:
             portfolio_history: A DataFrame with 'total', 'returns', and 'trades' columns.
             benchmark_history: An optional DataFrame for a benchmark, with a 'total' column.
             initial_capital: The starting capital for calculating total return.
-            risk_free_rate: Annual rate the Sharpe ratio is in excess of. No
-                default: the API resolves the stored ^IRX rate over the window
-                (api/risk_free.py), and a silent 0 is how Sharpe used to be
-                computed here. Pass 0.0 explicitly for a raw ratio.
+            risk_free_accrual: Interest one unit of cash earned on each bar,
+                aligned to the history (api/risk_free.py builds it from ^IRX;
+                the backtesters credit idle cash with the same numbers). The
+                Sharpe ratio is measured against that cash account. No default:
+                a silent 0 is how Sharpe used to be computed here. Pass zeros
+                explicitly for a raw ratio.
 
         Everything after the history is keyword-only. Until 2026-10-12 every
         caller passed `(history, initial_capital)`, which bound the capital to
@@ -48,8 +55,13 @@ class PerformanceAnalyzer:
         self.portfolio = portfolio_history
         self.benchmark = benchmark_history
         self.initial_capital = initial_capital
-        self.risk_free_rate = risk_free_rate
         self.returns = self.portfolio["returns"]
+        self.risk_free_accrual = np.asarray(risk_free_accrual, dtype=float)
+        if len(self.risk_free_accrual) != len(self.returns):
+            raise ValueError(
+                f"risk_free_accrual has {len(self.risk_free_accrual)} values for "
+                f"{len(self.returns)} bars"
+            )
         self.portfolio_value = self.portfolio["total"]
 
     def calculate_all_metrics(self) -> Dict[str, float]:
@@ -68,16 +80,28 @@ class PerformanceAnalyzer:
 
         # --- Risk & Risk-Adjusted Return Metrics ---
         annualized_volatility = self.returns.std() * np.sqrt(252)
-        # Excess over the risk-free rate. The numerator stays the CAGR (the
-        # portfolio optimizer uses the arithmetic mean x 252, so the two
-        # Sharpes still differ by numerator). Sortino and Calmar are left
-        # against 0: Sortino's target is a separate choice, since moving it
-        # also moves which returns count as downside.
-        sharpe_ratio = (
-            (annualized_return - self.risk_free_rate) / annualized_volatility
-            if annualized_volatility != 0
-            else 0.0
-        )
+        # Sharpe against the cash account the backtest credits: geometric
+        # excess growth (equity vs cash, annualized like the CAGR) over the
+        # volatility of the per-bar excess return. A strategy that never trades
+        # IS the cash account, so its excess is ~1e-17 a bar and its Sharpe 0.
+        # With a scalar rate subtracted from the CAGR instead, compounding and
+        # Monday's three days of interest gave it a spurious Sharpe of order 1.
+        # Still CAGR-based, so it differs from the portfolio optimizer's
+        # arithmetic Sharpe. Sortino and Calmar stay against 0: Sortino's
+        # target is a separate choice (it also moves which returns count as
+        # downside). With zero accrual this is exactly the old CAGR / vol.
+        cash_growth = float(np.prod(1.0 + self.risk_free_accrual))
+        excess_growth = (1 + total_return) / cash_growth
+        annualized_excess = excess_growth ** (365.0 / days) - 1 if days > 0 else 0.0
+        excess_volatility = (self.returns - self.risk_free_accrual).std() * np.sqrt(252)
+        if not np.isfinite(excess_volatility):
+            # One bar: no return to take a deviation of. NaN, as before, which
+            # the API reports as null rather than as a real 0.
+            sharpe_ratio = float("nan")
+        elif excess_volatility > SHARPE_MIN_VOLATILITY:
+            sharpe_ratio = annualized_excess / excess_volatility
+        else:
+            sharpe_ratio = 0.0
 
         downside_returns = self.returns[self.returns < 0]
         downside_std = downside_returns.std() * np.sqrt(252)
@@ -180,7 +204,9 @@ class PerformanceAnalyzer:
             bench_analyzer = PerformanceAnalyzer(
                 self.benchmark,
                 initial_capital=self.initial_capital,
-                risk_free_rate=self.risk_free_rate,
+                # The benchmark's own bars may differ from the strategy's; its
+                # accrual is only reusable when the bars are the same.
+                risk_free_accrual=self.risk_free_accrual,
             )
             bench_stats = bench_analyzer.calculate_all_metrics()
             bench_stats["drawdown_series"], _, _ = bench_analyzer._calculate_drawdowns()

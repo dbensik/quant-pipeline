@@ -107,8 +107,8 @@ export function BacktestResults({ result }: { result: BacktestResult }) {
           ))}
         </dl>
         <p className="mt-2 text-xs text-muted-foreground">
-          Sharpe is net of a {(result.riskFreeRate * 100).toFixed(2)}% risk-free rate (
-          {result.riskFreeSource}).
+          Idle cash earns a {(result.riskFreeRate * 100).toFixed(2)}% risk-free rate (
+          {result.riskFreeSource}), and Sharpe is measured against that cash account.
         </p>
       </div>
 

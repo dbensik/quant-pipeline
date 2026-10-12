@@ -30,6 +30,7 @@ question it was for:
 import logging
 from typing import Any, Callable, Dict, List, Optional
 
+import numpy as np
 import pandas as pd
 
 from alpha_models import registry
@@ -89,7 +90,7 @@ class ParameterOptimizer:
         transaction_cost: float = 0.001,
         seed: Optional[int] = 42,
         *,
-        risk_free_rate: float,
+        cash_accrual: np.ndarray,
     ):
         if metric not in MAXIMIZE and metric not in MINIMIZE:
             raise ValueError(
@@ -107,8 +108,15 @@ class ParameterOptimizer:
         self.initial_capital = initial_capital
         self.transaction_cost = transaction_cost
         self.seed = seed
-        #: Annual; every combination is judged against the same rate.
-        self.risk_free_rate = risk_free_rate
+        #: Per-bar cash interest (Backtester.run); every combination's idle
+        #: cash earns it, and its Sharpe is measured against it. Checked here,
+        #: because a mismatch raised inside the loop would be recorded as
+        #: every combination being "rejected".
+        self.cash_accrual = np.asarray(cash_accrual, dtype=float)
+        if len(self.cash_accrual) != len(price_data):
+            raise ValueError(
+                f"cash_accrual has {len(self.cash_accrual)} values for {len(price_data)} bars"
+            )
 
         self.results_df: Optional[pd.DataFrame] = None
         #: Combinations the strategy itself rejected, with the reason. Reported
@@ -167,8 +175,8 @@ class ParameterOptimizer:
             )
 
             try:
-                backtester.run(self.price_data, model)
-                stats = backtester.get_performance_metrics(self.risk_free_rate)
+                backtester.run(self.price_data, model, cash_accrual=self.cash_accrual)
+                stats = backtester.get_performance_metrics()
             except (ValueError, KeyError) as exc:
                 self.skipped.append({"params": dict(params), "reason": str(exc)})
                 if progress_callback:

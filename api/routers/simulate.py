@@ -43,7 +43,9 @@ from api.frames import records_to_frame
 from api.risk_free import (
     RISK_FREE_RATE_DESCRIPTION,
     RISK_FREE_SOURCE_DESCRIPTION,
+    ResolvedRiskFree,
     RiskFreeCoverageError,
+    constant_accruals,
     get_rate_repo,
     resolve_risk_free,
     risk_free_refusal,
@@ -285,7 +287,7 @@ def _simulate_sync(
     spec: registry.StrategySpec,
     request: SimulationRequest,
     n_paths: int,
-    risk_free_rate: float,
+    risk_free: ResolvedRiskFree,
     on_progress: Optional[Callable[[int, int], None]] = None,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """
@@ -299,7 +301,7 @@ def _simulate_sync(
         request.initial_capital,
         request.transaction_cost,
         request.seed,
-        risk_free_rate=risk_free_rate,
+        cash_accrual=risk_free.accrual,
     )
     trade_count = 0 if trades is None or trades.empty else len(trades)
     rng = np.random.default_rng(request.seed)
@@ -332,7 +334,13 @@ def _simulate_sync(
                 # Per-path seed: the result never depends on execution order.
                 seed=None if request.seed is None else request.seed + i,
             )
-            run = backtester.run(price_data=synthetic, model=spec.build(request.params))
+            # Synthetic bars lie beyond the stored rates, so a path's idle
+            # cash earns the window's mean rate on its own business days.
+            run = backtester.run(
+                price_data=synthetic,
+                model=spec.build(request.params),
+                cash_accrual=constant_accruals(synthetic.index, risk_free.rate),
+            )
             equity[i, 1:] = run["total"].to_numpy()
             if on_progress is not None and ((i + 1) % PROGRESS_EVERY == 0 or i + 1 == n_paths):
                 on_progress(i + 1, n_paths)
@@ -577,7 +585,7 @@ async def run_simulation(
 
     try:
         metrics, sim = await run_in_threadpool(
-            _simulate_sync, frame, spec, request, n_paths, risk_free[0]
+            _simulate_sync, frame, spec, request, n_paths, risk_free
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None

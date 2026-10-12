@@ -214,8 +214,8 @@ export function ComparePage() {
               </CardTitle>
               <CardDescription>
                 {result.bars} bars · {result.optimized ? 'tuned' : 'default parameters'} ·
-                Sharpe net of a {percent(result.risk_free_rate)} risk-free rate (
-                {result.risk_free_source})
+                idle cash earns a {percent(result.risk_free_rate)} risk-free rate (
+                {result.risk_free_source}), and every Sharpe is measured against it
               </CardDescription>
             </CardHeader>
             <CardContent>

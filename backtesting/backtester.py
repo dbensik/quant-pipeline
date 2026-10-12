@@ -33,15 +33,35 @@ class Backtester:
         self.transaction_cost = transaction_cost
         self.results = None
         self.trade_log = []
+        #: The per-bar cash interest of the last run; metrics measure Sharpe
+        #: against this same cash account.
+        self.cash_accrual = None
         self.execution_handler = execution_handler or SimulatedExecutionHandler(seed=seed)
 
     def run(
-        self, price_data: pd.DataFrame, model: BaseAlphaModel, symbol_name: str = None
+        self,
+        price_data: pd.DataFrame,
+        model: BaseAlphaModel,
+        symbol_name: str = None,
+        *,
+        cash_accrual: np.ndarray,
     ) -> pd.DataFrame:
         """
         Runs a backtest using a more robust, event-driven loop that delegates
         execution to a dedicated handler.
+
+        cash_accrual: interest one unit of cash earns on each bar, aligned to
+        `price_data` (api/risk_free.py builds it from ^IRX; 0 on bar 0). Idle
+        cash compounds by it at the START of each bar, before any order is
+        sized. Until 2026-10-12 cash earned nothing, so a strategy out of the
+        market was charged T-bill interest it was never paid once Sharpe
+        became excess of the rate. No default; zeros reproduce the old run
+        bit for bit (cash * 1.0 is cash).
         """
+        accrual = np.asarray(cash_accrual, dtype=float)
+        if len(accrual) != len(price_data):
+            raise ValueError(f"cash_accrual has {len(accrual)} values for {len(price_data)} bars")
+        self.cash_accrual = accrual
         # 1. Generate signals from the model
         signals = model.generate_signals(price_data=price_data)
         self.trade_log = []
@@ -80,6 +100,9 @@ class Backtester:
             date = portfolio.index[i]
             price = closes[i]
             signal = signal_values[i]
+
+            # Interest on idle cash for the period ending at this bar.
+            cash *= 1.0 + accrual[i]
 
             # --- REFACTOR: Trading logic now uses the event-driven system ---
             if signal == 1 and np.isclose(position, 0):  # Buy signal
@@ -136,27 +159,29 @@ class Backtester:
 
         return pd.DataFrame(log_data)
 
-    def get_performance_metrics(self, risk_free_rate: float) -> dict:
+    def get_performance_metrics(self) -> dict:
         """
         Calculates performance metrics by delegating to the PerformanceAnalyzer.
 
-        The rate is an argument here, not of the constructor: the run itself
-        never uses it, so the loop and its results are unaffected by it.
+        Sharpe is measured against the cash account this run credited, so the
+        accrual comes from the run rather than being passed again.
         """
         if self.results is None or self.results.empty:
             return {}  # Return empty dict if no results exist
 
         analyzer = PerformanceAnalyzer(
-            self.results, initial_capital=self.initial_capital, risk_free_rate=risk_free_rate
+            self.results,
+            initial_capital=self.initial_capital,
+            risk_free_accrual=self.cash_accrual,
         )
         return analyzer.calculate_all_metrics()
 
     def run_and_get_metrics(
-        self, price_data: pd.DataFrame, model: BaseAlphaModel, risk_free_rate: float
+        self, price_data: pd.DataFrame, model: BaseAlphaModel, cash_accrual: np.ndarray
     ) -> dict:
         """
         A convenience method that runs a backtest and immediately returns the
         performance metrics. Useful for optimizations.
         """
-        self.run(price_data=price_data, model=model)
-        return self.get_performance_metrics(risk_free_rate)
+        self.run(price_data=price_data, model=model, cash_accrual=cash_accrual)
+        return self.get_performance_metrics()

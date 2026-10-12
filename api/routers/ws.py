@@ -239,7 +239,7 @@ async def backtest_ws(websocket: WebSocket) -> None:
                 request.initial_capital,
                 request.transaction_cost,
                 request.seed,
-                risk_free_rate=risk_free[0],
+                cash_accrual=risk_free.accrual,
             )
         except ValueError as exc:
             await _send_error(websocket, str(exc), 422)
@@ -442,7 +442,7 @@ async def simulate_ws(websocket: WebSocket) -> None:
 
             try:
                 metrics, sim = await run_in_threadpool(
-                    _simulate_sync, frame, spec, request, n_paths, risk_free[0], on_progress
+                    _simulate_sync, frame, spec, request, n_paths, risk_free, on_progress
                 )
             except ValueError as exc:
                 await _send_error(websocket, str(exc), 422)
@@ -604,7 +604,7 @@ async def optimize_strategy_ws(websocket: WebSocket) -> None:
                 )
 
             optimizer = await run_in_threadpool(
-                _optimize_sync, frame, spec.id, combos, request, risk_free[0], on_progress
+                _optimize_sync, frame, spec.id, combos, request, risk_free.accrual, on_progress
             )
 
         if optimizer.results_df is None or optimizer.results_df.empty:

@@ -181,7 +181,7 @@ describe('OptimizePage — grid search', () => {
       await screen.findByText(/best: short_window=20, long_window=50/),
     ).toBeInTheDocument()
     expect(screen.getByText(/7 of 9 combinations evaluated/)).toBeInTheDocument()
-    expect(screen.getByText(/net of a 4\.12% risk-free rate/)).toBeInTheDocument()
+    expect(screen.getByText(/cash earns a 4\.12% risk-free rate/)).toBeInTheDocument()
   })
 
   it('reports combinations the strategy rejected', async () => {

@@ -53,7 +53,7 @@ const RESULT: BacktestResult = {
 describe('BacktestResults — risk-free rate', () => {
   it('says which rate the Sharpe ratio is net of', () => {
     render(<BacktestResults result={RESULT} />)
-    expect(screen.getByText(/net of a 4\.12% risk-free rate/)).toBeInTheDocument()
+    expect(screen.getByText(/cash earns a 4\.12% risk-free rate/)).toBeInTheDocument()
     expect(screen.getByText(/\^IRX bond-equivalent, mean over 250 sessions/)).toBeInTheDocument()
   })
 })

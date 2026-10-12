@@ -187,15 +187,26 @@ before `as_of`, never an exact-date join: bond holidays are stock sessions)
 and whether it is stale. Insert-only; today's New York date is never stored.
 A yield is not a price: as an asset it would have reached backtests, the
 symbol picker and every price check. The DCF reads it (`modeling/valuation.py`,
-continuous). Every Sharpe the API reports (backtest, compare, both
-optimizers, portfolio backtest, simulate, and their websockets) is in excess
-of the MEAN bond-equivalent rate over its window, resolved once per request by
-`api/risk_free.py` (since 2026-10-12; a window the series does not cover is
-422, `risk_free_rate` in the request overrides). `PerformanceAnalyzer` and
-`get_performance_metrics()` take the rate with NO default. Strategy Sharpe is
-still CAGR-based and the portfolio optimizer's arithmetic, and idle backtest
-cash earns 0, so a mostly-flat strategy now reads strongly negative.
+continuous). Since 2026-10-12 every backtest (backtest, compare, strategy
+optimize, portfolio backtest, simulate, and their websockets) CREDITS idle
+cash with the bond-equivalent rate bar by bar, and its Sharpe is measured
+against that cash account: geometric excess growth over the volatility of the
+excess return, so a strategy that never trades scores exactly 0.
+`api/risk_free.py` resolves the rate and the per-bar accrual once per request
+(the rate known at each period's START; calendar days, so Monday earns three);
+a window the series does not cover is 422, and `risk_free_rate` in the request
+overrides. `Backtester.run`, `PortfolioBacktester.run`, `ParameterOptimizer`
+and `PerformanceAnalyzer` take the accrual with NO default; zeros reproduce the
+old runs bit for bit. The portfolio weights optimizer subtracts the window mean
+from an arithmetic Sharpe, so its Sharpe still differs by construction.
 `data_enricher.py` keeps 0.02 but has no live caller.
+
+**Known, not fixed: an all-cash entry can be silently dropped.** On a buy the
+backtester sizes `floor(cash / price)` shares; when slippage plus commission
+push the fill above cash, the whole order is skipped and retried next bar.
+Measured 2026-10-12 (ma_crossover 10/30, 2018-2025): 2-6 entries per symbol
+never became a position (SPY 2/30, XOM 4/25, BTC-USD 6/44). Interest on cash
+changes which orders clear, so trade logs can differ from pre-interest runs.
 
 **SEC facts are refreshed from EDGAR's daily form index** (since
 2026-10-11, step in the 06:00 job). The quarter's `index.json` names the
@@ -286,7 +297,7 @@ For the TimescaleDB layer, copy `.env.example` → `.env`; without it, `db/sessi
   nothing. Threshold is `1e-4`, not `1e-2` — merger arbitrage pins a target to
   its acquirer at ~4.6e-03 before a deal closes, which a loose threshold calls
   a rename. See `research/corporate-actions-findings-2026-09-15.md`.
-- `backtesting/backtester.py` — Simulates strategy on historical data; produces equity curves and KPIs. Per-bar state goes into numpy arrays, not pandas cell writes (2026-10-07: 291 ms → 5 ms a run, bit-identical). A change to the loop must stay bit-identical on real runs — the equity frame, trade log and metrics are the regression test.
+- `backtesting/backtester.py` — Simulates strategy on historical data; produces equity curves and KPIs. Per-bar state goes into numpy arrays, not pandas cell writes (2026-10-07: 291 ms → 5 ms a run, bit-identical). A change to the loop must stay bit-identical on real runs — the equity frame, trade log and metrics are the regression test (with a zero `cash_accrual`; 15 real runs checked when interest on cash went in, 2026-10-12).
 - `simulation/` — Monte Carlo kernels; read `simulation/CLAUDE.md` before changing them.
 - `pricing/` — option pricing; read `pricing/CLAUDE.md` before changing it (no recorded spot; discrete dividends).
 - `core/options_surface.py` + `api/routers/options.py` — `/api/v1/options` archive|surface|price|pricers|realised-vol. A surface costs 10–35 s, so it is cached in `data/surfaces/<TICKER>/<day>.json` (gitignored, derivable, safe to delete). The key hashes the capture bytes, the rate observation, the dividend schedule and a fingerprint DERIVED from the pricing source and settings — never hand-bump a version. The realised-vol cone is NOT cached (bars are not in the key). A surface for today's capture uses yesterday's rate and is recomputed tomorrow: correct. `scripts/precompute_surfaces.py` fills the cache (108 captures ~37 min); it is not in the 06:00 job.

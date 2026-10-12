@@ -28,6 +28,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.concurrency import run_in_threadpool
@@ -175,7 +176,7 @@ def _curve(frame: Optional[pd.DataFrame]) -> List[ComparisonEquityPoint]:
 
 
 def _benchmark_metrics(
-    frame: pd.DataFrame, initial_capital: float, risk_free_rate: float
+    frame: pd.DataFrame, initial_capital: float, cash_accrual: np.ndarray
 ) -> tuple[Dict[str, Any], pd.DataFrame]:
     """
     Buy-and-hold on the benchmark, scaled to the same starting capital.
@@ -195,13 +196,13 @@ def _benchmark_metrics(
     portfolio["returns"] = portfolio["total"].pct_change().fillna(0)
 
     analyzer = PerformanceAnalyzer(
-        portfolio, initial_capital=initial_capital, risk_free_rate=risk_free_rate
+        portfolio, initial_capital=initial_capital, risk_free_accrual=cash_accrual
     )
     return analyzer.calculate_all_metrics(), portfolio
 
 
 def _compare_sync(
-    frame: pd.DataFrame, request: CompareRequest, risk_free_rate: float
+    frame: pd.DataFrame, request: CompareRequest, cash_accrual: np.ndarray
 ) -> tuple[List[Dict[str, Any]], List[Dict[str, str]]]:
     """CPU-bound half: tune (optionally), backtest, collect."""
     rows: List[Dict[str, Any]] = []
@@ -252,7 +253,7 @@ def _compare_sync(
                 initial_capital=request.initial_capital,
                 transaction_cost=request.transaction_cost,
                 seed=request.seed,
-                risk_free_rate=risk_free_rate,
+                cash_accrual=cash_accrual,
             )
             optimizer.run_optimization()
             best = optimizer.get_best_parameters()
@@ -269,7 +270,7 @@ def _compare_sync(
                 request.initial_capital,
                 request.transaction_cost,
                 request.seed,
-                risk_free_rate=risk_free_rate,
+                cash_accrual=cash_accrual,
             )
         except (ValueError, KeyError) as exc:
             skipped.append({"strategy_id": spec.id, "reason": str(exc)})
@@ -394,9 +395,20 @@ async def compare_strategies(
         # everywhere else, and a benchmark quietly sourced elsewhere would be
         # measured against a different price series than the strategies.
         benchmark_frame = await load(request.benchmark_symbol)
+        # Same rate source, accrued on the benchmark's own bars: a crypto
+        # benchmark trades at weekends the strategy symbol does not.
+        try:
+            benchmark_rf = await resolve_risk_free(
+                request.risk_free_rate, benchmark_frame.index, rates
+            )
+        except RiskFreeCoverageError as exc:
+            raise HTTPException(status_code=422, detail=risk_free_refusal(exc)) from exc
         try:
             metrics, portfolio = await run_in_threadpool(
-                _benchmark_metrics, benchmark_frame, request.initial_capital, risk_free[0]
+                _benchmark_metrics,
+                benchmark_frame,
+                request.initial_capital,
+                benchmark_rf.accrual,
             )
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from None
@@ -406,7 +418,7 @@ async def compare_strategies(
             equity_curve=_curve(portfolio) if request.include_equity_curves else [],
         )
 
-    rows, skipped = await run_in_threadpool(_compare_sync, frame, request, risk_free[0])
+    rows, skipped = await run_in_threadpool(_compare_sync, frame, request, risk_free.accrual)
 
     if not rows:
         reasons = "; ".join(f"{s['strategy_id']}: {s['reason']}" for s in skipped)

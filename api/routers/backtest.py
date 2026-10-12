@@ -9,6 +9,7 @@ import math
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.concurrency import run_in_threadpool
@@ -135,7 +136,7 @@ def _run_backtest_sync(
     transaction_cost: float,
     seed: Optional[int] = None,
     *,
-    risk_free_rate: float,
+    cash_accrual: np.ndarray,
 ) -> tuple:
     """
     The CPU-bound half, run off the event loop via run_in_threadpool.
@@ -150,8 +151,8 @@ def _run_backtest_sync(
         transaction_cost=transaction_cost,
         seed=seed,
     )
-    results = backtester.run(price_data=frame, model=model)
-    metrics = backtester.get_performance_metrics(risk_free_rate)
+    results = backtester.run(price_data=frame, model=model, cash_accrual=cash_accrual)
+    metrics = backtester.get_performance_metrics()
     trades = backtester.get_trade_log()
     return results, metrics, trades
 
@@ -234,7 +235,7 @@ async def run_backtest(
             request.initial_capital,
             request.transaction_cost,
             request.seed,
-            risk_free_rate=risk_free[0],
+            cash_accrual=risk_free.accrual,
         )
     except ValueError as exc:
         # Strategies validate their own parameters and raise ValueError —

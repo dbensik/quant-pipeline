@@ -13,7 +13,7 @@ Phase 5 — decommissioning Streamlit
 """
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException
@@ -202,7 +202,7 @@ def _run_sync(
     price_data: Dict[str, pd.DataFrame],
     weights: Dict[str, float],
     request: PortfolioBacktestRequest,
-    risk_free_rate: float,
+    cash_accrual: pd.Series,
 ) -> tuple:
     """CPU-bound half: signals, backtest, metrics, risk."""
     from backtesting.portfolio_backtester import PortfolioBacktester
@@ -222,8 +222,10 @@ def _run_sync(
             max_portfolio_drawdown_pct=request.max_portfolio_drawdown_pct,
         ),
     )
-    portfolio, _holdings = backtester.run(price_data, signals_data, weights)
-    metrics = backtester.get_performance_metrics(risk_free_rate)
+    portfolio, _holdings = backtester.run(
+        price_data, signals_data, weights, cash_accrual=cash_accrual
+    )
+    metrics = backtester.get_performance_metrics()
 
     risk: Dict[str, Any] = {}
     if request.include_risk and portfolio is not None and not portfolio.empty:
@@ -331,9 +333,7 @@ async def run_portfolio_backtest(
     # rate is averaged over the same sessions.
     timeline = pd.DatetimeIndex(sorted(set().union(*(f.index for f in price_data.values()))))
     try:
-        risk_free: Tuple[float, str] = await resolve_risk_free(
-            request.risk_free_rate, timeline, rates
-        )
+        risk_free = await resolve_risk_free(request.risk_free_rate, timeline, rates)
     except RiskFreeCoverageError as exc:
         raise HTTPException(status_code=422, detail=risk_free_refusal(exc)) from exc
 
@@ -346,7 +346,13 @@ async def run_portfolio_backtest(
 
     try:
         portfolio, metrics, risk = await run_in_threadpool(
-            _run_sync, spec, model, price_data, weights, request, risk_free[0]
+            _run_sync,
+            spec,
+            model,
+            price_data,
+            weights,
+            request,
+            pd.Series(risk_free.accrual, index=timeline),
         )
     except (ValueError, KeyError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None

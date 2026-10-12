@@ -18,6 +18,7 @@ import math
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
+import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.concurrency import run_in_threadpool
@@ -206,7 +207,7 @@ def _optimize_sync(
     strategy_id: str,
     combos: List[Dict[str, Any]],
     request: StrategyOptimizeRequest,
-    risk_free_rate: float,
+    cash_accrual: np.ndarray,
     progress_callback: Optional[Callable[[int, int], None]] = None,
 ) -> ParameterOptimizer:
     optimizer = ParameterOptimizer(
@@ -217,7 +218,7 @@ def _optimize_sync(
         initial_capital=request.initial_capital,
         transaction_cost=request.transaction_cost,
         seed=request.seed,
-        risk_free_rate=risk_free_rate,
+        cash_accrual=cash_accrual,
     )
     optimizer.run_optimization(progress_callback=progress_callback)
     return optimizer
@@ -363,7 +364,7 @@ async def optimize_strategy(
         raise HTTPException(status_code=422, detail=risk_free_refusal(exc)) from exc
 
     optimizer = await run_in_threadpool(
-        _optimize_sync, frame, spec.id, combos, request, risk_free[0], None
+        _optimize_sync, frame, spec.id, combos, request, risk_free.accrual, None
     )
 
     # Every combination rejected is a client error, not an empty result set.

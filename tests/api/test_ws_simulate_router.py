@@ -106,8 +106,12 @@ def test_unverified_asset_is_gated_on_the_socket_too(ws_client: TestClient):
 
 
 def test_never_invested_strategy_errors_after_accept(ws_client: TestClient):
+    # 400/900 never signals: neither average exists inside a one-year window.
+    # 10/30 was used until 2026-10-12, but it DOES signal — its one entry was
+    # an all-cash order the fill's slippage and commission made unaffordable,
+    # which the backtester drops. Interest on cash made that order affordable.
     messages = run(
-        ws_client, strategy_id="ma_crossover", params={"short_window": 10, "long_window": 30}
+        ws_client, strategy_id="ma_crossover", params={"short_window": 400, "long_window": 900}
     )
     assert messages[0]["type"] == "accepted"
     assert messages[-1]["type"] == "error" and "never invested" in messages[-1]["detail"]

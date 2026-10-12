@@ -1,18 +1,26 @@
 """
-The Sharpe ratio every strategy endpoint reports is in excess of the stored
-risk-free rate over the window (api/risk_free.py), not of 0.
+Strategy backtests credit idle cash with the stored risk-free rate, and every
+Sharpe ratio they report is measured against that cash account
+(api/risk_free.py, analysis/performance_analyzer.py).
 
-Until 2026-10-12 PerformanceAnalyzer computed CAGR / volatility, a Sharpe
-against a zero rate, while the portfolio optimizer used 0.02: two pages
-ranking by "Sharpe" measured different things. Each test here was checked
-failing against the zero-rate analyzer.
+History, all 2026-10-12: PerformanceAnalyzer computed CAGR / volatility, a
+Sharpe against 0, while the portfolio optimizer used 0.02. Subtracting ^IRX
+alone then charged a strategy sitting in cash for interest the backtester
+never paid it (SPY ma_crossover 2023-2025: 0.95 -> -2.71). Now cash earns the
+rate bar by bar and Sharpe is the geometric excess over that cash account
+divided by the volatility of the excess return, so a strategy that never
+trades scores exactly 0.
 
 The conftest rate series quotes 2.00% bank discount (2.0305% bond-equivalent)
-on every weekday, so a zero-rate Sharpe cannot pass by accident.
+on every weekday; the price fixtures are daily, weekends included, so each
+bar after the first accrues one day of interest.
 """
 
-from datetime import date
+import math
+from datetime import date, datetime
 
+import numpy as np
+import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
@@ -23,12 +31,14 @@ from tests.api.conftest import FakeRates
 
 WINDOW = {"start": "2024-01-01", "end": "2024-12-31"}
 IRX_2PCT = discount_to_bond_equivalent(2.0)
+CAPITAL = 100_000.0
+#: Both averages longer than the window: no signal at all, so the run is all
+#: cash. (A short window that fits DOES signal, even with no long average.)
+NEVER_TRADES = {"short_window": 400, "long_window": 900}
 
 
 def metric_sets(path: str, body: dict) -> list:
-    """Every metrics dict a response carries that must obey the rate."""
-    if path == "/api/v1/backtest/portfolio":
-        return [body["metrics"]]
+    """Every metrics dict a response carries."""
     if path == "/api/v1/backtest/compare":
         return [row["metrics"] for row in body["results"]] + [body["benchmark"]["metrics"]]
     if path == "/api/v1/optimize/strategy":
@@ -41,12 +51,8 @@ def metric_sets(path: str, body: dict) -> list:
 ENDPOINTS = {
     "backtest": (
         "/api/v1/backtest",
-        {
-            "symbol": "AAPL",
-            # Buy and hold: invested every bar, so the volatility is never 0.
-            "strategy_id": "buy_and_hold",
-            **WINDOW,
-        },
+        # Buy and hold: invested every bar, so the volatility is never 0.
+        {"symbol": "AAPL", "strategy_id": "buy_and_hold", **WINDOW},
     ),
     "compare": (
         "/api/v1/backtest/compare",
@@ -82,38 +88,59 @@ def post(client: TestClient, name: str, **overrides):
     return path, client.post(path, json={**body, **overrides})
 
 
-def assert_sharpe_is_excess_of(metrics: dict, rate: float) -> None:
-    vol = metrics["Annualized Volatility"]
-    expected = (metrics["Annualized Return"] - rate) / vol
-    assert metrics["Sharpe Ratio"] == pytest.approx(expected, rel=1e-9)
+def daily_accrual(times: list, annual: float) -> np.ndarray:
+    days = [(b.date() - a.date()).days for a, b in zip(times, times[1:], strict=False)]
+    return np.concatenate([[0.0], annual * np.array(days, dtype=float) / 365.0])
+
+
+def expected_sharpe(curve: list, annual: float, initial: float = CAPITAL) -> float:
+    """The definition, recomputed from a returned equity curve."""
+    times = [datetime.fromisoformat(p["time"]) for p in curve]
+    totals = np.array([p["total"] for p in curve])
+    accrual = daily_accrual(times, annual)
+    returns = pd.Series(totals).pct_change().fillna(0).to_numpy()
+    days = (times[-1] - times[0]).days
+    excess = ((totals[-1] / initial) / np.prod(1.0 + accrual)) ** (365.0 / days) - 1
+    return excess / (pd.Series(returns - accrual).std() * math.sqrt(252))
+
+
+# --- every endpoint ------------------------------------------------------------
 
 
 @pytest.mark.parametrize("name", list(ENDPOINTS))
-def test_sharpe_is_in_excess_of_the_stored_rate(client: TestClient, name: str):
-    path, response = post(client, name)
+def test_every_endpoint_reports_the_window_rate(client: TestClient, name: str):
+    _path, response = post(client, name)
     assert response.status_code == 200, response.text
     body = response.json()
-
     assert body["risk_free_rate"] == pytest.approx(IRX_2PCT)
     assert body["risk_free_source"].startswith("^IRX bond-equivalent, mean over")
-    checked = [m for m in metric_sets(path, body) if m.get("Annualized Volatility")]
-    assert checked, "no metrics with a volatility to check: the fixture exercises nothing"
-    for metrics in checked:
-        assert_sharpe_is_excess_of(metrics, body["risk_free_rate"])
 
 
 @pytest.mark.parametrize("name", list(ENDPOINTS))
 def test_a_supplied_rate_is_used_and_the_store_is_never_read(
     client: TestClient, rates: FakeRates, name: str
 ):
-    path, response = post(client, name, risk_free_rate=0.035)
+    _path, response = post(client, name, risk_free_rate=0.035)
     body = response.json()
     assert body["risk_free_rate"] == 0.035
     assert body["risk_free_source"] == "supplied in the request"
     assert rates.calls == 0
-    for metrics in metric_sets(path, body):
-        if metrics.get("Annualized Volatility"):
-            assert_sharpe_is_excess_of(metrics, 0.035)
+
+
+@pytest.mark.parametrize("name", list(ENDPOINTS))
+def test_a_zero_rate_reproduces_the_old_ratio_exactly(client: TestClient, name: str):
+    """
+    risk_free_rate=0: cash earns nothing and Sharpe is the old CAGR / vol, bit
+    for bit — the regression check that the loop is otherwise unchanged.
+    """
+    path, response = post(client, name, risk_free_rate=0.0)
+    checked = [m for m in metric_sets(path, response.json()) if m.get("Annualized Volatility")]
+    assert checked, "no metrics with a volatility: the fixture exercises nothing"
+    for metrics in checked:
+        assert (
+            metrics["Sharpe Ratio"]
+            == metrics["Annualized Return"] / metrics["Annualized Volatility"]
+        )
 
 
 @pytest.mark.parametrize("name", list(ENDPOINTS))
@@ -131,32 +158,81 @@ def test_a_window_starting_before_the_series_is_422(client: TestClient):
     assert "2024-06-03" in response.json()["detail"]
 
 
-def test_the_rate_moves_sharpe_and_nothing_else(client: TestClient):
-    """
-    The rate enters the metrics only, never the run: every other KPI and the
-    whole equity curve are identical at 0.5% and 8%.
-    """
-    app.dependency_overrides[get_rate_repo] = lambda: FakeRates(0.5)
-    _path, low = post(client, "backtest")
-    app.dependency_overrides[get_rate_repo] = lambda: FakeRates(8.0)
-    _path, high = post(client, "backtest")
-    low, high = low.json(), high.json()
-
-    assert low["equity_curve"] == high["equity_curve"]
-    assert low["trades"] == high["trades"]
-    others = set(low["metrics"]) - {"Sharpe Ratio"}
-    assert {k: low["metrics"][k] for k in others} == {k: high["metrics"][k] for k in others}
-    assert low["metrics"]["Sharpe Ratio"] > high["metrics"]["Sharpe Ratio"]
+# --- the cash account ----------------------------------------------------------
 
 
-def test_compare_ranks_every_row_and_the_benchmark_on_one_rate(client: TestClient):
-    path, response = post(client, "compare")
+def test_idle_cash_compounds_at_the_stored_rate(client: TestClient):
+    _path, response = post(client, "backtest", strategy_id="ma_crossover", params=NEVER_TRADES)
     body = response.json()
-    rate = body["risk_free_rate"]
-    checked = [m for m in metric_sets(path, body) if m.get("Annualized Volatility")]
-    assert body["benchmark"]["metrics"] in checked
-    for metrics in checked:
-        assert_sharpe_is_excess_of(metrics, rate)
+    assert body["trades"] == []
+    curve = body["equity_curve"]
+    times = [datetime.fromisoformat(p["time"]) for p in curve]
+    grown = CAPITAL * np.cumprod(1.0 + daily_accrual(times, IRX_2PCT))
+    assert [p["cash"] for p in curve] == pytest.approx(list(grown), rel=1e-12)
+    assert curve[-1]["total"] > CAPITAL
+
+
+def test_a_strategy_that_never_trades_scores_zero(client: TestClient):
+    """
+    It IS the cash account. Subtracting a scalar rate from its CAGR instead
+    gave it a Sharpe of order 1 from compounding and weekend interest.
+    """
+    _path, response = post(client, "backtest", strategy_id="ma_crossover", params=NEVER_TRADES)
+    metrics = response.json()["metrics"]
+    assert metrics["Total Return"] > 0
+    assert metrics["Sharpe Ratio"] == 0.0
+
+
+def test_backtest_sharpe_is_excess_over_the_cash_account(client: TestClient):
+    _path, response = post(client, "backtest")
+    body = response.json()
+    assert body["metrics"]["Sharpe Ratio"] == pytest.approx(
+        expected_sharpe(body["equity_curve"], IRX_2PCT), rel=1e-9
+    )
+
+
+def test_compare_rows_and_benchmark_are_excess_over_the_cash_account(client: TestClient):
+    _path, response = post(client, "compare")
+    body = response.json()
+    # Rows that traded: a row left in cash is the cash account, whose excess
+    # is float noise the analyzer reports as 0 (test_..._scores_zero).
+    rows = [r for r in body["results"] if r["metrics"].get("Trade Count")]
+    assert rows
+    for row in [*rows, body["benchmark"]]:
+        assert row["metrics"]["Sharpe Ratio"] == pytest.approx(
+            expected_sharpe(row["equity_curve"], IRX_2PCT), rel=1e-9
+        )
+
+
+def test_portfolio_backtest_sharpe_is_excess_over_the_cash_account(client: TestClient):
+    _path, response = post(client, "portfolio_backtest")
+    body = response.json()
+    assert body["metrics"]["Sharpe Ratio"] == pytest.approx(
+        expected_sharpe(body["equity_curve"], IRX_2PCT), rel=1e-9
+    )
+
+
+def test_portfolio_backtest_credits_its_cash(client: TestClient):
+    """A basket never fully invests (whole shares), so its cash must grow."""
+    low = post(client, "portfolio_backtest", risk_free_rate=0.0)[1].json()
+    high = post(client, "portfolio_backtest", risk_free_rate=0.08)[1].json()
+    assert high["equity_curve"][-1]["total"] > low["equity_curve"][-1]["total"]
+
+
+def test_simulated_paths_earn_interest_on_cash(client: TestClient):
+    """Prices mode re-runs the strategy per path; its cash accrues too."""
+    common = {
+        "strategy_id": "ma_crossover",
+        "params": NEVER_TRADES,
+        "mode": "prices",
+        "n_paths": 5,
+        "horizon_days": 30,
+        "include_paths": 5,
+    }
+    flat = post(client, "simulate", **common, risk_free_rate=0.0)[1].json()
+    earning = post(client, "simulate", **common, risk_free_rate=0.05)[1].json()
+    assert all(path[-1] == CAPITAL for path in flat["sample_paths"])
+    assert all(path[-1] > CAPITAL for path in earning["sample_paths"])
 
 
 # --- websockets ----------------------------------------------------------------
@@ -184,8 +260,13 @@ def test_websocket_results_carry_the_window_rate(ws_client: TestClient, path: st
     assert result["type"] == "result", result
     assert result["risk_free_rate"] == pytest.approx(IRX_2PCT)
     assert result["risk_free_source"].startswith("^IRX bond-equivalent")
-    metrics = result.get("metrics") or result.get("historical") or result["best_metrics"]
-    assert_sharpe_is_excess_of(metrics, result["risk_free_rate"])
+
+
+def test_websocket_backtest_matches_rest(ws_client: TestClient, client: TestClient):
+    """Same accrual through both transports, so the same Sharpe."""
+    rest = post(client, "backtest")[1].json()["metrics"]
+    socket = ws_run(ws_client, "/api/v1/ws/backtest")["metrics"]
+    assert socket["Sharpe Ratio"] == rest["Sharpe Ratio"]
 
 
 @pytest.mark.parametrize("path", list(WS))

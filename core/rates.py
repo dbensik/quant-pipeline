@@ -48,8 +48,10 @@ import logging
 import math
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
-from typing import Callable, List, Optional, Protocol, Tuple
+from typing import Callable, List, Optional, Protocol, Sequence, Tuple
 from zoneinfo import ZoneInfo
+
+import numpy as np
 
 from config.settings import (
     INGEST_OVERLAP_DAYS,
@@ -220,6 +222,9 @@ class WindowRiskFreeRate:
     last_session: date
     #: The oldest observation any session had to fall back on, in days.
     max_age_days: int
+    #: The bond-equivalent rate joined to each session, in the order given.
+    #: `rate` is their mean; a backtest credits cash with them one by one.
+    per_session: Tuple[float, ...] = ()
 
     def describe(self) -> str:
         return (
@@ -252,7 +257,7 @@ def mean_risk_free_over(
     obs_dates = [o.obs_date for o in ordered]
     rates = [discount_to_bond_equivalent(o.value, days) for o in ordered]
 
-    total = 0.0
+    joined: List[float] = []
     oldest = 0
     for session in sessions:
         i = bisect.bisect_right(obs_dates, session) - 1
@@ -267,17 +272,43 @@ def mean_risk_free_over(
                 f"{ordered[0].series}: the newest observation on or before {session} "
                 f"is {obs_dates[i]}, {age} days old (limit {max_age_days})"
             )
-        total += rates[i]
+        joined.append(rates[i])
         oldest = max(oldest, age)
 
     return WindowRiskFreeRate(
         series=ordered[0].series,
-        rate=total / len(sessions),
+        rate=sum(joined) / len(joined),
         sessions=len(sessions),
         first_session=min(sessions),
         last_session=max(sessions),
         max_age_days=oldest,
+        per_session=tuple(joined),
     )
+
+
+def period_accruals(dates: Sequence[date], period_rates: Sequence[float]) -> np.ndarray:
+    """
+    Interest one unit of cash earns over each bar, aligned to `dates`.
+
+    Bar 0 earns nothing; bar i earns the annual bond-equivalent rate known at
+    the START of its period, period_rates[i-1], for the calendar days since
+    bar i-1. A bond-equivalent yield is quoted simple on a 365-day year, so
+    calendar-day scaling is the convention itself: Monday's bar earns three
+    days, and a crypto weekend earns one a day.
+    """
+    if len(dates) == 0:
+        return np.zeros(0)
+    if len(period_rates) != len(dates) - 1:
+        raise ValueError(
+            f"{len(dates)} dates make {len(dates) - 1} periods; got {len(period_rates)} rates"
+        )
+    accrual = np.zeros(len(dates))
+    for i in range(1, len(dates)):
+        days = (dates[i] - dates[i - 1]).days
+        if days < 0:
+            raise ValueError(f"dates out of order: {dates[i - 1]} then {dates[i]}")
+        accrual[i] = period_rates[i - 1] * days / 365.0
+    return accrual
 
 
 async def risk_free_over(

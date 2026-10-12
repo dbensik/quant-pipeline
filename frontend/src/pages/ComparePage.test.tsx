@@ -145,7 +145,7 @@ describe('ComparePage — setup', () => {
     await screen.findByRole('button', { name: /Moving Average Crossover/ })
     await userEvent.click(screen.getByRole('button', { name: /^Compare/ }))
 
-    expect(await screen.findByText(/net of a 4\.12% risk-free rate/)).toBeInTheDocument()
+    expect(await screen.findByText(/cash earns a 4\.12% risk-free rate/)).toBeInTheDocument()
   })
 
   it('passes a benchmark only when one is entered', async () => {

@@ -37,9 +37,16 @@ class PortfolioBacktester:
         self.enable_vol_targeting = enable_vol_targeting
         self.target_volatility = target_volatility
         self.results = None
+        #: Per-bar cash interest of the last run, aligned to its results.
+        self.cash_accrual = None
 
     def run(
-        self, price_data: dict, signals_data: dict, target_weights: dict
+        self,
+        price_data: dict,
+        signals_data: dict,
+        target_weights: dict,
+        *,
+        cash_accrual: pd.Series,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
         Runs the portfolio backtest using an efficient event-driven loop.
@@ -48,6 +55,10 @@ class PortfolioBacktester:
             price_data: A dictionary mapping tickers to their OHLCV DataFrame.
             signals_data: A dictionary mapping tickers to their signals DataFrame.
             target_weights: A dictionary mapping tickers to their target weights.
+            cash_accrual: Interest one unit of cash earns on each bar, indexed
+                by timestamp (see Backtester.run). Keyed by date rather than
+                position because the timeline is built here, as the union of
+                every symbol's dates; a bar with no accrual is refused.
         """
         # --- 1. ARCHITECTURAL REFACTOR: Create an event-driven loop ---
         # Get all unique timestamps from all signal sources. This is more efficient
@@ -68,6 +79,15 @@ class PortfolioBacktester:
             # If there are no dates at all, return an empty result.
             return pd.DataFrame(), pd.DataFrame()
 
+        accrual = cash_accrual.reindex(full_timeline)
+        if accrual.isna().any():
+            missing = accrual.index[accrual.isna()]
+            raise ValueError(
+                f"cash_accrual has no value for {len(missing)} bar(s), first {missing[0]}"
+            )
+        accrual_values = accrual.to_numpy(dtype=float)
+        self.cash_accrual = accrual_values
+
         # --- 2. Initialize Portfolio State ---
         all_tickers = list(price_data.keys())
         portfolio = pd.DataFrame(index=full_timeline)
@@ -86,6 +106,8 @@ class PortfolioBacktester:
             if i > 0:
                 prev_timestamp = full_timeline[i - 1]
                 portfolio.loc[timestamp] = portfolio.loc[prev_timestamp]
+                # Interest on idle cash for the period ending at this bar.
+                portfolio.loc[timestamp, "cash"] *= 1.0 + accrual_values[i]
 
             # Update holdings value with current prices
             current_holdings_value = 0.0
@@ -228,11 +250,13 @@ class PortfolioBacktester:
 
         return portfolio, pd.DataFrame(trade_log)
 
-    def get_performance_metrics(self, risk_free_rate: float) -> dict:
+    def get_performance_metrics(self) -> dict:
         """Calculates performance metrics by delegating to the PerformanceAnalyzer."""
         if self.results is None or self.results.empty:
             return {}
         analyzer = PerformanceAnalyzer(
-            self.results, initial_capital=self.initial_capital, risk_free_rate=risk_free_rate
+            self.results,
+            initial_capital=self.initial_capital,
+            risk_free_accrual=self.cash_accrual,
         )
         return analyzer.calculate_all_metrics()
