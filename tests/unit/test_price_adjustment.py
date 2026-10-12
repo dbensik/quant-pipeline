@@ -64,21 +64,23 @@ def test_volume_moves_opposite_to_price_on_a_split():
     assert adjust(bars, [NVDA_SPLIT], "split")[0].volume == pytest.approx(412_386_000)
 
 
-def test_a_bar_fetched_on_the_ex_date_morning_follows_the_one_rule():
+def test_a_bar_fetched_on_the_ex_date_morning_is_not_yet_split():
     """
-    The case the plan flagged: a split effective the morning of a 06:00 fetch.
-    APPLIED_ON_EX_DATE decides it; this pins the current rule so changing it
-    is deliberate.
+    The case the plan flagged, settled by CTVA 2026-10-01 (6.665 split): the
+    06:00 ET fetch on the ex-date served the 09-30 bar at its pre-split $77.65.
+    So a bar fetched on the ex-date is already raw, and must not be multiplied.
     """
-    bar = served(date(2024, 6, 7), 120.888, at(date(2024, 6, 10), hour=10))
-    assert pa.APPLIED_ON_EX_DATE is True
-    assert closes(to_raw([bar], [NVDA_SPLIT])) == [1208.88]
+    ctva_split = Action(date(2026, 10, 1), "split", 6.665, LATER)
+    bar = served(date(2026, 9, 30), 77.65, at(date(2026, 10, 1), hour=10))
+    assert pa.APPLIED_ON_EX_DATE is False
+    assert closes(to_raw([bar], [ctva_split])) == [pytest.approx(77.65)]
 
 
 def test_the_rule_is_the_only_switch(monkeypatch):
-    bar = served(date(2024, 6, 7), 1208.88, at(date(2024, 6, 10), hour=10))
-    monkeypatch.setattr(pa, "APPLIED_ON_EX_DATE", False)
-    assert closes(to_raw([bar], [NVDA_SPLIT])) == [1208.88]
+    # The refuted rule, switched back on, multiplies the same bar: 120.888 x 10.
+    bar = served(date(2024, 6, 7), 120.888, at(date(2024, 6, 10), hour=10))
+    monkeypatch.setattr(pa, "APPLIED_ON_EX_DATE", True)
+    assert closes(to_raw([bar], [NVDA_SPLIT])) == [pytest.approx(1208.88)]
 
 
 # ---------------------------------------------------------------------------

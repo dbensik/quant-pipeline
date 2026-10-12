@@ -30,7 +30,9 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 cd "$PROJECT_ROOT" || exit 1
 
-VENV_PYTHON="$(poetry env info --path 2>/dev/null)/bin/python"
+# QUANT_MAINT_PYTHON exists for tests/unit/test_daily_maintenance_exit.py,
+# which substitutes a stub that fakes each step's exit code. Unset in launchd.
+VENV_PYTHON="${QUANT_MAINT_PYTHON:-$(poetry env info --path 2>/dev/null)/bin/python}"
 if [ ! -x "$VENV_PYTHON" ]; then
     # poetry itself may not be on cron's PATH; fall back to the known venv.
     VENV_PYTHON="$HOME/Library/Caches/pypoetry/virtualenvs/quant-pipeline-nPGsYOTA-py3.12/bin/python"
@@ -57,10 +59,19 @@ echo $$ > "$LOCK_FILE"
 trap 'rm -f "$LOCK_FILE"' EXIT
 
 MODE="${1:-all}"
-STATUS=0
-# Kept apart from STATUS: a flagged series is a finding, not a failed step,
-# and deserves its own notification rather than one about lost index-days.
-FLAGGED=0
+# Two outcomes, kept apart on purpose (split 2026-10-12):
+#   FAILED_STEPS  a step did not do its job (ingest, rate, SEC facts, a check
+#                 that could not run, a snapshot). Exit 1: something may be
+#                 lost, and a missed snapshot cannot be backdated.
+#   FLAGS         a check RAN and found stored data it disagrees with. Exit 0:
+#                 the job did its job; the finding is named on the final line
+#                 and raises its own notification. From 2026-10-08 to 10-12 a
+#                 single CTVA mismatch made five complete runs read as failed.
+# Each holds space-separated step names, so the final line says which.
+FAILED_STEPS=""
+FLAGS=""
+fail() { FAILED_STEPS="${FAILED_STEPS:+$FAILED_STEPS }$1"; }
+flag() { FLAGS="${FLAGS:+$FLAGS }$1"; }
 
 log() { echo "$(date '+%Y-%m-%d %H:%M:%S') - $*" >> "$LOG_FILE"; }
 
@@ -100,7 +111,7 @@ if [ "$MODE" != "--snapshot-only" ]; then
         log "ingest OK"
     else
         log "ingest FAILED (exit $?)"
-        STATUS=1
+        fail ingest
     fi
 fi
 
@@ -113,7 +124,7 @@ if [ "$MODE" != "--snapshot-only" ]; then
         log "risk-free rate OK"
     else
         log "risk-free rate FAILED (exit $?)"
-        STATUS=1
+        fail risk-free-rate
     fi
 fi
 
@@ -128,7 +139,7 @@ if [ "$MODE" != "--snapshot-only" ]; then
         log "SEC fundamentals OK"
     else
         log "SEC fundamentals FAILED (exit $?)"
-        STATUS=1
+        fail sec-fundamentals
     fi
 fi
 
@@ -145,10 +156,10 @@ if [ "$MODE" != "--snapshot-only" ]; then
         log "reassignment check OK"
     elif [ "$CHECK_EXIT" -eq 1 ]; then
         log "reassignment check FLAGGED a series — see SUSPECT lines above"
-        FLAGGED=1
+        flag reassigned
     else
         log "reassignment check FAILED to run (exit $CHECK_EXIT)"
-        STATUS=1
+        fail reassigned-check
     fi
 fi
 
@@ -164,10 +175,10 @@ if [ "$MODE" != "--snapshot-only" ]; then
         log "missing-day check OK"
     elif [ "$CHECK_EXIT" -eq 1 ]; then
         log "missing-day check FLAGGED lost bars — see MISSING lines above"
-        FLAGGED=1
+        flag missing-days
     else
         log "missing-day check FAILED to run (exit $CHECK_EXIT)"
-        STATUS=1
+        fail missing-day-check
     fi
 fi
 
@@ -183,10 +194,10 @@ if [ "$MODE" != "--snapshot-only" ]; then
         log "fresh-return check OK"
     elif [ "$CHECK_EXIT" -eq 1 ]; then
         log "fresh-return check FLAGGED returns that disagree with Yahoo — see MISMATCH lines above"
-        FLAGGED=1
+        flag fresh-return
     else
         log "fresh-return check FAILED to run (exit $CHECK_EXIT)"
-        STATUS=1
+        fail fresh-return-check
     fi
 fi
 
@@ -196,13 +207,24 @@ if [ "$MODE" != "--ingest-only" ]; then
         log "snapshot OK"
     else
         log "snapshot FAILED (exit $?)"
-        STATUS=1
+        fail snapshot
     fi
 fi
 
-EXIT=$STATUS
-[ "$FLAGGED" -eq 1 ] && EXIT=1
-log "=== daily maintenance finished (exit $EXIT) ==="
+# The final line is parsed by the runbook's liveness and weekly drift checks:
+#   finished (exit 0) ===                       clean
+#   finished (exit 0) with FLAGS: <checks> ===  ran fully; data findings to read
+#   finished (exit 1) FAILED: <steps> ===       a step failed (FLAGS appended if any)
+if [ -n "$FAILED_STEPS" ]; then
+    EXIT=1
+    log "=== daily maintenance finished (exit 1) FAILED: $FAILED_STEPS${FLAGS:+; FLAGS: $FLAGS} ==="
+elif [ -n "$FLAGS" ]; then
+    EXIT=0
+    log "=== daily maintenance finished (exit 0) with FLAGS: $FLAGS ==="
+else
+    EXIT=0
+    log "=== daily maintenance finished (exit 0) ==="
+fi
 
 # Surface a failure where a human will actually see it.
 #
@@ -213,11 +235,11 @@ log "=== daily maintenance finished (exit $EXIT) ==="
 #
 # Skipped when stdout is a terminal, so running this by hand does not fire a
 # notification at the person who just ran it and is already reading the output.
-if [ "$STATUS" -ne 0 ] && [ ! -t 1 ]; then
+if [ -n "$FAILED_STEPS" ] && [ ! -t 1 ]; then
     osascript -e 'display notification "Snapshot, ingest or a check failed - see logs/daily_maintenance.log. Missed index-days cannot be backdated." with title "quant-pipeline daily maintenance"' >/dev/null 2>&1 || true
 fi
 
-if [ "$FLAGGED" -eq 1 ] && [ ! -t 1 ]; then
+if [ -n "$FLAGS" ] && [ ! -t 1 ]; then
     osascript -e 'display notification "A check flagged stored data - see SUSPECT, MISSING or MISMATCH in logs/daily_maintenance.log. Nothing was changed." with title "quant-pipeline daily maintenance"' >/dev/null 2>&1 || true
 fi
 

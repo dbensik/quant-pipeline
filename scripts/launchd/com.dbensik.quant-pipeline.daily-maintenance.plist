@@ -15,6 +15,16 @@
   launchd's StartCalendarInterval runs a missed job when the machine next wakes,
   which is exactly the behaviour this needs.
 
+  WHY CAFFEINATE (added 2026-10-12). "Next wakes" is often a DarkWake: the Mac
+  is up for 45-60 s every ~15 min, then sleeps again with the job mid-run. On
+  2026-10-11 the job started at 06:05 in one, ingest crawled across four of
+  them (46 min instead of 3), and the fresh-return download died when the Mac
+  slept at 06:51:16 — 14 symbols empty, the check failed. `caffeinate -i -s`
+  holds the machine awake until the script exits (-s applies on AC power
+  only; -i keeps idle sleep off on battery), then releases it. It cannot WAKE
+  a sleeping Mac: a closed lid in hibernation (10-12, job at 08:58) still
+  runs on the next real wake.
+
   INSTALL (see scripts/launchd/install.sh, which also removes the crontab entry
   so the two cannot both fire):
       launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/<this file>
@@ -28,6 +38,9 @@
 
     <key>ProgramArguments</key>
     <array>
+        <string>/usr/bin/caffeinate</string>
+        <string>-i</string>
+        <string>-s</string>
         <string>/Users/dannybensik/PycharmProjects/quant-pipeline/scripts/cron/daily_maintenance.sh</string>
     </array>
 

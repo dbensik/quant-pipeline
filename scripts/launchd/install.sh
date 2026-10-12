@@ -42,7 +42,10 @@ fi
 
 # Remove the crontab line, keeping every other entry and all comments.
 # Only daily maintenance ever had one.
-if [ "$LABEL" = "com.dbensik.quant-pipeline.daily-maintenance" ] && crontab -l 2>/dev/null | grep -q "daily_maintenance.sh"; then
+# Match only an ACTIVE line, the same pattern the removal uses: matching a
+# comment rewrote an unchanged crontab on every install, and on macOS each
+# rewrite waits on a permission dialog (an install hung on it 2026-10-12).
+if [ "$LABEL" = "com.dbensik.quant-pipeline.daily-maintenance" ] && crontab -l 2>/dev/null | grep -q "^[^#]*daily_maintenance.sh"; then
     crontab -l 2>/dev/null \
         | grep -v "^[^#]*daily_maintenance.sh" \
         > /tmp/crontab.new.$$

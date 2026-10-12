@@ -37,10 +37,14 @@ THE MODES
 
 Volume is adjusted for splits only, so dollar volume is preserved.
 
-ONE UNVERIFIED RULE. When a split's ex-date is the fetch date itself, is the
-split already applied? `APPLIED_ON_EX_DATE` says yes. It only matters for a
-bar fetched on the morning of an ex-date, and the daily fresh-return check
-(phase 6) is what confirms or refutes it on the next real split.
+THE EX-DATE RULE (settled 2026-10-12). When a split's ex-date is the fetch
+date itself, is the split already applied? `APPLIED_ON_EX_DATE` assumed yes
+until the first real split after the cutover refuted it: CTVA's 6.665 split
+(Corteva's separation), ex-date 2026-10-01. The 06:00 ET fetch that morning
+served the 09-30 bar as $77.65 on 4.03M shares — the pre-split price — so
+"already applied" multiplied it to $517.54 as traded, and the fresh-return
+check flagged +564.9pp / -91.7pp on 09-30 / 10-01 every morning from 10-08.
+It is now False. That bar was the only one stored that this rule reaches.
 """
 
 from __future__ import annotations
@@ -89,9 +93,9 @@ class Bar:
     volume: Optional[float]
 
 
-#: Whether a fetch made ON an event's ex-date already reflects it. Assumed yes;
-#: unverified — see the module docstring. The one place the rule lives.
-APPLIED_ON_EX_DATE = True
+#: Whether a fetch made ON an event's ex-date already reflects it. No: refuted by
+#: CTVA 2026-10-01 — see the module docstring. The one place the rule lives.
+APPLIED_ON_EX_DATE = False
 
 
 #: Bar dates and ex-dates are New York trading dates, so a fetch must be dated
