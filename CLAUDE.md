@@ -201,12 +201,17 @@ old runs bit for bit. The portfolio weights optimizer subtracts the window mean
 from an arithmetic Sharpe, so its Sharpe still differs by construction.
 `data_enricher.py` keeps 0.02 but has no live caller.
 
-**Known, not fixed: an all-cash entry can be silently dropped.** On a buy the
-backtester sizes `floor(cash / price)` shares; when slippage plus commission
-push the fill above cash, the whole order is skipped and retried next bar.
-Measured 2026-10-12 (ma_crossover 10/30, 2018-2025): 2-6 entries per symbol
-never became a position (SPY 2/30, XOM 4/25, BTC-USD 6/44). Interest on cash
-changes which orders clear, so trade logs can differ from pre-interest runs.
+**An unaffordable entry is resized, not dropped** (fixed 2026-10-12).
+`Backtester` sizes a buy as `floor(cash / close)`; adverse slippage plus the
+commission can make that fill cost more than the cash. It used to skip the
+order and retry next bar; it now buys `floor((cash - commission) / fill)` at
+the SAME fill (one slippage draw per order, so runs that never hit it are
+bit-identical). Measured on 15 real runs (5 symbols x 3 default strategies,
+2016-2025): 80 buy bars went unfilled before, 3 after — those 3 are BTC-USD
+bars where one coin cost more than the cash (whole units only, a separate
+limit). Buy and hold on AAPL and TQQQ had started a day late.
+`PortfolioBacktester` has no cash check at all; no negative cash was seen in
+real runs (min $4.23), but nothing prevents it.
 
 **SEC facts are refreshed from EDGAR's daily form index** (since
 2026-10-11, step in the 06:00 job). The quarter's `index.json` names the

@@ -126,15 +126,17 @@ def test_returns_mode_resamples_from_the_first_invested_bar(client: TestClient):
 
 def test_prob_loss_counts_strictly_losing_paths(client: TestClient):
     """
-    ma_crossover 10/30 trades rarely on bootstrapped fixture paths, so some
-    paths end EXACTLY at start equity. Those are not losses. Cross-check
+    ma_crossover 25/44 over 45 bars only crosses on some bootstrapped paths,
+    so some end EXACTLY at start equity (2 of 40 here) and some below it (4).
+    The flat ones are not losses. (10/30 was used until 2026-10-12; its flat
+    paths were entries the backtester dropped as unaffordable, since fixed.) Cross-check
     prob_loss against the returned sample paths — the two are computed
     separately, so they can only agree if both use a strict comparison.
     """
     body = run(
         client,
         strategy_id="ma_crossover",
-        params={"short_window": 10, "long_window": 30},
+        params={"short_window": 25, "long_window": 44},
         mode="prices",
         n_paths=40,
         horizon_days=45,
@@ -147,6 +149,7 @@ def test_prob_loss_counts_strictly_losing_paths(client: TestClient):
     assert any(f == 100_000.0 for f in finals), (
         "fixture must produce a flat path or this proves nothing"
     )
+    assert any(f < 100_000.0 for f in finals), "and a losing one, or prob_loss is trivially 0"
     assert body["terminal"]["prob_loss"] == pytest.approx(sum(f < 100_000.0 for f in finals) / 40)
 
 

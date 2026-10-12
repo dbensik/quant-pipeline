@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import numpy as np
 import pandas as pd
 
@@ -113,8 +115,20 @@ class Backtester:
                         order = OrderEvent(date, symbol, "MKT", shares_to_buy, "BUY")
                         fill = self.execution_handler.execute_order(order, price)
 
-                        # Ensure we can afford the filled order
-                        if cash >= fill.total_cost:
+                        # Sized on the close, the fill can cost more than the
+                        # cash: adverse slippage plus commission. Until
+                        # 2026-10-12 such an order was DROPPED and retried next
+                        # bar: 80 unfilled buy bars over 15 real runs (5
+                        # symbols x 3 strategies, 2016-2025); TQQQ
+                        # mean_reversion alone lost 42. Buy what the cash covers at THIS fill
+                        # instead, as a broker would. The fill is reused, not
+                        # re-executed: one slippage draw per order keeps the
+                        # RNG in step, so runs that never hit this are unchanged.
+                        if fill.total_cost > cash:
+                            affordable = np.floor((cash - fill.commission) / fill.fill_price)
+                            fill = replace(fill, quantity=max(affordable, 0.0))
+
+                        if fill.quantity > 0 and cash >= fill.total_cost:
                             position += fill.quantity
                             cash -= fill.total_cost
                             self.trade_log.append(fill)

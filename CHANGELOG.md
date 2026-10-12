@@ -40,6 +40,7 @@ before the migration below; they are kept as history.
 - **Test suites that need no Docker**: API routers through the repository Protocol, and a frontend suite.
 
 ### Fixed
+- **A buy the cash could not cover is resized, not dropped** (2026-10-12): an all-cash entry whose slippage and commission pushed the fill above the cash was skipped and retried next bar — 80 unfilled buy bars over 15 real runs (TQQQ `mean_reversion` alone 42; buy and hold on AAPL and TQQQ started a day late). It now buys what the cash covers at the same fill, so runs that never hit it are unchanged.
 - **Backtest metrics used the requested starting capital** (2026-10-12): every caller passed `PerformanceAnalyzer(history, initial_capital)`, which bound the capital to `benchmark_history`, so metrics were measured against 100,000 whatever the run started with — a 50,000 run that gained 1.6% reported −49.2%. Only API callers setting `initial_capital` were affected; the UI always sends the default. The analyzer's options are now keyword-only.
 - **Split-adjustment drift** silently corrupted prices after a split (2026-08-09); superseded by read-time adjustment.
 - **An empty fetch no longer marks a symbol delisted** (2026-08-10): it means the provider lost the key.
