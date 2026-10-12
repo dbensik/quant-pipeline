@@ -228,6 +228,8 @@ CIK_HISTORY_GAP_DAYS = 400
 #: modeling/statements.py. Measured on AAPL 2026-10-08: each of these present.
 FUNDAMENTAL_CONCEPTS = (
     ("us-gaap", "RevenueFromContractWithCustomerExcludingAssessedTax"),
+    # Added 2026-10-11: KHC and SJM tag revenue only under this variant.
+    ("us-gaap", "RevenueFromContractWithCustomerIncludingAssessedTax"),
     ("us-gaap", "Revenues"),
     ("us-gaap", "SalesRevenueNet"),
     ("us-gaap", "CostOfGoodsAndServicesSold"),
@@ -271,6 +273,19 @@ FUNDAMENTAL_CONCEPTS = (
     ("us-gaap", "LongTermDebtNoncurrent"),
     ("us-gaap", "LongTermDebtCurrent"),
     ("us-gaap", "CommercialPaper"),
+    # Added 2026-10-11 from a census of the 97 non-financial equities that
+    # report interest but tagged no LongTermDebt[Noncurrent] within 400 days
+    # (125 of all equities; LDOS's last LongTermDebt was 2015, CMCSA had none):
+    # 67 tag LongTermDebtAndCapitalLeaseObligations, 49 its Current, 32 the
+    # IncludingCurrentMaturities total, 33 DebtCurrent, 26 ShortTermBorrowings,
+    # 19 DebtAndCapitalLeaseObligations, 15 DebtLongtermAndShorttermCombinedAmount.
+    ("us-gaap", "LongTermDebtAndCapitalLeaseObligations"),
+    ("us-gaap", "LongTermDebtAndCapitalLeaseObligationsCurrent"),
+    ("us-gaap", "LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities"),
+    ("us-gaap", "DebtAndCapitalLeaseObligations"),
+    ("us-gaap", "DebtLongtermAndShorttermCombinedAmount"),
+    ("us-gaap", "DebtCurrent"),
+    ("us-gaap", "ShortTermBorrowings"),
     ("us-gaap", "StockholdersEquity"),
     ("us-gaap", "Assets"),
     ("us-gaap", "Liabilities"),

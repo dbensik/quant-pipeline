@@ -112,3 +112,13 @@ def test_wacc_reported_and_estimated_cost_of_debt():
     assert w.cost_of_debt_after_tax < w.wacc < w.cost_of_equity
     e = wacc(0.04, 1.2, 900.0, 100.0, 0.2, interest_expense=None)
     assert e.cost_of_debt_estimated and e.cost_of_debt_pre_tax == pytest.approx(0.05) and e.notes
+
+
+def test_a_non_positive_exit_metric_gives_no_exit_value():
+    # CAG 2026: TTM EBITDA -$1.3B (impairment). 15x of it was -$37 a share.
+    from modeling.dcf import DCFInputs, gordon_implied_multiple, run
+    r = run(DCFInputs(base_fcf=1.1e9, growth_first=0.0, growth_terminal=0.025, wacc=0.08, net_debt=7e9,
+                      shares=4.8e8, exit_metric_base=-1.3e9, exit_multiple=15.0))
+    assert r.exit_per_share is None and r.exit_enterprise_value is None
+    assert any("not positive" in w for w in r.warnings) and r.per_share is not None
+    assert gordon_implied_multiple(r) is None

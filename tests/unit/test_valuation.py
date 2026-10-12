@@ -200,3 +200,117 @@ def test_the_share_fallback_takes_the_newest_average_annual_or_quarterly():
         f("PaymentsToAcquirePropertyPlantAndEquipment", 4e8, date(2025, 7, 1), date(2026, 6, 30), date(2026, 8, 6), "FY"),
     ])
     assert build_inputs(st, date(2026, 10, 8), 57.0, 0.04, BETA).dcf.shares == 439e6
+
+
+def _flow_and_balance(concept, v, end=date(2026, 6, 30), filed=date(2026, 8, 6), duration=True):
+    from core.fundamentals import Fact
+    start = date(end.year - 1, end.month, end.day) + (date(2026, 1, 2) - date(2026, 1, 1)) if duration else None
+    return Fact(1, "us-gaap", concept, "shares" if "Share" in concept else "USD", start, end, v, None, "FY", "10-K",
+                filed, f"a-{concept}-{end}", None, datetime(2026, 1, 1, tzinfo=timezone.utc))
+
+
+def _operating(interest=2.2e8):
+    flows = [_flow_and_balance("NetCashProvidedByUsedInOperatingActivities", 2.3e9),
+             _flow_and_balance("PaymentsToAcquirePropertyPlantAndEquipment", 1.4e8),
+             _flow_and_balance("WeightedAverageNumberOfDilutedSharesOutstanding", 1.25e8)]
+    if interest:
+        flows.append(_flow_and_balance("InterestPaidNet", interest))
+    return flows
+
+
+def test_debt_older_than_the_age_limit_with_interest_paid_refuses():
+    # LDOS's real shape: LongTermDebt last tagged for 2015 ($1.1B), interest
+    # paid today. Using the 2015 balance gave a 20% cost of debt.
+    st = Statements(_operating() + [
+        _flow_and_balance("LongTermDebt", 1.1e9, date(2015, 10, 2), date(2015, 11, 20), duration=False)])
+    out = build_inputs(st, date(2026, 10, 8), 121.0, 0.04, BETA)
+    assert isinstance(out, Refusal) and "no debt balance" in out.reason and "2015-10-02" in out.reason
+
+
+def test_the_capital_lease_variants_are_debt_at_the_newest_balance_date():
+    # LDOS today: the 2015 LongTermDebt is older than the capital-lease total.
+    st = Statements(_operating() + [
+        _flow_and_balance("LongTermDebt", 1.1e9, date(2015, 10, 2), date(2015, 11, 20), duration=False),
+        _flow_and_balance("LongTermDebtAndCapitalLeaseObligations", 6.01e9, duration=False),
+        _flow_and_balance("LongTermDebtAndCapitalLeaseObligationsCurrent", 0.02e9, duration=False),
+        _flow_and_balance("CashAndCashEquivalentsAtCarryingValue", 0.9e9, duration=False)])
+    v = build_inputs(st, date(2026, 10, 8), 121.0, 0.04, BETA)
+    assert v.lines["total_debt"][0] == pytest.approx(6.03e9)
+    assert "LongTermDebtAndCapitalLeaseObligations" in v.lines["total_debt"][1] and "2026-06-30" in v.lines["total_debt"][1]
+    assert v.dcf.net_debt == pytest.approx(6.03e9 - 0.9e9)
+    assert v.discount.cost_of_debt_pre_tax == pytest.approx(2.2e8 / 6.03e9)
+
+
+def test_a_combined_debt_figure_is_used_alone():
+    # CMCSA: DebtAndCapitalLeaseObligations already holds the current part;
+    # adding DebtCurrent to it would count $6B twice.
+    st = Statements(_operating() + [
+        _flow_and_balance("DebtAndCapitalLeaseObligations", 90.4e9, duration=False),
+        _flow_and_balance("ShortTermBorrowings", 6.1e9, duration=False)])
+    assert st.debt(date(2026, 10, 8)).value == pytest.approx(90.4e9)
+
+
+def test_noncurrent_plus_current_takes_debt_current_or_its_parts_never_both():
+    st = Statements([
+        _flow_and_balance("LongTermDebtNoncurrent", 10e9, duration=False),
+        _flow_and_balance("LongTermDebtCurrent", 1e9, duration=False),
+        _flow_and_balance("ShortTermBorrowings", 0.5e9, duration=False),
+        _flow_and_balance("CommercialPaper", 0.3e9, duration=False)])
+    assert st.debt(date(2026, 10, 8)).value == pytest.approx(11.5e9)  # paper inside borrowings
+    st2 = Statements([
+        _flow_and_balance("LongTermDebtNoncurrent", 10e9, duration=False),
+        _flow_and_balance("LongTermDebtCurrent", 1e9, duration=False),
+        _flow_and_balance("DebtCurrent", 1.5e9, duration=False)])
+    assert st2.debt(date(2026, 10, 8)).value == pytest.approx(11.5e9)
+
+
+def test_a_newer_balance_date_beats_a_preferred_but_older_shape():
+    # VZ: the combined figure is for 2025-12-31, noncurrent + current for 2026-06-30.
+    st = Statements([
+        _flow_and_balance("DebtLongtermAndShorttermCombinedAmount", 158e9, date(2025, 12, 31), date(2026, 2, 10), False),
+        _flow_and_balance("LongTermDebtAndCapitalLeaseObligations", 143.45e9, duration=False),
+        _flow_and_balance("LongTermDebtCurrent", 21.78e9, duration=False)])
+    d = st.debt(date(2026, 10, 8))
+    assert d.value == pytest.approx(165.23e9) and d.period_end == date(2026, 6, 30)
+
+
+def test_no_debt_and_no_interest_is_debt_free_and_says_so():
+    st = Statements(_operating(interest=None))
+    v = build_inputs(st, date(2026, 10, 8), 50.0, 0.04, BETA)
+    assert v.lines["total_debt"][0] == 0.0 and any("debt-free" in n for n in v.notes)
+
+
+def test_stale_cash_is_not_netted():
+    st = Statements(_operating() + [
+        _flow_and_balance("LongTermDebt", 4e9, duration=False),
+        _flow_and_balance("CashAndCashEquivalentsAtCarryingValue", 9e9, date(2014, 12, 31), date(2015, 2, 1), False)])
+    v = build_inputs(st, date(2026, 10, 8), 50.0, 0.04, BETA)
+    assert v.dcf.net_debt == 4e9 and any("cash not reported since 2014-12-31" in n for n in v.notes)
+
+
+def test_a_fiscal_year_end_debt_balance_is_used_and_noted():
+    # CAT, LEN, PHM: debt tagged only in the 10-K, 284 days before the valuation.
+    st = Statements(_operating() + [
+        _flow_and_balance("LongTermDebt", 4e9, date(2025, 12, 31), date(2026, 2, 15), False)])
+    v = build_inputs(st, date(2026, 10, 10), 50.0, 0.04, BETA)
+    assert v.lines["total_debt"][0] == 4e9 and any("fiscal year end" in n for n in v.notes)
+
+
+def test_interest_filed_negative_is_its_magnitude():
+    # LKQ tags InterestExpenseNonoperating as -$216M; its cost of debt read -5.5%.
+    st = Statements(_operating(interest=None) + [
+        _flow_and_balance("InterestExpenseNonoperating", -2.16e8),
+        _flow_and_balance("LongTermDebt", 4e9, duration=False)])
+    v = build_inputs(st, date(2026, 10, 8), 50.0, 0.04, BETA)
+    assert v.discount.cost_of_debt_pre_tax == pytest.approx(2.16e8 / 4e9)
+    assert any("negative" in n for n in v.notes)
+
+
+def test_at_one_balance_date_a_component_shape_loses_to_the_whole():
+    # ON 2026-07-03: DebtAndCapitalLeaseObligations $1.6M (finance leases),
+    # LongTermDebt $4.5B. Preferring the combined shape cost of debt 3,800%.
+    st = Statements([
+        _flow_and_balance("DebtAndCapitalLeaseObligations", 1.6e6, duration=False),
+        _flow_and_balance("LongTermDebt", 4.505e9, duration=False)])
+    d = st.debt(date(2026, 10, 8))
+    assert d.value == pytest.approx(4.505e9) and d.concept.startswith("LongTermDebt")

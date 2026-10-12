@@ -46,7 +46,10 @@ from core.fundamentals import Fact
 
 LINE_ITEMS: Dict[str, Tuple[str, ...]] = {
     # durations
-    "revenue": ("RevenueFromContractWithCustomerExcludingAssessedTax", "Revenues", "SalesRevenueNet"),
+    # IncludingAssessedTax: KHC and SJM file revenue only under it (KHC's
+    # latest revenue on the list was 2014, so its growth was terminal growth).
+    "revenue": ("RevenueFromContractWithCustomerExcludingAssessedTax", "RevenueFromContractWithCustomerIncludingAssessedTax",
+                "Revenues", "SalesRevenueNet"),
     "cost_of_revenue": ("CostOfGoodsAndServicesSold",),
     "operating_income": ("OperatingIncomeLoss",),
     "pretax_income": ("IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",),
@@ -70,15 +73,25 @@ LINE_ITEMS: Dict[str, Tuple[str, ...]] = {
     "cash": ("CashAndCashEquivalentsAtCarryingValue", "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"),
     "securities_current": ("MarketableSecuritiesCurrent",),
     "securities_noncurrent": ("MarketableSecuritiesNoncurrent",),
-    "long_term_debt": ("LongTermDebt",),
-    "long_term_debt_noncurrent": ("LongTermDebtNoncurrent",),
-    "long_term_debt_current": ("LongTermDebtCurrent",),
+    # Debt, in three shapes (see `debt`). The *AndCapitalLeaseObligations
+    # variants include finance leases; 67 of the 97 non-financial filers that
+    # pay interest but tagged no current LongTermDebt[Noncurrent] use them
+    # (census 2026-10-11): CMCSA's whole $90B is DebtAndCapitalLeaseObligations.
+    "long_term_debt": ("LongTermDebt", "LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities"),
+    "long_term_debt_noncurrent": ("LongTermDebtNoncurrent", "LongTermDebtAndCapitalLeaseObligations"),
+    "long_term_debt_current": ("LongTermDebtCurrent", "LongTermDebtAndCapitalLeaseObligationsCurrent"),
+    #: Long AND short term in one figure.
+    "debt_combined": ("DebtLongtermAndShorttermCombinedAmount", "DebtAndCapitalLeaseObligations"),
+    #: All current debt: current maturities, short-term borrowings and paper.
+    "debt_current": ("DebtCurrent",),
+    "short_term_borrowings": ("ShortTermBorrowings",),
     "commercial_paper": ("CommercialPaper",),
     "equity": ("StockholdersEquity",),
     "shares_outstanding": ("EntityCommonStockSharesOutstanding",),
 }
 INSTANTS = {"cash", "securities_current", "securities_noncurrent", "long_term_debt", "long_term_debt_noncurrent",
-            "long_term_debt_current", "commercial_paper", "equity", "shares_outstanding"}
+            "long_term_debt_current", "debt_combined", "debt_current", "short_term_borrowings",
+            "commercial_paper", "equity", "shares_outstanding"}
 SHARE_ITEMS = {"diluted_shares", "shares_outstanding"}
 ANNUAL_DAYS = (350, 380)
 QUARTER_DAYS = (80, 100)
@@ -218,33 +231,78 @@ class Statements:
         capex = {v.period_end: v.value for v in self.annual("capex", as_of)}
         return [(end, cfo[end] - capex[end]) for end in sorted(cfo) if end in capex]
 
-    def total_debt(self, as_of: date) -> Optional[float]:
-        """Long-term debt (current + noncurrent) plus commercial paper, latest balance date."""
-        total = self.instant("long_term_debt", as_of)
-        parts = None
-        if total is None:
-            nc, cur = self.instant("long_term_debt_noncurrent", as_of), self.instant("long_term_debt_current", as_of)
-            if nc is None:
-                return None
-            parts = nc.value + (cur.value if cur and cur.period_end == nc.period_end else 0.0)
-        base = total.value if total is not None else parts
-        end = total.period_end if total is not None else nc.period_end
-        cp = self.instant("commercial_paper", as_of)
-        return base + (cp.value if cp and cp.period_end == end else 0.0)
+    def _instant_at(self, item: str, end: date, as_of: date) -> Optional[Value]:
+        return self._periods(item, as_of, None).get((None, end))
 
-    def net_debt(self, as_of: date) -> Optional[float]:
-        debt, cash = self.total_debt(as_of), self.instant("cash", as_of)
-        if debt is None or cash is None:
+    def debt(self, as_of: date) -> Optional[Value]:
+        """
+        Total debt at the NEWEST balance date any of three shapes reaches,
+        the largest shape at that date:
+        a combined long-and-short figure; total long-term debt plus short-term
+        borrowings (or commercial paper, never both: paper is usually inside
+        short-term borrowings); noncurrent plus current. Every part comes from
+        that one balance date. `concept` names the parts used.
+
+        Taking the newest date matters: LDOS last tagged LongTermDebt for
+        2015-10-02 ($1.1B) and now tags the capital-lease variants ($6.0B);
+        VZ's combined figure is a year older than its noncurrent + current.
+        """
+        def short(end: date) -> Tuple[float, List[Value]]:
+            v = self._instant_at("short_term_borrowings", end, as_of) or self._instant_at("commercial_paper", end, as_of)
+            return (v.value, [v]) if v else (0.0, [])
+
+        options: List[Tuple[date, int, float, List[Value]]] = []
+        combined = self.instant("debt_combined", as_of)
+        if combined:
+            options.append((combined.period_end, 0, combined.value, [combined]))
+        total = self.instant("long_term_debt", as_of)
+        if total:
+            s, parts = short(total.period_end)
+            options.append((total.period_end, 1, total.value + s, [total, *parts]))
+        nc = self.instant("long_term_debt_noncurrent", as_of)
+        if nc:
+            cur_all = self._instant_at("debt_current", nc.period_end, as_of)
+            if cur_all:
+                s, parts = cur_all.value, [cur_all]
+            else:
+                cur = self._instant_at("long_term_debt_current", nc.period_end, as_of)
+                s, parts = short(nc.period_end)
+                if cur:
+                    s, parts = s + cur.value, [cur, *parts]
+            options.append((nc.period_end, 2, nc.value + s, [nc, *parts]))
+        if not options:
+            return None
+        # At one balance date the LARGEST shape wins: a filer may tag one shape
+        # for a component only (ON's DebtAndCapitalLeaseObligations is $1.6M of
+        # finance leases beside $4.5B LongTermDebt), and no shape can exceed the
+        # whole. Each shape is formed alone, so taking the largest double-counts nothing.
+        end, _, value, parts = max(options, key=lambda o: (o[0], o[2], -o[1]))
+        return Value(None, end, value, " + ".join(p.concept for p in parts), max(p.filed for p in parts))
+
+    def total_debt(self, as_of: date) -> Optional[float]:
+        d = self.debt(as_of)
+        return d.value if d else None
+
+    def liquid_assets(self, as_of: date) -> Optional[Value]:
+        """Cash plus marketable securities at the latest cash balance date."""
+        cash = self.instant("cash", as_of)
+        if cash is None:
             return None
         # Marketable securities, current AND noncurrent, net against debt: both
         # are liquid investments, not operating assets (a choice, recorded in
         # the plan; Apple's noncurrent book is $77.7B on 2025-09-27).
-        liquid = 0.0
+        liquid, parts = cash.value, [cash.concept]
         for item in ("securities_current", "securities_noncurrent"):
-            v = self.instant(item, as_of)
-            if v and v.period_end == cash.period_end:
-                liquid += v.value
-        return debt - cash.value - liquid
+            v = self._instant_at(item, cash.period_end, as_of)
+            if v:
+                liquid, parts = liquid + v.value, parts + [v.concept]
+        return Value(None, cash.period_end, liquid, " + ".join(parts), cash.filed)
+
+    def net_debt(self, as_of: date) -> Optional[float]:
+        debt, liquid = self.total_debt(as_of), self.liquid_assets(as_of)
+        if debt is None or liquid is None:
+            return None
+        return debt - liquid.value
 
     def effective_tax_rate(self, as_of: date) -> Optional[float]:
         tax, pre = self.annual("income_tax", as_of), self.annual("pretax_income", as_of)

@@ -90,17 +90,26 @@ def run(x: DCFInputs) -> DCFResult:
     pv = [f * d for f, d in zip(fcf, discount)]
 
     exit_ev = exit_ps = None
-    if x.exit_metric_base is not None and x.exit_multiple is not None:
+    exit_warning = None
+    if x.exit_metric_base is not None and x.exit_metric_base <= 0:
+        # CAG's TTM EBITDA is -$1.3B (an impairment year): a multiple of a
+        # negative metric is a negative enterprise value, not an exit value.
+        exit_warning = "exit metric (EBITDA) is not positive: no exit-multiple value"
+    elif x.exit_metric_base is not None and x.exit_multiple is not None:
         metric_n = x.exit_metric_base * float(np.prod([1.0 + g for g in path]))
         exit_ev = sum(pv) + x.exit_multiple * metric_n * discount[-1]
         exit_ps = (exit_ev - x.net_debt) / x.shares if x.shares > 0 else None
 
+    early = []
+    if exit_warning:
+        early.append(exit_warning)
     if x.wacc <= x.growth_terminal:
         return DCFResult(x, path, fcf, pv, None, None, None, None, None, None, exit_ev, exit_ps,
-                         reason=f"wacc {x.wacc:.4f} <= terminal growth {x.growth_terminal:.4f}: no Gordon value")
+                         reason=f"wacc {x.wacc:.4f} <= terminal growth {x.growth_terminal:.4f}: no Gordon value",
+                         warnings=early)
     if x.shares <= 0:
         return DCFResult(x, path, fcf, pv, None, None, None, None, None, None, exit_ev, exit_ps,
-                         reason="share count is not positive")
+                         reason="share count is not positive", warnings=early)
     tv = fcf[-1] * (1.0 + x.growth_terminal) / (x.wacc - x.growth_terminal)
     pv_tv = tv * discount[-1]
     ev = sum(pv) + pv_tv
@@ -109,6 +118,7 @@ def run(x: DCFInputs) -> DCFResult:
         inputs=x, growth_path=path, fcf=fcf, pv_fcf=pv, terminal_value=tv, pv_terminal=pv_tv,
         enterprise_value=ev, equity_value=equity, per_share=equity / x.shares,
         terminal_share=pv_tv / ev if ev else None, exit_enterprise_value=exit_ev, exit_per_share=exit_ps,
+        warnings=early,
     )
     if result.terminal_share is not None and result.terminal_share > settings.DCF_TERMINAL_SHARE_WARN:
         result.warnings.append(
@@ -123,7 +133,7 @@ def run(x: DCFInputs) -> DCFResult:
 def gordon_implied_multiple(result: DCFResult) -> Optional[float]:
     """The exit multiple on the year-N metric that reproduces the Gordon value."""
     x = result.inputs
-    if result.terminal_value is None or x.exit_metric_base in (None, 0):
+    if result.terminal_value is None or x.exit_metric_base is None or x.exit_metric_base <= 0:
         return None
     metric_n = x.exit_metric_base * float(np.prod([1.0 + g for g in result.growth_path]))
     return result.terminal_value / metric_n

@@ -27,7 +27,14 @@ SHARES
 
 REFUSED
     Financials (bank and insurer cash flow is not free cash flow): SVB is the
-    test case. And a filer with no operating cash flow on file.
+    test case. A filer with no operating cash flow on file, or no capex in a
+    standard concept. And one that reports interest but has no debt balance
+    within MAX_TTM_AGE_DAYS: missing debt is not zero debt.
+
+BALANCES AGE TOO
+    Debt and cash are used only if their balance date is within
+    MAX_ANNUAL_AGE_DAYS (the last 10-K), the cover-page share count within
+    MAX_TTM_AGE_DAYS; an instant has no other staleness check.
 """
 
 from __future__ import annotations
@@ -129,16 +136,41 @@ def build_inputs(
             # interest paid. Close to expense for most borrowers; a proxy.
             interest, interest_src = paid, f"PROXY: cash interest paid, {paid_src}"
             notes.append("interest expense not reported: cash interest paid used as a proxy")
+    if interest is not None and interest < 0:
+        # DIS, FTV and LKQ tag InterestExpenseNonoperating as a negative number
+        # (a sign convention, not interest income): LKQ's cost of debt was -5.5%.
+        interest = -interest
+        notes.append("interest expense filed as a negative number: its magnitude is used")
     tax = st.effective_tax_rate(as_of)
     if tax is None or not 0 <= tax < 1:
         notes.append(f"effective tax rate unavailable ({tax}); {FALLBACK_TAX_RATE:.0%} statutory used")
         tax = FALLBACK_TAX_RATE
 
-    debt = st.total_debt(as_of) or 0.0
-    net_debt = st.net_debt(as_of)
-    if net_debt is None:
-        net_debt = debt
-        notes.append("cash not reported: net debt taken as total debt")
+    # Balances get the same age rule as trailing flows. Missing debt is NOT
+    # zero for a filer that pays interest: LDOS was valued on its 2015 debt
+    # ($1.1B of $6.0B, cost of debt 20%) and CMCSA on none of its $90B.
+    # A balance from the last 10-K is the last reported balance, so it gets
+    # the annual limit, like an annual flow: CAT, LEN, PHM, OMC and TMUS tag
+    # debt only at fiscal year end. Past MAX_TTM_AGE_DAYS it is noted.
+    debt_v = st.debt(as_of)
+    if debt_v is not None and (as_of - debt_v.period_end).days <= MAX_ANNUAL_AGE_DAYS:
+        debt, debt_src = debt_v.value, f"{debt_v.concept}, balance {debt_v.period_end}"
+        if (as_of - debt_v.period_end).days > MAX_TTM_AGE_DAYS:
+            notes.append(f"latest debt balance is from {debt_v.period_end} (fiscal year end)")
+    elif interest is not None and interest > 0:
+        last = f"; latest on file is {debt_v.period_end}" if debt_v else ""
+        return Refusal(f"interest is reported ({interest_src}) but no debt balance within "
+                       f"{MAX_ANNUAL_AGE_DAYS} days in a standard concept{last}; net debt cannot be formed")
+    else:
+        debt, debt_src = 0.0, "none on file and no interest reported: treated as debt-free"
+        notes.append("no debt balance and no interest on file: treated as debt-free")
+    liquid = st.liquid_assets(as_of)
+    if liquid is not None and (as_of - liquid.period_end).days <= MAX_ANNUAL_AGE_DAYS:
+        net_debt, net_src = debt - liquid.value, f"debt - ({liquid.concept}), balance {liquid.period_end}"
+    else:
+        net_debt, net_src = debt, "debt only: no cash balance on file"
+        stale = f" since {liquid.period_end}" if liquid else ""
+        notes.append(f"cash not reported{stale}: net debt taken as total debt")
 
     # A cover-page count can be years stale: Fox's only untagged one is 1.0
     # share from its 2019 registration (it reports current counts per class),
@@ -190,8 +222,8 @@ def build_inputs(
         "share_based_comp": (sbc, sbc_src + ("; subtracted" if subtract_sbc else "; NOT subtracted")),
         "base_fcf": (base_fcf, "CFO - capex + after-tax interest" + (" - SBC" if subtract_sbc else "")),
         "tax_rate": (tax, "effective, latest fiscal year"),
-        "total_debt": (debt, "long-term debt + commercial paper, latest balance"),
-        "net_debt": (net_debt, "debt - cash - marketable securities (current and noncurrent)"),
+        "total_debt": (debt, debt_src),
+        "net_debt": (net_debt, net_src),
         "shares": (shares, f"{shares_src}, period {shares_v.period_end}, filed {shares_v.filed}"),
         "ebitda": (ebitda, "operating income + D&A, TTM"),
         "growth_first": (growth_first, growth_src),
