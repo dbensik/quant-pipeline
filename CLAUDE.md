@@ -210,8 +210,12 @@ bit-identical). Measured on 15 real runs (5 symbols x 3 default strategies,
 2016-2025): 80 buy bars went unfilled before, 3 after — those 3 are BTC-USD
 bars where one coin cost more than the cash (whole units only, a separate
 limit). Buy and hold on AAPL and TQQQ had started a day late.
-`PortfolioBacktester` has no cash check at all; no negative cash was seen in
-real runs (min $4.23), but nothing prevents it.
+`PortfolioBacktester` has the same cash check (2026-10-12) and executes each
+bar's SELLS BEFORE its BUYS, so a rebalance's sales fund its purchases. It had
+no check: real AAPL+TQQQ baskets ended 60 bars overdrawn (to -$70), and in
+ticker order a buy often preceded the sale funding it (27-75 bars a run went
+negative mid-bar). A cash check without sells-first starves those purchases;
+with both, 6 real baskets stay >= $0 and land within 0.05% of the old values.
 
 **SEC facts are refreshed from EDGAR's daily form index** (since
 2026-10-11, step in the 06:00 job). The quarter's `index.json` names the

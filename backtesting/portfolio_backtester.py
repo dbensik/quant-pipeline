@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import numpy as np
 import pandas as pd
 
@@ -141,6 +143,7 @@ class PortfolioBacktester:
                 else 0
             )
 
+            bar_orders = []
             for ticker in all_tickers:
                 ticker_signal_df = signals_data.get(ticker)
                 ticker_signal = (
@@ -218,10 +221,17 @@ class PortfolioBacktester:
                             timestamp, ticker, "MKT", int(abs(trade_quantity)), "SELL"
                         )
 
-                if not order:
-                    continue
+                if order:
+                    bar_orders.append((ticker, order))
 
-                # --- 5. Risk and Execution ---
+            # --- 5. Risk and Execution: sells first, then buys ---
+            # Sales fund purchases, as in a real rebalance. Executed in ticker
+            # order instead, a buy could precede the sale paying for it: in
+            # real baskets (2016-2025) 27-75 bars a run went overdrawn mid-bar
+            # and back above zero by the close, which the cash check below
+            # would have turned into under-bought rebalances. sorted() is
+            # stable, so tickers keep their order within each side.
+            for ticker, order in sorted(bar_orders, key=lambda item: item[1].direction != "SELL"):
                 portfolio.loc[timestamp, f"{order.symbol}_price"] = current_prices[ticker]
                 approved_order = self.risk_manager.assess_order(order, portfolio.loc[timestamp])
                 if not approved_order:
@@ -230,6 +240,22 @@ class PortfolioBacktester:
                 fill_event = self.execution_handler.execute_order(
                     approved_order, current_prices[ticker]
                 )
+
+                if fill_event and fill_event.direction == "BUY":
+                    # Never spend more cash than there is. Orders are sized on
+                    # equity x weight at the close, so adverse slippage and
+                    # the commission could overdraw the account: real
+                    # AAPL+TQQQ baskets ended 60 bars below zero, by up to $70
+                    # (2016-2025). Same rule as Backtester: buy what the cash
+                    # covers at THIS fill (no second slippage draw), or skip.
+                    cash_now = portfolio.loc[timestamp, "cash"]
+                    if fill_event.total_cost > cash_now:
+                        affordable = np.floor(
+                            (cash_now - fill_event.commission) / fill_event.fill_price
+                        )
+                        if affordable <= 0:
+                            continue
+                        fill_event = replace(fill_event, quantity=affordable)
 
                 if fill_event:
                     if fill_event.direction == "BUY":
