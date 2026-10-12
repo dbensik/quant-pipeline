@@ -60,6 +60,11 @@ class PortfolioBacktestRequest(BaseModel):
         ),
     )
     initial_capital: float = Field(default=100_000.0, gt=0)
+    transaction_cost: float = Field(
+        default=0.001,
+        ge=0,
+        description="Per-fill cost as a fraction of its value, e.g. 0.001 = 10bps",
+    )
     seed: Optional[int] = Field(
         default=42,
         description=(
@@ -123,6 +128,7 @@ class PortfolioBacktestResponse(BaseModel):
     params: Dict[str, Any]
     weights: Dict[str, float] = Field(description="Weights actually used")
     initial_capital: float
+    transaction_cost: float
     seed: Optional[int]
     risk_free_rate: float = Field(description="Annual rate the Sharpe ratio is in excess of")
     risk_free_source: str = Field(description=RISK_FREE_SOURCE_DESCRIPTION)
@@ -212,6 +218,7 @@ def _run_sync(
 
     backtester = PortfolioBacktester(
         initial_capital=request.initial_capital,
+        transaction_cost=request.transaction_cost,
         enable_vol_targeting=request.enable_vol_targeting,
         target_volatility=request.target_volatility,
         seed=request.seed,
@@ -381,6 +388,7 @@ async def run_portfolio_backtest(
         params=effective_params,
         weights=weights,
         initial_capital=request.initial_capital,
+        transaction_cost=request.transaction_cost,
         seed=request.seed,
         risk_free_rate=risk_free[0],
         risk_free_source=risk_free[1],

@@ -201,6 +201,17 @@ old runs bit for bit. The portfolio weights optimizer subtracts the window mean
 from an arithmetic Sharpe, so its Sharpe still differs by construction.
 `data_enricher.py` keeps 0.02 but has no live caller.
 
+**Fills cost something** (since 2026-10-12). `SimulatedExecutionHandler`
+slippage is ADVERSE (buys fill above the close, sells below, uniform in
+[0, 0.05%]; it was +/-0.05% whatever the side, averaging to zero), and the
+API's `transaction_cost` (default 0.001 = 10 bps, which the UI always gets) is
+charged on each fill's value on top of the $1 fee. It had been accepted by
+every endpoint and read by nothing. Portfolio backtests take it too. High
+turnover pays: SPY mean_reversion 2016-2025 (174 trades) ends at $94.9k, not
+$117.5k, and the SPY ma_crossover grid winner moved from 10/50 (58 trades) to
+10/200 (16). The handler owns sizing a BUY to the cash
+(`affordable_quantity`, `resize`), since the cost now scales with quantity.
+
 **An unaffordable entry is resized, not dropped** (fixed 2026-10-12).
 `Backtester` sizes a buy as `floor(cash / close)`; adverse slippage plus the
 commission can make that fill cost more than the cash. It used to skip the

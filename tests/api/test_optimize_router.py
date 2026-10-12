@@ -297,16 +297,20 @@ def test_same_seed_gives_identical_results(client: TestClient):
     assert first["results"] == second["results"]
 
 
-def test_different_seeds_can_pick_different_winners(client: TestClient):
+def test_different_seeds_give_different_results(client: TestClient):
     """
-    Establishes that the ranking really is seed-sensitive — which is what
+    Establishes that the search really is seed-sensitive — which is what
     makes the seed worth threading, and what makes the test above meaningful.
+
+    Asserted on the metrics, not the winner: since slippage became one-sided
+    (2026-10-12) one combination wins this fixture under every seed, while
+    every combination's numbers still move with the draw.
     """
-    winners = {
-        tuple(sorted(optimize(client, seed=seed).json()["best_params"].items()))
+    results = {
+        round(optimize(client, seed=seed).json()["results"][0]["Final Value"], 6)
         for seed in range(1, 9)
     }
-    assert len(winners) > 1
+    assert len(results) > 1
 
 
 def test_every_combination_faces_the_same_draws(client: TestClient):

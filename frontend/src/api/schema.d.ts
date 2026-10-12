@@ -2149,6 +2149,12 @@ export interface components {
              */
             initial_capital: number;
             /**
+             * Transaction Cost
+             * @description Per-fill cost as a fraction of its value, e.g. 0.001 = 10bps
+             * @default 0.001
+             */
+            transaction_cost: number;
+            /**
              * Seed
              * @description Seed for simulated slippage, so the same request returns the same result. Pass null for unseeded, non-reproducible behaviour.
              * @default 42
@@ -2226,6 +2232,8 @@ export interface components {
             };
             /** Initial Capital */
             initial_capital: number;
+            /** Transaction Cost */
+            transaction_cost: number;
             /** Seed */
             seed: number | null;
             /**

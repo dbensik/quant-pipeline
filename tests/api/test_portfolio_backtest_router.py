@@ -326,3 +326,11 @@ def test_momentum_allocation_rejects_holding_every_sleeve(client: TestClient):
     )
     assert response.status_code == 422
     assert "top_n" in response.json()["detail"]
+
+
+def test_transaction_cost_is_charged(client: TestClient):
+    """The portfolio endpoint had no cost input at all before 2026-10-12."""
+    free = run(client, transaction_cost=0.0, risk_free_rate=0.0).json()
+    dear = run(client, transaction_cost=0.01, risk_free_rate=0.0).json()
+    assert dear["transaction_cost"] == 0.01
+    assert dear["metrics"]["Final Value"] < free["metrics"]["Final Value"]

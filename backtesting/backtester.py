@@ -1,5 +1,3 @@
-from dataclasses import replace
-
 import numpy as np
 import pandas as pd
 
@@ -27,9 +25,15 @@ class Backtester:
         Initializes the Backtester with portfolio settings.
 
         Args:
+            transaction_cost: Proportional cost per fill as a fraction of its
+                  value (0.001 = 10 bps), charged by the default execution
+                  handler on top of its $1 fee. Until 2026-10-12 it was stored
+                  here and read by nothing.
             seed: Seed for the default execution handler's slippage RNG. Pass an
-                  int to make a run reproducible. Ignored when an explicit
-                  execution_handler is supplied — that handler owns its own RNG.
+                  int to make a run reproducible.
+
+        An explicit execution_handler owns its own RNG and costs, so seed and
+        transaction_cost do not reach it.
         """
         self.initial_capital = initial_capital
         self.transaction_cost = transaction_cost
@@ -38,7 +42,9 @@ class Backtester:
         #: The per-bar cash interest of the last run; metrics measure Sharpe
         #: against this same cash account.
         self.cash_accrual = None
-        self.execution_handler = execution_handler or SimulatedExecutionHandler(seed=seed)
+        self.execution_handler = execution_handler or SimulatedExecutionHandler(
+            seed=seed, commission_rate=transaction_cost
+        )
 
     def run(
         self,
@@ -125,8 +131,10 @@ class Backtester:
                         # re-executed: one slippage draw per order keeps the
                         # RNG in step, so runs that never hit this are unchanged.
                         if fill.total_cost > cash:
-                            affordable = np.floor((cash - fill.commission) / fill.fill_price)
-                            fill = replace(fill, quantity=max(affordable, 0.0))
+                            fill = self.execution_handler.resize(
+                                fill,
+                                self.execution_handler.affordable_quantity(cash, fill.fill_price),
+                            )
 
                         if fill.quantity > 0 and cash >= fill.total_cost:
                             position += fill.quantity

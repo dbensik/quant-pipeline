@@ -4,6 +4,7 @@ POST /api/v1/backtest
 Phase 3/4 — API router tests
 """
 
+import pytest
 from fastapi.testclient import TestClient
 
 WINDOW = {"start": "2024-01-01", "end": "2024-12-31"}
@@ -173,3 +174,17 @@ def test_no_bars_in_range_is_422(client: TestClient):
 
 def test_registered_symbol_with_zero_bars_is_422(client: TestClient):
     assert run(client, symbol="EMPTY-USD").status_code == 422
+
+
+def test_transaction_cost_is_charged(client: TestClient):
+    """
+    The field was accepted and ignored until 2026-10-12: a run cost the same
+    at 0 and at 1%. Now each fill pays it on its value.
+    """
+    params = {"short_window": 5, "long_window": 20}
+    free = run(client, strategy_id="ma_crossover", params=params, transaction_cost=0.0).json()
+    dear = run(client, strategy_id="ma_crossover", params=params, transaction_cost=0.01).json()
+    assert len(free["trades"]) > 0
+    assert dear["metrics"]["Final Value"] < free["metrics"]["Final Value"]
+    fill = dear["trades"][0]
+    assert fill["commission"] == pytest.approx(1.0 + 0.01 * fill["quantity"] * fill["fill_price"])

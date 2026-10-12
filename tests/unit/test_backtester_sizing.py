@@ -15,14 +15,16 @@ import pytest
 from alpha_models import registry
 from backtesting.backtester import Backtester
 from backtesting.events import FillEvent
+from execution.simulated_handler import SimulatedExecutionHandler
 
 CAPITAL = 100_000.0
 
 
-class AdverseFills:
+class AdverseFills(SimulatedExecutionHandler):
     """Every fill 0.1% above the close, $1 commission: no all-cash order fits."""
 
     def __init__(self):
+        super().__init__(commission_per_trade=1.0, commission_rate=0.0)
         self.orders = 0
 
     def execute_order(self, order, current_price):

@@ -1,5 +1,3 @@
-from dataclasses import replace
-
 import numpy as np
 import pandas as pd
 
@@ -24,17 +22,26 @@ class PortfolioBacktester:
         enable_vol_targeting: bool = False,
         target_volatility: float = 0.15,
         seed: int = None,
+        transaction_cost: float = 0.001,
     ):
         """
         seed: passed to the default execution handler's slippage RNG. Without
         it, identical portfolio backtests return different numbers — the same
         defect fixed for the single-symbol Backtester, and the same
         consequence: saved results cannot be reproduced and comparing two runs
-        partly compares random draws. Ignored when an explicit
-        execution_handler is supplied, since that handler owns its own RNG.
+        partly compares random draws.
+
+        transaction_cost: proportional cost per fill as a fraction of its value
+        (0.001 = 10 bps), on top of the default handler's $1 fee; the same
+        default as Backtester. There was none before 2026-10-12.
+
+        Both are ignored when an explicit execution_handler is supplied, since
+        that handler owns its own RNG and costs.
         """
         self.initial_capital = initial_capital
-        self.execution_handler = execution_handler or SimulatedExecutionHandler(seed=seed)
+        self.execution_handler = execution_handler or SimulatedExecutionHandler(
+            seed=seed, commission_rate=transaction_cost
+        )
         self.risk_manager = risk_manager or PortfolioRiskManager()
         self.enable_vol_targeting = enable_vol_targeting
         self.target_volatility = target_volatility
@@ -250,12 +257,12 @@ class PortfolioBacktester:
                     # covers at THIS fill (no second slippage draw), or skip.
                     cash_now = portfolio.loc[timestamp, "cash"]
                     if fill_event.total_cost > cash_now:
-                        affordable = np.floor(
-                            (cash_now - fill_event.commission) / fill_event.fill_price
+                        affordable = self.execution_handler.affordable_quantity(
+                            cash_now, fill_event.fill_price
                         )
                         if affordable <= 0:
                             continue
-                        fill_event = replace(fill_event, quantity=affordable)
+                        fill_event = self.execution_handler.resize(fill_event, affordable)
 
                 if fill_event:
                     if fill_event.direction == "BUY":
