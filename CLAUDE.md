@@ -252,26 +252,14 @@ echoes back; check the fixture actually exercises the behaviour; and verify the
 test FAILS against the bug it covers. All three mistakes have produced tests
 here that passed against the very bug they were written to catch.
 
-Know the `tests/api/conftest.py` fixture before asserting on relationships
-*between* symbols. AAPL and BTC-USD come from one price formula differing only
-in scale, so their **returns are identical** — any test about correlation,
-diversification or portfolio weights is vacuous over that pair. Use MSFT, which
-follows an independent seeded random walk, as the decorrelated counterpart.
+Before asserting on relationships between symbols, read `tests/api/CLAUDE.md` (AAPL and BTC-USD share one price formula).
 
 Determinism tests need the same scrutiny. Slippage is seeded, and asserting
 "the same winner" is often weaker than it looks — a dominant candidate wins
 whether or not the seed is threaded. Assert on the metrics, and confirm the
 unseeded version actually differs before committing the test.
 
-Frontend specifics: charts render nothing under jsdom (Recharts measures a 0x0
-parent; Plotly needs canvas APIs jsdom lacks), so never assert on chart output —
-mock the chart child and assert on its props. Chart computation lives in pure
-modules beside the components (`chartRows.ts`, `candlestickData.ts`) for the
-same reason.
-
-Plotly is loaded lazily and must stay that way — it is ~1.2 MB, larger than the
-rest of the bundle. `npm run build` must show a separate CandlestickChart chunk
-with no "plotly" in the main chunk.
+Frontend testing specifics (charts under jsdom, lazy Plotly): `frontend/CLAUDE.md`.
 
 ## Environment
 
@@ -290,45 +278,21 @@ For the TimescaleDB layer, copy `.env.example` → `.env`; without it, `db/sessi
   nothing. Threshold is `1e-4`, not `1e-2` — merger arbitrage pins a target to
   its acquirer at ~4.6e-03 before a deal closes, which a loose threshold calls
   a rename. See `research/corporate-actions-findings-2026-09-15.md`.
-- `alpha_models/` — Strategy classes (Moving Average Crossover, Mean Reversion, Trend Following, Pairs Trading, etc.) all inherit from `base_model.py`
 - `backtesting/backtester.py` — Simulates strategy on historical data; produces equity curves and KPIs. Per-bar state goes into numpy arrays, not pandas cell writes (2026-10-07: 291 ms → 5 ms a run, bit-identical). A change to the loop must stay bit-identical on real runs — the equity frame, trade log and metrics are the regression test.
-- `simulation/` — Monte Carlo kernels, pure numpy, every function takes an explicit `Generator`: stationary block bootstrap (default), iid, GBM; vectorised equity, drawdown depth/duration (the analyzer's conventions), VaR/CVaR, P(ruin). Defaults and caps are `SIM_*` in `config/settings.py`. `api/routers/simulate.py` runs it in two modes: `returns` resamples the backtest's own realised returns from the first invested bar (instant, carries a caveat when the strategy traded, since its signals depend on the path); `prices` re-runs the strategy on resampled price paths, one backtest per path, seeded `seed + i`. Served assets only unless `allow_unverified` — a bootstrap resamples any artefact in stored history into every path. Plan, measurements and the mutation checks: `research/monte-carlo-plan-2026-10-07.md`.
-- `screeners/` — Filter universe by criteria (momentum, low volatility); output feeds into watchlists
-- `pricing/` — option pricing, pure numpy/scipy: Black–Scholes–Merton with Greeks and `implied_vol` (NaN WITH A REASON outside dividend-discounted bounds, never a wrong number), CRR tree (N and N+1 averaged: plain 500 steps is 2e-3 off at the money), antithetic Monte Carlo (SE over PAIR averages), realised-vol estimators and the cone, a vectorised escrowed-dividend tree, and `chains.py`: one archived capture -> de-americanised IV, per-expiry smiles, ATM term structure, 25-delta skew. **No recorded spot**: each expiry is priced off its own put-call-parity forward (the capture reads spot once, seconds from each expiry's quotes; AAPL showed a fake −4% yield). **Dividends are discrete and projected** from `corporate_actions` (a continuous yield mispriced the SPY put premium 4.5–16x the half-spread). Plan, measurements, mutation tallies: `research/option-pricing-plan-2026-10-08.md`.
+- `simulation/` — Monte Carlo kernels; read `simulation/CLAUDE.md` before changing them.
+- `pricing/` — option pricing; read `pricing/CLAUDE.md` before changing it (no recorded spot; discrete dividends).
 - `core/options_surface.py` + `api/routers/options.py` — `/api/v1/options` archive|surface|price|pricers|realised-vol. A surface costs 10–35 s, so it is cached in `data/surfaces/<TICKER>/<day>.json` (gitignored, derivable, safe to delete). The key hashes the capture bytes, the rate observation, the dividend schedule and a fingerprint DERIVED from the pricing source and settings — never hand-bump a version. The realised-vol cone is NOT cached (bars are not in the key). A surface for today's capture uses yesterday's rate and is recomputed tomorrow: correct. `scripts/precompute_surfaces.py` fills the cache (108 captures ~37 min); it is not in the 06:00 job.
-- `core/sec.py` + `core/fundamentals.py` + `modeling/` + `api/routers/valuation.py` —
-  tier 3, the DCF. SEC XBRL company facts are stored RAW and insert-only in
-  `fundamental_facts` (allow-list `FUNDAMENTAL_CONCEPTS`; a new concept needs
-  a `load_fundamentals.py --all` reload, insert-only) and standardised at READ
-  time by `modeling/statements.py`: a fact is visible only if filed STRICTLY
-  before `as_of`, ordered concept lists per line item, Q4 = FY − 3Q, cash-flow
-  TTM = FY + YTD − prior YTD (10-Qs file cash flows year-to-date only), share
-  counts in the split basis of the day they were FILED. `modeling/valuation.py`
-  builds inputs with the source of every line; prices against share counts are
-  AS TRADED (`adjust="none"`), beta uses total returns. **Missing is never
-  zero**: missing capex refuses; debt older than 460 days or absent while
-  interest is reported refuses (LDOS was valued on 2015 debt, CMCSA on none of
-  its $90B); flows older than 200 days (annual 460) count as unreported.
-  `Statements.debt()` takes the newest balance date, then the LARGEST of three
-  shapes at it (ON tags a $1.6M lease figure beside $4.5B of debt). Decisions
-  in `research/dcf-plan-2026-10-08.md`: weekly 5y Blume beta, 7% WACC floor
-  (labelled; `wacc_unfloored` in the response), market cost of debt, growth =
-  lower of 3y/5y revenue CAGR capped 10%; financials, REITs, managed care and
-  captive finance refused. Predecessor CIKs (`CIK_PREDECESSORS`) cover holdco
-  reorganisations (XOM, WBA). `core/valuation_service.py` assembles a value and
-  the point-in-time history (the day after each 10-K/10-Q).
+- `core/sec.py` + `core/fundamentals.py` + `modeling/` + `api/routers/valuation.py` — the DCF; read `modeling/CLAUDE.md` before changing any of them. Missing is never zero: a missing input refuses, it is never defaulted.
 - `api/routers/` — the REST/WS surface: ohlcv, assets, strategies, backtest,
   compare, optimize, simulate, options, valuation, screeners, statistics, portfolios,
   watchlists, research, ingest, results, signals, ws
 - `frontend/` — React dashboard; `routes.tsx` declares pages once for both the
   router and the nav bar; TanStack Query owns server state, Zustand owns UI
   selections only
-- `ml_models/` — EDA, model training (scikit-learn), signal generation
 - `services/` — 3-layer architecture: gRPC signal service → GraphQL gateway → Ed25519/SHA256 crypto audit log (`audit_log.json`)
 - `core/portfolio.py` — portfolio accounting; the trade log is the only stored
   state and cash/positions/P&L are derived from it (`db/models.py` has no
   `cash` or `positions` column, deliberately)
-- `config/settings.py` — Centralized settings
 
 ## Invariants
 
