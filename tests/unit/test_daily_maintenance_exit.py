@@ -78,6 +78,7 @@ def test_a_flagged_check_is_exit_0_with_named_flags(tmp_path):
         ("snapshot_universes=1", "snapshot"),
         ("check_fresh_returns=2", "fresh-return-check"),  # 2026-10-11: the check could not run
         ("cli.run_pipeline=1", "ingest"),
+        ("backup=1", "backup"),  # 2026-10-12: a backup that fails must interrupt
     ],
 )
 def test_a_failed_step_is_exit_1_and_named(tmp_path, exits, failed):

@@ -203,6 +203,46 @@ def sec_user_agent():
     return _UA().SEC_USER_AGENT.strip() or None
 
 
+# --- Backups (scripts/backup.py, last step of the 06:00 job) ---
+# Added 2026-10-12. Until then nothing was backed up: no Time Machine
+# destination, `data/` gitignored, the database in one Docker volume. The
+# option-chain archive and the universe snapshots cannot be re-fetched (yfinance
+# serves only today's chain; a missed index-day cannot be backdated), and
+# neither can the prices as Yahoo served them, the legacy names it no longer
+# serves, or the human decisions recorded on each asset.
+#: The Postgres container; its OWN pg_dump makes the dump, so the file restores
+#: with any pg_restore of that major version or newer.
+BACKUP_DB_CONTAINER = "quant_timescaledb"
+#: Project files copied beside the dump (relative to ROOT_DIR). Everything else
+#: under data/ is derivable (data/surfaces is a cache).
+BACKUP_FILES = (
+    "data/option_chains",
+    "data/option_chains_postclose",
+    "portfolios.json",
+    "watchlists.json",
+    "audit_log.json",
+)
+#: Newest daily backups kept, and monthly ones (the first of each month).
+BACKUP_KEEP_DAILY = 14
+BACKUP_KEEP_MONTHLY = 12
+
+
+def backup_dir():
+    """
+    QUANT_BACKUP_DIR from the environment or .env, as a Path, or None. Read
+    per call. It lives in .env, not here: the repository is public and the
+    path names the Google Drive account.
+    """
+    from pydantic_settings import BaseSettings, SettingsConfigDict
+
+    class _Backup(BaseSettings):
+        model_config = SettingsConfigDict(env_file=ROOT_DIR / ".env", extra="ignore")
+        QUANT_BACKUP_DIR: str = ""
+
+    value = _Backup().QUANT_BACKUP_DIR.strip()
+    return Path(value).expanduser() if value else None
+
+
 #: A ticker whose filer the ticker map gets WRONG, with the evidence. An entry
 #: wins over the map and the rename CSV (core/cik_resolution.py).
 CIK_OVERRIDES = {

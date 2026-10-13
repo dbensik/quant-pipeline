@@ -211,6 +211,18 @@ if [ "$MODE" != "--ingest-only" ]; then
     fi
 fi
 
+# LAST, so the backup holds today's snapshot and bars. The database and the
+# option-chain archive to QUANT_BACKUP_DIR (Google Drive), each dump proven by
+# restoring it into a scratch database first. Until 2026-10-12 nothing was
+# backed up, and most of what this project stores cannot be re-fetched.
+log "--- backup ---"
+if "$VENV_PYTHON" scripts/backup.py >> "$LOG_FILE" 2>&1; then
+    log "backup OK"
+else
+    log "backup FAILED (exit $?)"
+    fail backup
+fi
+
 # The final line is parsed by the runbook's liveness and weekly drift checks:
 #   finished (exit 0) ===                       clean
 #   finished (exit 0) with FLAGS: <checks> ===  ran fully; data findings to read

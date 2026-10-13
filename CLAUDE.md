@@ -70,6 +70,7 @@ scripts/check_reassigned.py                 # the check alone; read-only, exit 1
 scripts/check_missing_days.py               # holes inside series; read-only, exit 1 = lost bars
 scripts/check_fresh_returns.py              # returns readers see vs fresh Yahoo, 30 sessions; exit 1 = mismatch
 scripts/load_fundamentals.py --recent       # SEC facts for registry filers of the last 7 days (--all: everyone, ~10 min)
+scripts/backup.py                           # LAST step: DB dump + option archive to QUANT_BACKUP_DIR, proven by a restore
 tail -f logs/daily_maintenance.log
 ```
 
@@ -260,6 +261,21 @@ or a predecessor) that filed a 10-K, 10-Q, 20-F, 40-F or an amendment in
 2 GB of `--all`. Needs `SEC_USER_AGENT` in `.env` (Danny's identity, his
 choice; never supplied by code — `core/sec.py` refuses to construct without
 it). A block (HTML 403) or a 429 stops the run.
+
+**Everything is backed up daily, and each backup is proven by a restore**
+(since 2026-10-12; before that nothing was, not even Time Machine).
+`scripts/backup.py` is the 06:00 job's last step: the container's own
+`pg_dump -Fc` (90 MB) and a tar of `data/option_chains*` and the JSON files
+go to `QUANT_BACKUP_DIR` in `.env` (Google Drive, dbensik; in `.env` because
+this repo is public and the path names the account), 14 daily and 12 monthly
+kept. Each dump is first restored into a scratch database `quant_restore_check`
+and every table's row count compared with the live one; a dump that fails is
+not copied, so it never prunes a good one. A failed backup fails the job.
+**Restore**, into the compose container (same TimescaleDB version):
+`createdb` a database, `CREATE EXTENSION timescaledb; SELECT
+timescaledb_pre_restore();`, `pg_restore --no-owner -d <db> < <dump>`, then
+`SELECT timescaledb_post_restore();` — exactly what `verify()` in the script
+does. Untar the files archive at the project root.
 
 **Universe snapshots cannot be backdated.** A missed day is a permanent gap in
 point-in-time membership, and membership is what makes survivorship-free
