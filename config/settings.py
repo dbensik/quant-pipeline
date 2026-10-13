@@ -759,7 +759,8 @@ SERVED_PRICES_ENABLED = True
 
 # --- Risk-free rate (core/rates.py, tier 2 phase 0) ---
 # Plan: research/option-pricing-plan-2026-10-08.md, decision 1. Replaces the
-# hardcoded 0.02 for new code; optimize.py and data_enricher.py still carry it.
+# hardcoded 0.02. Every reader uses it now; data_enricher.py, the last 0.02,
+# was deleted 2026-10-12 with the SQLite-era pipelines that alone called it.
 #
 # ^IRX is the 13-week T-bill rate QUOTED ON A BANK-DISCOUNT BASIS, in percent.
 # Checked 2026-10-08 against Treasury's Daily Treasury Bill Rates: ^IRX

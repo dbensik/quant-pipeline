@@ -79,6 +79,7 @@ before the migration below; they are kept as history.
 - **README:** installation instructions rewritten for Poetry.
 
 ### Removed
+- **The SQLite-era pipelines** (2026-10-12): `data_pipeline/` `EquityPipeline`, `CryptoPipeline`, `pipeline.py`, `new.py` and `DataEnricher` — 719 lines that only imported each other, and the last hardcoded 0.02 risk-free rate. Ingest has gone through `core/ingest.py` since 2026-08-09.
 - `ml_models/option_pricing.py` (2026-10-08), a placeholder barrier-option payoff nothing imported; replaced by the tier 2 pricing package as it is built.
 - **`environment.yml`:** conda environment spec retired per the Poetry decision; a pre-existing `quant-pipeline-env` still works via the launcher's fallback, but conda setup is no longer documented.
 

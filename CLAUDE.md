@@ -206,7 +206,6 @@ Optimize page and a backtest agree. It had used mean daily return x 252 minus
 the window mean rate: SPY/AGG/GLD 2023-2025 showed 1.82 (now 1.94) and a
 26.3% "return" for a basket that compounded 29.0% a year. Scoring is one
 matrix product per 250 weightings, 14-26 ms for 5,000 (was ~140 ms).
-`data_enricher.py` keeps 0.02 but has no live caller.
 
 **Fills cost something** (since 2026-10-12). `SimulatedExecutionHandler`
 slippage is ADVERSE (buys fill above the close, sells below, uniform in
@@ -347,7 +346,7 @@ For the TimescaleDB layer, copy `.env.example` → `.env`; without it, `db/sessi
 
 ## Architecture
 
-- `data_pipeline/` — `EquityPipeline`, `CryptoPipeline`, `FundamentalPipeline`, `DynamicUniverse`, `DataEnricher`; legacy fetchers still used for universe listings
+- `data_pipeline/` — `FundamentalPipeline`, `DynamicUniverse`; legacy fetchers still used for universe listings. The SQLite-era `EquityPipeline`, `CryptoPipeline`, `pipeline.py`, `new.py` and `DataEnricher` (the last hardcoded 0.02 risk-free rate) were deleted 2026-10-12: they only imported each other.
 - `core/ingest.py` — THE write path: fetch via adapters, persist via the repository into TimescaleDB
 - `core/corporate_actions.py` — split-adjustment drift, delisting detection,
   and rename/successor detection (`scripts/find_successors.py` proposes, never

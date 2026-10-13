@@ -23,8 +23,8 @@ Source schema (legacy SQLite, table `price_data_daily`)
 Note there is no asset_class and no source column — both are derived here (see
 classify_asset_class). The four trailing indicator columns are DERIVED data and
 are intentionally NOT migrated: market_data is the OHLCV source of truth, and
-data_pipeline's DataEnricher recomputes these from OHLCV on demand. They remain
-available in the archived SQLite file.
+they are derivable from it (the SQLite-era DataEnricher that computed them was
+deleted 2026-10-12, unused). They remain available in the archived SQLite file.
 
 Safety guarantees
 -----------------

@@ -84,7 +84,6 @@ class PortfolioRiskManager:
                 order.quantity = new_quantity
 
         return order
-        return order
 
     def calculate_volatility_adjusted_size(
         self,
