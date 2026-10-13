@@ -64,11 +64,12 @@ restating write — see `research/dividend-drift-plan-2026-09-27.md`.
 ```bash
 launchctl print gui/$(id -u)/com.dbensik.quant-pipeline.daily-maintenance
 scripts/launchd/install.sh                  # (re)install after editing the plist
-scripts/cron/daily_maintenance.sh           # ingest, risk-free rate, SEC facts, reassigned + missing-day + fresh-return checks, snapshot
+scripts/cron/daily_maintenance.sh           # ingest, risk-free rate, SEC facts, reassigned + missing-day + fresh-return checks, snapshot, DCF line check, backup
 scripts/ingest_rates.py                     # risk-free rate (^IRX) only; --as-of DATE prints the rate a reader gets
 scripts/check_reassigned.py                 # the check alone; read-only, exit 1 = flagged
 scripts/check_missing_days.py               # holes inside series; read-only, exit 1 = lost bars
 scripts/check_fresh_returns.py              # returns readers see vs fresh Yahoo, 30 sessions; exit 1 = mismatch
+scripts/check_line_concepts.py              # DCF lines another concept reports differently, or a stale per-filer map; exit 1 = flagged
 scripts/load_fundamentals.py --recent       # SEC facts for registry filers of the last 7 days (--all: everyone, ~10 min)
 scripts/backup.py                           # LAST step: DB dump + option archive to QUANT_BACKUP_DIR, proven by a restore
 tail -f logs/daily_maintenance.log
@@ -260,6 +261,17 @@ or a predecessor) that filed a 10-K, 10-Q, 20-F, 40-F or an amendment in
 2 GB of `--all`. Needs `SEC_USER_AGENT` in `.env` (Danny's identity, his
 choice; never supplied by code — `core/sec.py` refuses to construct without
 it). A block (HTML 403) or a 429 stops the run.
+
+**DCF lines are re-checked against new filings daily** (since 2026-10-13,
+`scripts/check_line_concepts.py`, after the snapshot). The DCF reads each line
+from the first concept of an ordered list, or from
+`LINE_CONCEPTS_BY_SYMBOL` where a 10-K showed the list picks wrong; both are
+claims new filings can break. A CONCEPT flag: another concept reports a
+valued company's newest fiscal year differently and valuing on it moves
+value/price by 0.05 and 5%. A STALE flag: a map names concepts the filer
+stopped using. Flags only, ~45 s, no SEC requests. Clear one by reading the
+statement, then mapping the right concept or adding the reviewed one, with
+what the statement shows, to `LINE_CONCEPTS_REVIEWED`.
 
 **Everything is backed up daily, and each backup is proven by a restore**
 (since 2026-10-12; before that nothing was, not even Time Machine).

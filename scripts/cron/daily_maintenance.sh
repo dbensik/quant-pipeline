@@ -4,7 +4,8 @@
 #
 # Daily data maintenance, for launchd. In this order: ingest new price bars,
 # the risk-free rate, SEC facts for recent filers, the read-only checks
-# (reassigned tickers, missing days, fresh returns), then the index snapshot.
+# (reassigned tickers, missing days, fresh returns), the index snapshot, the
+# DCF line-concept check, then the backup.
 #
 # Ingest runs FIRST so that any name which joined an index today already has
 # bars by the time the snapshot records it.
@@ -211,6 +212,27 @@ if [ "$MODE" != "--ingest-only" ]; then
     fi
 fi
 
+# DCF lines the filings may now report differently (2026-10-13): another
+# concept for a valued company's newest fiscal year that moves its value, or a
+# per-filer map naming concepts the filer stopped using. After the SEC refresh
+# (new filings change the answer) and after the snapshot, so its ~45 s never
+# delays the one step that cannot be backdated. Flags only.
+# See scripts/check_line_concepts.py.
+if [ "$MODE" != "--snapshot-only" ]; then
+    log "--- DCF line-concept check ---"
+    "$VENV_PYTHON" scripts/check_line_concepts.py >> "$LOG_FILE" 2>&1
+    CHECK_EXIT=$?
+    if [ "$CHECK_EXIT" -eq 0 ]; then
+        log "line-concept check OK"
+    elif [ "$CHECK_EXIT" -eq 1 ]; then
+        log "line-concept check FLAGGED DCF lines — see CONCEPT or STALE lines above"
+        flag line-concepts
+    else
+        log "line-concept check FAILED to run (exit $CHECK_EXIT)"
+        fail line-concept-check
+    fi
+fi
+
 # LAST, so the backup holds today's snapshot and bars. The database and the
 # option-chain archive to QUANT_BACKUP_DIR (Google Drive), each dump proven by
 # restoring it into a scratch database first. Until 2026-10-12 nothing was
@@ -252,7 +274,7 @@ if [ -n "$FAILED_STEPS" ] && [ ! -t 1 ]; then
 fi
 
 if [ -n "$FLAGS" ] && [ ! -t 1 ]; then
-    osascript -e 'display notification "A check flagged stored data - see SUSPECT, MISSING or MISMATCH in logs/daily_maintenance.log. Nothing was changed." with title "quant-pipeline daily maintenance"' >/dev/null 2>&1 || true
+    osascript -e 'display notification "A check flagged stored data - see SUSPECT, MISSING, MISMATCH, CONCEPT or STALE in logs/daily_maintenance.log. Nothing was changed." with title "quant-pipeline daily maintenance"' >/dev/null 2>&1 || true
 fi
 
 # Keep the log from growing without bound; 30 days is plenty to notice a

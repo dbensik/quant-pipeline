@@ -558,6 +558,48 @@ LINE_CONCEPTS_BY_SYMBOL = {
 }
 
 
+#: scripts/check_line_concepts.py (06:00 job): another concept for a line's
+#: newest fiscal year is flagged when valuing on it moves value/price by at
+#: least this much, absolute AND relative. The 2026-10-13 census used these.
+LINE_CHECK_MIN_MOVE = 0.05
+LINE_CHECK_MIN_REL = 0.05
+
+#: An alternative under this share of the chosen figure is a component, not
+#: the line, and is not flagged (core/line_concept_check.alternatives).
+LINE_CHECK_MIN_SHARE = 0.10
+
+#: (symbol, line item, alternative concept) read off the filing and found to
+#: be right as chosen, with what the statement shows. Clears that flag only;
+#: a mapped line needs no entry (its LINE_CONCEPTS_BY_SYMBOL entry is the
+#: review). Read 2026-10-12/13 from each filer's latest 10-K.
+_CONTINUING_CFO = (
+    "capex is in continuing investing and discontinued operations are separate "
+    "lines, so continuing CFO is the figure to pair with it"
+)
+LINE_CONCEPTS_REVIEWED = {
+    ("CARR", "cfo", "NetCashProvidedByUsedInOperatingActivities"): _CONTINUING_CFO,
+    ("OXY", "cfo", "NetCashProvidedByUsedInOperatingActivities"): _CONTINUING_CFO,
+    ("DAL", "capex", "PaymentsToAcquireOtherProductiveAssets"): (
+        "ground equipment $978M is a component: flight $3,521M + ground = the $4,499M chosen"
+    ),
+    ("FANG", "capex", "PaymentsToAcquireOilAndGasProperty"): (
+        "$5,938M is acquisitions of oil and gas properties, not capex"
+    ),
+    ("MCD", "capex", "PaymentsToAcquireOtherProductiveAssets"): (
+        "not a line of the cash-flow statement; capital expenditures is the $3,365M chosen"
+    ),
+    ("PAYX", "capex", "PaymentsToAcquireOtherProductiveAssets"): (
+        "not a line of the cash-flow statement; the $235M chosen is"
+    ),
+    ("HII", "capex", "PaymentsToAcquireProductiveAssets"): (
+        '"Capital expenditure additions" $402M (chosen); $396M nets $6M of grant proceeds'
+    ),
+    ("HPE", "interest_expense", "InterestExpenseDebt"): (
+        "$1,098M is interest on all borrowings, matching the total debt netted; $598M is a part"
+    ),
+}
+
+
 def dcf_sector_refusal(symbol: str | None, sector: str | None) -> str | None:
     """Why `symbol`'s sector refuses a DCF, or None (not refused, or allowed by name)."""
     if sector not in DCF_REFUSED_SECTORS:
