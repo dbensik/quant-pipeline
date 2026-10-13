@@ -656,3 +656,23 @@ def test_a_filers_only_capex_line_is_capex(concept):
     )
     v = build_inputs(st, date(2026, 10, 8), 40.0, 0.04, BETA)
     assert not isinstance(v, Refusal) and v.lines["capex"][0] == 17e9
+
+
+@pytest.mark.parametrize(
+    ("symbol", "refused"), [("MA", False), ("ma", False), ("JPM", True), (None, True)]
+)
+def test_a_named_fee_business_is_valued_in_a_refused_sector(aapl, symbol, refused):
+    """Decision 16: listed fee businesses pass the Financials refusal, by name only."""
+    out = build_inputs(
+        aapl, date(2026, 10, 8), 340.42, 0.0412, BETA, sector="Financials", symbol=symbol
+    )
+    assert isinstance(out, Refusal) is refused
+    if not refused:
+        assert any("valued by name" in n for n in out.notes)
+
+
+def test_allowed_and_refused_symbol_lists_do_not_overlap():
+    from config import settings
+
+    assert not set(settings.DCF_ALLOWED_SYMBOLS) & set(settings.DCF_REFUSED_SYMBOLS)
+    assert all(settings.DCF_ALLOWED_SYMBOLS.values())

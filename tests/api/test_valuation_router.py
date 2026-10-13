@@ -326,3 +326,19 @@ async def test_history_reads_each_series_once_and_matches_uncached_values():
             expected.append(None)
     assert [p["per_share"] for p in cached] == pytest.approx(expected, rel=1e-12)
     assert n_cached <= 4  # AAPL none + total, SPY total: not three reads per filing
+
+
+def test_a_named_fee_business_passes_the_sector_refusal(vclient, monkeypatch):
+    """Decision 16, through the service: AAPL's facts filed as a Financials name."""
+    from config import settings
+
+    monkeypatch.setitem(FakeValuationData.EQUITIES, "AAPL", ([320193], "Financials"))
+    body = {"symbol": "AAPL", "as_of": "2026-10-08"}
+    refused = vclient.post("/api/v1/valuation/dcf", json=body)
+    assert refused.status_code == 422 and "banks and insurers" in refused.json()["detail"]
+
+    monkeypatch.setitem(settings.DCF_ALLOWED_SYMBOLS, "AAPL", "test fee business")
+    valued = vclient.post("/api/v1/valuation/dcf", json=body)
+    assert valued.status_code == 200
+    assert valued.json()["result"]["per_share"] > 0
+    assert any("valued by name" in n for n in valued.json()["notes"])

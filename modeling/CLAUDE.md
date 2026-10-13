@@ -25,6 +25,8 @@
   in `research/dcf-plan-2026-10-08.md`: weekly 5y Blume beta, 7% WACC floor
   (labelled; `wacc_unfloored` in the response), market cost of debt, growth =
   lower of 3y/5y revenue CAGR capped 10%; financials, REITs, managed care and
-  captive finance refused. Predecessor CIKs (`CIK_PREDECESSORS`) cover holdco
+  captive finance refused, except 22 fee businesses admitted BY NAME
+  (`DCF_ALLOWED_SYMBOLS`, decision 16: exchanges/data, insurance brokers,
+  payment processors, real-estate services; never by sub-industry). Predecessor CIKs (`CIK_PREDECESSORS`) cover holdco
   reorganisations (XOM, WBA). `core/valuation_service.py` assembles a value and
   the point-in-time history (the day after each 10-K/10-Q).

@@ -74,10 +74,9 @@ async def load_statements(
         )
     ciks, sector = eq
     cik = ciks[0] if ciks else None
-    if sector in settings.DCF_REFUSED_SECTORS:
-        raise ValuationError(
-            422, f"{symbol} is in {sector}: {settings.DCF_REFUSED_SECTORS[sector]}"
-        )
+    sector_refusal = settings.dcf_sector_refusal(symbol, sector)
+    if sector_refusal:
+        raise ValuationError(422, f"{symbol} is in {sector}: {sector_refusal}")
     if symbol.upper() in settings.DCF_REFUSED_SYMBOLS:
         raise ValuationError(
             422, f"{symbol} is refused: {settings.DCF_REFUSED_SYMBOLS[symbol.upper()]}"
@@ -141,7 +140,14 @@ async def value(
         beta_src = f"daily 3y vs {settings.DCF_BETA_BENCHMARK} (weekly series too short), SE {raw_beta.std_error:.3f}"
 
     built = build_inputs(
-        st, as_of, price, rate.continuous, beta, sector=sector, growth_first=overrides.growth_first
+        st,
+        as_of,
+        price,
+        rate.continuous,
+        beta,
+        sector=sector,
+        growth_first=overrides.growth_first,
+        symbol=symbol,
     )
     if isinstance(built, Refusal):
         raise ValuationError(422, built.reason)

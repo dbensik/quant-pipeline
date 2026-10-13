@@ -436,6 +436,35 @@ DCF_REFUSED_SYMBOLS = {
     "PCAR": _CAPTIVE_FINANCE,
 }
 
+#: Symbols in a refused SECTOR that are valued anyway, with why. Decision 16
+#: (approved 2026-10-12, option B): fee businesses whose free cash flow is an
+#: ordinary company's. Measured with the sector gate lifted (2026-10-12):
+#: operating cash flow a stable 0.17-0.59 of revenue over 6 years, values
+#: 0.19-3.75x price; banks and insurers alongside ran 3-32x revenue. A list by
+#: name, not by GICS sub-industry, on purpose: a stale list fails as a visible
+#: refusal, a misread classification as a wrong number, and only these names
+#: were measured. Add a new index member only after the same check.
+_EXCHANGE_DATA = "exchange or data provider: fee revenue, no balance-sheet lending"
+_BROKER = "insurance broker: commissions and fees, no underwriting float"
+_PROCESSOR = "payment processor: transaction fees, cash conversion stable over 6 years"
+_RE_SERVICES = "real estate services: fees, not a REIT's property capital spending"
+DCF_ALLOWED_SYMBOLS = {
+    **dict.fromkeys(("SPGI", "MCO", "MSCI", "FDS", "ICE", "CME", "NDAQ", "CBOE"), _EXCHANGE_DATA),
+    **dict.fromkeys(("AJG", "AON", "BRO", "MRSH", "WTW"), _BROKER),
+    **dict.fromkeys(("MA", "GPN", "CPAY", "JKHY", "PYPL", "FIS", "FISV"), _PROCESSOR),
+    **dict.fromkeys(("CBRE", "CSGP"), _RE_SERVICES),
+}
+
+
+def dcf_sector_refusal(symbol: str | None, sector: str | None) -> str | None:
+    """Why `symbol`'s sector refuses a DCF, or None (not refused, or allowed by name)."""
+    if sector not in DCF_REFUSED_SECTORS:
+        return None
+    if symbol is not None and symbol.upper() in DCF_ALLOWED_SYMBOLS:
+        return None
+    return DCF_REFUSED_SECTORS[sector]
+
+
 # --- Crypto identity (core/crypto_identity.py) ---
 #
 # A TICKER IS NOT AN IDENTIFIER. CoinGecko's "mnt" is Mantle; Yahoo's MNT-USD

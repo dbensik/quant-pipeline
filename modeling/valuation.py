@@ -121,10 +121,17 @@ def build_inputs(
     beta: Beta,
     sector: Optional[str] = None,
     growth_first: Optional[float] = None,
+    symbol: Optional[str] = None,
 ) -> "ValuationInputs | Refusal":
-    if sector in settings.DCF_REFUSED_SECTORS:
-        return Refusal(f"{sector}: {settings.DCF_REFUSED_SECTORS[sector]}")
+    sector_refusal = settings.dcf_sector_refusal(symbol, sector)
+    if sector_refusal:
+        return Refusal(f"{sector}: {sector_refusal}")
     notes: List[str] = []
+    if sector in settings.DCF_REFUSED_SECTORS:
+        notes.append(
+            f"{sector} is refused as a sector; {symbol} is valued by name "
+            f"({settings.DCF_ALLOWED_SYMBOLS[symbol.upper()]})"
+        )
 
     cfo, cfo_src = _ttm_or_annual(st, "cfo", as_of)
     if cfo is None:
