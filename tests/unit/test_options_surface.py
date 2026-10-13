@@ -87,9 +87,17 @@ def test_fingerprint_follows_the_pricing_source(tmp_path):
         shutil.copy(src / name, tmp_path / name)
     before = pricing_fingerprint(tmp_path)
     assert pricing_fingerprint(tmp_path) == before
-    with open(tmp_path / "binomial.py", "a") as fh:
-        fh.write("\n# a comment is enough: recomputing is the safe direction\n")
-    assert pricing_fingerprint(tmp_path) != before
+    path = tmp_path / "binomial.py"
+    source = path.read_text()
+    # Comments, layout and docstrings cannot change a price (the 2026-10-11
+    # ruff pass re-priced a week for nothing) ...
+    path.write_text("# a comment\n\n\n" + source.replace('"""', '"""Reworded. ', 1))
+    assert pricing_fingerprint(tmp_path) == before
+    # ... and any change to the code still does: recomputing is the safe direction.
+    path.write_text(source + "\nEXTRA = 1\n")
+    one = pricing_fingerprint(tmp_path)
+    path.write_text(source + "\nEXTRA = 2\n")
+    assert len({before, one, pricing_fingerprint(tmp_path)}) == 3
 
 
 @pytest.mark.parametrize(

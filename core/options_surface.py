@@ -36,6 +36,7 @@ on every request.
 
 from __future__ import annotations
 
+import ast
 import asyncio
 import hashlib
 import json
@@ -69,13 +70,35 @@ PRICING_SETTINGS = (
 )
 
 
+def code_of(source: str) -> str:
+    """
+    The source's syntax tree without docstrings: what can change a price.
+    Comments, formatting and docstrings cannot; the ruff pass of 2026-10-11
+    changed only those and made every cached surface stale (a week re-priced
+    in 8 minutes, the archive's ~37 left to compute on request). A Python
+    upgrade may print the tree differently: that recomputes, the safe way.
+    """
+    tree = ast.parse(source)
+    for node in ast.walk(tree):
+        body = getattr(node, "body", None)
+        if (
+            isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+            and body
+            and isinstance(body[0], ast.Expr)
+            and isinstance(body[0].value, ast.Constant)
+            and isinstance(body[0].value.value, str)
+        ):
+            node.body = body[1:] or [ast.Pass()]
+    return ast.dump(tree, include_attributes=False)
+
+
 def pricing_fingerprint(pricing_dir: Optional[Path] = None) -> str:
-    """Hash of the pricing source and the settings that change its output."""
+    """Hash of the pricing code (`code_of`) and the settings that change its output."""
     pricing_dir = pricing_dir or Path(__file__).resolve().parents[1] / "pricing"
     h = hashlib.sha256()
     for name in PRICING_SOURCES:
         h.update(name.encode())
-        h.update((pricing_dir / name).read_bytes())
+        h.update(code_of((pricing_dir / name).read_text()).encode())
     h.update(
         json.dumps(
             {k: getattr(settings, k) for k in PRICING_SETTINGS}, sort_keys=True, default=str
