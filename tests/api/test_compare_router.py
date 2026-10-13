@@ -267,3 +267,14 @@ def test_too_many_strategies_is_422(client: TestClient):
 
 def test_empty_strategy_list_is_rejected(client: TestClient):
     assert compare(client, strategies=[]).status_code == 422
+
+
+def test_crypto_rows_trade_below_one_coin(client: TestClient):
+    """Each compared strategy on BTC traded whole coins only, so none traded."""
+    body = compare(
+        client,
+        symbol="BTC-USD",
+        initial_capital=20_000,
+        strategies=[{"strategy_id": "buy_and_hold"}],
+    ).json()
+    assert body["results"][0]["metrics"]["Trade Count"] > 0

@@ -348,7 +348,23 @@ def test_prices_mode_seeds_each_path_from_its_index(monkeypatch):
         seed=7,
     )
     zero_rate = ResolvedRiskFree(0.0, "test", np.zeros(len(frame)))
-    simulate._simulate_sync(frame, registry.get("buy_and_hold"), request, 4, zero_rate)
+    simulate._simulate_sync(
+        frame, registry.get("buy_and_hold"), request, 4, zero_rate, lot_size=1.0
+    )
     # The historical run is seeded with the request seed via _run_backtest_sync
     # (which builds its own Backtester, not patched here); the four paths follow.
     assert seeds[-4:] == [7, 8, 9, 10]
+
+
+def test_crypto_simulation_trades_below_one_coin(client: TestClient):
+    """The historical run and every synthetic path held a fraction of a coin."""
+    body = run(
+        client,
+        symbol="BTC-USD",
+        initial_capital=20_000,
+        allow_unverified=True,
+        mode="prices",
+        n_paths=20,
+    ).json()
+    assert body["historical"]["Trade Count"] > 0
+    assert body["drawdown"]["historical_depth"] < 0

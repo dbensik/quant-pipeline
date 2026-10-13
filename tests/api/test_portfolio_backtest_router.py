@@ -334,3 +334,17 @@ def test_transaction_cost_is_charged(client: TestClient):
     dear = run(client, transaction_cost=0.01, risk_free_rate=0.0).json()
     assert dear["transaction_cost"] == 0.01
     assert dear["metrics"]["Final Value"] < free["metrics"]["Final Value"]
+
+
+def test_a_basket_holds_a_fraction_of_a_coin(client: TestClient):
+    """
+    AAPL and BTC-USD share one return path in this fixture, so the basket's
+    return should barely depend on its capital. The risk manager caps each
+    buy at 2% of equity: on $20,000 that is $400, about 0.013 of a ~$30,000
+    BTC, which whole units rounded to 0, so BTC was never bought and the
+    basket earned 0.44 of a $2,000,000 one's return. Now ~0.89; the rest is
+    the $1-a-fill fee, 100x heavier on the smaller basket.
+    """
+    small = run(client, initial_capital=20_000, risk_free_rate=0.0).json()["metrics"]
+    large = run(client, initial_capital=2_000_000, risk_free_rate=0.0).json()["metrics"]
+    assert small["Total Return"] > 0.8 * large["Total Return"] > 0

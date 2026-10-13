@@ -56,7 +56,7 @@ def test_commission_is_the_fee_plus_the_rate_on_value():
 def test_affordable_quantity_is_the_most_the_cash_covers():
     handler = SimulatedExecutionHandler(commission_rate=0.001)
     cash, price = 100_000.0, 99.99
-    q = handler.affordable_quantity(cash, price)
+    q = handler.affordable_quantity(cash, price, 1.0)
     cost = lambda n: n * price + handler.commission_for(n, price)  # noqa: E731
     assert cost(q) <= cash < cost(q + 1)
 
@@ -82,6 +82,7 @@ def test_transaction_cost_reaches_the_backtest():
             price_data=frame,
             model=registry.build("ma_crossover", {"short_window": 5, "long_window": 20}),
             cash_accrual=np.zeros(len(frame)),
+            lot_size=1.0,
         )
         assert len(bt.get_trade_log()) > 4
         finals.append(bt.get_performance_metrics()["Final Value"])

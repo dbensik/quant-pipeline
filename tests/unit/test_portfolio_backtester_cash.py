@@ -52,6 +52,7 @@ def run(a_close, b_close, signals):
         {"Portfolio": pd.DataFrame({"signal": signals}, index=idx)},
         {"A": 0.5, "B": 0.5},
         cash_accrual=pd.Series(np.zeros(len(idx)), index=idx),
+        lot_sizes={"A": 1.0, "B": 1.0},
     )
     return portfolio, trades
 

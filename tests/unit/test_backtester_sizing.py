@@ -54,6 +54,7 @@ def run(handler) -> tuple:
         price_data=prices,
         model=registry.build("buy_and_hold", {}),
         cash_accrual=np.zeros(len(prices)),
+        lot_size=1.0,
     )
     return bt, results
 

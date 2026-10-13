@@ -188,3 +188,23 @@ def test_transaction_cost_is_charged(client: TestClient):
     assert dear["metrics"]["Final Value"] < free["metrics"]["Final Value"]
     fill = dear["trades"][0]
     assert fill["commission"] == pytest.approx(1.0 + 0.01 * fill["quantity"] * fill["fill_price"])
+
+
+def test_crypto_buys_a_fraction_of_a_coin(client: TestClient):
+    """
+    Until 2026-10-12 every backtest traded whole units, so with less cash than
+    one coin a BTC backtest bought nothing and reported a flat line. One
+    fixture BTC costs ~$30,000; $20,000 now buys about two thirds of one.
+    """
+    body = run(client, symbol="BTC-USD", initial_capital=20_000).json()
+    assert len(body["trades"]) == 1
+    quantity = body["trades"][0]["quantity"]
+    assert 0.5 < quantity < 1.0
+    assert body["metrics"]["Final Value"] != pytest.approx(20_000, rel=1e-3)
+
+
+def test_equities_still_trade_whole_shares(client: TestClient):
+    """$50 buys no $100 AAPL share; $20,000 buys a whole number of them."""
+    assert run(client, initial_capital=50).json()["trades"] == []
+    quantity = run(client, initial_capital=20_000).json()["trades"][0]["quantity"]
+    assert quantity == int(quantity) > 0

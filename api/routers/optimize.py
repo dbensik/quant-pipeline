@@ -27,6 +27,7 @@ from pydantic import BaseModel, Field
 from alpha_models import registry
 from api.dependencies import get_market_data_repo
 from api.frames import frames_to_wide_close, records_to_frame
+from api.lots import lot_size_or_422
 from api.risk_free import (
     RISK_FREE_RATE_DESCRIPTION,
     RISK_FREE_SOURCE_DESCRIPTION,
@@ -209,6 +210,8 @@ def _optimize_sync(
     request: StrategyOptimizeRequest,
     cash_accrual: np.ndarray,
     progress_callback: Optional[Callable[[int, int], None]] = None,
+    *,
+    lot_size: float,
 ) -> ParameterOptimizer:
     optimizer = ParameterOptimizer(
         price_data=frame,
@@ -219,6 +222,7 @@ def _optimize_sync(
         transaction_cost=request.transaction_cost,
         seed=request.seed,
         cash_accrual=cash_accrual,
+        lot_size=lot_size,
     )
     optimizer.run_optimization(progress_callback=progress_callback)
     return optimizer
@@ -348,6 +352,7 @@ async def optimize_strategy(
     asset = await repo.find_asset(request.symbol)
     if asset is None:
         raise HTTPException(status_code=404, detail=f"Unknown symbol: {request.symbol!r}")
+    lot_size = lot_size_or_422(asset)
     records = await repo.fetch_range(symbol=request.symbol, asset_class=None, start=start, end=end)
     frame = records_to_frame(records)
     if frame.empty:
@@ -364,7 +369,14 @@ async def optimize_strategy(
         raise HTTPException(status_code=422, detail=risk_free_refusal(exc)) from exc
 
     optimizer = await run_in_threadpool(
-        _optimize_sync, frame, spec.id, combos, request, risk_free.accrual, None
+        _optimize_sync,
+        frame,
+        spec.id,
+        combos,
+        request,
+        risk_free.accrual,
+        None,
+        lot_size=lot_size,
     )
 
     # Every combination rejected is a client error, not an empty result set.

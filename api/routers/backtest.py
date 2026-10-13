@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from alpha_models import registry
 from api.dependencies import get_market_data_repo
 from api.frames import records_to_frame
+from api.lots import lot_size_or_422
 from api.risk_free import (
     RISK_FREE_RATE_DESCRIPTION,
     RISK_FREE_SOURCE_DESCRIPTION,
@@ -137,6 +138,7 @@ def _run_backtest_sync(
     seed: Optional[int] = None,
     *,
     cash_accrual: np.ndarray,
+    lot_size: float,
 ) -> tuple:
     """
     The CPU-bound half, run off the event loop via run_in_threadpool.
@@ -151,7 +153,9 @@ def _run_backtest_sync(
         transaction_cost=transaction_cost,
         seed=seed,
     )
-    results = backtester.run(price_data=frame, model=model, cash_accrual=cash_accrual)
+    results = backtester.run(
+        price_data=frame, model=model, cash_accrual=cash_accrual, lot_size=lot_size
+    )
     metrics = backtester.get_performance_metrics()
     trades = backtester.get_trade_log()
     return results, metrics, trades
@@ -203,6 +207,7 @@ async def run_backtest(
     asset = await repo.find_asset(request.symbol)
     if asset is None:
         raise HTTPException(status_code=404, detail=f"Unknown symbol: {request.symbol!r}")
+    lot_size = lot_size_or_422(asset)
 
     start = (
         request.start.replace(tzinfo=timezone.utc)
@@ -236,6 +241,7 @@ async def run_backtest(
             request.transaction_cost,
             request.seed,
             cash_accrual=risk_free.accrual,
+            lot_size=lot_size,
         )
     except ValueError as exc:
         # Strategies validate their own parameters and raise ValueError —

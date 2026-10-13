@@ -37,6 +37,7 @@ from pydantic import BaseModel, Field
 from alpha_models import registry
 from api.dependencies import get_market_data_repo
 from api.frames import records_to_frame
+from api.lots import lot_size_or_422
 from api.risk_free import (
     RISK_FREE_RATE_DESCRIPTION,
     RISK_FREE_SOURCE_DESCRIPTION,
@@ -202,7 +203,7 @@ def _benchmark_metrics(
 
 
 def _compare_sync(
-    frame: pd.DataFrame, request: CompareRequest, cash_accrual: np.ndarray
+    frame: pd.DataFrame, request: CompareRequest, cash_accrual: np.ndarray, lot_size: float
 ) -> tuple[List[Dict[str, Any]], List[Dict[str, str]]]:
     """CPU-bound half: tune (optionally), backtest, collect."""
     rows: List[Dict[str, Any]] = []
@@ -254,6 +255,7 @@ def _compare_sync(
                 transaction_cost=request.transaction_cost,
                 seed=request.seed,
                 cash_accrual=cash_accrual,
+                lot_size=lot_size,
             )
             optimizer.run_optimization()
             best = optimizer.get_best_parameters()
@@ -271,6 +273,7 @@ def _compare_sync(
                 request.transaction_cost,
                 request.seed,
                 cash_accrual=cash_accrual,
+                lot_size=lot_size,
             )
         except (ValueError, KeyError) as exc:
             skipped.append({"strategy_id": spec.id, "reason": str(exc)})
@@ -366,7 +369,7 @@ async def compare_strategies(
     )
     end = request.end.replace(tzinfo=timezone.utc) if request.end.tzinfo is None else request.end
 
-    async def load(symbol: str) -> pd.DataFrame:
+    async def load(symbol: str) -> tuple[Any, pd.DataFrame]:
         asset = await repo.find_asset(symbol)
         if asset is None:
             raise HTTPException(status_code=404, detail=f"Unknown symbol: {symbol!r}")
@@ -377,9 +380,10 @@ async def compare_strategies(
                 status_code=422,
                 detail=(f"No bars stored for {symbol!r} between {start.date()} and {end.date()}."),
             )
-        return frame
+        return asset, frame
 
-    frame = await load(request.symbol)
+    asset, frame = await load(request.symbol)
+    lot_size = lot_size_or_422(asset)
 
     # One rate for the whole comparison, the benchmark's Sharpe included: the
     # rows are ranked against each other, so they must share a hurdle. It is
@@ -394,7 +398,7 @@ async def compare_strategies(
         # No live-yfinance fallback: prices come from the migrated database
         # everywhere else, and a benchmark quietly sourced elsewhere would be
         # measured against a different price series than the strategies.
-        benchmark_frame = await load(request.benchmark_symbol)
+        _benchmark_asset, benchmark_frame = await load(request.benchmark_symbol)
         # Same rate source, accrued on the benchmark's own bars: a crypto
         # benchmark trades at weekends the strategy symbol does not.
         try:
@@ -418,7 +422,9 @@ async def compare_strategies(
             equity_curve=_curve(portfolio) if request.include_equity_curves else [],
         )
 
-    rows, skipped = await run_in_threadpool(_compare_sync, frame, request, risk_free.accrual)
+    rows, skipped = await run_in_threadpool(
+        _compare_sync, frame, request, risk_free.accrual, lot_size
+    )
 
     if not rows:
         reasons = "; ".join(f"{s['strategy_id']}: {s['reason']}" for s in skipped)

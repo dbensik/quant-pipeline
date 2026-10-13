@@ -122,6 +122,7 @@ def test_same_seed_gives_identical_results(price_frame):
         bt.run(
             price_data=price_frame,
             cash_accrual=np.zeros(len(price_frame)),
+            lot_size=1.0,
             model=registry.build("ma_crossover", {"short_window": 10, "long_window": 30}),
         )
         runs.append((bt.get_performance_metrics(), len(bt.get_trade_log())))
@@ -141,6 +142,7 @@ def test_different_seeds_give_different_draws(price_frame):
         bt.run(
             price_data=price_frame,
             cash_accrual=np.zeros(len(price_frame)),
+            lot_size=1.0,
             model=registry.build("ma_crossover", {"short_window": 10, "long_window": 30}),
         )
         finals.append(bt.get_performance_metrics()["Final Value"])
@@ -187,6 +189,7 @@ def test_trade_count_matches_trade_log(price_frame, strategy_id, params):
     bt.run(
         price_data=price_frame,
         cash_accrual=np.zeros(len(price_frame)),
+        lot_size=1.0,
         model=registry.build(strategy_id, params),
     )
     assert bt.get_performance_metrics()["Trade Count"] == len(bt.get_trade_log())
@@ -200,6 +203,7 @@ def test_trade_count_honours_explicit_trades_column(price_frame):
     results = bt.run(
         price_data=price_frame,
         cash_accrual=np.zeros(len(price_frame)),
+        lot_size=1.0,
         model=registry.build("ma_crossover", {"short_window": 10, "long_window": 30}),
     )
     results = results.copy()
@@ -225,6 +229,7 @@ def test_metrics_use_the_backtest_capital_not_the_default(price_frame):
     results = bt.run(
         price_data=price_frame,
         cash_accrual=np.zeros(len(price_frame)),
+        lot_size=1.0,
         model=registry.build("ma_crossover", {"short_window": 10, "long_window": 30}),
     )
     expected = results["total"].iloc[-1] / 50_000.0 - 1.0
@@ -237,6 +242,7 @@ def test_analyzer_options_are_keyword_only(price_frame):
     results = Backtester(seed=42).run(
         price_data=price_frame,
         cash_accrual=np.zeros(len(price_frame)),
+        lot_size=1.0,
         model=registry.build("ma_crossover", {"short_window": 10, "long_window": 30}),
     )
     with pytest.raises(TypeError):
@@ -257,6 +263,7 @@ def test_idle_cash_earns_the_accrual_and_a_cash_run_scores_zero(price_frame):
         # Both averages longer than the frame: no signal, no trade.
         model=registry.build("ma_crossover", {"short_window": 500, "long_window": 1000}),
         cash_accrual=accrual,
+        lot_size=1.0,
     )
     assert len(bt.get_trade_log()) == 0
     expected = 100000.0 * np.cumprod(1.0 + accrual)
@@ -272,6 +279,7 @@ def test_zero_accrual_is_the_old_run_bit_for_bit(price_frame):
         price_data=price_frame,
         model=registry.build("ma_crossover", model),
         cash_accrual=np.zeros(len(price_frame)),
+        lot_size=1.0,
     )
     m = a.get_performance_metrics()
     assert m["Sharpe Ratio"] == m["Annualized Return"] / m["Annualized Volatility"]

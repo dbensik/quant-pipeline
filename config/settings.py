@@ -699,6 +699,25 @@ RISK_FREE_RATE_HISTORY_START = "2015-01-02"
 #: sessions with no bill print, so a one-day gap is normal; a week is not.
 RISK_FREE_RATE_MAX_AGE_DAYS = 7
 
+# --- Backtest lot sizes ---
+# The smallest quantity a backtest may trade, by asset class. Equities and
+# ETFs trade whole shares. Crypto trades to 1e-8 (one satoshi; exchanges'
+# real minimums vary by coin, but none is near a whole unit). Until 2026-10-12
+# every backtest traded whole units, so once BTC passed the starting cash a
+# BTC backtest could not buy at all and reported a flat line. A class with no
+# entry is refused, not defaulted: an option or future traded in whole units
+# would be the same silent error.
+BACKTEST_LOT_SIZES = {"equity": 1.0, "etf": 1.0, "crypto": 1e-8}
+
+
+def lot_size_for(asset_class: str) -> float:
+    """The backtest lot size for `asset_class`; ValueError if it has none."""
+    try:
+        return BACKTEST_LOT_SIZES[asset_class]
+    except KeyError:
+        raise ValueError(f"No backtest lot size for asset class {asset_class!r}.") from None
+
+
 # --- Option pricing kernels (pricing/, tier 2 phase 1) ---
 # Plan: research/option-pricing-plan-2026-10-08.md. Pricing time is ACT/365;
 # realised volatility is annualised over trading days. Never mixed in one function.

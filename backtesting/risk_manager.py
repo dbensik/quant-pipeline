@@ -1,5 +1,7 @@
 import pandas as pd
 
+from execution.simulated_handler import to_lot
+
 from .events import OrderEvent
 
 
@@ -31,7 +33,9 @@ class PortfolioRiskManager:
         self.max_portfolio_drawdown_pct = max_portfolio_drawdown_pct
         self.high_water_mark = 0.0
 
-    def assess_order(self, order: OrderEvent, portfolio_state: pd.Series) -> OrderEvent | None:
+    def assess_order(
+        self, order: OrderEvent, portfolio_state: pd.Series, *, lot_size: float
+    ) -> OrderEvent | None:
         """
         Assesses a proposed order against the portfolio's risk rules.
 
@@ -42,6 +46,9 @@ class PortfolioRiskManager:
             order: The proposed OrderEvent.
             portfolio_state: A pandas Series representing the current state of the portfolio.
                              Must include 'total' equity.
+            lot_size: Smallest tradable quantity (1.0 = whole shares). A
+                      down-sized order is floored to it; with whole units a
+                      2% cap on $20,000 cut a ~$30,000 BTC order to 0.
 
         Returns:
             The approved (and potentially down-sized) OrderEvent, or None if
@@ -69,7 +76,9 @@ class PortfolioRiskManager:
 
             if proposed_trade_value > max_trade_value:
                 # Scale down the order to meet the risk limit
-                new_quantity = int(max_trade_value / portfolio_state[f"{order.symbol}_price"])
+                new_quantity = to_lot(
+                    max_trade_value / portfolio_state[f"{order.symbol}_price"], lot_size
+                )
                 if new_quantity == 0:
                     return None  # Trade is too small to execute
                 order.quantity = new_quantity
@@ -83,7 +92,9 @@ class PortfolioRiskManager:
         asset_volatility: float,
         target_volatility: float = 0.15,
         asset_price: float = 1.0,
-    ) -> int:
+        *,
+        lot_size: float,
+    ) -> float:
         """
         Calculates the position size (quantity) to achieve a target volatility contribution.
 
@@ -96,6 +107,7 @@ class PortfolioRiskManager:
             asset_volatility: Annualized volatility of the asset (decimal, e.g., 0.20).
             target_volatility: Target annualized volatility contribution (decimal, e.g., 0.15).
             asset_price: Current price of the asset.
+            lot_size: Smallest tradable quantity (1.0 = whole shares).
 
         Returns:
             Number of shares to buy/hold.
@@ -108,6 +120,6 @@ class PortfolioRiskManager:
         leverage_factor = min(2.0, target_volatility / asset_volatility)
 
         target_exposure = portfolio_equity * leverage_factor
-        quantity = int(target_exposure / asset_price)
+        quantity = to_lot(target_exposure / asset_price, lot_size)
 
         return quantity

@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 from analysis.performance_analyzer import PerformanceAnalyzer
-from execution.simulated_handler import SimulatedExecutionHandler
+from execution.simulated_handler import SimulatedExecutionHandler, to_lot
 
 from .events import OrderEvent
 from .risk_manager import PortfolioRiskManager
@@ -56,6 +56,7 @@ class PortfolioBacktester:
         target_weights: dict,
         *,
         cash_accrual: pd.Series,
+        lot_sizes: dict,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
         Runs the portfolio backtest using an efficient event-driven loop.
@@ -68,7 +69,15 @@ class PortfolioBacktester:
                 by timestamp (see Backtester.run). Keyed by date rather than
                 position because the timeline is built here, as the union of
                 every symbol's dates; a bar with no accrual is refused.
+            lot_sizes: smallest tradable quantity per ticker
+                (config.settings.lot_size_for): 1.0 for shares, 1e-8 for
+                crypto, so a basket can hold whole AAPL shares beside a
+                fraction of a BTC. Every ticker must have one; all 1.0
+                reproduces the old whole-unit runs exactly.
         """
+        missing_lots = sorted(set(price_data) - set(lot_sizes))
+        if missing_lots:
+            raise ValueError(f"lot_sizes has no entry for {', '.join(missing_lots)}")
         # --- 1. ARCHITECTURAL REFACTOR: Create an event-driven loop ---
         # Get all unique timestamps from all signal sources. This is more efficient
         # than iterating over every calendar day.
@@ -198,19 +207,25 @@ class PortfolioBacktester:
                                 asset_volatility=asset_vol,
                                 target_volatility=self.target_volatility,
                                 asset_price=current_price,
+                                lot_size=lot_sizes[ticker],
                             )
                     else:
                         # Fixed Weight Sizing
                         target_value = portfolio.loc[timestamp, "total"] * target_weights.get(
                             ticker, 0
                         )
-                        quantity = int(target_value / current_price)
+                        quantity = to_lot(target_value / current_price, lot_sizes[ticker])
 
                     if quantity > 0:
                         order = OrderEvent(timestamp, ticker, "MKT", quantity, "BUY")
 
                 elif signal == -1 and current_position > 0:  # Directional Sell
-                    order = OrderEvent(timestamp, ticker, "MKT", int(current_position), "SELL")
+                    # The whole holding: a fractional position floored to a
+                    # lot could leave dust that is never sold.
+                    quantity = (
+                        int(current_position) if lot_sizes[ticker] == 1.0 else current_position
+                    )
+                    order = OrderEvent(timestamp, ticker, "MKT", quantity, "SELL")
 
                 elif signal == 2:  # Rebalance Signal
                     # Rebalancing logic for vol targeting is complex (needs to re-eval everything).
@@ -218,14 +233,17 @@ class PortfolioBacktester:
                     # Standard rebalance uses fixed weights.
 
                     target_value = portfolio.loc[timestamp, "total"] * target_weights.get(ticker, 0)
-                    target_quantity = int(target_value / current_price)
+                    lot = lot_sizes[ticker]
+                    target_quantity = to_lot(target_value / current_price, lot)
                     trade_quantity = target_quantity - current_position
 
                     if trade_quantity > 0:
-                        order = OrderEvent(timestamp, ticker, "MKT", int(trade_quantity), "BUY")
+                        order = OrderEvent(
+                            timestamp, ticker, "MKT", to_lot(trade_quantity, lot), "BUY"
+                        )
                     elif trade_quantity < 0:
                         order = OrderEvent(
-                            timestamp, ticker, "MKT", int(abs(trade_quantity)), "SELL"
+                            timestamp, ticker, "MKT", to_lot(abs(trade_quantity), lot), "SELL"
                         )
 
                 if order:
@@ -240,7 +258,9 @@ class PortfolioBacktester:
             # stable, so tickers keep their order within each side.
             for ticker, order in sorted(bar_orders, key=lambda item: item[1].direction != "SELL"):
                 portfolio.loc[timestamp, f"{order.symbol}_price"] = current_prices[ticker]
-                approved_order = self.risk_manager.assess_order(order, portfolio.loc[timestamp])
+                approved_order = self.risk_manager.assess_order(
+                    order, portfolio.loc[timestamp], lot_size=lot_sizes[ticker]
+                )
                 if not approved_order:
                     continue
 
@@ -258,7 +278,7 @@ class PortfolioBacktester:
                     cash_now = portfolio.loc[timestamp, "cash"]
                     if fill_event.total_cost > cash_now:
                         affordable = self.execution_handler.affordable_quantity(
-                            cash_now, fill_event.fill_price
+                            cash_now, fill_event.fill_price, lot_sizes[ticker]
                         )
                         if affordable <= 0:
                             continue

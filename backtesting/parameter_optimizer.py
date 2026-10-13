@@ -91,6 +91,7 @@ class ParameterOptimizer:
         seed: Optional[int] = 42,
         *,
         cash_accrual: np.ndarray,
+        lot_size: float,
     ):
         if metric not in MAXIMIZE and metric not in MINIMIZE:
             raise ValueError(
@@ -117,6 +118,11 @@ class ParameterOptimizer:
             raise ValueError(
                 f"cash_accrual has {len(self.cash_accrual)} values for {len(price_data)} bars"
             )
+        #: Smallest tradable quantity (Backtester.run); checked here for the
+        #: same reason as the accrual.
+        if not lot_size > 0:
+            raise ValueError(f"lot_size must be > 0, got {lot_size}")
+        self.lot_size = lot_size
 
         self.results_df: Optional[pd.DataFrame] = None
         #: Combinations the strategy itself rejected, with the reason. Reported
@@ -175,7 +181,9 @@ class ParameterOptimizer:
             )
 
             try:
-                backtester.run(self.price_data, model, cash_accrual=self.cash_accrual)
+                backtester.run(
+                    self.price_data, model, cash_accrual=self.cash_accrual, lot_size=self.lot_size
+                )
                 stats = backtester.get_performance_metrics()
             except (ValueError, KeyError) as exc:
                 self.skipped.append({"params": dict(params), "reason": str(exc)})

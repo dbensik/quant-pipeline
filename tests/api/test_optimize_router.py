@@ -552,3 +552,9 @@ def test_a_window_starting_before_the_series_is_422(client: TestClient):
     response = allocate(client)
     assert response.status_code == 422
     assert "2024-06-03" in response.json()["detail"]
+
+
+def test_crypto_candidates_trade_below_one_coin(client: TestClient):
+    """Every candidate of a BTC grid traded nothing with less cash than a coin."""
+    body = optimize(client, symbol="BTC-USD", initial_capital=20_000).json()
+    assert all(r["Trade Count"] > 0 for r in body["results"])

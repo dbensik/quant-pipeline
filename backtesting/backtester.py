@@ -10,7 +10,8 @@ from execution.simulated_handler import SimulatedExecutionHandler
 class Backtester:
     """
     A realistic backtester that simulates trading based on capital allocation,
-    enforcing whole-share trades and using a robust event-driven loop.
+    trading in whole lots (one share; 1e-8 of a coin) and using a robust
+    event-driven loop.
     Its single responsibility is to generate a portfolio history.
     """
 
@@ -53,6 +54,7 @@ class Backtester:
         symbol_name: str = None,
         *,
         cash_accrual: np.ndarray,
+        lot_size: float,
     ) -> pd.DataFrame:
         """
         Runs a backtest using a more robust, event-driven loop that delegates
@@ -65,7 +67,17 @@ class Backtester:
         market was charged T-bill interest it was never paid once Sharpe
         became excess of the rate. No default; zeros reproduce the old run
         bit for bit (cash * 1.0 is cash).
+
+        lot_size: the smallest quantity traded, from
+        config.settings.lot_size_for(asset_class): 1.0 for shares, 1e-8 for
+        crypto. Until 2026-10-12 every run traded whole units, so a BTC
+        backtest whose cash was below one coin never bought anything. No
+        default, for the same reason as cash_accrual: a forgotten caller
+        would silently keep whole units. 1.0 reproduces the old runs bit for
+        bit (x / 1.0 * 1.0 is x).
         """
+        if not lot_size > 0:
+            raise ValueError(f"lot_size must be > 0, got {lot_size}")
         accrual = np.asarray(cash_accrual, dtype=float)
         if len(accrual) != len(price_data):
             raise ValueError(f"cash_accrual has {len(accrual)} values for {len(price_data)} bars")
@@ -115,8 +127,8 @@ class Backtester:
             # --- REFACTOR: Trading logic now uses the event-driven system ---
             if signal == 1 and np.isclose(position, 0):  # Buy signal
                 if price > 0:
-                    # Determine max shares possible based on current cash
-                    shares_to_buy = np.floor(cash / price)
+                    # Determine the most lots the current cash buys
+                    shares_to_buy = np.floor(cash / price / lot_size) * lot_size
                     if shares_to_buy > 0:
                         order = OrderEvent(date, symbol, "MKT", shares_to_buy, "BUY")
                         fill = self.execution_handler.execute_order(order, price)
@@ -133,7 +145,9 @@ class Backtester:
                         if fill.total_cost > cash:
                             fill = self.execution_handler.resize(
                                 fill,
-                                self.execution_handler.affordable_quantity(cash, fill.fill_price),
+                                self.execution_handler.affordable_quantity(
+                                    cash, fill.fill_price, lot_size
+                                ),
                             )
 
                         if fill.quantity > 0 and cash >= fill.total_cost:
@@ -199,11 +213,15 @@ class Backtester:
         return analyzer.calculate_all_metrics()
 
     def run_and_get_metrics(
-        self, price_data: pd.DataFrame, model: BaseAlphaModel, cash_accrual: np.ndarray
+        self,
+        price_data: pd.DataFrame,
+        model: BaseAlphaModel,
+        cash_accrual: np.ndarray,
+        lot_size: float,
     ) -> dict:
         """
         A convenience method that runs a backtest and immediately returns the
         performance metrics. Useful for optimizations.
         """
-        self.run(price_data=price_data, model=model, cash_accrual=cash_accrual)
+        self.run(price_data=price_data, model=model, cash_accrual=cash_accrual, lot_size=lot_size)
         return self.get_performance_metrics()

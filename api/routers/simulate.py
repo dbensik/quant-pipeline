@@ -40,6 +40,7 @@ from pydantic import BaseModel, Field
 from alpha_models import registry
 from api.dependencies import get_market_data_repo
 from api.frames import records_to_frame
+from api.lots import lot_size_or_422
 from api.risk_free import (
     RISK_FREE_RATE_DESCRIPTION,
     RISK_FREE_SOURCE_DESCRIPTION,
@@ -289,6 +290,8 @@ def _simulate_sync(
     n_paths: int,
     risk_free: ResolvedRiskFree,
     on_progress: Optional[Callable[[int, int], None]] = None,
+    *,
+    lot_size: float,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """
     The CPU-bound half. Returns (historical metrics, simulation payload
@@ -302,6 +305,7 @@ def _simulate_sync(
         request.transaction_cost,
         request.seed,
         cash_accrual=risk_free.accrual,
+        lot_size=lot_size,
     )
     trade_count = 0 if trades is None or trades.empty else len(trades)
     rng = np.random.default_rng(request.seed)
@@ -340,6 +344,7 @@ def _simulate_sync(
                 price_data=synthetic,
                 model=spec.build(request.params),
                 cash_accrual=constant_accruals(synthetic.index, risk_free.rate),
+                lot_size=lot_size,
             )
             equity[i, 1:] = run["total"].to_numpy()
             if on_progress is not None and ((i + 1) % PROGRESS_EVERY == 0 or i + 1 == n_paths):
@@ -562,6 +567,7 @@ async def run_simulation(
     if asset is None:
         raise HTTPException(status_code=404, detail=f"Unknown symbol: {request.symbol!r}")
     gate_asset(asset, request)
+    lot_size = lot_size_or_422(asset)
 
     start = (
         request.start.replace(tzinfo=timezone.utc)
@@ -585,7 +591,7 @@ async def run_simulation(
 
     try:
         metrics, sim = await run_in_threadpool(
-            _simulate_sync, frame, spec, request, n_paths, risk_free
+            _simulate_sync, frame, spec, request, n_paths, risk_free, lot_size=lot_size
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None

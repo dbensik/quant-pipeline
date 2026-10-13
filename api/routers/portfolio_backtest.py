@@ -23,6 +23,7 @@ from pydantic import BaseModel, Field
 from alpha_models import registry
 from api.dependencies import get_market_data_repo
 from api.frames import frames_to_wide_close, records_to_frame
+from api.lots import lot_size_or_422
 from api.risk_free import (
     RISK_FREE_RATE_DESCRIPTION,
     RISK_FREE_SOURCE_DESCRIPTION,
@@ -209,6 +210,7 @@ def _run_sync(
     weights: Dict[str, float],
     request: PortfolioBacktestRequest,
     cash_accrual: pd.Series,
+    lot_sizes: Dict[str, float],
 ) -> tuple:
     """CPU-bound half: signals, backtest, metrics, risk."""
     from backtesting.portfolio_backtester import PortfolioBacktester
@@ -230,7 +232,7 @@ def _run_sync(
         ),
     )
     portfolio, _holdings = backtester.run(
-        price_data, signals_data, weights, cash_accrual=cash_accrual
+        price_data, signals_data, weights, cash_accrual=cash_accrual, lot_sizes=lot_sizes
     )
     metrics = backtester.get_performance_metrics()
 
@@ -321,10 +323,12 @@ async def run_portfolio_backtest(
     end = request.end.replace(tzinfo=timezone.utc) if request.end.tzinfo is None else request.end
 
     price_data: Dict[str, pd.DataFrame] = {}
+    lot_sizes: Dict[str, float] = {}
     for symbol in request.symbols:
         asset = await repo.find_asset(symbol)
         if asset is None:
             raise HTTPException(status_code=404, detail=f"Unknown symbol: {symbol!r}")
+        lot_sizes[symbol] = lot_size_or_422(asset)
         records = await repo.fetch_range(symbol=symbol, asset_class=None, start=start, end=end)
         frame = records_to_frame(records)
         if frame.empty:
@@ -360,6 +364,7 @@ async def run_portfolio_backtest(
             weights,
             request,
             pd.Series(risk_free.accrual, index=timeline),
+            lot_sizes,
         )
     except (ValueError, KeyError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None

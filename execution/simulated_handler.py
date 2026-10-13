@@ -6,6 +6,24 @@ from typing import Optional
 from backtesting.events import FillEvent, OrderEvent
 
 
+def to_lot(quantity: float, lot_size: float) -> float:
+    """
+    `quantity` rounded DOWN to a whole number of lots (for quantity >= 0).
+
+    With lot_size 1.0 this is int(), exactly what sizing used before lots
+    existed, so whole-unit runs keep their int quantities and are unchanged.
+    A fractional lot snaps to the nearest whole lot when within a millionth of
+    one: 32,659,001 satoshi is stored as 0.32659001 and divides to
+    32659000.999999996, so a plain floor drops a satoshi, and an absolute
+    nudge does not help, because at that size it is below float resolution.
+    """
+    if lot_size == 1.0:
+        return int(quantity)
+    lots = quantity / lot_size
+    nearest = round(lots)
+    return (nearest if abs(lots - nearest) < 1e-6 else math.floor(lots)) * lot_size
+
+
 class SimulatedExecutionHandler:
     """
     A simulated execution handler that mimics market realities like
@@ -85,22 +103,25 @@ class SimulatedExecutionHandler:
             commission=self.commission_for(order.quantity, fill_price),
         )
 
-    def affordable_quantity(self, cash: float, fill_price: float) -> float:
+    def affordable_quantity(self, cash: float, fill_price: float, lot_size: float) -> float:
         """
-        Whole units a BUY at `fill_price` can take without its total cost
+        The most lots a BUY at `fill_price` can take without its total cost
         (value + fixed fee + proportional cost) exceeding `cash`; 0 if none.
+        lot_size is 1.0 for whole shares (config.settings.lot_size_for).
         """
         if fill_price <= 0 or cash <= self.commission_per_trade:
             return 0.0
-        quantity = math.floor(
-            (cash - self.commission_per_trade) / (fill_price * (1 + self.commission_rate))
+        lots = math.floor(
+            (cash - self.commission_per_trade)
+            / (fill_price * (1 + self.commission_rate))
+            / lot_size
         )
         # Floating point can leave the total a hair above cash; step down.
-        while quantity > 0 and (
-            quantity * fill_price + self.commission_for(quantity, fill_price) > cash
+        while lots > 0 and (
+            lots * lot_size * fill_price + self.commission_for(lots * lot_size, fill_price) > cash
         ):
-            quantity -= 1
-        return float(quantity)
+            lots -= 1
+        return float(lots * lot_size)
 
     def resize(self, fill: FillEvent, quantity: float) -> FillEvent:
         """The same fill (same price, no new slippage draw) for `quantity`."""
