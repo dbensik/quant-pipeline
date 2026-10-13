@@ -55,12 +55,13 @@ BALANCE: Sequence[Tuple[str, str]] = (
 CASH_FLOW: Sequence[Tuple[str, str]] = (
     ("cfo", "Operating cash flow"),
     ("capex", "Capital expenditure"),
+    ("intangible_capex", "Capitalised software / intangibles"),
     ("d_and_a", "Depreciation and amortization"),
     ("share_based_comp", "Share-based compensation"),
     ("interest_paid", "Interest paid"),
 )
 #: Flow lines whose 10-Q figures are year-to-date only.
-YTD_ONLY = {"cfo", "capex", "d_and_a", "share_based_comp", "interest_paid"}
+YTD_ONLY = {"cfo", "capex", "intangible_capex", "d_and_a", "share_based_comp", "interest_paid"}
 
 
 def _flows(st: Statements, key: str, as_of: date, quarterly: bool) -> List[Value]:

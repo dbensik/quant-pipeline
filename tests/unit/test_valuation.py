@@ -717,3 +717,41 @@ def test_growth_starts_from_the_latest_years_basis():
     assert "5-year" not in why
     g, _ = default_growth(Statements(facts, line_concepts={"revenue": ("Revenues",)}), as_of)
     assert g == pytest.approx((80.27 / 101.56) ** (1 / 3) - 1)
+
+
+def test_capitalised_software_is_capex_and_labelled(aapl):
+    """
+    FIS: "Additions to software" $835M beside $154M of capex, both cash spent
+    on long-lived assets. Added in its own window, named in the source; a
+    filer that tags none has nothing added and is not refused.
+    """
+    from core.fundamentals import Fact
+
+    as_of = date(2026, 10, 8)
+    plain = build_inputs(aapl, as_of, 340.42, 0.0412, BETA)
+    capex, src = plain.lines["capex"]
+    assert "software" not in src
+
+    software = Fact(
+        1,
+        "us-gaap",
+        "PaymentsToDevelopSoftware",
+        "USD",
+        date(2024, 9, 29),
+        date(2025, 9, 27),
+        835e6,
+        2025,
+        "FY",
+        "10-K",
+        date(2025, 10, 31),
+        "a-software",
+        None,
+        datetime(2026, 1, 1, tzinfo=timezone.utc),
+    )
+    facts = [f for fs in aapl.by_concept.values() for f in fs] + [software]
+    v = build_inputs(Statements(facts, aapl.splits), as_of, 340.42, 0.0412, BETA)
+    with_sw, sw_src = v.lines["capex"]
+    assert with_sw == pytest.approx(capex + 835e6)
+    assert "835M capitalised software/intangibles (FY to 2025-09-27)" in sw_src
+    L = {k: val for k, (val, _) in v.lines.items()}
+    assert L["base_fcf"] == pytest.approx(plain.lines["base_fcf"][0] - 835e6)

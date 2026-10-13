@@ -29,6 +29,7 @@ from modeling.statements import ANNUAL_DAYS, LINE_ITEMS, Statements, Value
 CHECKED_LINES: Dict[str, str] = {
     "revenue": "growth_first",
     "capex": "capex",
+    "intangible_capex": "capex",
     "cfo": "cfo",
     "interest_expense": "after_tax_interest",
     "interest_paid": "after_tax_interest",

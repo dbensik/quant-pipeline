@@ -497,11 +497,15 @@ def test_a_start_year_under_another_concept_counts_only_if_the_two_agree():
     assert renamed.annual_before("revenue", latest, 5, d).value == 64.4
 
 
-def test_every_mapped_concept_is_on_its_lines_list():
-    """valuation_service fetches only LINE_ITEMS' concepts: one off the list would read as missing."""
+def test_every_mapped_concept_is_fetched_and_stored():
+    """A mapped concept the loader never fetches, or the allow-list never stores, reads as missing."""
     from config import settings
+    from core.valuation_service import ALL_CONCEPTS
     from modeling.statements import LINE_ITEMS
 
+    stored = {c for _, c in settings.FUNDAMENTAL_CONCEPTS}
     for symbol, lines in settings.LINE_CONCEPTS_BY_SYMBOL.items():
         for item, concepts in lines.items():
-            assert set(concepts) <= set(LINE_ITEMS[item]), (symbol, item)
+            assert item in LINE_ITEMS, (symbol, item)
+            assert set(concepts) <= set(ALL_CONCEPTS) & stored, (symbol, item)
+    assert set(ALL_CONCEPTS) <= stored

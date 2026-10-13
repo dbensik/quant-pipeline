@@ -352,6 +352,12 @@ FUNDAMENTAL_CONCEPTS = (
     ("us-gaap", "PaymentsForCapitalImprovements"),
     ("us-gaap", "PaymentsToAcquireMachineryAndEquipment"),
     ("us-gaap", "PaymentsForProceedsFromProductiveAssets"),
+    # Added 2026-10-13: capitalised software and other intangibles are paid
+    # for beside capex, outside PP&E (CMCSA "Cash paid for intangible assets"
+    # $2,658M in FY2025 beside $11,750M of capital expenditures).
+    ("us-gaap", "PaymentsToAcquireIntangibleAssets"),
+    ("us-gaap", "PaymentsToDevelopSoftware"),
+    ("us-gaap", "PaymentsForSoftware"),
     ("us-gaap", "CashAndCashEquivalentsAtCarryingValue"),
     ("us-gaap", "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"),
     ("us-gaap", "MarketableSecuritiesCurrent"),
@@ -517,6 +523,7 @@ DCF_ALLOWED_SYMBOLS = {
 #: happens, so Revenues cannot simply go first: NTAP's total is the contract
 #: figure ($6,925M) and its Revenues fact ($6,237M) is not on the statement.
 _TOTAL_REVENUES = ("Revenues",)
+_INTANGIBLES = ("PaymentsToAcquireIntangibleAssets",)
 LINE_CONCEPTS_BY_SYMBOL = {
     # "Construction Expenditures" $8,453M. The concept first in the list,
     # PaymentsToAcquireProductiveAssets ($3,453M), is "Acquisitions of
@@ -555,6 +562,18 @@ LINE_CONCEPTS_BY_SYMBOL = {
     # "Revenues" $11,950M, net of commodity derivative losses; the contract
     # figure ($14,899M) is larger than the total.
     "WMB": {"revenue": _TOTAL_REVENUES},
+    # Intangible capex (2026-10-13), PaymentsToAcquireIntangibleAssets where
+    # the statement shows it is recurring capital spending: CMCSA "Cash paid
+    # for intangible assets" $2,658M (mostly software) beside $11,750M of
+    # capital expenditures; ADP "Additions to intangibles" $468.5M beside
+    # $196.6M; SLB "Exploration data capitalized" $252M (its seismic data
+    # library) beside $1,694M. NOT mapped: TMUS and VZ spectrum licences
+    # (lumpy: VZ $450M in 2025, $5,796M in 2023), SNPS's $16,681M (the Ansys
+    # acquisition), VST's $1,189M of emission allowances (a compliance cost,
+    # partly resold: $275M of sales), CPB's $56M (not on its statement).
+    "CMCSA": {"intangible_capex": _INTANGIBLES},
+    "ADP": {"intangible_capex": _INTANGIBLES},
+    "SLB": {"intangible_capex": _INTANGIBLES},
 }
 
 

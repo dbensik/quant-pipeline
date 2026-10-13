@@ -107,6 +107,15 @@ LINE_ITEMS: Dict[str, Tuple[str, ...]] = {
         "PaymentsToAcquireMachineryAndEquipment",
         "PaymentsForProceedsFromProductiveAssets",
     ),
+    # Capital spending OUTSIDE property, plant and equipment, added to capex
+    # in valuation.py (2026-10-13). By rule only the software concepts, which
+    # name what they are: all 17 valued filers that tag them (FIS "Additions
+    # to software" $835M beside $154M of capex, JKHY, ICE, DASH, AKAM, ...)
+    # show them as a line of their own, outside capex. The broader
+    # PaymentsToAcquireIntangibleAssets is software at CMCSA, spectrum at
+    # TMUS, an acquisition at SNPS ($16.7B, Ansys) and emission allowances at
+    # VST, so it is read only by name (settings.LINE_CONCEPTS_BY_SYMBOL).
+    "intangible_capex": ("PaymentsToDevelopSoftware", "PaymentsForSoftware"),
     "diluted_shares": ("WeightedAverageNumberOfDilutedSharesOutstanding",),
     # instants
     "cash": (

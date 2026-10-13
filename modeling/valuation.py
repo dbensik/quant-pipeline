@@ -147,6 +147,16 @@ def build_inputs(
             f"capital expenditure not reported in a standard concept ({capex_src}); "
             "free cash flow cannot be formed"
         )
+    # Capitalised software and other intangibles, where filed: cash spent on
+    # long-lived assets outside PP&E (FIS $835M of software beside $154M of
+    # capex). Its own trailing window, labelled; a filer that tags none
+    # capitalises none, so nothing is added and nothing is refused.
+    intangible, intangible_src = _ttm_or_annual(st, "intangible_capex", as_of)
+    if intangible is not None:
+        capex += intangible
+        capex_src += (
+            f"; plus {intangible / 1e6:,.0f}M capitalised software/intangibles ({intangible_src})"
+        )
     sbc, sbc_src = _ttm_or_annual(st, "share_based_comp", as_of)
     interest, interest_src = _ttm_or_annual(st, "interest_expense", as_of)
     if interest is None:

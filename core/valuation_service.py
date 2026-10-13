@@ -25,7 +25,17 @@ from modeling.dcf import Beta, DCFInputs, blume, reverse_dcf, run, sensitivity
 from modeling.statements import LINE_ITEMS, Statements
 from modeling.valuation import Refusal, beta_from_bars, build_inputs, price_as_traded
 
-ALL_CONCEPTS = sorted({c for cs in LINE_ITEMS.values() for c in cs})
+#: Every concept a line can read: the lists, and the per-filer maps (a mapped
+#: concept need not be on a list: CMCSA's intangible capex is read by name).
+ALL_CONCEPTS = sorted(
+    {c for cs in LINE_ITEMS.values() for c in cs}
+    | {
+        c
+        for lines in settings.LINE_CONCEPTS_BY_SYMBOL.values()
+        for cs in lines.values()
+        for c in cs
+    }
+)
 
 
 class ValuationData(Protocol):
