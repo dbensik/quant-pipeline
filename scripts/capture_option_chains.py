@@ -58,6 +58,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import math
 import os
 import sys
 import time
@@ -67,6 +68,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -101,6 +103,19 @@ def plan_expiries(expiries: Iterable[str], today: date, max_dte: int) -> list[st
     return sorted(out)
 
 
+def as_boolean(col: pd.Series) -> pd.Series:
+    """bool, 0/1 (as int or float) and missing as a nullable boolean; anything else raises."""
+
+    def one(v):
+        if v is None or (isinstance(v, float) and math.isnan(v)) or v is pd.NA:
+            return pd.NA
+        if isinstance(v, (bool, np.bool_)) or v in (0, 1):
+            return bool(v)
+        raise ValueError(f"inTheMoney value {v!r} is not a boolean")
+
+    return col.map(one).astype("boolean")
+
+
 def archive_path(root: Path, ticker: str, trade_date: date) -> Path:
     return root / ticker / f"{trade_date.isoformat()}.parquet"
 
@@ -120,13 +135,19 @@ def chain_frame(
     """
     One expiry's calls and puts as a single frame.
 
-    Vendor columns are passed through untouched. Only `underlying`, `expiry`,
-    `right` (structural: the vendor frames do not carry them) and the
-    provenance fields are added.
+    Vendor columns are passed through untouched, with one exception: the
+    boolean `inTheMoney` is stored as a nullable boolean. On 2026-10-09 Yahoo
+    sent it as an object column mixing False with 0.0, parquet refused the
+    write, and that day's chains for all six tickers were lost (both runs).
+    0.0/1.0 become False/True; any other value is a vendor change and fails
+    loudly. Only `underlying`, `expiry`, `right` (structural: the vendor
+    frames do not carry them) and the provenance fields are added.
     """
     parts = []
     for right, frame in (("C", calls), ("P", puts)):
         f = frame.copy()
+        if "inTheMoney" in f.columns:
+            f["inTheMoney"] = as_boolean(f["inTheMoney"])
         f.insert(0, "right", right)
         f.insert(0, "expiry", expiry)
         f.insert(0, "underlying", underlying)
@@ -182,7 +203,20 @@ class TickerResult:
     failed_expiries: list[str] = field(default_factory=list)
 
 
-def capture_ticker(
+def capture_ticker(ticker: str, make_ticker: Callable[[str], object], **kw) -> TickerResult:
+    """
+    One ticker, its failures contained. On 2026-10-09 an exception while
+    writing the first ticker escaped the run loop, so the other five were
+    never fetched; any error is now that ticker's FAILED result.
+    """
+    try:
+        return _capture_ticker(ticker, make_ticker, **kw)
+    except Exception as exc:  # noqa: BLE001 - one ticker must not cost the others
+        log.exception("%s: capture failed", ticker)
+        return TickerResult(ticker, FAILED, detail=f"{type(exc).__name__}: {exc}")
+
+
+def _capture_ticker(
     ticker: str,
     make_ticker: Callable[[str], object],
     *,

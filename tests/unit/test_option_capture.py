@@ -266,3 +266,34 @@ def test_refusals_on_different_dates_are_not_a_closed_market():
         )
         == 1
     )
+
+
+def test_in_the_money_mixing_bools_and_floats_is_written_as_booleans(tmp_path):
+    """2026-10-09: Yahoo sent inTheMoney as False and 0.0 in one column; parquet refused it."""
+
+    class Mixed(FakeTicker):
+        def option_chain(self, expiry):
+            chain = super().option_chain(expiry)
+            chain.calls["inTheMoney"] = pd.Series([False, 0.0, True, 1.0, None] * 2, dtype=object)
+            return chain
+
+    r = run(tmp_path, Mixed("SPY", expiries=[exp(1), exp(2)]))
+    assert r.status == cap.WRITTEN
+    got = pd.read_parquet(cap.archive_path(tmp_path, "SPY", TODAY))
+    calls = got[got["right"] == "C"]["inTheMoney"].tolist()
+    assert calls[:5] == [False, False, True, True, pd.NA]
+
+
+def test_a_non_boolean_in_the_money_fails_that_ticker_only(tmp_path):
+    """Anything but bool/0/1 is a vendor change: that ticker FAILS, nothing is written, the run goes on."""
+
+    class Odd(FakeTicker):
+        def option_chain(self, expiry):
+            chain = super().option_chain(expiry)
+            chain.calls["inTheMoney"] = pd.Series(["yes"] * 10, dtype=object)
+            return chain
+
+    r = run(tmp_path, Odd("SPY", expiries=[exp(1)]))
+    assert r.status == cap.FAILED and "not a boolean" in r.detail
+    assert not cap.archive_path(tmp_path, "SPY", TODAY).exists()
+    assert run(tmp_path, FakeTicker("QQQ", expiries=[exp(1)])).status == cap.WRITTEN
