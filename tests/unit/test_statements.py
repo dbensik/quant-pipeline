@@ -344,3 +344,52 @@ def test_a_missing_year_to_date_ends_the_chain_instead_of_a_six_month_quarter():
     )
     got = [(q.period_end, q.value) for q in s.discrete_quarters("cfo", d(2026, 3, 1))]
     assert got == [(d(2025, 3, 31), 20.0)]
+
+
+def test_a_mapped_line_is_the_sum_of_its_parts_and_a_missing_part_is_not_zero():
+    """
+    LNT's capex is "utility" $2,277M plus "other" $206M construction spending
+    (settings.CAPEX_CONCEPTS_BY_SYMBOL). A year where one part is missing is
+    left out rather than read as the other part alone.
+    """
+    utility = "PaymentsToAcquireOtherPropertyPlantAndEquipment"
+    other = "PaymentsToAcquireOtherProductiveAssets"
+    d = date
+    facts = [
+        _fact(utility, 2.277e9, d(2025, 12, 31), d(2026, 2, 20), d(2025, 1, 1), "a"),
+        _fact(other, 0.206e9, d(2025, 12, 31), d(2026, 2, 20), d(2025, 1, 1), "a"),
+        _fact(utility, 2.052e9, d(2024, 12, 31), d(2025, 2, 21), d(2024, 1, 1), "b"),
+    ]
+    s = Statements(facts, line_concepts={"capex": (utility, other)})
+    annual = s.annual("capex", d(2026, 10, 12))
+    assert [(v.period_end, v.value) for v in annual] == [(d(2025, 12, 31), pytest.approx(2.483e9))]
+    assert annual[0].concept == f"{utility} + {other}"
+    # Unmapped, the first concept in the list wins and 2024 is visible.
+    assert [v.value for v in Statements(facts).annual("capex", d(2026, 10, 12))] == [
+        2.052e9,
+        2.277e9,
+    ]
+
+
+def test_a_mapped_single_concept_replaces_the_priority_order():
+    """AEP: construction spending, not the generation-facility purchases ranked first."""
+    d = date
+    facts = [
+        _fact(
+            "PaymentsToAcquireProductiveAssets",
+            3.453e9,
+            d(2025, 12, 31),
+            d(2026, 2, 25),
+            d(2025, 1, 1),
+        ),
+        _fact(
+            "PaymentsForConstructionInProcess",
+            8.453e9,
+            d(2025, 12, 31),
+            d(2026, 2, 25),
+            d(2025, 1, 1),
+        ),
+    ]
+    mapped = Statements(facts, line_concepts={"capex": ("PaymentsForConstructionInProcess",)})
+    assert mapped.annual("capex", d(2026, 10, 12))[-1].value == 8.453e9
+    assert Statements(facts).annual("capex", d(2026, 10, 12))[-1].value == 3.453e9

@@ -179,11 +179,24 @@ class Value:
 
 
 class Statements:
-    def __init__(self, facts: Iterable[Fact], splits: Sequence[Tuple[date, float]] = ()) -> None:
+    def __init__(
+        self,
+        facts: Iterable[Fact],
+        splits: Sequence[Tuple[date, float]] = (),
+        line_concepts: Optional[Dict[str, Tuple[str, ...]]] = None,
+    ) -> None:
+        """
+        line_concepts: for this filer only, a line read as the SUM of these
+        concepts per period instead of the first of LINE_ITEMS' list
+        (settings.CAPEX_CONCEPTS_BY_SYMBOL, each entry checked against the
+        filer's cash-flow statement). A period missing any part is dropped:
+        a missing part is not zero.
+        """
         self.by_concept: Dict[str, List[Fact]] = {}
         for f in facts:
             self.by_concept.setdefault(f.concept, []).append(f)
         self.splits = sorted(splits)
+        self.line_concepts = dict(line_concepts or {})
 
     # -- primitives -------------------------------------------------------
 
@@ -203,6 +216,8 @@ class Statements:
         span: Optional[Tuple[int, int]],
         concepts: Optional[Tuple[str, ...]] = None,
     ) -> Dict[Tuple, Value]:
+        if concepts is None and item in self.line_concepts:
+            return self._summed(item, as_of, span, self.line_concepts[item])
         """
         {(start, end): Value} — per period, first concept with a visible row,
         latest filed.
@@ -247,6 +262,32 @@ class Statements:
                     f.period_start, f.period_end, self._scale(item, f, as_of), f.concept, f.filed
                 )
         return out
+
+    def _summed(
+        self, item: str, as_of: date, span: Optional[Tuple[int, int]], parts: Tuple[str, ...]
+    ) -> Dict[Tuple, Value]:
+        """Per period, the sum of every part; a period any part lacks is left out."""
+        series = [self._periods(item, as_of, span, (c,)) for c in parts]
+        keys = set(series[0]).intersection(*series[1:])
+        return {
+            k: Value(
+                k[0],
+                k[1],
+                sum(s[k].value for s in series),
+                " + ".join(parts),
+                max(s[k].filed for s in series),
+            )
+            for k in sorted(keys, key=lambda k: (k[1], k[0] or date.min))
+        }
+
+    def _concept_series(
+        self, item: str, as_of: date, span: Tuple[int, int]
+    ) -> Dict[str, List[Value]]:
+        """{concept: its own periods}: one entry, the summed line, for a mapped filer."""
+        if item in self.line_concepts:
+            values = list(self._periods(item, as_of, span).values())
+            return {" + ".join(self.line_concepts[item]): values}
+        return {c: list(self._periods(item, as_of, span, (c,)).values()) for c in LINE_ITEMS[item]}
 
     # -- public ------------------------------------------------------------
 
@@ -300,13 +341,14 @@ class Statements:
         starts.append(date.fromordinal(annual[-1].period_end.toordinal() + 1))
         by_end = {fy.period_start: fy for fy in annual}
         out: List[Value] = []
+        series = self._concept_series(item, as_of, (80, 300))
         for start in starts:
             fy = by_end.get(start)
-            for concept in LINE_ITEMS[item]:
+            for concept, values in series.items():
                 ytds = sorted(
                     (
                         v
-                        for v in self._periods(item, as_of, (80, 300), (concept,)).values()
+                        for v in values
                         if v.period_start is not None
                         and abs((v.period_start - start).days) <= 1
                         and (fy is None or v.period_end < fy.period_end)
@@ -386,9 +428,6 @@ class Statements:
         fy = annual[-1]
         span = (80, 300)
 
-        def own(concept: str) -> List[Value]:
-            return list(self._periods(item, as_of, span, (concept,)).values())
-
         def prior_of(values: List[Value], cur: Value) -> Optional[Value]:
             target = cur.period_end.toordinal() - 364
             for v in values:
@@ -399,7 +438,7 @@ class Statements:
                     return v
             return None
 
-        by_concept = {c: own(c) for c in LINE_ITEMS[item]}
+        by_concept = self._concept_series(item, as_of, span)
         current = sorted(
             (
                 v

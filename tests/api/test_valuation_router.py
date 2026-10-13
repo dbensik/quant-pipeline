@@ -342,3 +342,16 @@ def test_a_named_fee_business_passes_the_sector_refusal(vclient, monkeypatch):
     assert valued.status_code == 200
     assert valued.json()["result"]["per_share"] > 0
     assert any("valued by name" in n for n in valued.json()["notes"])
+
+
+def test_the_capex_map_is_applied_and_a_missing_part_refuses(vclient, monkeypatch):
+    """A mapped part AAPL never files makes capex missing: refused, never summed as zero."""
+    from config import settings
+
+    monkeypatch.setitem(
+        settings.CAPEX_CONCEPTS_BY_SYMBOL,
+        "AAPL",
+        ("PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsForConstructionInProcess"),
+    )
+    r = vclient.post("/api/v1/valuation/dcf", json={"symbol": "AAPL", "as_of": "2026-10-08"})
+    assert r.status_code == 422 and "capital expenditure" in r.json()["detail"]

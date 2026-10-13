@@ -496,6 +496,35 @@ DCF_ALLOWED_SYMBOLS = {
 }
 
 
+#: Filers whose capex is NOT the first concept of the capex list, read as the
+#: SUM of these concepts per period (modeling.statements, line_concepts). Each
+#: entry checked against the filer's FY2025 10-K cash-flow statement
+#: (2026-10-12): 27 of 381 valued companies tag capex under more than one
+#: concept, 11 materially, and only these 3 were wrong. The others' second
+#: concept is an acquisition (CNP, PWR, MLM, FANG), a component already inside
+#: the total (DAL: flight $3,521M + ground $978M = the $4,499M it tags), or not
+#: on the statement at all (MCD, MCHP, WMB's accrual figure). Never a rule:
+#: "the largest" would take FANG's acquisitions, "the sum" would double DAL.
+CAPEX_CONCEPTS_BY_SYMBOL = {
+    # "Construction Expenditures" $8,453M. The concept first in the list,
+    # PaymentsToAcquireProductiveAssets ($3,453M), is "Acquisitions of
+    # Generation Facilities": buying power plants, not capex.
+    "AEP": ("PaymentsForConstructionInProcess",),
+    # "Utility construction and acquisition expenditures" $2,277M plus "Other
+    # construction and acquisition expenditures" $206M.
+    "LNT": (
+        "PaymentsToAcquireOtherPropertyPlantAndEquipment",
+        "PaymentsToAcquireOtherProductiveAssets",
+    ),
+    # "Additions to Oil and Gas Properties" $6,115M plus "Additions to Other
+    # Property, Plant and Equipment" $479M.
+    "EOG": (
+        "PaymentsToAcquireOilAndGasPropertyAndEquipment",
+        "PaymentsToAcquireOtherPropertyPlantAndEquipment",
+    ),
+}
+
+
 def dcf_sector_refusal(symbol: str | None, sector: str | None) -> str | None:
     """Why `symbol`'s sector refuses a DCF, or None (not refused, or allowed by name)."""
     if sector not in DCF_REFUSED_SECTORS:
