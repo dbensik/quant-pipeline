@@ -38,6 +38,7 @@ price on that day.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from datetime import date
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
@@ -113,17 +114,31 @@ LINE_ITEMS: Dict[str, Tuple[str, ...]] = {
     # variants include finance leases; 67 of the 97 non-financial filers that
     # pay interest but tagged no current LongTermDebt[Noncurrent] use them
     # (census 2026-10-11): CMCSA's whole $90B is DebtAndCapitalLeaseObligations.
+    #
+    # Added 2026-10-12, census of the 19 refused for interest with no debt
+    # balance, each scope read from the filer's own series rather than from
+    # the taxonomy label, because the two disagree. SeniorLongTermNotes and
+    # UnsecuredLongTermDebt are TOTALS (VRSN's stayed $1.785B when $0.549B
+    # turned current; CDNS). ConvertibleLongTermNotesPayable is labelled
+    # "including the current portion" but all four filers use it for the
+    # NONCURRENT part: AKAM's fell $3.540B -> $2.394B in 2024-06 as $1.148B
+    # moved to ConvertibleNotesPayableCurrent; DXCM, DDOG and ZS likewise.
+    # Last in each list, so they only fill dates no other concept covers.
     "long_term_debt": (
         "LongTermDebt",
         "LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities",
+        "SeniorLongTermNotes",
+        "UnsecuredLongTermDebt",
     ),
     "long_term_debt_noncurrent": (
         "LongTermDebtNoncurrent",
         "LongTermDebtAndCapitalLeaseObligations",
+        "ConvertibleLongTermNotesPayable",
     ),
     "long_term_debt_current": (
         "LongTermDebtCurrent",
         "LongTermDebtAndCapitalLeaseObligationsCurrent",
+        "ConvertibleNotesPayableCurrent",
     ),
     #: Long AND short term in one figure.
     "debt_combined": ("DebtLongtermAndShorttermCombinedAmount", "DebtAndCapitalLeaseObligations"),
@@ -182,11 +197,27 @@ class Statements:
         return f.value * factor
 
     def _periods(
-        self, item: str, as_of: date, span: Optional[Tuple[int, int]]
+        self,
+        item: str,
+        as_of: date,
+        span: Optional[Tuple[int, int]],
+        concepts: Optional[Tuple[str, ...]] = None,
     ) -> Dict[Tuple, Value]:
-        """{(start, end): Value} — per period, first concept with a visible row, latest filed."""
+        """
+        {(start, end): Value} — per period, first concept with a visible row,
+        latest filed.
+
+        A lower-priority concept may not add a period whose END a higher one
+        already covers. Within ONE concept every period is kept: a 10-Q files
+        the quarter and the year to date with the same end and the same filing
+        date, and both are needed. Until 2026-10-12 the end check ran within
+        the concept too, so which of the two survived was the order the
+        database returned them in, and DAL's TTM capex was $4.475B or $1.534B
+        depending on which valuations had run before it in the process.
+        """
         out: Dict[Tuple, Value] = {}
-        for concept in LINE_ITEMS[item]:
+        for concept in concepts if concepts is not None else LINE_ITEMS[item]:
+            higher_ends = {k[1] for k in out}
             best: Dict[Tuple, Fact] = {}
             for f in self.by_concept.get(concept, []):
                 if not f.filed < as_of:
@@ -210,7 +241,7 @@ class Statements:
             for key, f in best.items():
                 if key in out:
                     continue  # a higher-priority concept already covers this period
-                if span is not None and any(k[1] == key[1] for k in out):
+                if span is not None and key[1] in higher_ends:
                     continue  # same period end from a higher-priority concept, slightly different start
                 out[key] = Value(
                     f.period_start, f.period_end, self._scale(item, f, as_of), f.concept, f.filed
@@ -259,30 +290,73 @@ class Statements:
         return sum(q.value for q in qs), qs
 
     def _ttm_ytd(self, item: str, as_of: date) -> Optional[Tuple[float, List[Value]]]:
-        """FY + YTD(current) - YTD(prior year, same span): [prior, FY, current]."""
+        """
+        FY + YTD(current) - YTD(prior year, same span): [prior, FY, current].
+
+        The current and prior YTD come from one concept, the one the latest
+        10-Q used. Many filers tag a line one way in the 10-K and another in
+        the 10-Qs (APD's operating cash flow, WEC's capex), and those mix
+        freely. But a 10-Q concept that ALSO reports the same fiscal year is a
+        separate line, not another name for this one, and mixes only if its
+        prior-year YTD equals the fiscal-year concept's (a rename re-files the
+        same comparative). Otherwise an older YTD is used.
+
+        DAL is why: it files capex as PaymentsToAcquireProductiveAssets
+        (aircraft, FY2025 $4.499B) beside PaymentsToAcquireOtherProductiveAssets
+        (ground equipment, FY2025 $0.978B) and in 2026 stopped tagging the
+        first in its 10-Qs. Mixing them gave FY $4.499B + 9M $0.627B - prior
+        9M $3.592B = $1.534B a year; their prior 9Ms ($0.680B vs $3.592B)
+        show they are parts.
+        """
         annual = self.annual(item, as_of)
         if not annual:
             return None
         fy = annual[-1]
-        ytd = list(self._periods(item, as_of, (80, 300)).values())
-        current = [
-            v
-            for v in ytd
-            if v.period_start is not None and (v.period_start - fy.period_end).days in (0, 1)
-        ]
-        if not current:
+        span = (80, 300)
+
+        def own(concept: str) -> List[Value]:
+            return list(self._periods(item, as_of, span, (concept,)).values())
+
+        def prior_of(values: List[Value], cur: Value) -> Optional[Value]:
+            target = cur.period_end.toordinal() - 364
+            for v in values:
+                if (
+                    v.period_start == fy.period_start
+                    and abs(v.period_end.toordinal() - target) <= 7
+                ):
+                    return v
             return None
-        cur = max(current, key=lambda v: v.period_end)
-        target = cur.period_end.toordinal() - 364
-        prior = [
-            v
-            for v in ytd
-            if v.period_start == fy.period_start and abs(v.period_end.toordinal() - target) <= 7
-        ]
-        if not prior:
-            return None
-        pri = prior[0]
-        return fy.value + cur.value - pri.value, [pri, fy, cur]
+
+        by_concept = {c: own(c) for c in LINE_ITEMS[item]}
+        current = sorted(
+            (
+                v
+                for values in by_concept.values()
+                for v in values
+                if v.period_start is not None and (v.period_start - fy.period_end).days in (0, 1)
+            ),
+            key=lambda v: (v.period_end, v.concept == fy.concept),
+            reverse=True,
+        )
+        for cur in current:
+            pri = prior_of(by_concept[cur.concept], cur)
+            if pri is None:
+                continue
+            if cur.concept != fy.concept and self._reports_period(item, cur.concept, fy, as_of):
+                pri_fy = prior_of(by_concept[fy.concept], cur)
+                if pri_fy is None or not math.isclose(pri.value, pri_fy.value, rel_tol=0.005):
+                    continue
+            return fy.value + cur.value - pri.value, [pri, fy, cur]
+        return None
+
+    def _reports_period(self, item: str, concept: str, period: Value, as_of: date) -> bool:
+        """
+        Whether `concept` alone has a value for `period`'s exact span. Exact,
+        not "same end": both lines come from the same 10-K, which states one
+        fiscal year with one start date.
+        """
+        key = (period.period_start, period.period_end)
+        return key in self._periods(item, as_of, ANNUAL_DAYS, (concept,))
 
     def ttm(self, item: str, as_of: date) -> Optional[Tuple[float, List[Value]]]:
         """

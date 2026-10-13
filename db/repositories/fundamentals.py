@@ -59,8 +59,16 @@ class TimescaleFactRepo:
         result = await self.session.execute(
             select(FundamentalFactORM)
             .where(FundamentalFactORM.cik == cik, FundamentalFactORM.concept.in_(list(concepts)))
+            # A TOTAL order: a quarter and a year-to-date figure share concept,
+            # end and filing date, and the statements must not depend on which
+            # the database happens to return first.
             .order_by(
-                FundamentalFactORM.concept, FundamentalFactORM.period_end, FundamentalFactORM.filed
+                FundamentalFactORM.concept,
+                FundamentalFactORM.period_end,
+                FundamentalFactORM.filed,
+                FundamentalFactORM.period_start.nulls_first(),
+                FundamentalFactORM.accn,
+                FundamentalFactORM.id,
             )
         )
         return [Fact(**{c: getattr(r, c) for c in _COLUMNS}) for r in result.scalars()]

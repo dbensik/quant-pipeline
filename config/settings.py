@@ -335,6 +335,14 @@ FUNDAMENTAL_CONCEPTS = (
     ("us-gaap", "DebtLongtermAndShorttermCombinedAmount"),
     ("us-gaap", "DebtCurrent"),
     ("us-gaap", "ShortTermBorrowings"),
+    # Added 2026-10-12 from a census of the 19 refused for interest with no
+    # debt balance: AKAM, DDOG, DXCM and ZS tag only convertible notes, CDNS
+    # only UnsecuredLongTermDebt, VRSN only SeniorLongTermNotes. See the debt
+    # lists in modeling/statements.py for which shape each is.
+    ("us-gaap", "ConvertibleLongTermNotesPayable"),
+    ("us-gaap", "ConvertibleNotesPayableCurrent"),
+    ("us-gaap", "UnsecuredLongTermDebt"),
+    ("us-gaap", "SeniorLongTermNotes"),
     ("us-gaap", "StockholdersEquity"),
     ("us-gaap", "Assets"),
     ("us-gaap", "Liabilities"),

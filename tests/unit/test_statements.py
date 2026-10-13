@@ -199,3 +199,112 @@ def test_cash_flow_has_no_hole_where_the_filer_switched_concept(aapl):
     )
     years = sorted(concepts)
     assert years == list(range(years[0], years[-1] + 1))  # no gap
+
+
+def test_convertible_notes_are_noncurrent_plus_current():
+    """
+    AKAM tags only convertible notes, and uses ConvertibleLongTermNotesPayable
+    for the NONCURRENT part (its label says "including the current portion"):
+    in 2024-06 it fell from $3.540B to $2.394B as $1.148B turned current.
+    Until 2026-10-12 neither concept was read and AKAM was refused.
+    """
+    end, filed = date(2024, 6, 30), date(2024, 8, 1)
+    s = Statements(
+        [
+            _fact("ConvertibleLongTermNotesPayable", 2.394e9, end, filed),
+            _fact("ConvertibleNotesPayableCurrent", 1.148e9, end, filed),
+        ]
+    )
+    debt = s.debt(NOW)
+    assert debt.value == pytest.approx(3.542e9)
+    assert debt.concept == "ConvertibleLongTermNotesPayable + ConvertibleNotesPayableCurrent"
+
+
+@pytest.mark.parametrize("concept", ["SeniorLongTermNotes", "UnsecuredLongTermDebt"])
+def test_senior_and_unsecured_notes_are_totals(concept):
+    """VRSN's SeniorLongTermNotes stayed $1.785B when $0.549B turned current."""
+    s = Statements([_fact(concept, 1.785e9, date(2026, 6, 30), date(2026, 7, 30))])
+    assert s.debt(NOW).value == 1.785e9
+
+
+def test_a_new_debt_concept_never_outranks_an_existing_one_on_its_date():
+    end, filed = date(2025, 12, 31), date(2026, 2, 1)
+    s = Statements(
+        [
+            _fact("LongTermDebtNoncurrent", 5.0e9, end, filed),
+            _fact("ConvertibleLongTermNotesPayable", 1.0e9, end, filed),
+        ]
+    )
+    assert s.debt(NOW).value == 5.0e9
+
+
+def _dal_capex():
+    """DAL's capex facts, 2025-2026: two concepts, the main one gone after 2026 Q1."""
+    main, other = "PaymentsToAcquireProductiveAssets", "PaymentsToAcquireOtherProductiveAssets"
+    d = date
+    return [
+        _fact(main, 1.224e9, d(2025, 3, 31), d(2025, 4, 9), d(2025, 1, 1), "q1"),
+        _fact(main, 2.433e9, d(2025, 6, 30), d(2025, 7, 10), d(2025, 1, 1), "q2"),
+        _fact(main, 1.209e9, d(2025, 6, 30), d(2025, 7, 10), d(2025, 4, 1), "q2"),
+        _fact(main, 3.592e9, d(2025, 9, 30), d(2025, 10, 9), d(2025, 1, 1), "q3"),
+        _fact(main, 1.160e9, d(2025, 9, 30), d(2025, 10, 9), d(2025, 7, 1), "q3"),
+        _fact(main, 4.499e9, d(2025, 12, 31), d(2026, 2, 11), d(2025, 1, 1), "fy"),
+        _fact(main, 1.200e9, d(2026, 3, 31), d(2026, 4, 8), d(2026, 1, 1), "q1b"),
+        _fact(other, 0.680e9, d(2025, 9, 30), d(2025, 10, 9), d(2025, 1, 1), "q3"),
+        _fact(other, 0.978e9, d(2025, 12, 31), d(2026, 2, 11), d(2025, 1, 1), "fy"),
+        _fact(other, 0.414e9, d(2026, 6, 30), d(2026, 7, 10), d(2026, 1, 1), "q2b"),
+        _fact(other, 0.627e9, d(2026, 9, 30), d(2026, 10, 9), d(2026, 1, 1), "q3b"),
+    ]
+
+
+def test_ttm_never_mixes_concepts():
+    """FY $4.499B + 9M $0.627B (the OTHER concept) - prior 9M $3.592B was $1.534B."""
+    value, parts = Statements(_dal_capex()).ttm("capex", date(2026, 10, 12))
+    assert value == pytest.approx(4.475e9)
+    assert parts[-1].period_end == date(2026, 3, 31)
+    assert {p.concept for p in parts} == {"PaymentsToAcquireProductiveAssets"}
+
+
+def test_a_quarter_and_its_year_to_date_both_survive_in_any_order():
+    """
+    A 10-Q's quarter and year-to-date share concept, end and filing date.
+    Only one per end used to survive, chosen by the order the database
+    returned them: with the quarter kept, the TTM fell back to an older end.
+    """
+    cfo = "NetCashProvidedByUsedInOperatingActivities"
+    d = date
+    facts = [
+        _fact(cfo, 100.0, d(2025, 12, 31), d(2026, 2, 1), d(2025, 1, 1), "fy"),
+        _fact(cfo, 80.0, d(2025, 9, 30), d(2025, 10, 30), d(2025, 1, 1), "q3"),
+        _fact(cfo, 30.0, d(2025, 9, 30), d(2025, 10, 30), d(2025, 7, 1), "q3"),
+        _fact(cfo, 20.0, d(2026, 3, 31), d(2026, 4, 30), d(2026, 1, 1), "q1"),
+        _fact(cfo, 25.0, d(2025, 3, 31), d(2025, 4, 30), d(2025, 1, 1), "q1p"),
+        _fact(cfo, 90.0, d(2026, 9, 30), d(2026, 10, 30), d(2026, 1, 1), "q3b"),
+        _fact(cfo, 35.0, d(2026, 9, 30), d(2026, 10, 30), d(2026, 7, 1), "q3b"),
+    ]
+    as_of = d(2026, 11, 2)
+    for order in (facts, list(reversed(facts))):
+        value, parts = Statements(order)._ttm_ytd("cfo", as_of)
+        assert value == 100.0 + 90.0 - 80.0
+        assert parts[-1].period_end == d(2026, 9, 30)
+
+
+def test_a_line_tagged_differently_in_the_10k_still_forms_a_ttm():
+    """
+    APD files operating cash flow under the ContinuingOperations variant in
+    its 10-K and the plain concept in its 10-Qs, never both for one period:
+    that is one line under two names, and it mixes.
+    """
+    plain = "NetCashProvidedByUsedInOperatingActivities"
+    cont = "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"
+    d = date
+    s = Statements(
+        [
+            _fact(cont, 3.257e9, d(2025, 9, 30), d(2025, 11, 20), d(2024, 10, 1), "fy"),
+            _fact(plain, 1.996e9, d(2025, 6, 30), d(2025, 7, 31), d(2024, 10, 1), "q3"),
+            _fact(plain, 3.310e9, d(2026, 6, 30), d(2026, 7, 30), d(2025, 10, 1), "q3b"),
+        ]
+    )
+    value, parts = s._ttm_ytd("cfo", d(2026, 10, 12))
+    assert value == pytest.approx(3.257e9 + 3.310e9 - 1.996e9)
+    assert parts[-1].period_end == d(2026, 6, 30)

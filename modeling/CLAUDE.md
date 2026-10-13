@@ -14,7 +14,14 @@
   interest is reported refuses (LDOS was valued on 2015 debt, CMCSA on none of
   its $90B); flows older than 200 days (annual 460) count as unreported.
   `Statements.debt()` takes the newest balance date, then the LARGEST of three
-  shapes at it (ON tags a $1.6M lease figure beside $4.5B of debt). Decisions
+  shapes at it (ON tags a $1.6M lease figure beside $4.5B of debt). A TTM
+  never mixes two concepts that each report the fiscal year (DAL's aircraft
+  and ground-equipment capex are parts, not names); a concept used only in
+  the 10-Qs mixes with the 10-K's. A quarter and its year-to-date are both
+  kept, and facts are read in a TOTAL order: DAL was valued 1.28 or 2.28
+  depending on which valuations ran first in the process (2026-10-12).
+  Debt concept scope is read from the filers' series, not the labels:
+  ConvertibleLongTermNotesPayable is NONCURRENT in practice. Decisions
   in `research/dcf-plan-2026-10-08.md`: weekly 5y Blume beta, 7% WACC floor
   (labelled; `wacc_unfloored` in the response), market cost of debt, growth =
   lower of 3y/5y revenue CAGR capped 10%; financials, REITs, managed care and
