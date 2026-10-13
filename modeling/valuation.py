@@ -99,10 +99,12 @@ def default_growth(st: Statements, as_of: date) -> Tuple[float, str]:
         return settings.DCF_TERMINAL_GROWTH, (
             f"latest revenue on file ends {rev[-1].period_end} ({rev[-1].concept}): stale, terminal growth used"
         )
-    if len(rev) >= 4 and rev[-4].value > 0 and rev[-1].value > 0:
-        cagrs = {3: (rev[-1].value / rev[-4].value) ** (1 / 3) - 1}
-        if len(rev) >= 6 and rev[-6].value > 0:
-            cagrs[5] = (rev[-1].value / rev[-6].value) ** (1 / 5) - 1
+    # Each start year on the latest year's basis (Statements.annual_before).
+    starts = {y: st.annual_before("revenue", rev[-1], y, as_of) for y in (3, 5)} if rev else {}
+    if starts.get(3) is not None and starts[3].value > 0 and rev[-1].value > 0:
+        cagrs = {3: (rev[-1].value / starts[3].value) ** (1 / 3) - 1}
+        if starts[5] is not None and starts[5].value > 0:
+            cagrs[5] = (rev[-1].value / starts[5].value) ** (1 / 5) - 1
         years, cagr = min(cagrs.items(), key=lambda kv: kv[1])
         clamped = min(max(cagr, GROWTH_CLAMP[0]), GROWTH_CLAMP[1])
         shown = " and ".join(f"{y}-year {c:.2%}" for y, c in sorted(cagrs.items()))

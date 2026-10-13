@@ -6,7 +6,7 @@ known answer from Apple's filings.
 
 import gzip
 import json
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -349,7 +349,7 @@ def test_a_missing_year_to_date_ends_the_chain_instead_of_a_six_month_quarter():
 def test_a_mapped_line_is_the_sum_of_its_parts_and_a_missing_part_is_not_zero():
     """
     LNT's capex is "utility" $2,277M plus "other" $206M construction spending
-    (settings.CAPEX_CONCEPTS_BY_SYMBOL). A year where one part is missing is
+    (settings.LINE_CONCEPTS_BY_SYMBOL). A year where one part is missing is
     left out rather than read as the other part alone.
     """
     utility = "PaymentsToAcquireOtherPropertyPlantAndEquipment"
@@ -393,3 +393,115 @@ def test_a_mapped_single_concept_replaces_the_priority_order():
     mapped = Statements(facts, line_concepts={"capex": ("PaymentsForConstructionInProcess",)})
     assert mapped.annual("capex", d(2026, 10, 12))[-1].value == 8.453e9
     assert Statements(facts).annual("capex", d(2026, 10, 12))[-1].value == 3.453e9
+
+
+def test_continuing_operations_cfo_is_preferred_to_the_total():
+    """
+    CARR FY2025: continuing $2,089M, total $2,513M with discontinued
+    operations. Capex is a continuing figure, so free cash flow pairs it with
+    continuing CFO, not with the cash of businesses being sold.
+    """
+    d = date
+    s = Statements(
+        [
+            _fact(
+                "NetCashProvidedByUsedInOperatingActivities",
+                2.513e9,
+                d(2025, 12, 31),
+                d(2026, 2, 6),
+                d(2025, 1, 1),
+            ),
+            _fact(
+                "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations",
+                2.089e9,
+                d(2025, 12, 31),
+                d(2026, 2, 6),
+                d(2025, 1, 1),
+            ),
+        ]
+    )
+    assert s.annual("cfo", d(2026, 10, 12))[-1].value == 2.089e9
+
+
+def test_a_ttm_mixes_two_concepts_that_state_the_same_fiscal_year():
+    """
+    DHR tags continuing CFO in its 10-K beside an equal total, and only the
+    total in its 10-Qs. Equal for the year, they are one line: the TTM is
+    formed instead of falling back to the fiscal year. Unequal (a year with
+    discontinued operations, no matching prior YTD), they are not.
+    """
+    plain = "NetCashProvidedByUsedInOperatingActivities"
+    cont = "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"
+    d = date
+
+    def facts(plain_fy):
+        return [
+            _fact(cont, 6.416e9, d(2025, 12, 31), d(2026, 2, 20), d(2025, 1, 1), "fy"),
+            _fact(plain, plain_fy, d(2025, 12, 31), d(2026, 2, 20), d(2025, 1, 1), "fy"),
+            _fact(plain, 2.637e9, d(2025, 6, 27), d(2025, 7, 25), d(2025, 1, 1), "q2"),
+            _fact(plain, 2.856e9, d(2026, 6, 26), d(2026, 7, 24), d(2026, 1, 1), "q2b"),
+        ]
+
+    value, parts = Statements(facts(6.416e9))._ttm_ytd("cfo", d(2026, 10, 12))
+    assert value == pytest.approx(6.416e9 + 2.856e9 - 2.637e9)
+    assert parts[-1].period_end == d(2026, 6, 26)
+    assert Statements(facts(6.9e9))._ttm_ytd("cfo", d(2026, 10, 12)) is None
+
+
+def _rev(concept, value, year, end_month=12):
+    end = date(year, end_month, 28 if end_month == 2 else 30 if end_month in (6, 9) else 31)
+    start = date(year - 1, end_month, end.day) + timedelta(days=1)
+    return _fact(
+        concept, value, end, end + timedelta(days=50), start, f"{concept[:3]}{year}{end_month}"
+    )
+
+
+def test_the_year_before_is_found_by_date_not_by_position():
+    """
+    EMR files a calendar-2022 period ($1.66B) beside its September fiscal
+    years. By position it was the 3-year start (a 121% CAGR); by date the
+    start is FY2022.
+    """
+    rev = "Revenues"
+    s = Statements(
+        [_rev(rev, 15.0 + y - 2019, y, 9) for y in range(2019, 2026)] + [_rev(rev, 1.66, 2022, 12)]
+    )
+    latest = s.annual("revenue", date(2026, 10, 12))[-1]
+    start = s.annual_before("revenue", latest, 3, date(2026, 10, 12))
+    assert (start.period_end, start.value) == (date(2022, 9, 30), 18.0)
+    assert s.annual_before("revenue", latest, 9, date(2026, 10, 12)) is None
+
+
+def test_a_start_year_under_another_concept_counts_only_if_the_two_agree():
+    """
+    ADM: FY2025 contract revenue $25.0B (a part) and Revenues $80.3B (the
+    total) are both filed, so FY2020's Revenues ($64.4B) is not a start for
+    the contract series. A rename (the two never disagree) still is.
+    """
+    contract = "RevenueFromContractWithCustomerExcludingAssessedTax"
+    d = date(2026, 10, 12)
+    parts = Statements(
+        [_rev("Revenues", v, y) for y, v in ((2020, 64.4), (2025, 80.3))]
+        + [_rev(contract, v, y) for y, v in ((2022, 27.6), (2025, 25.0))]
+    )
+    latest = parts.annual("revenue", d)[-1]
+    assert latest.concept == contract
+    assert parts.annual_before("revenue", latest, 3, d).value == 27.6
+    assert parts.annual_before("revenue", latest, 5, d) is None
+
+    renamed = Statements(
+        [_rev("Revenues", v, y) for y, v in ((2020, 64.4), (2021, 70.0))]
+        + [_rev(contract, v, y) for y, v in ((2021, 70.0), (2025, 80.3))]
+    )
+    latest = renamed.annual("revenue", d)[-1]
+    assert renamed.annual_before("revenue", latest, 5, d).value == 64.4
+
+
+def test_every_mapped_concept_is_on_its_lines_list():
+    """valuation_service fetches only LINE_ITEMS' concepts: one off the list would read as missing."""
+    from config import settings
+    from modeling.statements import LINE_ITEMS
+
+    for symbol, lines in settings.LINE_CONCEPTS_BY_SYMBOL.items():
+        for item, concepts in lines.items():
+            assert set(concepts) <= set(LINE_ITEMS[item]), (symbol, item)

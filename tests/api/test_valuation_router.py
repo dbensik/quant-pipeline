@@ -349,9 +349,14 @@ def test_the_capex_map_is_applied_and_a_missing_part_refuses(vclient, monkeypatc
     from config import settings
 
     monkeypatch.setitem(
-        settings.CAPEX_CONCEPTS_BY_SYMBOL,
+        settings.LINE_CONCEPTS_BY_SYMBOL,
         "AAPL",
-        ("PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsForConstructionInProcess"),
+        {
+            "capex": (
+                "PaymentsToAcquirePropertyPlantAndEquipment",
+                "PaymentsForConstructionInProcess",
+            )
+        },
     )
     r = vclient.post("/api/v1/valuation/dcf", json={"symbol": "AAPL", "as_of": "2026-10-08"})
     assert r.status_code == 422 and "capital expenditure" in r.json()["detail"]

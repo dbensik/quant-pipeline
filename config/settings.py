@@ -496,32 +496,65 @@ DCF_ALLOWED_SYMBOLS = {
 }
 
 
-#: Filers whose capex is NOT the first concept of the capex list, read as the
-#: SUM of these concepts per period (modeling.statements, line_concepts). Each
-#: entry checked against the filer's FY2025 10-K cash-flow statement
-#: (2026-10-12): 27 of 381 valued companies tag capex under more than one
-#: concept, 11 materially, and only these 3 were wrong. The others' second
-#: concept is an acquisition (CNP, PWR, MLM, FANG), a component already inside
-#: the total (DAL: flight $3,521M + ground $978M = the $4,499M it tags), or not
-#: on the statement at all (MCD, MCHP, WMB's accrual figure). Never a rule:
-#: "the largest" would take FANG's acquisitions, "the sum" would double DAL.
-CAPEX_CONCEPTS_BY_SYMBOL = {
+#: Per-filer line concepts, {symbol: {line item: concepts}}: the line read as
+#: the SUM of these concepts per period instead of the first of the item's
+#: list (modeling.statements, line_concepts). A period missing a part is
+#: dropped, never zero. Every entry was read off the filer's latest 10-K. No
+#: rule picks the right line, so add a filer only after reading its statement.
+#:
+#: Capex (2026-10-12): 27 of 381 valued companies tag capex under more than
+#: one concept, 11 materially, and only AEP, LNT and EOG were wrong. The
+#: others' second concept is an acquisition (CNP, PWR, MLM, FANG), a component
+#: already inside the total (DAL: flight $3,521M + ground $978M = the $4,499M
+#: it tags), or not on the statement at all (MCD, MCHP, WMB's accrual figure).
+#: "The largest" would take FANG's acquisitions; "the sum" would double DAL.
+#:
+#: Revenue (2026-10-13): it feeds only the growth rate. 26 valued filers tag
+#: the latest fiscal year under two revenue concepts with different values;
+#: these 7 report Revenues as the income statement's total and the contract
+#: concept first in the list as a part of it (commodity derivatives, leases
+#: and other non-contract revenue are outside ASC 606). The reverse also
+#: happens, so Revenues cannot simply go first: NTAP's total is the contract
+#: figure ($6,925M) and its Revenues fact ($6,237M) is not on the statement.
+_TOTAL_REVENUES = ("Revenues",)
+LINE_CONCEPTS_BY_SYMBOL = {
     # "Construction Expenditures" $8,453M. The concept first in the list,
     # PaymentsToAcquireProductiveAssets ($3,453M), is "Acquisitions of
     # Generation Facilities": buying power plants, not capex.
-    "AEP": ("PaymentsForConstructionInProcess",),
+    "AEP": {"capex": ("PaymentsForConstructionInProcess",)},
     # "Utility construction and acquisition expenditures" $2,277M plus "Other
     # construction and acquisition expenditures" $206M.
-    "LNT": (
-        "PaymentsToAcquireOtherPropertyPlantAndEquipment",
-        "PaymentsToAcquireOtherProductiveAssets",
-    ),
+    "LNT": {
+        "capex": (
+            "PaymentsToAcquireOtherPropertyPlantAndEquipment",
+            "PaymentsToAcquireOtherProductiveAssets",
+        )
+    },
     # "Additions to Oil and Gas Properties" $6,115M plus "Additions to Other
     # Property, Plant and Equipment" $479M.
-    "EOG": (
-        "PaymentsToAcquireOilAndGasPropertyAndEquipment",
-        "PaymentsToAcquireOtherPropertyPlantAndEquipment",
-    ),
+    "EOG": {
+        "capex": (
+            "PaymentsToAcquireOilAndGasPropertyAndEquipment",
+            "PaymentsToAcquireOtherPropertyPlantAndEquipment",
+        )
+    },
+    # "REVENUES" $54,774M; the IncludingAssessedTax fact ($889M) is a part.
+    # Growth had been -6.85% (that part shrinking) for revenue that was flat.
+    "CHTR": {"revenue": _TOTAL_REVENUES},
+    # "Revenues" $80,269M against $24,956M of contract revenue: most of a
+    # grain merchant's sales are commodity contracts outside ASC 606.
+    "ADM": {"revenue": _TOTAL_REVENUES},
+    # "Net sales" $70,329M against $16,944M of contract revenue, likewise.
+    "BG": {"revenue": _TOTAL_REVENUES},
+    # "Revenues" $16,937M against $15,202M of contract revenue.
+    "KMI": {"revenue": _TOTAL_REVENUES},
+    # "Total revenues" $13,702M against $12,418M.
+    "SRE": {"revenue": _TOTAL_REVENUES},
+    # "Total revenues" $17,188M against "Oil, gas and NGL sales" $16,786M.
+    "DVN": {"revenue": _TOTAL_REVENUES},
+    # "Revenues" $11,950M, net of commodity derivative losses; the contract
+    # figure ($14,899M) is larger than the total.
+    "WMB": {"revenue": _TOTAL_REVENUES},
 }
 
 

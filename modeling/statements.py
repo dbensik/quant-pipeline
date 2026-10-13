@@ -80,9 +80,14 @@ LINE_ITEMS: Dict[str, Tuple[str, ...]] = {
     "depreciation": ("Depreciation",),
     "amortization_intangibles": ("AmortizationOfIntangibleAssets",),
     "share_based_comp": ("ShareBasedCompensation",),
+    # Continuing operations FIRST (2026-10-13), to match capex: CARR, HON and
+    # OXY present capex inside continuing investing, with discontinued
+    # operations on lines of their own, so total CFO less capex counted the
+    # cash flow of businesses being sold (CARR +$424M, HON +$333M, OXY +$926M
+    # in FY2025). A filer without discontinued operations tags only the total.
     "cfo": (
-        "NetCashProvidedByUsedInOperatingActivities",
         "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations",
+        "NetCashProvidedByUsedInOperatingActivities",
     ),
     "capex": (
         "PaymentsToAcquirePropertyPlantAndEquipment",
@@ -188,8 +193,8 @@ class Statements:
         """
         line_concepts: for this filer only, a line read as the SUM of these
         concepts per period instead of the first of LINE_ITEMS' list
-        (settings.CAPEX_CONCEPTS_BY_SYMBOL, each entry checked against the
-        filer's cash-flow statement). A period missing any part is dropped:
+        (settings.LINE_CONCEPTS_BY_SYMBOL, each entry checked against the
+        filer's statement). A period missing any part is dropped:
         a missing part is not zero.
         """
         self.by_concept: Dict[str, List[Fact]] = {}
@@ -293,6 +298,39 @@ class Statements:
 
     def annual(self, item: str, as_of: date) -> List[Value]:
         return sorted(self._periods(item, as_of, ANNUAL_DAYS).values(), key=lambda v: v.period_end)
+
+    def annual_before(self, item: str, latest: Value, years: int, as_of: date) -> Optional[Value]:
+        """
+        The fiscal year ending `years` years before `latest`, on its basis.
+
+        By date, not by position in annual(): EMR and AMCR file off-cycle
+        twelve-month periods beside their fiscal years, and EXE has no 2021.
+        From latest's own concept if it reports that year; otherwise from
+        another concept only if the two agree (0.5%) on every period both
+        report, which is a rename: ADM's FY2020 Revenues ($64.4B, the total)
+        set against its FY2025 contract revenue ($25.0B, a part) read as a
+        17% yearly decline.
+        """
+        target = latest.period_end.toordinal() - round(365.25 * years)
+        series = self._concept_series(item, as_of, ANNUAL_DAYS)
+        own = {(v.period_start, v.period_end): v.value for v in series.get(latest.concept, [])}
+
+        def near(values: List[Value]) -> Optional[Value]:
+            hits = [v for v in values if abs(v.period_end.toordinal() - target) <= 30]
+            return min(hits, key=lambda v: abs(v.period_end.toordinal() - target), default=None)
+
+        hit = near(series.get(latest.concept, []))
+        if hit is not None:
+            return hit
+        for concept, values in series.items():
+            if concept == latest.concept or (hit := near(values)) is None:
+                continue
+            common = [
+                (own[k], v.value) for v in values if (k := (v.period_start, v.period_end)) in own
+            ]
+            if all(math.isclose(a, b, rel_tol=0.005) for a, b in common):
+                return hit
+        return None
 
     def quarterly(self, item: str, as_of: date) -> List[Value]:
         """Filed quarters plus each fiscal year's derived Q4 (FY minus Q1-Q3)."""
@@ -455,7 +493,16 @@ class Statements:
                 continue
             if cur.concept != fy.concept and self._reports_period(item, cur.concept, fy, as_of):
                 pri_fy = prior_of(by_concept[fy.concept], cur)
-                if pri_fy is None or not math.isclose(pri.value, pri_fy.value, rel_tol=0.005):
+                same_prior = pri_fy is not None and math.isclose(
+                    pri.value, pri_fy.value, rel_tol=0.005
+                )
+                # Or the two state the same fiscal year: DHR, LH and ROP tag
+                # continuing-operations CFO in the 10-K and only the total
+                # in the 10-Qs, equal in a year with no discontinued ones.
+                fy_cur = self._periods(item, as_of, ANNUAL_DAYS, (cur.concept,))[
+                    (fy.period_start, fy.period_end)
+                ]
+                if not same_prior and not math.isclose(fy_cur.value, fy.value, rel_tol=0.005):
                     continue
             return fy.value + cur.value - pri.value, [pri, fy, cur]
         return None

@@ -22,9 +22,13 @@
   depending on which valuations ran first in the process (2026-10-12).
   Debt concept scope is read from the filers' series, not the labels:
   ConvertibleLongTermNotesPayable is NONCURRENT in practice. Capex for AEP,
-  LNT, EOG comes from `CAPEX_CONCEPTS_BY_SYMBOL` (verified against each
-  10-K; summed per period, a missing part drops the period). Add a filer only
-  after reading its cash-flow statement: no rule picks the right line. Decisions
+  LNT, EOG and revenue for CHTR, ADM, BG, KMI, SRE, DVN, WMB come from
+  `LINE_CONCEPTS_BY_SYMBOL` (verified against each 10-K; summed per period,
+  a missing part drops the period). Add a filer only after reading its
+  statement: no rule picks the right line (NTAP's `Revenues` is a part, ADM's
+  contract revenue is). CFO is continuing operations first, matching capex.
+  Growth's start years come from `Statements.annual_before`: by date, and
+  on the latest year's concept unless another agrees with it everywhere. Decisions
   in `research/dcf-plan-2026-10-08.md`: weekly 5y Blume beta, 7% WACC floor
   (labelled; `wacc_unfloored` in the response), market cost of debt, growth =
   lower of 3y/5y revenue CAGR capped 10%; financials, REITs, managed care and

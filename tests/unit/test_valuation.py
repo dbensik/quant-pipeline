@@ -676,3 +676,44 @@ def test_allowed_and_refused_symbol_lists_do_not_overlap():
 
     assert not set(settings.DCF_ALLOWED_SYMBOLS) & set(settings.DCF_REFUSED_SYMBOLS)
     assert all(settings.DCF_ALLOWED_SYMBOLS.values())
+
+
+def test_growth_starts_from_the_latest_years_basis():
+    """
+    ADM's contract revenue (a part) for 2022-2025 beside Revenues (the total)
+    for every year: the contract series' 2025 against 2020's total read as
+    -17% a year. The mapped total gives -7.5% (3-year) and +4.5% (5-year).
+    """
+    from core.fundamentals import Fact
+    from modeling.valuation import default_growth
+
+    def rev(concept, year, v):
+        return Fact(
+            1,
+            "us-gaap",
+            concept,
+            "USD",
+            date(year, 1, 1),
+            date(year, 12, 31),
+            v,
+            year,
+            "FY",
+            "10-K",
+            date(year + 1, 2, 20),
+            f"a{year}",
+            None,
+            datetime(2026, 1, 1, tzinfo=timezone.utc),
+        )
+
+    total = {2020: 64.36, 2021: 85.25, 2022: 101.56, 2023: 93.94, 2024: 85.53, 2025: 80.27}
+    contract = {2022: 27.61, 2023: 25.69, 2024: 24.37, 2025: 24.96}
+    facts = [rev("Revenues", y, v) for y, v in total.items()] + [
+        rev("RevenueFromContractWithCustomerExcludingAssessedTax", y, v)
+        for y, v in contract.items()
+    ]
+    as_of = date(2026, 6, 1)
+    g, why = default_growth(Statements(facts), as_of)
+    assert g == pytest.approx((24.96 / 27.61) ** (1 / 3) - 1)  # no 5-year: no contract 2020
+    assert "5-year" not in why
+    g, _ = default_growth(Statements(facts, line_concepts={"revenue": ("Revenues",)}), as_of)
+    assert g == pytest.approx((80.27 / 101.56) ** (1 / 3) - 1)

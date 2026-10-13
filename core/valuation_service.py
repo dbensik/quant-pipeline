@@ -85,8 +85,7 @@ async def filer_statements(
         raise ValuationError(
             422, f"no SEC facts stored for {symbol} (CIK {cik}): run scripts/load_fundamentals.py"
         )
-    capex = settings.CAPEX_CONCEPTS_BY_SYMBOL.get(symbol.upper())
-    line_concepts = {"capex": capex} if capex else None
+    line_concepts = settings.LINE_CONCEPTS_BY_SYMBOL.get(symbol.upper())
     return Statements(facts, await data.splits(symbol), line_concepts), cik, sector, ciks
 
 
