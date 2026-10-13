@@ -64,12 +64,13 @@ restating write — see `research/dividend-drift-plan-2026-09-27.md`.
 ```bash
 launchctl print gui/$(id -u)/com.dbensik.quant-pipeline.daily-maintenance
 scripts/launchd/install.sh                  # (re)install after editing the plist
-scripts/cron/daily_maintenance.sh           # ingest, risk-free rate, SEC facts, reassigned + missing-day + fresh-return checks, snapshot, DCF line check, backup
+scripts/cron/daily_maintenance.sh           # ingest, risk-free rate, SEC facts, reassigned + missing-day + fresh-return checks, snapshot, DCF line check, option surfaces, backup
 scripts/ingest_rates.py                     # risk-free rate (^IRX) only; --as-of DATE prints the rate a reader gets
 scripts/check_reassigned.py                 # the check alone; read-only, exit 1 = flagged
 scripts/check_missing_days.py               # holes inside series; read-only, exit 1 = lost bars
 scripts/check_fresh_returns.py              # returns readers see vs fresh Yahoo, 30 sessions; exit 1 = mismatch
 scripts/check_line_concepts.py              # DCF lines another concept reports differently, or a stale per-filer map; exit 1 = flagged
+scripts/precompute_surfaces.py --days 7     # option surfaces for the last week + missed capture days; 1 = missed, 2 = failed
 scripts/load_fundamentals.py --recent       # SEC facts for registry filers of the last 7 days (--all: everyone, ~10 min)
 scripts/backup.py                           # LAST step: DB dump + option archive to QUANT_BACKUP_DIR, proven by a restore
 tail -f logs/daily_maintenance.log
@@ -370,7 +371,7 @@ For the TimescaleDB layer, copy `.env.example` → `.env`; without it, `db/sessi
 - `backtesting/backtester.py` — Simulates strategy on historical data; produces equity curves and KPIs. Per-bar state goes into numpy arrays, not pandas cell writes (2026-10-07: 291 ms → 5 ms a run, bit-identical). A change to the loop must stay bit-identical on real runs — the equity frame, trade log and metrics are the regression test (with a zero `cash_accrual`; 15 real runs checked when interest on cash went in, 2026-10-12).
 - `simulation/` — Monte Carlo kernels; read `simulation/CLAUDE.md` before changing them.
 - `pricing/` — option pricing; read `pricing/CLAUDE.md` before changing it (no recorded spot; discrete dividends).
-- `core/options_surface.py` + `api/routers/options.py` — `/api/v1/options` archive|surface|price|pricers|realised-vol. A surface costs 10–35 s, so it is cached in `data/surfaces/<TICKER>/<day>.json` (gitignored, derivable, safe to delete). The key hashes the capture bytes, the rate observation, the dividend schedule and a fingerprint DERIVED from the pricing source and settings — never hand-bump a version. The realised-vol cone is NOT cached (bars are not in the key). A surface for today's capture uses yesterday's rate and is recomputed tomorrow: correct. `scripts/precompute_surfaces.py` fills the cache (108 captures ~37 min); it is not in the 06:00 job.
+- `core/options_surface.py` + `api/routers/options.py` — `/api/v1/options` archive|surface|price|pricers|realised-vol. A surface costs 10–35 s, so it is cached in `data/surfaces/<TICKER>/<day>.json` (gitignored, derivable, safe to delete). The key hashes the capture bytes, the rate observation, the dividend schedule and a fingerprint DERIVED from the pricing source and settings — never hand-bump a version. The realised-vol cone is NOT cached (bars are not in the key). A surface for today's capture uses yesterday's rate and is recomputed tomorrow: correct. `scripts/precompute_surfaces.py` fills the cache (108 captures ~37 min cold); the 06:00 job runs it with `--days 7` (~2-3 min a night, a pricing change recomputes a week, not the archive), which also names MISSED CAPTURE days: 2026-10-09 was lost for every ticker (a Yahoo dtype crash) and nobody knew for four days. Known losses: `OPTION_CAPTURE_DAYS_LOST`.
 - `core/sec.py` + `core/fundamentals.py` + `modeling/` + `api/routers/valuation.py` — the DCF; read `modeling/CLAUDE.md` before changing any of them. Missing is never zero: a missing input refuses, it is never defaulted.
 - `api/routers/` — the REST/WS surface: ohlcv, assets, strategies, backtest,
   compare, optimize, simulate, options, valuation, screeners, statistics, portfolios,

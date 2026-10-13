@@ -1007,6 +1007,15 @@ REASSIGNMENT_MIN_PRIOR_DOLLAR_VOLUME = 1_000_000.0
 #: Small on purpose. Grow deliberately — a <=120 DTE SPY chain is ~19 expiries
 #: and several thousand rows per day.
 OPTION_CAPTURE_TICKERS = ("SPY", "QQQ", "IWM", "TQQQ", "AAPL", "NVDA")
+#: Capture days known lost, {YYYY-MM-DD: why}: scripts/precompute_surfaces.py
+#: --days stops naming them. yfinance serves only today's chain, so these are
+#: permanent gaps in the archive.
+OPTION_CAPTURE_DAYS_LOST = {
+    "2026-10-09": (
+        "both runs crashed writing the first ticker: Yahoo sent inTheMoney mixing "
+        "False and 0.0 (fixed 2026-10-13)"
+    ),
+}
 
 #: Expiries further out than this many calendar days are not fetched.
 OPTION_CAPTURE_MAX_DTE = 120

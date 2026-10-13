@@ -80,6 +80,7 @@ def test_a_flagged_check_is_exit_0_with_named_flags(tmp_path):
         ("cli.run_pipeline=1", "ingest"),
         ("backup=1", "backup"),  # 2026-10-12: a backup that fails must interrupt
         ("check_line_concepts=2", "line-concept-check"),
+        ("precompute_surfaces=2", "option-surfaces"),
     ],
 )
 def test_a_failed_step_is_exit_1_and_named(tmp_path, exits, failed):
@@ -99,4 +100,12 @@ def test_a_flagged_dcf_line_is_a_flag_not_a_failure(tmp_path):
     assert (code, line) == (
         0,
         "=== daily maintenance finished (exit 0) with FLAGS: line-concepts ===",
+    )
+
+
+def test_a_missed_capture_day_is_a_flag_not_a_failure(tmp_path):
+    code, line = run(tmp_path, "precompute_surfaces=1")
+    assert (code, line) == (
+        0,
+        "=== daily maintenance finished (exit 0) with FLAGS: missed-captures ===",
     )

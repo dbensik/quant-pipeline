@@ -5,7 +5,7 @@
 # Daily data maintenance, for launchd. In this order: ingest new price bars,
 # the risk-free rate, SEC facts for recent filers, the read-only checks
 # (reassigned tickers, missing days, fresh returns), the index snapshot, the
-# DCF line-concept check, then the backup.
+# DCF line-concept check, option surfaces, then the backup.
 #
 # Ingest runs FIRST so that any name which joined an index today already has
 # bars by the time the snapshot records it.
@@ -233,6 +233,26 @@ if [ "$MODE" != "--snapshot-only" ]; then
     fi
 fi
 
+# Option surfaces for the last week's captures (2026-10-13), so the options
+# page answers from the cache instead of pricing for 10-35 s; and missed
+# capture days named, because 2026-10-09 was lost for every ticker and nobody
+# knew for four days. A surface that fails to price is a failure; a missed
+# day is a flag (the capture job, not this one, lost it).
+if [ "$MODE" != "--snapshot-only" ]; then
+    log "--- option surfaces ---"
+    "$VENV_PYTHON" scripts/precompute_surfaces.py --days 7 >> "$LOG_FILE" 2>&1
+    CHECK_EXIT=$?
+    if [ "$CHECK_EXIT" -eq 0 ]; then
+        log "option surfaces OK"
+    elif [ "$CHECK_EXIT" -eq 1 ]; then
+        log "option surfaces OK; FLAGGED missed capture days — see MISSED CAPTURE lines above"
+        flag missed-captures
+    else
+        log "option surfaces FAILED (exit $CHECK_EXIT)"
+        fail option-surfaces
+    fi
+fi
+
 # LAST, so the backup holds today's snapshot and bars. The database and the
 # option-chain archive to QUANT_BACKUP_DIR (Google Drive), each dump proven by
 # restoring it into a scratch database first. Until 2026-10-12 nothing was
@@ -274,7 +294,7 @@ if [ -n "$FAILED_STEPS" ] && [ ! -t 1 ]; then
 fi
 
 if [ -n "$FLAGS" ] && [ ! -t 1 ]; then
-    osascript -e 'display notification "A check flagged stored data - see SUSPECT, MISSING, MISMATCH, CONCEPT or STALE in logs/daily_maintenance.log. Nothing was changed." with title "quant-pipeline daily maintenance"' >/dev/null 2>&1 || true
+    osascript -e 'display notification "A check flagged stored data - see SUSPECT, MISSING, MISMATCH, CONCEPT, STALE or MISSED CAPTURE in logs/daily_maintenance.log. Nothing was changed." with title "quant-pipeline daily maintenance"' >/dev/null 2>&1 || true
 fi
 
 # Keep the log from growing without bound; 30 days is plenty to notice a
