@@ -37,8 +37,15 @@ const PROFILE = {
 const FINANCIALS = {
   symbol: 'AAPL',
   quarterly: false,
+  source: 'SEC filings (XBRL company facts), as filed',
   income_statement: [
-    { line_item: 'Total Revenue', values: { '2025-12-31': 4.1e11 } },
+    {
+      line_item: 'Total Revenue',
+      values: { '2025-12-31': 4.1e11, '2025-09-30': 1.0e11 },
+      filed: { '2025-12-31': '2026-01-30', '2025-09-30': '2025-10-31' },
+      concept: { '2025-12-31': 'Revenues', '2025-09-30': 'Revenues' },
+      derived: { '2025-12-31': true, '2025-09-30': false },
+    },
   ],
   balance_sheet: [],
   cash_flow: [],
@@ -126,6 +133,16 @@ describe('ResearchPage — financials', () => {
     expect(await screen.findByText('Total Revenue')).toBeInTheDocument()
     expect(screen.getByText('2025-12-31')).toBeInTheDocument()
     expect(screen.getByText('$410.00B')).toBeInTheDocument()
+  })
+
+  it('names the source, and each figure carries its filing date', async () => {
+    renderPage(<ResearchPage />)
+    expect(await screen.findByText(/Source: SEC filings/)).toBeInTheDocument()
+    const cell = screen.getByText('$410.00B')
+    expect(cell).toHaveAttribute('title', 'filed 2026-01-30 · Revenues · derived')
+    expect(cell).toHaveClass('italic')
+    expect(screen.getByText('$100.00B')).not.toHaveClass('italic')
+    expect(screen.getByText(/Italic: derived/)).toBeInTheDocument()
   })
 
   it('says so when a statement is not reported', async () => {

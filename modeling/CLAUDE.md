@@ -29,4 +29,7 @@
   (`DCF_ALLOWED_SYMBOLS`, decision 16: exchanges/data, insurance brokers,
   payment processors, real-estate services; never by sub-industry). Predecessor CIKs (`CIK_PREDECESSORS`) cover holdco
   reorganisations (XOM, WBA). `core/valuation_service.py` assembles a value and
-  the point-in-time history (the day after each 10-K/10-Q).
+  the point-in-time history (the day after each 10-K/10-Q). The Research page's
+  statements read the same layer (`filer_statements`, no refusals;
+  `core/research_financials.py`); `Statements.discrete_quarters` is for that
+  display only, and `quarterly()` (which feeds the TTM) is left alone.

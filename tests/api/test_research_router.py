@@ -9,6 +9,7 @@ tests stay offline — `pytest tests/` needs no Docker AND no network.
 Phase 5 — decommissioning Streamlit
 """
 
+import pytest
 from fastapi.testclient import TestClient
 
 BASE = "/api/v1/research"
@@ -207,3 +208,94 @@ def test_a_symbol_with_no_stories_is_an_empty_feed_not_an_error(client: TestClie
     body = client.get(f"{BASE}/news", params={"symbols": ["QUIET"]})
     assert body.status_code == 200
     assert body.json()["items"] == []
+
+
+# ---------------------------------------------------------------------------
+# Financials from SEC filings (2026-10-12)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def sec_client(client: TestClient):
+    """The research API with Apple's real SEC facts behind it."""
+    from api.main import app
+    from api.routers.valuation import get_valuation_data
+    from tests.api.test_valuation_router import FakeValuationData
+
+    app.dependency_overrides[get_valuation_data] = lambda: FakeValuationData()
+    return client
+
+
+def test_financials_come_from_sec_filings_with_their_filing_dates(sec_client: TestClient):
+    """
+    Until 2026-10-12 these were yfinance's: four restated years, no filing
+    date, and different numbers from the Valuation page's.
+    """
+    body = sec_client.get(f"{BASE}/AAPL/financials").json()
+    assert body["source"].startswith("SEC filings")
+    revenue = next(line for line in body["income_statement"] if line["line_item"] == "Revenue")
+    assert revenue["values"]["2025-09-27"] == 416_161_000_000
+    assert revenue["filed"]["2025-09-27"] == "2025-10-31"
+    assert revenue["concept"]["2025-09-27"] == "RevenueFromContractWithCustomerExcludingAssessedTax"
+    assert 4 < len(revenue["values"]) <= 10
+    for statement in ("income_statement", "balance_sheet", "cash_flow"):
+        keys = {tuple(line["values"]) for line in body[statement]}
+        assert len(keys) == 1, f"{statement} lines have different columns"
+
+
+def test_quarterly_cash_flow_is_one_quarter_each_not_year_to_date(sec_client: TestClient):
+    body = sec_client.get(f"{BASE}/AAPL/financials", params={"quarterly": True}).json()
+    cfo = next(line for line in body["cash_flow"] if line["line_item"] == "Operating cash flow")
+    assert len(cfo["values"]) == 8
+    assert any(cfo["derived"].values()) and not all(cfo["derived"].values())
+    # A quarter, not a year to date: no figure is near the annual total.
+    annual = sec_client.get(f"{BASE}/AAPL/financials").json()
+    fy = next(line for line in annual["cash_flow"] if line["line_item"] == "Operating cash flow")
+    assert max(v for v in cfo["values"].values() if v) < 0.5 * max(fy["values"].values())
+
+
+def test_a_bank_gets_its_statements_though_the_dcf_refuses_it(sec_client: TestClient, monkeypatch):
+    from tests.api.test_valuation_router import FakeValuationData
+
+    monkeypatch.setitem(FakeValuationData.EQUITIES, "AAPL", ([320193], "Financials"))
+    body = sec_client.get(f"{BASE}/AAPL/financials").json()
+    assert body["source"].startswith("SEC filings")
+
+
+def test_no_filings_falls_back_to_yfinance_and_says_why(sec_client: TestClient):
+    """MSFT has a CIK in the fake but no stored facts."""
+    body = sec_client.get(f"{BASE}/MSFT/financials").json()
+    assert body["source"].startswith("yfinance") and "no SEC facts" in body["source"]
+    assert body["income_statement"]
+
+
+def test_filings_without_revenue_or_cash_flow_fall_back(sec_client: TestClient, monkeypatch):
+    """CCEP and GFS file IFRS: facts exist, but no us-gaap revenue or cash flow."""
+    from tests.api.test_valuation_router import FakeValuationData
+
+    real = FakeValuationData.facts
+
+    async def balances_only(self, ciks, concepts):
+        return [f for f in await real(self, ciks, concepts) if f.period_start is None]
+
+    monkeypatch.setattr(FakeValuationData, "facts", balances_only)
+    body = sec_client.get(f"{BASE}/AAPL/financials").json()
+    assert body["source"].startswith("yfinance") and "no standard annual revenue" in body["source"]
+
+
+def test_an_annual_only_filer_falls_back_for_quarters_only(sec_client: TestClient, monkeypatch):
+    """ASML files a US GAAP 20-F but no 10-Qs: years from the SEC, quarters elsewhere."""
+    from tests.api.test_valuation_router import FakeValuationData
+
+    real = FakeValuationData.facts
+
+    async def annual_report_only(self, ciks, concepts):
+        return [f for f in await real(self, ciks, concepts) if f.form == "10-K"]
+
+    monkeypatch.setattr(FakeValuationData, "facts", annual_report_only)
+    annual = sec_client.get(f"{BASE}/AAPL/financials").json()
+    quarterly = sec_client.get(f"{BASE}/AAPL/financials", params={"quarterly": True}).json()
+    assert annual["source"].startswith("SEC filings")
+    # Apple's pre-2020 10-Ks carried quarterly data, so the newest "quarter"
+    # here is 2020's: stale, and the view falls back saying so.
+    assert quarterly["source"].startswith("yfinance") and "2020-09-26" in quarterly["source"]

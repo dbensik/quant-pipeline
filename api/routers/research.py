@@ -4,8 +4,11 @@ Company profiles, financial statements and news — the "Asset Deep Dive" and
 "Market Intelligence" features.
 
 THE ONLY ROUTER THAT REACHES THE NETWORK, and it does so through
-api/upstream.py. Profiles, statements and news have no database source, so
-they are proxied from yfinance with explicit TTL caching. Everything else,
+api/upstream.py. Profiles and news have no database source, so they are
+proxied from yfinance with explicit TTL caching. Financial statements come
+from the stored SEC filings (since 2026-10-12, core/research_financials.py),
+the same point-in-time figures the Valuation page uses; yfinance only for a
+symbol with no usable filings (ETFs, crypto, IFRS filers), labelled `source`. Everything else,
 including the deep dive's PRICE HISTORY, comes from TimescaleDB: use
 /api/v1/ohlcv for the chart. Streamlit pulled 5 years of history from
 yfinance here as well, which meant the deep dive could disagree with every
@@ -19,7 +22,7 @@ Phase 5 — decommissioning Streamlit
 """
 
 import logging
-from datetime import datetime
+from datetime import date, datetime, timezone
 from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -27,7 +30,10 @@ from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from api.dependencies import get_portfolio_repo, get_watchlist_repo
+from api.routers.valuation import get_valuation_data
 from api.upstream import UpstreamError, YFinanceGateway, get_upstream
+from core import research_financials
+from core import valuation_service as svc
 from core.portfolio import derive_state
 from db.repositories.portfolios import TimescalePortfolioRepo
 from db.repositories.watchlists import TimescaleWatchlistRepo
@@ -67,11 +73,23 @@ class Profile(BaseModel):
 class StatementLine(BaseModel):
     line_item: str
     values: Dict[str, Optional[float]] = Field(description="Period end date (ISO) to value")
+    filed: Dict[str, Optional[date]] = Field(
+        default_factory=dict, description="Period end to the date the figure was filed (SEC only)"
+    )
+    concept: Dict[str, Optional[str]] = Field(
+        default_factory=dict, description="Period end to the XBRL concept read (SEC only)"
+    )
+    derived: Dict[str, bool] = Field(
+        default_factory=dict,
+        description="Period end to whether the figure is derived (a Q4 from the annual, a quarter "
+        "from year-to-date cash flows), not filed as such",
+    )
 
 
 class Financials(BaseModel):
     symbol: str
     quarterly: bool
+    source: str = Field(default="", description="Where the statements came from")
     income_statement: List[StatementLine]
     balance_sheet: List[StatementLine]
     cash_flow: List[StatementLine]
@@ -132,12 +150,24 @@ async def get_financials(
     symbol: str,
     quarterly: bool = Query(default=False, description="Quarterly instead of annual"),
     upstream: YFinanceGateway = Depends(get_upstream),
+    data: svc.ValuationData = Depends(get_valuation_data),
 ) -> Financials:
+    as_of = datetime.now(timezone.utc).date()
+    reason = ""
+    try:
+        st, *_ = await svc.filer_statements(data, symbol.upper())
+        reason = research_financials.unusable_reason(st, as_of, quarterly)
+        if not reason:
+            return Financials(**research_financials.build(st, symbol, as_of, quarterly))
+    except svc.ValuationError as exc:
+        reason = exc.reason
     try:
         statements = await run_in_threadpool(upstream.fetch_financials, symbol, quarterly)
     except UpstreamError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from None
-    return Financials(**statements)
+    return Financials(
+        **statements, source=f"yfinance, restated, no filing dates: no SEC statements ({reason})"
+    )
 
 
 # ---------------------------------------------------------------------------

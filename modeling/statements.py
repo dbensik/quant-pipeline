@@ -280,6 +280,78 @@ class Statements:
             )
         return sorted(out, key=lambda v: v.period_end)
 
+    def discrete_quarters(self, item: str, as_of: date) -> List[Value]:
+        """
+        Each fiscal quarter of a FLOW line as its own figure, for display (the
+        Research page). 10-Qs file cash flows year-to-date only, so Q2 = H1 -
+        Q1, Q3 = 9M - H1 and Q4 = FY - 9M, derived=True; the year in progress
+        gets the quarters filed so far. One concept per year's chain, by the
+        _ttm_ytd rule: a 10-Q concept that also reports the fiscal year is a
+        separate line (DAL's two capex lines) and is not chained with it; a
+        step that is not one quarter long (a missing YTD) ends the chain rather
+        than labelling six months as a quarter.
+
+        `quarterly()` is NOT this: it feeds the TTM, and is left alone.
+        """
+        annual = self.annual(item, as_of)
+        if not annual:
+            return []
+        starts = [fy.period_start for fy in annual]
+        starts.append(date.fromordinal(annual[-1].period_end.toordinal() + 1))
+        by_end = {fy.period_start: fy for fy in annual}
+        out: List[Value] = []
+        for start in starts:
+            fy = by_end.get(start)
+            for concept in LINE_ITEMS[item]:
+                ytds = sorted(
+                    (
+                        v
+                        for v in self._periods(item, as_of, (80, 300), (concept,)).values()
+                        if v.period_start is not None
+                        and abs((v.period_start - start).days) <= 1
+                        and (fy is None or v.period_end < fy.period_end)
+                    ),
+                    key=lambda v: v.period_end,
+                )
+                if not ytds:
+                    continue
+                # The year in progress has no annual yet: judge the concept by
+                # the latest fiscal year, or DAL's ground-equipment line would
+                # stand in for its capex the year it stopped tagging aircraft.
+                reference = fy or annual[-1]
+                if concept != reference.concept:
+                    if self._reports_period(item, concept, reference, as_of):
+                        continue  # a separate line, not this one under another name
+                prev: Optional[Value] = None
+                for y in ytds:
+                    begin = (
+                        y.period_start
+                        if prev is None
+                        else date.fromordinal(prev.period_end.toordinal() + 1)
+                    )
+                    if not QUARTER_DAYS[0] <= (y.period_end - begin).days <= QUARTER_DAYS[1]:
+                        break
+                    value = y.value if prev is None else y.value - prev.value
+                    out.append(
+                        Value(begin, y.period_end, value, concept, y.filed, prev is not None)
+                    )
+                    prev = y
+                if fy is not None and prev is not None:
+                    begin = date.fromordinal(prev.period_end.toordinal() + 1)
+                    if QUARTER_DAYS[0] <= (fy.period_end - begin).days <= QUARTER_DAYS[1]:
+                        out.append(
+                            Value(
+                                begin,
+                                fy.period_end,
+                                fy.value - prev.value,
+                                fy.concept,
+                                fy.filed,
+                                True,
+                            )
+                        )
+                break
+        return sorted(out, key=lambda v: v.period_end)
+
     def _ttm_quarters(self, item: str, as_of: date) -> Optional[Tuple[float, List[Value]]]:
         qs = self.quarterly(item, as_of)[-4:]
         if len(qs) < 4:
@@ -372,6 +444,10 @@ class Statements:
         if not options:
             return None
         return max(options, key=lambda o: o[1][-1].period_end)
+
+    def balances(self, item: str, as_of: date) -> List[Value]:
+        """Every balance-sheet date of an instant line visible at `as_of`, oldest first."""
+        return sorted(self._periods(item, as_of, None).values(), key=lambda v: v.period_end)
 
     def instant(self, item: str, as_of: date) -> Optional[Value]:
         """The latest balance as of the latest period end visible at `as_of`."""

@@ -308,3 +308,39 @@ def test_a_line_tagged_differently_in_the_10k_still_forms_a_ttm():
     value, parts = s._ttm_ytd("cfo", d(2026, 10, 12))
     assert value == pytest.approx(3.257e9 + 3.310e9 - 1.996e9)
     assert parts[-1].period_end == d(2026, 6, 30)
+
+
+def test_discrete_quarters_are_one_quarter_each_and_never_another_line():
+    """
+    Q2 = H1 - Q1, Q3 = 9M - H1, Q4 = FY - 9M from one concept. DAL's ground-
+    equipment capex (a separate line: it reports the fiscal year too) never
+    stands in for the aircraft line, not even in a year the aircraft line has
+    no 10-Q at all.
+    """
+    other = "PaymentsToAcquireOtherProductiveAssets"
+    facts = [
+        f for f in _dal_capex() if not (f.period_end.year == 2026 and "Other" not in f.concept)
+    ] + [_fact(other, 0.200e9, date(2026, 3, 31), date(2026, 4, 8), date(2026, 1, 1), "q1b")]
+    quarters = Statements(facts).discrete_quarters("capex", date(2026, 10, 12))
+    got = [(q.period_end, round(q.value / 1e9, 3), q.derived) for q in quarters]
+    assert got == [
+        (date(2025, 3, 31), 1.224, False),
+        (date(2025, 6, 30), 1.209, True),
+        (date(2025, 9, 30), 1.159, True),
+        (date(2025, 12, 31), 0.907, True),
+    ]
+
+
+def test_a_missing_year_to_date_ends_the_chain_instead_of_a_six_month_quarter():
+    """Without H1, 9M - Q1 is six months; it must not be shown as Q3."""
+    cfo = "NetCashProvidedByUsedInOperatingActivities"
+    d = date
+    s = Statements(
+        [
+            _fact(cfo, 100.0, d(2025, 12, 31), d(2026, 2, 1), d(2025, 1, 1), "fy"),
+            _fact(cfo, 20.0, d(2025, 3, 31), d(2025, 4, 30), d(2025, 1, 1), "q1"),
+            _fact(cfo, 70.0, d(2025, 9, 30), d(2025, 10, 30), d(2025, 1, 1), "q3"),
+        ]
+    )
+    got = [(q.period_end, q.value) for q in s.discrete_quarters("cfo", d(2026, 3, 1))]
+    assert got == [(d(2025, 3, 31), 20.0)]

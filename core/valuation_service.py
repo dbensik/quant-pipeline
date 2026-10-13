@@ -59,13 +59,15 @@ class Overrides:
     years: Optional[int] = None
 
 
-async def load_statements(
+async def filer_statements(
     data: ValuationData, symbol: str
 ) -> Tuple[Statements, int, Optional[str], List[int]]:
     """
-    Facts from the asset's CIK AND its predecessors (settings.CIK_PREDECESSORS):
-    a holding-company reorganisation leaves the history under the old filer.
-    Per period the latest-filed row still wins, across all of them.
+    A registered filer's statements with NO valuation refusals: what the
+    Research page shows, banks included. Facts from the asset's CIK AND its
+    predecessors (settings.CIK_PREDECESSORS): a holding-company
+    reorganisation leaves the history under the old filer. Per period the
+    latest-filed row still wins, across all of them.
     """
     eq = await data.equity(symbol)
     if eq is None:
@@ -74,13 +76,6 @@ async def load_statements(
         )
     ciks, sector = eq
     cik = ciks[0] if ciks else None
-    sector_refusal = settings.dcf_sector_refusal(symbol, sector)
-    if sector_refusal:
-        raise ValuationError(422, f"{symbol} is in {sector}: {sector_refusal}")
-    if symbol.upper() in settings.DCF_REFUSED_SYMBOLS:
-        raise ValuationError(
-            422, f"{symbol} is refused: {settings.DCF_REFUSED_SYMBOLS[symbol.upper()]}"
-        )
     if cik is None:
         raise ValuationError(
             422, f"{symbol} has no CIK: run scripts/resolve_ciks.py, or the ticker is reassigned"
@@ -91,6 +86,23 @@ async def load_statements(
             422, f"no SEC facts stored for {symbol} (CIK {cik}): run scripts/load_fundamentals.py"
         )
     return Statements(facts, await data.splits(symbol)), cik, sector, ciks
+
+
+async def load_statements(
+    data: ValuationData, symbol: str
+) -> Tuple[Statements, int, Optional[str], List[int]]:
+    """filer_statements, refused first for a sector or symbol the DCF does not value."""
+    eq = await data.equity(symbol)
+    if eq is not None:
+        sector = eq[1]
+        sector_refusal = settings.dcf_sector_refusal(symbol, sector)
+        if sector_refusal:
+            raise ValuationError(422, f"{symbol} is in {sector}: {sector_refusal}")
+        if symbol.upper() in settings.DCF_REFUSED_SYMBOLS:
+            raise ValuationError(
+                422, f"{symbol} is refused: {settings.DCF_REFUSED_SYMBOLS[symbol.upper()]}"
+            )
+    return await filer_statements(data, symbol)
 
 
 async def value(

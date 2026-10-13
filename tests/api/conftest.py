@@ -40,6 +40,7 @@ from api.dependencies import (
 )
 from api.main import app
 from api.risk_free import get_rate_repo
+from api.routers.valuation import get_valuation_data
 from api.upstream import YFinanceGateway, get_upstream
 from core.models import OHLCV, Asset, MarketDataRecord, Timestamp
 from core.portfolio import Portfolio, Trade
@@ -627,6 +628,18 @@ def rates() -> FakeRates:
     return FakeRates()
 
 
+class NoFilings:
+    """
+    Valuation data with no registered equities. The default for every API
+    test, so nothing reaches TimescaleDB: the Research page's financials read
+    SEC filings first, and an un-overridden get_valuation_data opens a real
+    session. Tests that need filings override it (test_valuation_router.py).
+    """
+
+    async def equity(self, symbol):
+        return None
+
+
 @pytest.fixture
 def client(
     repo: FakeRepo,
@@ -645,6 +658,7 @@ def client(
     app.dependency_overrides[get_fetcher] = lambda: fetcher
     app.dependency_overrides[get_universe_repo] = lambda: universe_repo
     app.dependency_overrides[get_rate_repo] = lambda: rates
+    app.dependency_overrides[get_valuation_data] = lambda: NoFilings()
     try:
         yield TestClient(app)
     finally:

@@ -72,6 +72,7 @@ function Statement({ title, lines }: { title: string; lines: StatementLine[] }) 
     )
   }
   const periods = Object.keys(lines[0].values)
+  const anyDerived = lines.some((line) => Object.values(line.derived ?? {}).some(Boolean))
   return (
     <div>
       <h4 className="mb-2 text-sm font-medium">{title}</h4>
@@ -91,19 +92,34 @@ function Statement({ title, lines }: { title: string; lines: StatementLine[] }) 
             {lines.map((line) => (
               <tr key={line.line_item} className="border-b last:border-0">
                 <td className="py-1.5 pr-4">{line.line_item}</td>
-                {periods.map((period) => (
-                  <td
-                    key={period}
-                    className="py-1.5 pr-4 text-right tabular-nums"
-                  >
-                    {big(line.values[period])}
-                  </td>
-                ))}
+                {periods.map((period) => {
+                  const filed = line.filed?.[period]
+                  const derived = line.derived?.[period] ?? false
+                  return (
+                    <td
+                      key={period}
+                      className={`py-1.5 pr-4 text-right tabular-nums${derived ? ' italic' : ''}`}
+                      title={
+                        filed
+                          ? `filed ${filed} · ${line.concept?.[period] ?? ''}${derived ? ' · derived' : ''}`
+                          : undefined
+                      }
+                    >
+                      {big(line.values[period])}
+                    </td>
+                  )
+                })}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      {anyDerived ? (
+        <p className="mt-1 text-xs text-muted-foreground">
+          Italic: derived, not filed as such (a Q4 from the annual; a quarter
+          from year-to-date cash flows).
+        </p>
+      ) : null}
     </div>
   )
 }
@@ -296,6 +312,12 @@ export function ResearchPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {financials.data?.source ? (
+                <p className="text-xs text-muted-foreground">
+                  Source: {financials.data.source}. Hover a figure for its
+                  filing date and concept.
+                </p>
+              ) : null}
               {financials.isLoading ? <Skeleton className="h-40 w-full" /> : null}
               {financials.error ? (
                 <Alert variant="destructive">

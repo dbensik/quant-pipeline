@@ -1591,6 +1591,12 @@ export interface components {
             symbol: string;
             /** Quarterly */
             quarterly: boolean;
+            /**
+             * Source
+             * @description Where the statements came from
+             * @default
+             */
+            source: string;
             /** Income Statement */
             income_statement: components["schemas"]["StatementLine"][];
             /** Balance Sheet */
@@ -2959,6 +2965,27 @@ export interface components {
              */
             values: {
                 [key: string]: number | null;
+            };
+            /**
+             * Filed
+             * @description Period end to the date the figure was filed (SEC only)
+             */
+            filed?: {
+                [key: string]: string | null;
+            };
+            /**
+             * Concept
+             * @description Period end to the XBRL concept read (SEC only)
+             */
+            concept?: {
+                [key: string]: string | null;
+            };
+            /**
+             * Derived
+             * @description Period end to whether the figure is derived (a Q4 from the annual, a quarter from year-to-date cash flows), not filed as such
+             */
+            derived?: {
+                [key: string]: boolean;
             };
         };
         /** StatisticsRequest */
