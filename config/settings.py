@@ -480,6 +480,15 @@ DCF_REFUSED_SYMBOLS = {
     # this is the reason that would remain once the debt tags were read.
     "DE": _CAPTIVE_FINANCE,
     "PCAR": _CAPTIVE_FINANCE,
+    # Added 2026-10-13 (approved by Danny). Missing is never zero: its FY2025
+    # cash-flow statement shows "Additions to instruments" $300.5M beside the
+    # $224.5M of "other property, plant and equipment" the DCF can read, and
+    # the instruments line is tagged only in ZBH's own extension concept,
+    # which SEC companyfacts never serves.
+    "ZBH": (
+        "capex incomplete: $300.5M of instruments (FY2025) is filed only in the "
+        "company's own XBRL concept, which SEC company facts does not serve"
+    ),
 }
 
 #: Symbols in a refused SECTOR that are valued anyway, with why. Decision 16
