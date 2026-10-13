@@ -197,8 +197,14 @@ excess return, so a strategy that never trades scores exactly 0.
 a window the series does not cover is 422, and `risk_free_rate` in the request
 overrides. `Backtester.run`, `PortfolioBacktester.run`, `ParameterOptimizer`
 and `PerformanceAnalyzer` take the accrual with NO default; zeros reproduce the
-old runs bit for bit. The portfolio weights optimizer subtracts the window mean
-from an arithmetic Sharpe, so its Sharpe still differs by construction.
+old runs bit for bit. The portfolio weights optimizer scores each weighting
+as a daily-rebalanced, cost-free backtest of it (since 2026-10-12): CAGR,
+volatility and the same Sharpe, through the one function both use
+(`cash_account_sharpe` in `analysis/performance_analyzer.py`), so the
+Optimize page and a backtest agree. It had used mean daily return x 252 minus
+the window mean rate: SPY/AGG/GLD 2023-2025 showed 1.82 (now 1.94) and a
+26.3% "return" for a basket that compounded 29.0% a year. Scoring is one
+matrix product per 250 weightings, 14-26 ms for 5,000 (was ~140 ms).
 `data_enricher.py` keeps 0.02 but has no live caller.
 
 **Fills cost something** (since 2026-10-12). `SimulatedExecutionHandler`

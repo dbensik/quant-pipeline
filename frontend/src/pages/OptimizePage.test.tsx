@@ -239,12 +239,12 @@ describe('OptimizePage — portfolio weights', () => {
     expect(screen.getByText('70.0%')).toBeInTheDocument()
   })
 
-  it('says which risk-free rate the Sharpe ratios are net of', async () => {
+  it('says which risk-free rate the Sharpe ratios are measured against', async () => {
     vi.spyOn(api, 'optimizePortfolio').mockResolvedValue(WEIGHTS as never)
     renderPage(<OptimizePage />)
     await userEvent.click(await screen.findByRole('button', { name: /Find weights/ }))
 
-    expect(await screen.findByText(/net of a 4\.\d+% risk-free rate/)).toBeInTheDocument()
+    expect(await screen.findByText(/cash earning a 4\.\d+% risk-free rate/)).toBeInTheDocument()
     expect(screen.getByText(/\^IRX bond-equivalent, mean over 250 sessions/)).toBeInTheDocument()
   })
 

@@ -15,6 +15,36 @@ from matplotlib.ticker import FuncFormatter
 SHARPE_MIN_VOLATILITY = 1e-9
 
 
+def cash_account_sharpe(growth, cash_growth: float, days: int, excess_volatility):
+    """
+    Sharpe against a cash account: geometric excess growth of equity over
+    cash, annualized like the CAGR, over the annualized volatility of the
+    per-bar excess return.
+
+    growth: final equity / initial equity. cash_growth: the same for the cash
+    account (prod(1 + accrual)). days: calendar days the run spans.
+    excess_volatility: std(returns - accrual) * sqrt(252).
+
+    `growth` and `excess_volatility` may be arrays, so the portfolio optimizer
+    scores thousands of weightings with the code every backtest uses. 0 below
+    SHARPE_MIN_VOLATILITY (a cash-only run's excess is float noise); NaN when
+    the volatility is not finite (one bar, no deviation to take).
+    """
+    growth = np.asarray(growth, dtype=float)
+    excess_volatility = np.asarray(excess_volatility, dtype=float)
+    if days > 0:
+        annualized_excess = (growth / cash_growth) ** (365.0 / days) - 1
+    else:
+        annualized_excess = np.zeros_like(growth)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ratio = annualized_excess / excess_volatility
+    return np.where(
+        ~np.isfinite(excess_volatility),
+        np.nan,
+        np.where(excess_volatility > SHARPE_MIN_VOLATILITY, ratio, 0.0),
+    )
+
+
 class PerformanceAnalyzer:
     """
     A dedicated class for calculating performance metrics and generating visual tearsheets
@@ -86,22 +116,17 @@ class PerformanceAnalyzer:
         # IS the cash account, so its excess is ~1e-17 a bar and its Sharpe 0.
         # With a scalar rate subtracted from the CAGR instead, compounding and
         # Monday's three days of interest gave it a spurious Sharpe of order 1.
-        # Still CAGR-based, so it differs from the portfolio optimizer's
-        # arithmetic Sharpe. Sortino and Calmar stay against 0: Sortino's
-        # target is a separate choice (it also moves which returns count as
-        # downside). With zero accrual this is exactly the old CAGR / vol.
+        # The portfolio optimizer scores its weightings with the same function
+        # (since 2026-10-12; it had an arithmetic Sharpe). Sortino and Calmar
+        # stay against 0: Sortino's target is a separate choice (it also moves
+        # which returns count as downside). With zero accrual this is exactly
+        # the old CAGR / vol. A one-bar run is NaN, which the API reports as
+        # null rather than as a real 0.
         cash_growth = float(np.prod(1.0 + self.risk_free_accrual))
-        excess_growth = (1 + total_return) / cash_growth
-        annualized_excess = excess_growth ** (365.0 / days) - 1 if days > 0 else 0.0
         excess_volatility = (self.returns - self.risk_free_accrual).std() * np.sqrt(252)
-        if not np.isfinite(excess_volatility):
-            # One bar: no return to take a deviation of. NaN, as before, which
-            # the API reports as null rather than as a real 0.
-            sharpe_ratio = float("nan")
-        elif excess_volatility > SHARPE_MIN_VOLATILITY:
-            sharpe_ratio = annualized_excess / excess_volatility
-        else:
-            sharpe_ratio = 0.0
+        sharpe_ratio = float(
+            cash_account_sharpe(1 + total_return, cash_growth, days, excess_volatility)
+        )
 
         downside_returns = self.returns[self.returns < 0]
         downside_std = downside_returns.std() * np.sqrt(252)

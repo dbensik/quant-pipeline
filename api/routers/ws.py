@@ -811,7 +811,7 @@ async def optimize_portfolio_ws(websocket: WebSocket) -> None:
                 )
 
             results_df = await run_in_threadpool(
-                _simulate_sync, prices, risk_free[0], request, on_progress
+                _simulate_sync, prices, risk_free.accrual, request, on_progress
             )
 
         payload = build_portfolio_payload(results_df, prices, request, start, end, risk_free)

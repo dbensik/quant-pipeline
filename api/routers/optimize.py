@@ -463,7 +463,7 @@ def _row_to_allocation(row: pd.Series) -> AllocationPoint:
 
 def _simulate_sync(
     prices: pd.DataFrame,
-    risk_free_rate: float,
+    risk_free_accrual: np.ndarray,
     request: PortfolioOptimizeRequest,
     progress_callback: Optional[Callable[[float], None]] = None,
 ) -> pd.DataFrame:
@@ -474,7 +474,7 @@ def _simulate_sync(
 
     optimizer = PortfolioOptimizer(
         price_data=prices,
-        risk_free_rate=risk_free_rate,
+        risk_free_accrual=risk_free_accrual,
         seed=request.seed,
     )
     results_df, _max_sharpe_weights, _min_vol_weights = optimizer.simulate_random_portfolios(
@@ -584,7 +584,7 @@ async def optimize_portfolio(
     except RiskFreeCoverageError as exc:
         raise HTTPException(status_code=422, detail=risk_free_refusal(exc)) from exc
 
-    results_df = await run_in_threadpool(_simulate_sync, prices, risk_free[0], request, None)
+    results_df = await run_in_threadpool(_simulate_sync, prices, risk_free.accrual, request, None)
 
     return PortfolioOptimizeResponse(
         **build_portfolio_payload(results_df, prices, request, start, end, risk_free)

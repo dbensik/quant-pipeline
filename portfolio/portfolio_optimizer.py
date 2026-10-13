@@ -1,25 +1,42 @@
 import numpy as np
 import pandas as pd
 
+from analysis.performance_analyzer import cash_account_sharpe
+
+#: Weightings scored per matrix product: bounds memory (bars x chunk floats)
+#: and sets how often progress is reported.
+CHUNK = 250
+
 
 class PortfolioOptimizer:
     """
     Performs portfolio optimization using Monte Carlo simulations to find
     allocations that maximize Sharpe Ratio or minimize volatility.
+
+    Each weighting is scored as a daily-rebalanced, cost-free backtest of it
+    would be: return is the CAGR, volatility the annualized std of daily
+    returns, and Sharpe the cash-account Sharpe every backtest reports
+    (analysis.performance_analyzer.cash_account_sharpe). Until 2026-10-12 it
+    used mean daily return x 252 and subtracted the window's mean rate, so the
+    same basket showed a different Sharpe here than in a backtest
+    (SPY/AGG/GLD 2023-2025: 1.82 here, 1.94 there) and a "return" that was not
+    compounded (26.3% for a basket that grew 29.0% a year).
     """
 
     def __init__(
         self,
         price_data: pd.DataFrame,
-        risk_free_rate: float,
+        risk_free_accrual: np.ndarray,
         seed: int = 42,
     ):
         """
         Args:
-            price_data: DataFrame of asset prices (Close).
-            risk_free_rate: Annualized risk-free rate for Sharpe calculation.
-                  Required: a 0.02 default stood in for every window, and the
-                  API now resolves the stored ^IRX rate over the window.
+            price_data: DataFrame of asset prices (Close), one column per
+                  asset, no missing values.
+            risk_free_accrual: Interest one unit of cash earns on each bar,
+                  aligned to price_data (api/risk_free.py builds it from ^IRX;
+                  0 on bar 0), exactly as the backtesters take it. Required:
+                  a 0.02 default once stood in for every window.
             seed: Seed for the weight-sampling RNG. This used to draw from the
                   global numpy RNG, so the same universe and date range
                   returned different "optimal" weights on every run and a
@@ -27,17 +44,17 @@ class PortfolioOptimizer:
                   None for unseeded behaviour.
         """
         self.price_data = price_data
-        self.risk_free_rate = risk_free_rate
+        self.risk_free_accrual = np.asarray(risk_free_accrual, dtype=float)
+        if len(self.risk_free_accrual) != len(price_data):
+            raise ValueError(
+                f"risk_free_accrual has {len(self.risk_free_accrual)} values for "
+                f"{len(price_data)} bars"
+            )
         self.seed = seed
-        # A dedicated Generator rather than np.random.seed(): seeding the
-        # global RNG here would silently change the draws of anything else
-        # sharing it in the same process, including the slippage handler.
-        self._rng = np.random.default_rng(seed)
-        # Calculate daily returns
-        self.returns = self.price_data.pct_change().dropna()
-        self.mean_returns = self.returns.mean()
-        self.cov_matrix = self.returns.cov()
-        self.num_assets = len(self.mean_returns)
+        # Bar 0 has a return of 0, as in a backtest's history: the analyzer
+        # takes its volatility over the same series, bar 0 included.
+        self.returns = self.price_data.pct_change().fillna(0.0)
+        self.num_assets = self.returns.shape[1]
         self.assets = self.price_data.columns.tolist()
 
     def simulate_random_portfolios(self, num_portfolios: int = 5000, callback=None):
@@ -54,55 +71,49 @@ class PortfolioOptimizer:
             - max_sharpe_weights: Dictionary of weights for the portfolio with max Sharpe Ratio.
             - min_vol_weights: Dictionary of weights for the portfolio with min Volatility.
         """
-        results_list = []
-        all_weights = np.zeros((num_portfolios, self.num_assets))
-
         # Restart from the seed on every call, so two calls on the same
         # instance draw the same portfolios rather than continuing the stream.
+        # One (n, assets) draw is the same stream as n draws of one row.
         rng = np.random.default_rng(self.seed)
+        all_weights = rng.random((num_portfolios, self.num_assets))
+        all_weights /= all_weights.sum(axis=1, keepdims=True)
 
-        for i in range(num_portfolios):
-            # Generate random weights
-            weights = rng.random(self.num_assets)
-            weights /= np.sum(weights)
-            all_weights[i, :] = weights
+        returns = self.returns.to_numpy()
+        accrual = self.risk_free_accrual
+        index = self.price_data.index
+        days = (index[-1] - index[0]).days
+        cash_growth = float(np.prod(1.0 + accrual))
 
-            # Calculate portfolio return and volatility
-            # Annualize return (assuming 252 trading days)
-            portfolio_return = np.sum(self.mean_returns * weights) * 252
-            portfolio_std_dev = np.sqrt(
-                np.dot(weights.T, np.dot(self.cov_matrix, weights))
-            ) * np.sqrt(252)
-
-            # Calculate Sharpe Ratio
-            if portfolio_std_dev == 0:
-                sharpe_ratio = 0
-            else:
-                sharpe_ratio = (portfolio_return - self.risk_free_rate) / portfolio_std_dev
-
-            results_list.append(
-                {
-                    "Annualized Return": portfolio_return,
-                    "Annualized Volatility": portfolio_std_dev,
-                    "Sharpe Ratio": sharpe_ratio,
-                    "weights": dict(zip(self.assets, weights, strict=False)),
-                }
+        annual_return = np.empty(num_portfolios)
+        volatility = np.empty(num_portfolios)
+        sharpe = np.empty(num_portfolios)
+        for lo in range(0, num_portfolios, CHUNK):
+            if callback:
+                callback(lo / num_portfolios)
+            hi = min(lo + CHUNK, num_portfolios)
+            # bars x chunk: each column a daily-rebalanced portfolio's returns.
+            portfolio_returns = returns @ all_weights[lo:hi].T
+            growth = np.prod(1.0 + portfolio_returns, axis=0)
+            annual_return[lo:hi] = growth ** (365.0 / days) - 1 if days > 0 else 0.0
+            volatility[lo:hi] = portfolio_returns.std(axis=0, ddof=1) * np.sqrt(252)
+            excess_volatility = (portfolio_returns - accrual[:, None]).std(axis=0, ddof=1)
+            sharpe[lo:hi] = cash_account_sharpe(
+                growth, cash_growth, days, excess_volatility * np.sqrt(252)
             )
-
-            # Report progress periodically
-            if callback and i % 100 == 0:
-                callback(i / num_portfolios)
 
         if callback:
             callback(1.0)
 
-        results_df = pd.DataFrame(results_list)
+        results_df = pd.DataFrame(
+            {
+                "Annualized Return": annual_return,
+                "Annualized Volatility": volatility,
+                "Sharpe Ratio": sharpe,
+                "weights": [dict(zip(self.assets, w, strict=True)) for w in all_weights],
+            }
+        )
 
-        # Find optimal portfolios
-        max_sharpe_idx = results_df["Sharpe Ratio"].idxmax()
-        min_vol_idx = results_df["Annualized Volatility"].idxmin()
-
-        max_sharpe_port = results_df.loc[max_sharpe_idx]
-        min_vol_port = results_df.loc[min_vol_idx]
+        max_sharpe_port = results_df.loc[results_df["Sharpe Ratio"].idxmax()]
+        min_vol_port = results_df.loc[results_df["Annualized Volatility"].idxmin()]
 
         return results_df, max_sharpe_port["weights"], min_vol_port["weights"]
