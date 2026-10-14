@@ -400,6 +400,15 @@ FUNDAMENTAL_CONCEPTS = (
     ("us-gaap", "ProfitLoss"),
     ("us-gaap", "MinorityInterest"),
     ("us-gaap", "RedeemableNoncontrollingInterestEquityCarryingAmount"),
+    # Added 2026-10-13 (decision 18): preferred stock is a claim ahead of the
+    # common (OXY's $8.5B, ALB's $2.2B mandatory convertible), subtracted
+    # like debt; equity-method stakes are noted, not added. Temporary equity
+    # attributable to the parent is NOT preferred: J's $1,093M was redeemable
+    # NCI in PA Consulting.
+    ("us-gaap", "PreferredStockValue"),
+    ("us-gaap", "PreferredStockValueOutstanding"),
+    ("us-gaap", "PreferredStockLiquidationPreferenceValue"),
+    ("us-gaap", "EquityMethodInvestments"),
     ("us-gaap", "StockholdersEquity"),
     ("us-gaap", "Assets"),
     ("us-gaap", "Liabilities"),
@@ -458,6 +467,9 @@ DCF_NCI_MAX_FCF_SHARE = 0.5
 #: is never zero) unless the balance is below this share of market cap: ITW's
 #: $1M and VLTO's $1M of NCI are immaterial and are only noted.
 DCF_NCI_IMMATERIAL_BALANCE_SHARE = 0.01
+#: Decision 18: an equity-method stake this large a share of market cap is
+#: named in the notes (it is valued only through dividends inside CFO).
+DCF_EQUITY_METHOD_NOTE_SHARE = 0.05
 DCF_EXIT_MULTIPLE = 15.0
 #: Sensitivity grid half-widths around the base case.
 DCF_GRID_WACC_STEP = 0.005

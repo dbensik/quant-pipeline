@@ -51,6 +51,22 @@ describe('bridge', () => {
     expect(rows.filter((x) => x.kind === 'flow')).toHaveLength(r.inputs.years + 1)
   })
 
+  it('takes preferred stock off between enterprise and equity value, and only when there is some', () => {
+    const r = AAPL_VALUATION.result
+    const pref = 5e9
+    const v = {
+      ...AAPL_VALUATION,
+      result: { ...r, inputs: { ...r.inputs, preferred: pref }, equity_value: r.enterprise_value! - r.inputs.net_debt - pref },
+    } as typeof AAPL_VALUATION
+    const rows = bridgeRows(v)
+    const adjusts = rows.filter((x) => x.kind === 'adjust')
+    expect(adjusts.map((x) => x.label)).toEqual(['Plus net cash', 'Less preferred stock'])
+    const ev = rows.find((x) => x.label === 'Enterprise value')!.value
+    const equity = rows.find((x) => x.label === 'Equity value')!.value
+    expect(ev + adjusts.reduce((a, x) => a + x.value, 0)).toBeCloseTo(equity, 0)
+    expect(bridgeRows(AAPL_VALUATION).filter((x) => x.kind === 'adjust')).toHaveLength(1)
+  })
+
   it('is empty when there is no value', () => {
     expect(bridgeRows({ ...AAPL_VALUATION, result: { ...AAPL_VALUATION.result, per_share: null } })).toEqual([])
   })

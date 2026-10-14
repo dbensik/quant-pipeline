@@ -51,6 +51,7 @@ export function bridgeRows(v: ValuationResponse): BridgeRow[] {
     { label: 'Terminal value, discounted', value: r.pv_terminal, kind: 'flow' },
     { label: 'Enterprise value', value: r.enterprise_value, kind: 'subtotal' },
     { label: r.inputs.net_debt >= 0 ? 'Less net debt' : 'Plus net cash', value: -r.inputs.net_debt, kind: 'adjust' },
+    ...(r.inputs.preferred ? [{ label: 'Less preferred stock', value: -r.inputs.preferred, kind: 'adjust' as const }] : []),
     { label: 'Equity value', value: r.equity_value, kind: 'subtotal' },
     { label: `Per share (÷ ${formatCount(r.inputs.shares)} shares)`, value: r.per_share, kind: 'result' },
   ]
@@ -125,6 +126,7 @@ const LINE_ORDER: Array<[string, string, 'money' | 'pct' | 'count' | 'number']> 
   ['risk_free', 'Risk-free rate', 'pct'],
   ['total_debt', 'Total debt', 'money'],
   ['net_debt', 'Net debt', 'money'],
+  ['preferred_stock', 'Preferred stock (subtracted)', 'money'],
   ['shares', 'Shares', 'count'],
   ['ebitda', 'EBITDA (exit multiple base)', 'money'],
 ]

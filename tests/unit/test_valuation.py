@@ -953,3 +953,70 @@ def test_parts_on_different_windows_use_their_common_fiscal_year():
     assert not isinstance(v, Refusal), v
     nci, src = v.lines["noncontrolling_interests"]
     assert nci == pytest.approx(183.1e6) and "FY to 2025-12-31" in src
+
+
+def test_preferred_stock_is_subtracted_at_its_largest_shape_on_the_newest_date():
+    # Some filers carry preferred at par; the liquidation preference (MCHP,
+    # NRG tag only that) is the claim. Newest date first, then the largest.
+    plain = build_inputs(_nci_filer(), AS_OF_NCI, 50.0, 0.04, BETA)
+    assert plain.dcf.preferred == 0.0 and plain.lines["preferred_stock"] == (0.0, "none on file")
+    v = build_inputs(
+        _nci_filer(
+            _flow_and_balance("PreferredStockValue", 1e6, duration=False),
+            _flow_and_balance("PreferredStockLiquidationPreferenceValue", 6.5e8, duration=False),
+            _flow_and_balance(
+                "PreferredStockValueOutstanding",
+                9e8,
+                date(2025, 6, 30),
+                date(2025, 8, 1),
+                duration=False,
+            ),
+        ),
+        AS_OF_NCI,
+        50.0,
+        0.04,
+        BETA,
+    )
+    assert v.dcf.preferred == 6.5e8
+    assert (
+        v.lines["preferred_stock"][1]
+        == "PreferredStockLiquidationPreferenceValue, balance 2026-06-30"
+    )
+    assert v.dcf.net_debt == plain.dcf.net_debt and v.dcf.base_fcf == plain.dcf.base_fcf
+    stale = build_inputs(
+        _nci_filer(
+            _flow_and_balance(
+                "PreferredStockValue", 5e8, date(2024, 6, 30), date(2024, 8, 1), duration=False
+            )
+        ),
+        AS_OF_NCI,
+        50.0,
+        0.04,
+        BETA,
+    )
+    assert (
+        stale.dcf.preferred == 0.0
+        and stale.lines["preferred_stock"][1] == "none on file since 2024-06-30"
+    )
+
+
+def test_a_large_equity_method_stake_is_named_not_added():
+    # SRE's stakes are a third of its market cap; their dividends are in CFO.
+    plain = build_inputs(_nci_filer(), AS_OF_NCI, 50.0, 0.04, BETA)
+    big = build_inputs(
+        _nci_filer(_flow_and_balance("EquityMethodInvestments", 4e8, duration=False)),
+        AS_OF_NCI,
+        50.0,
+        0.04,
+        BETA,
+    )
+    assert big.dcf == plain.dcf
+    assert any("equity-method stakes of 400M (6% of market cap" in n for n in big.notes)
+    small = build_inputs(
+        _nci_filer(_flow_and_balance("EquityMethodInvestments", 2e8, duration=False)),
+        AS_OF_NCI,
+        50.0,
+        0.04,
+        BETA,
+    )
+    assert not any("equity-method" in n for n in small.notes)

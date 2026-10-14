@@ -40,7 +40,14 @@
   Refused when NCI income exceeds
   `DCF_NCI_MAX_FCF_SHARE` (50%) of a positive base FCF (FCX 99%: the proxy breaks),
   and when an NCI balance of 1% of market cap or more has no NCI income on
-  file (missing is never zero).
+  file (missing is never zero). Preferred stock (decision 18) comes off
+  equity value after net debt (`DCFInputs.preferred`, on the Gordon and
+  exit values, the grid and the reverse DCF): the largest of its three
+  shapes at the newest balance date (`Statements.preferred_stock`; some
+  filers carry it at par), annual age rule; none tagged is none. Temporary
+  equity attributable to the parent is NOT preferred (J's was NCI).
+  Equity-method stakes are never added (their dividends are in CFO; book
+  is cost): one of 5% of market cap or more is named in the notes.
   Growth's start years come from `Statements.annual_before`: by date, and
   on the latest year's concept unless another agrees with it everywhere. Decisions
   in `research/dcf-plan-2026-10-08.md`: weekly 5y Blume beta, 7% WACC floor

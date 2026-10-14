@@ -13,7 +13,7 @@ CONVENTIONS
     N: an identity the tests use as the known answer.
 
     Enterprise value -> equity value (less net debt; NEGATIVE net debt, net
-    cash, adds) -> per share.
+    cash, adds; less preferred stock) -> per share.
 
 NOTHING SILENT
     wacc <= g_T has no Gordon value: NaN with a reason, so a sensitivity grid
@@ -47,6 +47,9 @@ class DCFInputs:
     #: same path) and the multiple applied to it in year N. None skips it.
     exit_metric_base: Optional[float] = None
     exit_multiple: Optional[float] = None
+    #: Preferred stock, a claim ahead of the common: subtracted after net
+    #: debt (decision 18). modeling/valuation.py always sets it.
+    preferred: float = 0.0
 
 
 @dataclass
@@ -98,7 +101,7 @@ def run(x: DCFInputs) -> DCFResult:
     elif x.exit_metric_base is not None and x.exit_multiple is not None:
         metric_n = x.exit_metric_base * float(np.prod([1.0 + g for g in path]))
         exit_ev = sum(pv) + x.exit_multiple * metric_n * discount[-1]
-        exit_ps = (exit_ev - x.net_debt) / x.shares if x.shares > 0 else None
+        exit_ps = (exit_ev - x.net_debt - x.preferred) / x.shares if x.shares > 0 else None
 
     early = []
     if exit_warning:
@@ -140,7 +143,7 @@ def run(x: DCFInputs) -> DCFResult:
     tv = fcf[-1] * (1.0 + x.growth_terminal) / (x.wacc - x.growth_terminal)
     pv_tv = tv * discount[-1]
     ev = sum(pv) + pv_tv
-    equity = ev - x.net_debt
+    equity = ev - x.net_debt - x.preferred
     result = DCFResult(
         inputs=x,
         growth_path=path,

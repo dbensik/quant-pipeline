@@ -3409,6 +3409,8 @@ export interface components {
             exit_metric_base: number | null;
             /** Exit Multiple */
             exit_multiple: number | null;
+            /** Preferred */
+            preferred: number;
         };
         /** ValuationDiscount */
         ValuationDiscount: {

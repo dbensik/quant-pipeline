@@ -407,6 +407,31 @@ def build_inputs(
                 "consolidated profit is not defined for the period"
             )
 
+    # Decision 18: preferred stock is a claim ahead of the common, paid below
+    # CFO, so it comes off equity value like debt (OXY's $8.5B, ALB's $2.2B
+    # mandatory convertible: at conversion it is dilution of about that
+    # value). A filer that tags no preferred has none; a stale balance is not
+    # today's, by the same age rule as debt.
+    pref_v = st.preferred_stock(as_of)
+    if pref_v is not None and (as_of - pref_v.period_end).days <= MAX_ANNUAL_AGE_DAYS:
+        preferred, pref_src = pref_v.value, f"{pref_v.concept}, balance {pref_v.period_end}"
+    else:
+        stale = f" since {pref_v.period_end}" if pref_v else ""
+        preferred, pref_src = 0.0, f"none on file{stale}"
+    # Equity-method stakes are NOT added: the dividends they pay are already
+    # inside CFO (SRE receives $1,120M on $1,604M of income), and book value
+    # is cost, not value. Large ones are named so the reader knows.
+    emi = st.instant("equity_method_investments", as_of)
+    if (
+        emi is not None
+        and (as_of - emi.period_end).days <= MAX_ANNUAL_AGE_DAYS
+        and emi.value >= settings.DCF_EQUITY_METHOD_NOTE_SHARE * market_cap
+    ):
+        notes.append(
+            f"equity-method stakes of {emi.value / 1e6:,.0f}M ({emi.value / market_cap:.0%} of "
+            f"market cap, {emi.period_end}) are valued only through the dividends they pay into CFO"
+        )
+
     if growth_first is None:
         growth_first, growth_src = default_growth(st, as_of)
     else:
@@ -421,6 +446,7 @@ def build_inputs(
         shares=shares,
         exit_metric_base=exit_base,
         exit_multiple=settings.DCF_EXIT_MULTIPLE if exit_base else None,
+        preferred=preferred,
     )
     lines = {
         "cfo": (cfo, cfo_src),
@@ -440,6 +466,7 @@ def build_inputs(
         "tax_rate": (tax, "effective, latest fiscal year"),
         "total_debt": (debt, debt_src),
         "net_debt": (net_debt, net_src),
+        "preferred_stock": (preferred, pref_src),
         "shares": (shares, f"{shares_src}, period {shares_v.period_end}, filed {shares_v.filed}"),
         "ebitda": (ebitda, ebitda_src),
         "growth_first": (growth_first, growth_src),

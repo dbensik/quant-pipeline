@@ -130,6 +130,7 @@ class ValuationDCFInputs(BaseModel):
     years: int
     exit_metric_base: Optional[float]
     exit_multiple: Optional[float]
+    preferred: float
 
 
 class ValuationResult(BaseModel):

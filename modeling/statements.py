@@ -176,6 +176,16 @@ LINE_ITEMS: Dict[str, Tuple[str, ...]] = {
     #: income on file refuses the valuation; it is never read as none.
     "nci_balance": ("MinorityInterest",),
     "nci_redeemable_balance": ("RedeemableNoncontrollingInterestEquityCarryingAmount",),
+    # Preferred stock (decision 18), three shapes of one claim: the issued
+    # carrying value, the outstanding value, the liquidation preference (MCHP
+    # and NRG tag only that). The largest at the newest balance date is used:
+    # some filers carry preferred at par. Temporary equity attributable to
+    # the parent is not on the list: J's was redeemable NCI.
+    "preferred_stock": ("PreferredStockValue",),
+    "preferred_outstanding": ("PreferredStockValueOutstanding",),
+    "preferred_liquidation": ("PreferredStockLiquidationPreferenceValue",),
+    #: Noted, never added: its dividends are already inside CFO.
+    "equity_method_investments": ("EquityMethodInvestments",),
     "shares_outstanding": ("EntityCommonStockSharesOutstanding",),
 }
 INSTANTS = {
@@ -192,6 +202,10 @@ INSTANTS = {
     "equity",
     "nci_balance",
     "nci_redeemable_balance",
+    "preferred_stock",
+    "preferred_outstanding",
+    "preferred_liquidation",
+    "equity_method_investments",
     "shares_outstanding",
 }
 SHARE_ITEMS = {"diluted_shares", "shares_outstanding"}
@@ -642,6 +656,22 @@ class Statements:
     def total_debt(self, as_of: date) -> Optional[float]:
         d = self.debt(as_of)
         return d.value if d else None
+
+    def preferred_stock(self, as_of: date) -> Optional[Value]:
+        """
+        Preferred stock at the newest balance date any of its three shapes
+        reports, the LARGEST shape at that date: a filer that carries
+        preferred at par files a value far below its liquidation preference.
+        """
+        shapes = ("preferred_stock", "preferred_outstanding", "preferred_liquidation")
+        latest = [v for v in (self.instant(item, as_of) for item in shapes) if v is not None]
+        if not latest:
+            return None
+        end = max(v.period_end for v in latest)
+        at_end = [
+            v for v in (self._instant_at(item, end, as_of) for item in shapes) if v is not None
+        ]
+        return max(at_end, key=lambda v: v.value)
 
     def liquid_assets(self, as_of: date) -> Optional[Value]:
         """Cash plus marketable securities at the latest cash balance date."""

@@ -161,3 +161,21 @@ def test_a_book_coupon_below_the_market_rate_is_raised():
     w = wacc(0.041, 1.0, 900.0, 100.0, 0.2, interest_expense=3.2)
     assert w.cost_of_debt_pre_tax == pytest.approx(0.051) and not w.cost_of_debt_estimated
     assert any("market, not book" in n for n in w.notes)
+
+
+def test_preferred_stock_comes_off_equity_on_every_path():
+    # Decision 18: EV 1901.234568 (the by-hand case) less net debt 50 less
+    # preferred 200, over 10 shares. The exit value and the reverse DCF take it too.
+    x = DCFInputs(100.0, 0.10, 0.02, 0.08, 50.0, 10.0, years=3, preferred=200.0)
+    r = run(x)
+    assert r.equity_value == pytest.approx(1901.234568 - 50.0 - 200.0, abs=1e-6)
+    assert r.per_share == pytest.approx(165.123457, abs=1e-6)
+    m = gordon_implied_multiple(
+        run(DCFInputs(**{**x.__dict__, "exit_metric_base": 150.0, "exit_multiple": 1.0}))
+    )
+    e = run(DCFInputs(**{**x.__dict__, "exit_metric_base": 150.0, "exit_multiple": m}))
+    assert e.exit_per_share == pytest.approx(e.per_share, rel=1e-12)
+    implied = reverse_dcf(DCFInputs(**{**x.__dict__, "growth_first": 0.0}), r.per_share)
+    assert implied.growth_first == pytest.approx(0.10, abs=1e-9)
+    grid = sensitivity(x)
+    assert grid["per_share"][2][2] == pytest.approx(r.per_share, rel=1e-12)
