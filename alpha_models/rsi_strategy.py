@@ -45,8 +45,12 @@ class RSIStrategy(BaseAlphaModel):
         # if rsi > sell_threshold -> 0 (Flat) or -1 (Short)
 
         # Example Implementation (Long Only)
-        signals["signal"] = np.where(signals["rsi"] < self.buy_threshold, 1.0, 0.0)
+        # Long from RSI below buy_threshold until RSI above sell_threshold:
+        # NaN between the two, forward-filled. It was 0.0 until 2026-10-14, so
+        # the position lasted only while RSI stayed below buy_threshold.
+        signals["signal"] = np.where(signals["rsi"] < self.buy_threshold, 1.0, np.nan)
         signals["signal"] = np.where(signals["rsi"] > self.sell_threshold, 0.0, signals["signal"])
+        signals["signal"] = signals["signal"].ffill().fillna(0)
 
         # Convert state to discrete signals
         final_signals = pd.DataFrame(index=price_data.index)

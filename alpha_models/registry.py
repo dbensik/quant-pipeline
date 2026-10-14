@@ -279,7 +279,10 @@ _SPECS: List[StrategySpec] = [
         id="ml_random_forest",
         display_name="Random Forest (ML)",
         cls=RandomForestStrategy,
-        description="Random-forest classifier over lagged returns.",
+        description=(
+            "Random-forest classifier over lagged returns, walk-forward: retrained "
+            "every `retrain_every` bars on the rows whose outcome is already known."
+        ),
         params=[
             ParamSpec(
                 "n_estimators", "int", 100, "Trees", "Number of trees in the forest", 1, 1000
@@ -287,11 +290,20 @@ _SPECS: List[StrategySpec] = [
             ParamSpec(
                 "lookback_window", "int", 5, "Lookback", "Lagged returns used as features", 1, 100
             ),
+            ParamSpec(
+                "train_window",
+                "int",
+                252,
+                "First training",
+                "Rows before the first prediction (flat until then)",
+                2,
+                5000,
+            ),
+            ParamSpec("retrain_every", "int", 63, "Retrain every", "Bars between refits", 1, 1000),
         ],
         caveat=(
-            "Known look-ahead bias: the model trains on the full history before "
-            "generating signals, so backtest results are optimistic and not "
-            "achievable live. Covered by two xfail cases in the contract suite."
+            "Flat for the first `train_window` bars while it gathers training data. "
+            "Until 2026-10-14 it trained on the full history (look-ahead)."
         ),
     ),
     # --- multi-asset: different input contract, NOT single-symbol frames ----
@@ -532,7 +544,12 @@ _CONTRACT_TEST_PARAMS: Dict[str, Dict[str, Any]] = {
     "rsi": {"window": 14, "buy_threshold": 30, "sell_threshold": 70},
     "atr_breakout": {"window": 14, "multiplier": 2.0},
     "push_response": {"tau": 5, "training_window": 100, "num_bins": 10},
-    "ml_random_forest": {"n_estimators": 10, "lookback_window": 5},
+    "ml_random_forest": {
+        "n_estimators": 10,
+        "lookback_window": 5,
+        "train_window": 60,
+        "retrain_every": 20,
+    },
 }
 
 

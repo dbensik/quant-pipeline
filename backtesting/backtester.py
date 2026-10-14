@@ -155,7 +155,12 @@ class Backtester:
                             cash -= fill.total_cost
                             self.trade_log.append(fill)
 
-            elif signal == 0 and position > 0:  # Sell signal (liquidate position)
+            # A signal is an EVENT (alpha_models/base_model.py): 1 enters, -1
+            # exits, 0 holds; PortfolioBacktester reads it the same way. Until
+            # 2026-10-14 a 0 liquidated, so every strategy that emits
+            # position.diff() sold on the bar after it bought: SPY ma_crossover
+            # 2016-2025 held 10 times for one day each, 0.4% of the time.
+            elif signal == -1 and position > 0:  # Exit signal (liquidate position)
                 order = OrderEvent(date, symbol, "MKT", position, "SELL")
                 fill = self.execution_handler.execute_order(order, price)
 

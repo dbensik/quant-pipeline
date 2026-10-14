@@ -157,8 +157,9 @@ export function StrategySelector() {
         ) : null}
       </div>
 
-      {/* Registry-declared caveats are surfaced, not hidden — ml_random_forest
-          has known look-ahead bias and its results are not achievable live. */}
+      {/* Registry-declared caveats are surfaced, not hidden — e.g. a strategy
+          that is flat while it gathers training data, or one not yet
+          constructible from the API. */}
       {selected?.caveat ? (
         <Alert variant="destructive">
           <AlertTitle>Known limitation</AlertTitle>

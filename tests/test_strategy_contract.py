@@ -116,14 +116,10 @@ class TestSignalContract:
         assert not invalid, f"invalid signal values: {invalid}"
 
 
-LOOK_AHEAD_XFAILS = {
-    # Trains one RandomForest on the ENTIRE history then predicts historically —
-    # admitted in a code comment ("should use Walk-Forward execution to avoid
-    # look-ahead bias") but never fixed. Its backtests are invalid until it is
-    # rewritten walk-forward. Tracked in the vault Tasks database (2026-07-31).
-    # strict=True: if someone fixes it, this xfail fails and must be removed.
-    "ml_random_forest",
-}
+#: Strategies with a KNOWN look-ahead, xfailed strictly (a fix must remove
+#: its entry). Empty since 2026-10-14: ml_random_forest, which trained on the
+#: entire history, is walk-forward.
+LOOK_AHEAD_XFAILS: set = set()
 
 
 @pytest.mark.parametrize("fixture_name", ["trend", "mean_reverting"])

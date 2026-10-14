@@ -39,7 +39,9 @@ class ATRBreakoutStrategy(BaseAlphaModel):
 
         # 2. Logic (Breakout)
         # 1 = Long, 0 = Flat
-        signals["position"] = np.where(price_data["Close"] > upper_band, 1.0, 0.0)
+        # NaN between the band and the SMA, so the forward fill below holds the
+        # trade (0.0 until 2026-10-14: long only while above the band).
+        signals["position"] = np.where(price_data["Close"] > upper_band, 1.0, np.nan)
 
         # Optional: Trailing stop or mean reversion exit?
         # For simple template, exit if price drops below SMA

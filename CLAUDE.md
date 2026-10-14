@@ -217,7 +217,8 @@ charged on each fill's value on top of the $1 fee. It had been accepted by
 every endpoint and read by nothing. Portfolio backtests take it too. High
 turnover pays: SPY mean_reversion 2016-2025 (174 trades) ends at $94.9k, not
 $117.5k, and the SPY ma_crossover grid winner moved from 10/50 (58 trades) to
-10/200 (16). The handler owns sizing a BUY to the cash
+10/200 (16) — both measured before the signal fix below (now $150.8k, and
+10/100 with 27 trades). The handler owns sizing a BUY to the cash
 (`affordable_quantity`, `resize`), since the cost now scales with quantity.
 
 **An unaffordable entry is resized, not dropped** (fixed 2026-10-12).
@@ -235,6 +236,30 @@ no check: real AAPL+TQQQ baskets ended 60 bars overdrawn (to -$70), and in
 ticker order a buy often preceded the sale funding it (27-75 bars a run went
 negative mid-bar). A cash check without sells-first starves those purchases;
 with both, 6 real baskets stay >= $0 and land within 0.05% of the old values.
+
+**A signal is an EVENT: 1 enters, -1 exits, 0 holds** (fixed 2026-10-14,
+`tests/unit/test_signal_semantics.py`). That is the contract in
+`alpha_models/base_model.py` and how `PortfolioBacktester` always read it;
+`Backtester` (backtest, compare, optimize, simulate) instead liquidated on a
+0, since its first version. Every strategy that emits `position.diff()`
+sold on the bar after it bought: SPY 2016-2025 ma_crossover held 10 times,
+one day each (0.4% of the time); mean_reversion, trend_following, rsi and
+atr_breakout 1.3-8.2%. Now they hold 21-79% of the time (SPY ma_crossover
+$126.8k -> $271.6k), and push_response, whose -1 had never exited, trades
+its own flips (SPY $285.2k -> $58.0k). mean_reversion, rsi and atr_breakout
+also wrote 0.0 where they meant "no change", so their forward fill held
+nothing: each is now NaN between its entry and exit, held until the exit
+rule. Every single-asset figure measured before 2026-10-14 (including the
+ones above) was under the old reading.
+
+**`ml_random_forest` is walk-forward** (since 2026-10-14). It had trained
+once on the entire history and predicted that same history; with positions
+held it reached a Sharpe of 11.3 on SPY and $3.7e17 on TQQQ. It now refits
+every `retrain_every` bars (63) on the rows whose outcome is already known
+and is flat for its first `train_window` (252); SPY 2016-2025 ends at $78.4k,
+Sharpe -0.33, and a run takes ~3 s. Its look-ahead xfails are gone;
+`LOOK_AHEAD_XFAILS` is empty. Its features still include raw OHLCV levels
+beside the returns (a modelling choice, not a leak).
 
 **Backtests trade in lots: whole shares, 1e-8 of a coin** (since
 2026-10-12). `config.settings.BACKTEST_LOT_SIZES` maps asset class to the
@@ -368,7 +393,7 @@ For the TimescaleDB layer, copy `.env.example` → `.env`; without it, `db/sessi
   nothing. Threshold is `1e-4`, not `1e-2` — merger arbitrage pins a target to
   its acquirer at ~4.6e-03 before a deal closes, which a loose threshold calls
   a rename. See `research/corporate-actions-findings-2026-09-15.md`.
-- `backtesting/backtester.py` — Simulates strategy on historical data; produces equity curves and KPIs. Per-bar state goes into numpy arrays, not pandas cell writes (2026-10-07: 291 ms → 5 ms a run, bit-identical). A change to the loop must stay bit-identical on real runs — the equity frame, trade log and metrics are the regression test (with a zero `cash_accrual`; 15 real runs checked when interest on cash went in, 2026-10-12).
+- `backtesting/backtester.py` — Simulates strategy on historical data; produces equity curves and KPIs. Per-bar state goes into numpy arrays, not pandas cell writes (2026-10-07: 291 ms → 5 ms a run, bit-identical). A change to the loop must stay bit-identical on real runs — the equity frame, trade log and metrics are the regression test (with a zero `cash_accrual`; 15 real runs checked when interest on cash went in, 2026-10-12). A REFACTOR must; a deliberate change of meaning is measured before and after instead (the 2026-10-14 signal fix changed every event-coded run).
 - `simulation/` — Monte Carlo kernels; read `simulation/CLAUDE.md` before changing them.
 - `pricing/` — option pricing; read `pricing/CLAUDE.md` before changing it (no recorded spot; discrete dividends).
 - `core/options_surface.py` + `api/routers/options.py` — `/api/v1/options` archive|surface|price|pricers|realised-vol. A surface costs 10–35 s, so it is cached in `data/surfaces/<TICKER>/<day>.json` (gitignored, derivable, safe to delete). The key hashes the capture bytes, the rate observation, the dividend schedule and a fingerprint DERIVED from the pricing source and settings — never hand-bump a version. The realised-vol cone is NOT cached (bars are not in the key). A surface for today's capture uses yesterday's rate and is recomputed tomorrow: correct. `scripts/precompute_surfaces.py` fills the cache (108 captures ~37 min cold); the 06:00 job runs it with `--days 7` (~2-3 min a night, a pricing change recomputes a week, not the archive), which also names MISSED CAPTURE days: 2026-10-09 was lost for every ticker (a Yahoo dtype crash) and nobody knew for four days. Known losses: `OPTION_CAPTURE_DAYS_LOST`.

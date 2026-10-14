@@ -54,7 +54,10 @@ class MeanReversionStrategy(BaseAlphaModel):
         # We want to be LONG (position=1) when the price is oversold (Z-score is very low).
         # We want to be FLAT (position=0) when the price is overbought or has reverted to the mean.
         # This strategy does not take short positions.
-        signals["position"] = np.where(signals["z_score"] < -self.threshold, 1.0, 0.0)
+        # NaN in between, so the forward fill below holds the entry until the
+        # exit. It was 0.0 until 2026-10-14: the position lasted only while
+        # oversold, and the hold-until-the-mean rule never applied.
+        signals["position"] = np.where(signals["z_score"] < -self.threshold, 1.0, np.nan)
 
         # Exit the position if the Z-score crosses back above the mean (e.g., 0)
         signals["position"] = np.where(signals["z_score"] > 0, 0.0, signals["position"])
