@@ -117,6 +117,7 @@ const LINE_ORDER: Array<[string, string, 'money' | 'pct' | 'count' | 'number']> 
   ['capex', 'Capital expenditure', 'money'],
   ['after_tax_interest', 'After-tax interest (added back)', 'money'],
   ['share_based_comp', 'Stock-based compensation', 'money'],
+  ['noncontrolling_interests', "Noncontrolling interests' share", 'money'],
   ['base_fcf', 'Base free cash flow', 'money'],
   ['growth_first', 'First-year growth', 'pct'],
   ['tax_rate', 'Tax rate', 'pct'],

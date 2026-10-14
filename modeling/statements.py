@@ -70,6 +70,16 @@ LINE_ITEMS: Dict[str, Tuple[str, ...]] = {
     #: Cash interest paid: a PROXY for expense, used only when none is reported.
     "interest_paid": ("InterestPaidNet", "InterestPaid"),
     "net_income": ("NetIncomeLoss",),
+    # Noncontrolling interests (decision 17, 2026-10-13): the partners' share
+    # of consolidated profit, subtracted from base FCF in valuation.py. Seven
+    # valued filers tag only the redeemable and nonredeemable parts (MPC,
+    # SPGI, ICE, WBD, SRE, ACN, EL), summed there over one window.
+    "nci_income": ("NetIncomeLossAttributableToNoncontrollingInterest",),
+    "nci_income_redeemable": ("NetIncomeLossAttributableToRedeemableNoncontrollingInterest",),
+    "nci_income_nonredeemable": ("NetIncomeLossAttributableToNonredeemableNoncontrollingInterest",),
+    #: Consolidated profit, partners included: the parent's share of it
+    #: scales the exit-multiple EBITDA.
+    "consolidated_net_income": ("ProfitLoss",),
     "d_and_a": (
         "DepreciationDepletionAndAmortization",
         "DepreciationAmortizationAndAccretionNet",
@@ -161,6 +171,11 @@ LINE_ITEMS: Dict[str, Tuple[str, ...]] = {
     "short_term_borrowings": ("ShortTermBorrowings",),
     "commercial_paper": ("CommercialPaper",),
     "equity": ("StockholdersEquity",),
+    #: Noncontrolling interests on the balance sheet, in equity and in
+    #: temporary (mezzanine) equity: parts, summed. A balance with no NCI
+    #: income on file refuses the valuation; it is never read as none.
+    "nci_balance": ("MinorityInterest",),
+    "nci_redeemable_balance": ("RedeemableNoncontrollingInterestEquityCarryingAmount",),
     "shares_outstanding": ("EntityCommonStockSharesOutstanding",),
 }
 INSTANTS = {
@@ -175,6 +190,8 @@ INSTANTS = {
     "short_term_borrowings",
     "commercial_paper",
     "equity",
+    "nci_balance",
+    "nci_redeemable_balance",
     "shares_outstanding",
 }
 SHARE_ITEMS = {"diluted_shares", "shares_outstanding"}

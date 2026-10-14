@@ -30,6 +30,17 @@
   Capex includes `intangible_capex`: capitalised software by rule (its own
   line on every filer that tags it), PaymentsToAcquireIntangibleAssets only
   by name (CMCSA, ADP, SLB; it is also spectrum, acquisitions, allowances).
+  Noncontrolling interests (decision 17): the flows are CONSOLIDATED, so
+  the partners' trailing share of income comes off base FCF (total concept,
+  else redeemable + nonredeemable parts over one window) and the exit
+  multiple values only the parent's share of EBITDA (1 - NCI / consolidated
+  profit, the same window). A NEGATIVE share (partners sharing a loss, ROK
+  -$110M) is shown and not added back. Parts on different windows (MPC's
+  redeemable part stops after FY2025) use their common latest fiscal year.
+  Refused when NCI income exceeds
+  `DCF_NCI_MAX_FCF_SHARE` (50%) of a positive base FCF (FCX 99%: the proxy breaks),
+  and when an NCI balance of 1% of market cap or more has no NCI income on
+  file (missing is never zero).
   Growth's start years come from `Statements.annual_before`: by date, and
   on the latest year's concept unless another agrees with it everywhere. Decisions
   in `research/dcf-plan-2026-10-08.md`: weekly 5y Blume beta, 7% WACC floor

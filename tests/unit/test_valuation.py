@@ -755,3 +755,201 @@ def test_capitalised_software_is_capex_and_labelled(aapl):
     assert "835M capitalised software/intangibles (FY to 2025-09-27)" in sw_src
     L = {k: val for k, (val, _) in v.lines.items()}
     assert L["base_fcf"] == pytest.approx(plain.lines["base_fcf"][0] - 835e6)
+
+
+def _nci_filer(*extra):
+    return Statements(
+        _operating()
+        + [
+            _flow_and_balance("LongTermDebt", 4e9, duration=False),
+            _flow_and_balance("OperatingIncomeLoss", 9e8),
+            _flow_and_balance("DepreciationDepletionAndAmortization", 1e8),
+        ]
+        + list(extra)
+    )
+
+
+AS_OF_NCI = date(2026, 10, 8)
+
+
+def test_noncontrolling_interests_come_off_fcf_and_the_exit_base():
+    """
+    DVA's shape (decision 17): consolidated flows, partners take a share of
+    profit. Their income comes off base FCF, labelled, and the exit multiple
+    values only the parent's share of EBITDA.
+    """
+    plain = build_inputs(_nci_filer(), AS_OF_NCI, 50.0, 0.04, BETA)
+    assert plain.lines["noncontrolling_interests"] == (None, "none on file")
+    v = build_inputs(
+        _nci_filer(
+            _flow_and_balance("NetIncomeLossAttributableToNoncontrollingInterest", 3e8),
+            _flow_and_balance("ProfitLoss", 1e9),
+            _flow_and_balance("MinorityInterest", 1.8e9, duration=False),
+        ),
+        AS_OF_NCI,
+        50.0,
+        0.04,
+        BETA,
+    )
+    nci, src = v.lines["noncontrolling_interests"]
+    assert nci == 3e8 and src.endswith("FY to 2026-06-30; subtracted")
+    assert v.dcf.base_fcf == pytest.approx(plain.dcf.base_fcf - 3e8)
+    assert v.lines["base_fcf"][1].endswith("- noncontrolling interests")
+    # EBITDA 1.0B consolidated; the parent keeps 70% of consolidated profit.
+    assert v.lines["ebitda"][0] == pytest.approx(1e9)
+    assert v.dcf.exit_metric_base == pytest.approx(7e8)
+    assert "x 0.700, the parent's share" in v.lines["ebitda"][1]
+    assert plain.dcf.exit_metric_base == pytest.approx(1e9)
+
+
+def test_the_parent_share_falls_back_to_net_income_plus_nci():
+    v = build_inputs(
+        _nci_filer(
+            _flow_and_balance("NetIncomeLossAttributableToNoncontrollingInterest", 2e8),
+            _flow_and_balance("NetIncomeLoss", 6e8),
+        ),
+        AS_OF_NCI,
+        50.0,
+        0.04,
+        BETA,
+    )
+    assert v.dcf.exit_metric_base == pytest.approx(1e9 * 0.75)
+
+
+def test_redeemable_and_nonredeemable_parts_are_summed():
+    # MPC, SPGI, ICE and WBD tag only the parts.
+    v = build_inputs(
+        _nci_filer(
+            _flow_and_balance("NetIncomeLossAttributableToRedeemableNoncontrollingInterest", 1e8),
+            _flow_and_balance(
+                "NetIncomeLossAttributableToNonredeemableNoncontrollingInterest", 5e7
+            ),
+        ),
+        AS_OF_NCI,
+        50.0,
+        0.04,
+        BETA,
+    )
+    nci, src = v.lines["noncontrolling_interests"]
+    assert nci == pytest.approx(1.5e8) and "(redeemable + nonredeemable)" in src
+
+
+def test_nci_income_over_half_of_fcf_refuses():
+    # FCX: partners' income 118% of consolidated FCF; the proxy cannot carry it.
+    out = build_inputs(
+        _nci_filer(_flow_and_balance("NetIncomeLossAttributableToNoncontrollingInterest", 1.5e9)),
+        AS_OF_NCI,
+        50.0,
+        0.04,
+        BETA,
+    )
+    assert isinstance(out, Refusal) and "over 50%" in out.reason
+
+
+def test_an_nci_balance_without_its_income_refuses_unless_immaterial():
+    # Missing is never zero: XOM, MPC, SPGI carry NCI balances of $5-7B.
+    out = build_inputs(
+        _nci_filer(
+            _flow_and_balance(
+                "RedeemableNoncontrollingInterestEquityCarryingAmount", 5e8, duration=False
+            )
+        ),
+        AS_OF_NCI,
+        50.0,
+        0.04,
+        BETA,
+    )
+    assert isinstance(out, Refusal) and "noncontrolling interests of 500M" in out.reason
+    # $1M against a $6.25B market cap (ITW, VLTO): noted, not refused.
+    small = build_inputs(
+        _nci_filer(_flow_and_balance("MinorityInterest", 1e6, duration=False)),
+        AS_OF_NCI,
+        50.0,
+        0.04,
+        BETA,
+    )
+    plain = build_inputs(_nci_filer(), AS_OF_NCI, 50.0, 0.04, BETA)
+    assert not isinstance(small, Refusal)
+    assert small.dcf.base_fcf == plain.dcf.base_fcf
+    assert any("immaterial, not subtracted" in n for n in small.notes)
+    # A balance older than the annual age rule is not evidence of NCI today.
+    old = build_inputs(
+        _nci_filer(
+            _flow_and_balance(
+                "MinorityInterest", 5e8, date(2024, 6, 30), date(2024, 8, 1), duration=False
+            )
+        ),
+        AS_OF_NCI,
+        50.0,
+        0.04,
+        BETA,
+    )
+    assert not isinstance(old, Refusal)
+
+
+def test_the_exit_value_is_dropped_when_the_parent_share_is_undefined():
+    v = build_inputs(
+        _nci_filer(
+            _flow_and_balance("NetIncomeLossAttributableToNoncontrollingInterest", 2e8),
+            _flow_and_balance("ProfitLoss", -4e8),
+        ),
+        AS_OF_NCI,
+        50.0,
+        0.04,
+        BETA,
+    )
+    assert v.dcf.exit_metric_base is None and v.dcf.exit_multiple is None
+    assert any("exit-multiple cross-check dropped" in n for n in v.notes)
+
+
+def test_a_loss_shared_by_the_partners_is_not_added_back():
+    # ROK: -$110M of NCI income (TTM); partners do not pay a loss in cash.
+    plain = build_inputs(_nci_filer(), AS_OF_NCI, 50.0, 0.04, BETA)
+    v = build_inputs(
+        _nci_filer(
+            _flow_and_balance("NetIncomeLossAttributableToNoncontrollingInterest", -1.1e8),
+            _flow_and_balance("ProfitLoss", 5e8),
+        ),
+        AS_OF_NCI,
+        50.0,
+        0.04,
+        BETA,
+    )
+    assert v.dcf.base_fcf == plain.dcf.base_fcf
+    assert v.dcf.exit_metric_base == plain.dcf.exit_metric_base
+    nci, src = v.lines["noncontrolling_interests"]
+    assert nci == -1.1e8 and src.endswith("not added back")
+    assert not v.lines["base_fcf"][1].endswith("noncontrolling interests")
+
+
+def test_parts_on_different_windows_use_their_common_fiscal_year():
+    # MPC: redeemable NCI filed (as zero) only through FY2025, nonredeemable
+    # quarterly into 2026. One fiscal year for both, not a refusal.
+    from core.fundamentals import Fact
+
+    def ytd(concept, start, end, value, form="10-Q"):
+        return Fact(
+            1, "us-gaap", concept, "USD", start, end, value, None, "Q2", form,
+            date(end.year, end.month, 28) if end.month < 12 else date(end.year + 1, 2, 26),
+            f"a-{concept}-{start}-{end}", None, datetime(2026, 1, 1, tzinfo=timezone.utc),
+        )  # fmt: skip
+
+    nonred = "NetIncomeLossAttributableToNonredeemableNoncontrollingInterest"
+    red = "NetIncomeLossAttributableToRedeemableNoncontrollingInterest"
+    v = build_inputs(
+        _nci_filer(
+            ytd(nonred, date(2025, 1, 1), date(2025, 6, 30), 81.4e6),
+            ytd(nonred, date(2025, 1, 1), date(2025, 12, 31), 183.1e6, "10-K"),
+            ytd(nonred, date(2026, 1, 1), date(2026, 6, 30), 74e6),
+            ytd(red, date(2025, 1, 1), date(2025, 12, 31), 0.0, "10-K"),
+            _flow_and_balance("MinorityInterest", 6.6e8, duration=False),
+        ),
+        AS_OF_NCI,
+        50.0,
+        0.04,
+        BETA,
+        growth_first=0.02,
+    )
+    assert not isinstance(v, Refusal), v
+    nci, src = v.lines["noncontrolling_interests"]
+    assert nci == pytest.approx(183.1e6) and "FY to 2025-12-31" in src

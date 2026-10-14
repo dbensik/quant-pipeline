@@ -93,6 +93,21 @@ describe('inputs and form', () => {
     expect(lines.find((l) => l.key === 'beta')!.source).toMatch(/weekly 5y/)
   })
 
+  it('shows the noncontrolling interests deducted, after stock-based compensation', () => {
+    const v = {
+      ...AAPL_VALUATION,
+      lines: {
+        ...AAPL_VALUATION.lines,
+        noncontrolling_interests: { value: 332e6, source: "noncontrolling interests' share of income, TTM to 2026-06-30; subtracted" },
+      },
+    } as typeof AAPL_VALUATION
+    const keys = inputLines(v).map((l) => l.key)
+    expect(keys.indexOf('noncontrolling_interests')).toBe(keys.indexOf('share_based_comp') + 1)
+    const row = inputLines(v).find((l) => l.key === 'noncontrolling_interests')!
+    expect(row.display).toBe('$332.0M')
+    expect(row.source).toMatch(/subtracted$/)
+  })
+
   it('parses percentages as percent and ignores blanks', () => {
     expect(parseOverride('8.5', true)).toBeCloseTo(0.085, 12)
     expect(parseOverride('1.2', false)).toBe(1.2)

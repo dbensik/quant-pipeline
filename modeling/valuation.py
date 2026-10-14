@@ -16,7 +16,8 @@ TWO PRICE BASES, NEVER MIXED
 FREE CASH FLOW (unlevered, trailing twelve months)
     CFO - capex + after-tax interest, minus stock-based compensation when
     DCF_SUBTRACT_SBC (the default: it is added back inside CFO and is a real
-    cost). Each term is returned as its own line. Interest comes from the
+    cost), minus noncontrolling interests' share of income (decision 17:
+    the flows are consolidated). Each term is returned as its own line. Interest comes from the
     filer when reported; Apple stopped tagging InterestExpense after mid-2023,
     and then it is ESTIMATED as (risk-free + spread) x debt and marked so.
 
@@ -84,6 +85,71 @@ def _ttm_or_annual(st: Statements, item: str, as_of: date) -> Tuple[Optional[flo
         return a[-1].value, f"FY to {a[-1].period_end}"
     last = t[1][-1].period_end if t else (a[-1].period_end if a else None)
     return None, f"not reported{f' since {last}' if last else ''}"
+
+
+def noncontrolling_income(st: Statements, as_of: date) -> Tuple[Optional[float], str, str]:
+    """
+    Noncontrolling interests' share of consolidated profit, trailing: (value,
+    window, label). The total concept, else the redeemable and nonredeemable
+    parts over ONE window (MPC, SPGI, ICE, WBD tag only the parts).
+    """
+    total, src = _ttm_or_annual(st, "nci_income", as_of)
+    if total is not None:
+        return total, src, "noncontrolling interests' share of income"
+    parts = []
+    for item, label in (
+        ("nci_income_redeemable", "redeemable"),
+        ("nci_income_nonredeemable", "nonredeemable"),
+    ):
+        v, part_src = _ttm_or_annual(st, item, as_of)
+        if v is not None:
+            parts.append((v, part_src, label))
+    if not parts:
+        return None, src, "noncontrolling interests' share of income"
+    if len({w for _, w, _ in parts}) > 1:
+        # MPC filed redeemable NCI (zero) through FY2025 and then stopped, so
+        # its parts end on different windows. Their common latest fiscal year
+        # is one window for both, if it is within the annual age rule.
+        years = [
+            (st.annual(item, as_of) or [None])[-1]
+            for item in ("nci_income_redeemable", "nci_income_nonredeemable")
+        ]
+        years = [y for y in years if y is not None]
+        ends = {y.period_end for y in years}
+        if (
+            len(years) == len(parts)
+            and len(ends) == 1
+            and (as_of - years[0].period_end).days <= MAX_ANNUAL_AGE_DAYS
+        ):
+            labels = " + ".join(label for _, _, label in parts)
+            return (
+                sum(y.value for y in years),
+                f"FY to {years[0].period_end}",
+                f"noncontrolling interests' share of income ({labels}; parts on one fiscal year)",
+            )
+        windows = ", ".join(f"{label} {w}" for _, w, label in parts)
+        return (
+            None,
+            f"parts on different windows ({windows})",
+            "noncontrolling interests' share of income",
+        )
+    labels = " + ".join(label for _, _, label in parts)
+    return (
+        sum(v for v, _, _ in parts),
+        parts[0][1],
+        f"noncontrolling interests' share of income ({labels})",
+    )
+
+
+def noncontrolling_balance(st: Statements, as_of: date) -> Tuple[float, Optional[date]]:
+    """NCI in equity plus redeemable NCI, each only if within MAX_ANNUAL_AGE_DAYS."""
+    total, end = 0.0, None
+    for item in ("nci_balance", "nci_redeemable_balance"):
+        v = st.instant(item, as_of)
+        if v is not None and (as_of - v.period_end).days <= MAX_ANNUAL_AGE_DAYS:
+            total += v.value
+            end = v.period_end if end is None else max(end, v.period_end)
+    return total, end
 
 
 def default_growth(st: Statements, as_of: date) -> Tuple[float, str]:
@@ -242,6 +308,52 @@ def build_inputs(
     subtract_sbc = settings.DCF_SUBTRACT_SBC and sbc is not None
     base_fcf = cfo - capex + after_tax_interest - (sbc if subtract_sbc else 0.0)
 
+    # Decision 17: CFO, capex and EBITDA are CONSOLIDATED, so the partners in
+    # subsidiaries the company controls but does not wholly own are paid out
+    # of them. Their share of income comes off base FCF: DVA's clinic partners
+    # earned $332M of $1,079M in FY2025, and the DCF had credited all of it to
+    # DVA's shareholders.
+    nci, nci_window, nci_label = noncontrolling_income(st, as_of)
+    nci_bal, nci_bal_end = noncontrolling_balance(st, as_of)
+    if nci is None:
+        if abs(nci_bal) >= settings.DCF_NCI_IMMATERIAL_BALANCE_SHARE * market_cap:
+            return Refusal(
+                f"noncontrolling interests of {nci_bal / 1e6:,.0f}M on the balance sheet "
+                f"({nci_bal_end}) but their share of income is not reported ({nci_window}); "
+                "the shareholders' cash flow cannot be formed"
+            )
+        if nci_bal:
+            notes.append(
+                f"noncontrolling interests of {nci_bal / 1e6:,.0f}M ({nci_bal_end}) with no share "
+                "of income on file: immaterial, not subtracted"
+            )
+            nci_line = (
+                None,
+                f"not reported ({nci_window}); balance {nci_bal / 1e6:,.0f}M immaterial",
+            )
+        else:
+            nci_line = (None, "none on file")
+    else:
+        if base_fcf > 0 and nci > settings.DCF_NCI_MAX_FCF_SHARE * base_fcf:
+            return Refusal(
+                f"{nci_label} ({nci / 1e6:,.0f}M, {nci_window}) is {nci / base_fcf:.0%} of "
+                f"consolidated free cash flow ({base_fcf / 1e6:,.0f}M): over "
+                f"{settings.DCF_NCI_MAX_FCF_SHARE:.0%}, the partners' share of cash flow "
+                "cannot be estimated from it"
+            )
+        if nci < 0:
+            # Partners who share a LOSS do not pay the parent their share in
+            # cash: ROK's -$110M (TTM to 2026-06-30) would have added $110M
+            # of free cash flow that does not exist. Only a claim comes off.
+            nci_line = (
+                nci,
+                f"{nci_label}, {nci_window}; a loss shared by the partners: not added back",
+            )
+            nci = 0.0
+        else:
+            base_fcf -= nci
+            nci_line = (nci, f"{nci_label}, {nci_window}; subtracted")
+
     op, op_src = _ttm_or_annual(st, "operating_income", as_of)
     da, da_src = _ttm_or_annual(st, "d_and_a", as_of)
     da_label = "D&A"
@@ -268,6 +380,32 @@ def build_inputs(
         if ebitda is not None
         else "operating income + D&A: not both on file"
     )
+    # The exit multiple values consolidated EBITDA, so it takes the parent's
+    # share of consolidated profit over the NCI line's own window; without
+    # that share it is dropped rather than left on the partners' earnings.
+    exit_base = ebitda
+    if ebitda is not None and nci:
+        consolidated, cons_src = _ttm_or_annual(st, "consolidated_net_income", as_of)
+        if consolidated is None or cons_src != nci_window:
+            ni, ni_src = _ttm_or_annual(st, "net_income", as_of)
+            consolidated, cons_src = (
+                (ni + nci, ni_src) if ni is not None and ni_src == nci_window else (None, "")
+            )
+        parent = 1 - nci / consolidated if consolidated else None
+        if parent is not None and consolidated > 0 and parent > 0:
+            exit_base = ebitda * parent
+            ebitda_src += (
+                f"; x {parent:.3f}, the parent's share of consolidated profit ({nci_window})"
+            )
+        else:
+            exit_base = None
+            ebitda_src += (
+                "; no exit value: the parent's share of consolidated profit is not defined"
+            )
+            notes.append(
+                "exit-multiple cross-check dropped: noncontrolling interests' share of "
+                "consolidated profit is not defined for the period"
+            )
 
     if growth_first is None:
         growth_first, growth_src = default_growth(st, as_of)
@@ -281,8 +419,8 @@ def build_inputs(
         wacc=discount.wacc,
         net_debt=net_debt,
         shares=shares,
-        exit_metric_base=ebitda,
-        exit_multiple=settings.DCF_EXIT_MULTIPLE if ebitda else None,
+        exit_metric_base=exit_base,
+        exit_multiple=settings.DCF_EXIT_MULTIPLE if exit_base else None,
     )
     lines = {
         "cfo": (cfo, cfo_src),
@@ -292,9 +430,12 @@ def build_inputs(
             sbc,
             sbc_src + ("; subtracted" if subtract_sbc else "; NOT subtracted"),
         ),
+        "noncontrolling_interests": nci_line,
         "base_fcf": (
             base_fcf,
-            "CFO - capex + after-tax interest" + (" - SBC" if subtract_sbc else ""),
+            "CFO - capex + after-tax interest"
+            + (" - SBC" if subtract_sbc else "")
+            + (" - noncontrolling interests" if nci else ""),
         ),
         "tax_rate": (tax, "effective, latest fiscal year"),
         "total_debt": (debt, debt_src),

@@ -389,6 +389,17 @@ FUNDAMENTAL_CONCEPTS = (
     ("us-gaap", "ConvertibleNotesPayableCurrent"),
     ("us-gaap", "UnsecuredLongTermDebt"),
     ("us-gaap", "SeniorLongTermNotes"),
+    # Added 2026-10-13 (decision 17): noncontrolling interests. CFO and
+    # EBITDA are consolidated, so the partners' share is subtracted (DVA's
+    # clinic partners earned $332M of $1,079M in FY2025). Seven valued filers
+    # (ACN, EL, ICE, MPC, SPGI, SRE, WBD) tag only the redeemable and
+    # nonredeemable parts; the balances say whether NCI exists at all.
+    ("us-gaap", "NetIncomeLossAttributableToNoncontrollingInterest"),
+    ("us-gaap", "NetIncomeLossAttributableToRedeemableNoncontrollingInterest"),
+    ("us-gaap", "NetIncomeLossAttributableToNonredeemableNoncontrollingInterest"),
+    ("us-gaap", "ProfitLoss"),
+    ("us-gaap", "MinorityInterest"),
+    ("us-gaap", "RedeemableNoncontrollingInterestEquityCarryingAmount"),
     ("us-gaap", "StockholdersEquity"),
     ("us-gaap", "Assets"),
     ("us-gaap", "Liabilities"),
@@ -436,6 +447,17 @@ DCF_DEFAULT_GROWTH_CAP = 0.10
 #: subtracts it again, treating it as the real cost it is. Shown as its own
 #: line either way. Apple FY2025: $12.9B of $98.8B FCF.
 DCF_SUBTRACT_SBC = True
+#: Decision 17 (approved 2026-10-13): noncontrolling interests' share of
+#: income is subtracted from base FCF. It is a proxy for the partners' cash,
+#: and it breaks when consolidated FCF is small beside earnings: FCX's is
+#: 99% of base FCF (TTM to 2026-06-30; capex at PT-FI). Above this share of
+#: a positive base FCF the valuation is refused rather than printed; a
+#: negative base FCF (INTC) only falls further.
+DCF_NCI_MAX_FCF_SHARE = 0.5
+#: An NCI balance with no NCI income on file refuses the valuation (missing
+#: is never zero) unless the balance is below this share of market cap: ITW's
+#: $1M and VLTO's $1M of NCI are immaterial and are only noted.
+DCF_NCI_IMMATERIAL_BALANCE_SHARE = 0.01
 DCF_EXIT_MULTIPLE = 15.0
 #: Sensitivity grid half-widths around the base case.
 DCF_GRID_WACC_STEP = 0.005
