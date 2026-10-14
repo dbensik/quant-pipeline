@@ -501,11 +501,19 @@ def test_every_mapped_concept_is_fetched_and_stored():
     """A mapped concept the loader never fetches, or the allow-list never stores, reads as missing."""
     from config import settings
     from core.valuation_service import ALL_CONCEPTS
-    from modeling.statements import LINE_ITEMS
+    from modeling.statements import LINE_ITEMS, map_part
 
     stored = {c for _, c in settings.FUNDAMENTAL_CONCEPTS}
     for symbol, lines in settings.LINE_CONCEPTS_BY_SYMBOL.items():
         for item, concepts in lines.items():
             assert item in LINE_ITEMS, (symbol, item)
-            assert set(concepts) <= set(ALL_CONCEPTS) & stored, (symbol, item)
+            names = {map_part(c)[0] for c in concepts}
+            assert names <= set(ALL_CONCEPTS) & stored, (symbol, item)
     assert set(ALL_CONCEPTS) <= stored
+
+
+def test_a_map_part_with_a_minus_is_subtracted_and_named():
+    from modeling.statements import map_label, map_part
+
+    assert map_part("-X") == ("X", -1.0) and map_part("X") == ("X", 1.0)
+    assert map_label(("A", "B", "-C")) == "A + B - C"

@@ -1123,3 +1123,50 @@ def test_the_pension_balance_is_read_at_an_annual_report_date():
         "PensionAndOtherPostretirementDefinedBenefitPlansLiabilitiesNoncurrent"
         " - DefinedBenefitPlanAssetsForPlanBenefitsNoncurrent"
     )
+
+
+def _netted(*facts):
+    st = _nci_filer(*facts)
+    return Statements(
+        [f for fs in st.by_concept.values() for f in fs],
+        (),
+        {
+            "intangible_capex": (
+                "PaymentsToAcquireIntangibleAssets",
+                "-ProceedsFromSaleOfIntangibleAssets",
+            )
+        },
+    )
+
+
+def test_a_netted_map_subtracts_its_signed_part():
+    # VST's shape (decision 23): allowance purchases less resales, in capex.
+    plain = build_inputs(_nci_filer(), AS_OF_NCI, 50.0, 0.04, BETA)
+    v = build_inputs(
+        _netted(
+            _flow_and_balance("PaymentsToAcquireIntangibleAssets", 1.189e9),
+            _flow_and_balance("ProceedsFromSaleOfIntangibleAssets", 2.75e8),
+        ),
+        AS_OF_NCI,
+        50.0,
+        0.04,
+        BETA,
+    )
+    capex, src = v.lines["capex"]
+    assert capex == pytest.approx(plain.lines["capex"][0] + 9.14e8)
+    assert "plus 914M net intangible purchases (FY to 2026-06-30)" in src
+
+
+def test_purchases_without_their_netted_sales_refuse():
+    # A missing resale figure is not zero, and must not drop the purchases.
+    v = build_inputs(
+        _netted(_flow_and_balance("PaymentsToAcquireIntangibleAssets", 1.189e9)),
+        AS_OF_NCI,
+        50.0,
+        0.04,
+        BETA,
+    )
+    assert isinstance(v, Refusal) and "sales netted against them" in v.reason
+    # Neither reported: nothing to add and nothing refused.
+    none = build_inputs(_netted(), AS_OF_NCI, 50.0, 0.04, BETA)
+    assert not isinstance(none, Refusal)

@@ -30,6 +30,9 @@
   Capex includes `intangible_capex`: capitalised software by rule (its own
   line on every filer that tags it), PaymentsToAcquireIntangibleAssets only
   by name (CMCSA, ADP, SLB; it is also spectrum, acquisitions, allowances).
+  A map part may be SUBTRACTED ("-Concept"): VST's capex adds its emission
+  allowance purchases net of resales (decision 23); purchases reported
+  without the resales for the same periods refuse, never drop to nothing.
   Noncontrolling interests (decision 17): the flows are CONSOLIDATED, so
   the partners' trailing share of income comes off base FCF (total concept,
   else redeemable + nonredeemable parts over one window) and the exit

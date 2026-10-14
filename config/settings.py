@@ -356,6 +356,10 @@ FUNDAMENTAL_CONCEPTS = (
     # for beside capex, outside PP&E (CMCSA "Cash paid for intangible assets"
     # $2,658M in FY2025 beside $11,750M of capital expenditures).
     ("us-gaap", "PaymentsToAcquireIntangibleAssets"),
+    # Added 2026-10-14 (decision 23): VST resells part of the emission
+    # allowances it buys ("Proceeds from sales of environmental allowances"
+    # $275M beside $1,189M of purchases in FY2025); its capex is the net.
+    ("us-gaap", "ProceedsFromSaleOfIntangibleAssets"),
     ("us-gaap", "PaymentsToDevelopSoftware"),
     ("us-gaap", "PaymentsForSoftware"),
     ("us-gaap", "CashAndCashEquivalentsAtCarryingValue"),
@@ -626,11 +630,20 @@ LINE_CONCEPTS_BY_SYMBOL = {
     # $196.6M; SLB "Exploration data capitalized" $252M (its seismic data
     # library) beside $1,694M. NOT mapped: TMUS and VZ spectrum licences
     # (lumpy: VZ $450M in 2025, $5,796M in 2023), SNPS's $16,681M (the Ansys
-    # acquisition), VST's $1,189M of emission allowances (a compliance cost,
-    # partly resold: $275M of sales), CPB's $56M (not on its statement).
+    # acquisition), CPB's $56M (not on its statement).
+    # VST (decision 23): "Purchases of environmental allowances" $1,189M less
+    # "Proceeds from sales of environmental allowances" $275M (FY2025, in
+    # investing). Allowances are retired against the plants' emissions every
+    # year, an operating cost the statement puts below CFO; resales net.
     "CMCSA": {"intangible_capex": _INTANGIBLES},
     "ADP": {"intangible_capex": _INTANGIBLES},
     "SLB": {"intangible_capex": _INTANGIBLES},
+    "VST": {
+        "intangible_capex": (
+            "PaymentsToAcquireIntangibleAssets",
+            "-ProceedsFromSaleOfIntangibleAssets",
+        )
+    },
 }
 
 

@@ -22,7 +22,7 @@ from config import settings
 from core.fundamentals import Fact
 from core.rates import RateRepository, risk_free_rate
 from modeling.dcf import Beta, DCFInputs, blume, reverse_dcf, run, sensitivity
-from modeling.statements import LINE_ITEMS, Statements
+from modeling.statements import LINE_ITEMS, Statements, map_part
 from modeling.valuation import Refusal, beta_from_bars, build_inputs, price_as_traded
 
 #: Every concept a line can read: the lists, and the per-filer maps (a mapped
@@ -30,7 +30,7 @@ from modeling.valuation import Refusal, beta_from_bars, build_inputs, price_as_t
 ALL_CONCEPTS = sorted(
     {c for cs in LINE_ITEMS.values() for c in cs}
     | {
-        c
+        map_part(c)[0]
         for lines in settings.LINE_CONCEPTS_BY_SYMBOL.values()
         for cs in lines.values()
         for c in cs

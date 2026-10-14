@@ -236,6 +236,22 @@ ANNUAL_DAYS = (350, 380)
 QUARTER_DAYS = (80, 100)
 
 
+def map_part(part: str) -> Tuple[str, float]:
+    """
+    One part of a per-filer map (settings.LINE_CONCEPTS_BY_SYMBOL): "Concept"
+    adds, "-Concept" subtracts (VST's allowance resales, decision 23).
+    """
+    return (part[1:], -1.0) if part.startswith("-") else (part, 1.0)
+
+
+def map_label(parts: Tuple[str, ...]) -> str:
+    """'A + B - C' for a mapped line's source."""
+    out = ""
+    for c, sign in map(map_part, parts):
+        out += (c if not out else f" + {c}") if sign > 0 else (f"-{c}" if not out else f" - {c}")
+    return out
+
+
 @dataclass(frozen=True)
 class Value:
     period_start: Optional[date]
@@ -334,15 +350,16 @@ class Statements:
     def _summed(
         self, item: str, as_of: date, span: Optional[Tuple[int, int]], parts: Tuple[str, ...]
     ) -> Dict[Tuple, Value]:
-        """Per period, the sum of every part; a period any part lacks is left out."""
-        series = [self._periods(item, as_of, span, (c,)) for c in parts]
+        """Per period, the signed sum of every part; a period any part lacks is left out."""
+        signed = [map_part(c) for c in parts]
+        series = [self._periods(item, as_of, span, (c,)) for c, _ in signed]
         keys = set(series[0]).intersection(*series[1:])
         return {
             k: Value(
                 k[0],
                 k[1],
-                sum(s[k].value for s in series),
-                " + ".join(parts),
+                sum(sign * s[k].value for (_, sign), s in zip(signed, series, strict=True)),
+                map_label(parts),
                 max(s[k].filed for s in series),
             )
             for k in sorted(keys, key=lambda k: (k[1], k[0] or date.min))
@@ -354,7 +371,7 @@ class Statements:
         """{concept: its own periods}: one entry, the summed line, for a mapped filer."""
         if item in self.line_concepts:
             values = list(self._periods(item, as_of, span).values())
-            return {" + ".join(self.line_concepts[item]): values}
+            return {map_label(self.line_concepts[item]): values}
         return {c: list(self._periods(item, as_of, span, (c,)).values()) for c in LINE_ITEMS[item]}
 
     # -- public ------------------------------------------------------------

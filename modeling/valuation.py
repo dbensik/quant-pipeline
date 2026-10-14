@@ -218,11 +218,30 @@ def build_inputs(
     # capex). Its own trailing window, labelled; a filer that tags none
     # capitalises none, so nothing is added and nothing is refused.
     intangible, intangible_src = _ttm_or_annual(st, "intangible_capex", as_of)
+    mapped = st.line_concepts.get("intangible_capex", ())
+    netted = any(c.startswith("-") for c in mapped)
+    if intangible is None and netted:
+        # A subtracted part (VST's allowance resales) missing for a period
+        # drops the whole net line: the purchases would vanish from capex.
+        added = [c for c in mapped if not c.startswith("-")]
+        gross, _ = _ttm_or_annual(
+            Statements(
+                [f for fs in st.by_concept.values() for f in fs],
+                st.splits,
+                {**st.line_concepts, "intangible_capex": tuple(added)},
+            ),
+            "intangible_capex",
+            as_of,
+        )
+        if gross is not None:
+            return Refusal(
+                "intangible purchases are reported but the sales netted against them "
+                f"are not for the same periods ({' '.join(mapped)}); capex cannot be formed"
+            )
     if intangible is not None:
         capex += intangible
-        capex_src += (
-            f"; plus {intangible / 1e6:,.0f}M capitalised software/intangibles ({intangible_src})"
-        )
+        what = "net intangible purchases" if netted else "capitalised software/intangibles"
+        capex_src += f"; plus {intangible / 1e6:,.0f}M {what} ({intangible_src})"
     sbc, sbc_src = _ttm_or_annual(st, "share_based_comp", as_of)
     interest, interest_src = _ttm_or_annual(st, "interest_expense", as_of)
     if interest is None:
