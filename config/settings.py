@@ -795,6 +795,11 @@ CRYPTO_IDENTITY_OVERRIDES = {
     "SOLVBTC-USD": "match",
     "WSTETH-USD": "match",
     "JLP-USD": "match",
+    # --- Settled 2026-10-14 (Danny). The same coin across a rename: MATIC
+    # migrated to POL in September 2024, and both names say so. CoinGecko
+    # "POL (ex-MATIC)" vs Yahoo POL28321-USD "Polygon (prev. MATIC)", price
+    # gap 1.001x. Mapped since 2026-10-04 and blocked as SUSPECT until now.
+    "POL-USD": "match",
 }
 
 #: The ticker to ASK THE PRICE PROVIDER FOR, where it is not the asset's own

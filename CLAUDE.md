@@ -175,10 +175,11 @@ its symbol everywhere; only the fetch and `scripts/audit_crypto_identity.py`
 use the provider ticker, and bars are stored under the asset. An entry is a
 claim, not a verdict: ingest refuses a mapped symbol until the audit has been
 run with `--write` against that exact ticker (`identity_provider_symbol` on
-the row), so editing a mapping blocks the asset until it is re-verified. 21
-assets are mapped and loaded; POL-USD is mapped but blocked as `suspect`
-(names differ, a human call); PEPE, TON, BSC and BUIDL have no usable ticker
-and stay empty — the reasons are beside the mapping.
+the row), so editing a mapping blocks the asset until it is re-verified. 22
+assets are mapped and loaded (POL-USD since 2026-10-14: `suspect` on its
+names across the MATIC rename, settled `match` in `CRYPTO_IDENTITY_OVERRIDES`;
+1,080 bars from 2023-10-30, bounds clean); PEPE, TON, BSC and BUIDL have no
+usable ticker and stay empty — the reasons are beside the mapping.
 
 **The risk-free rate is `^IRX`, in `rate_observations`, not `assets`**
 (since 2026-10-08, `core/rates.py`, step in the 06:00 job via
