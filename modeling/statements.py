@@ -186,6 +186,21 @@ LINE_ITEMS: Dict[str, Tuple[str, ...]] = {
     "preferred_liquidation": ("PreferredStockLiquidationPreferenceValue",),
     #: Noted, never added: its dividends are already inside CFO.
     "equity_method_investments": ("EquityMethodInvestments",),
+    #: Unfunded pensions and retiree benefits (decision 19), noted, never
+    #: subtracted. Balance-sheet lines, so each is already net of its own
+    #: plans' assets; a combined pension-and-OPEB line, else the two parts.
+    "pension_liability": (
+        "PensionAndOtherPostretirementDefinedBenefitPlansLiabilitiesNoncurrent",
+        "PensionAndOtherPostretirementAndPostemploymentBenefitPlansLiabilitiesNoncurrent",
+    ),
+    "pension_liability_pension": ("DefinedBenefitPensionPlanLiabilitiesNoncurrent",),
+    "pension_liability_opeb": ("OtherPostretirementDefinedBenefitPlanLiabilitiesNoncurrent",),
+    "pension_liability_current": (
+        "PensionAndOtherPostretirementDefinedBenefitPlansCurrentLiabilities",
+        "DefinedBenefitPensionPlanLiabilitiesCurrent",
+    ),
+    #: Overfunded plans' surplus, an asset: IBM's $7,544M beside $9,018M owed.
+    "pension_assets": ("DefinedBenefitPlanAssetsForPlanBenefitsNoncurrent",),
     "shares_outstanding": ("EntityCommonStockSharesOutstanding",),
 }
 INSTANTS = {
@@ -206,9 +221,17 @@ INSTANTS = {
     "preferred_outstanding",
     "preferred_liquidation",
     "equity_method_investments",
+    "pension_liability",
+    "pension_liability_pension",
+    "pension_liability_opeb",
+    "pension_liability_current",
+    "pension_assets",
     "shares_outstanding",
 }
 SHARE_ITEMS = {"diluted_shares", "shares_outstanding"}
+#: Annual reports: pension balances are read only at a date one of these
+#: states (see Statements.pension_deficit).
+ANNUAL_FORMS = {"10-K", "10-K/A", "10-KT", "10-KT/A", "20-F", "20-F/A", "40-F", "40-F/A"}
 ANNUAL_DAYS = (350, 380)
 QUARTER_DAYS = (80, 100)
 
@@ -672,6 +695,43 @@ class Statements:
             v for v in (self._instant_at(item, end, as_of) for item in shapes) if v is not None
         ]
         return max(at_end, key=lambda v: v.value)
+
+    def pension_deficit(self, as_of: date) -> Optional[Value]:
+        """
+        Unfunded pensions and retiree benefits on the balance sheet at the
+        newest date an ANNUAL report states a noncurrent line for: the
+        combined line, else pension plus OPEB, plus the current portion,
+        less overfunded plans' assets at that date. A 10-Q may tag the
+        liability alone: TAP's 2026-06-30 shows $411M owed and none of the
+        $485M surplus its 10-K nets it against. None when no line is tagged;
+        that is NOT "no deficit" (filers that tag per plan have no total).
+        """
+        lines = ("pension_liability", "pension_liability_pension", "pension_liability_opeb")
+        annual_ends = {
+            f.period_end
+            for item in lines
+            for concept in LINE_ITEMS[item]
+            for f in self.by_concept.get(concept, [])
+            if f.period_start is None and f.filed < as_of and f.form in ANNUAL_FORMS
+        }
+        if not annual_ends:
+            return None
+        end = max(annual_ends)
+        at = {item: self._instant_at(item, end, as_of) for item in lines}
+        owed = (
+            [at["pension_liability"]]
+            if at["pension_liability"]
+            else [v for v in (at["pension_liability_pension"], at["pension_liability_opeb"]) if v]
+        )
+        total, parts = sum(v.value for v in owed), [v.concept for v in owed]
+        current = self._instant_at("pension_liability_current", end, as_of)
+        if current:
+            total, parts = total + current.value, parts + [current.concept]
+        name = " + ".join(parts)
+        surplus = self._instant_at("pension_assets", end, as_of)
+        if surplus:
+            total, name = total - surplus.value, f"{name} - {surplus.concept}"
+        return Value(None, end, total, name, max(v.filed for v in owed))
 
     def liquid_assets(self, as_of: date) -> Optional[Value]:
         """Cash plus marketable securities at the latest cash balance date."""

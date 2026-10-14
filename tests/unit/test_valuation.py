@@ -1020,3 +1020,106 @@ def test_a_large_equity_method_stake_is_named_not_added():
         BETA,
     )
     assert not any("equity-method" in n for n in small.notes)
+
+
+def _pension(*facts):
+    return build_inputs(_nci_filer(*facts), AS_OF_NCI, 50.0, 0.04, BETA)
+
+
+def _bal(concept, v, end=date(2026, 6, 30), filed=date(2026, 8, 6)):
+    return _flow_and_balance(concept, v, end, filed, duration=False)
+
+
+def test_a_large_unfunded_pension_is_named_not_subtracted():
+    # Decision 19: GEHC's $5.5B is 18% of market cap; contributions are in CFO.
+    plain = _pension()
+    big = _pension(
+        _bal("PensionAndOtherPostretirementDefinedBenefitPlansLiabilitiesNoncurrent", 4e8)
+    )
+    assert big.dcf == plain.dcf
+    assert any(
+        "unfunded pension and retiree benefits of 400M (6% of market cap, 2026-06-30)" in n
+        for n in big.notes
+    )
+    assert not any("pension" in n for n in plain.notes)
+    # Below 5% of the 6,250M market cap: no note.
+    small = _pension(
+        _bal("PensionAndOtherPostretirementDefinedBenefitPlansLiabilitiesNoncurrent", 3e8)
+    )
+    assert not any("pension" in n for n in small.notes)
+
+
+def test_the_pension_figure_is_net_of_overfunded_plans_and_includes_the_current_part():
+    # IBM's shape: $9,018M owed beside $7,544M of overfunded plans' assets.
+    netted = _pension(
+        _bal("PensionAndOtherPostretirementDefinedBenefitPlansLiabilitiesNoncurrent", 4e8),
+        _bal("DefinedBenefitPlanAssetsForPlanBenefitsNoncurrent", 2e8),
+    )
+    assert not any("pension" in n for n in netted.notes)
+    # No combined line: pension + OPEB + the current portion (EXC's shape).
+    parts = _pension(
+        _bal("DefinedBenefitPensionPlanLiabilitiesNoncurrent", 2e8),
+        _bal("OtherPostretirementDefinedBenefitPlanLiabilitiesNoncurrent", 1e8),
+        _bal("PensionAndOtherPostretirementDefinedBenefitPlansCurrentLiabilities", 0.5e8),
+    )
+    assert any("benefits of 350M (6% of market cap" in n for n in parts.notes)
+    # A combined line is the whole; its parts are not added to it.
+    combined = _pension(
+        _bal("PensionAndOtherPostretirementDefinedBenefitPlansLiabilitiesNoncurrent", 1e8),
+        _bal("DefinedBenefitPensionPlanLiabilitiesNoncurrent", 2.5e8),
+    )
+    assert not any("pension" in n for n in combined.notes)
+
+
+def test_a_stale_or_superseded_pension_balance_is_not_noted():
+    stale = _pension(
+        _bal(
+            "PensionAndOtherPostretirementDefinedBenefitPlansLiabilitiesNoncurrent",
+            5e8,
+            date(2024, 6, 30),
+            date(2024, 8, 1),
+        )
+    )
+    assert not any("pension" in n for n in stale.notes)
+    # The newest balance date wins over a larger, older (but not stale) line.
+    newer = _pension(
+        _bal(
+            "PensionAndOtherPostretirementDefinedBenefitPlansLiabilitiesNoncurrent",
+            5e8,
+            date(2025, 12, 31),
+            date(2026, 2, 15),
+        ),
+        _bal("DefinedBenefitPensionPlanLiabilitiesNoncurrent", 1e8),
+    )
+    assert not any("pension" in n for n in newer.notes)
+
+
+def test_the_pension_balance_is_read_at_an_annual_report_date():
+    # TAP's shape: the 10-K nets $427M owed against a $485M surplus; the next
+    # 10-Q tags only the $411M owed. That quarter-end is not a funded status.
+    from dataclasses import replace
+
+    tap = _pension(
+        _bal("PensionAndOtherPostretirementDefinedBenefitPlansLiabilitiesNoncurrent", 4.27e8),
+        _bal("DefinedBenefitPlanAssetsForPlanBenefitsNoncurrent", 4.85e8),
+        replace(
+            _bal(
+                "PensionAndOtherPostretirementDefinedBenefitPlansLiabilitiesNoncurrent",
+                4.11e8,
+                date(2026, 9, 30),
+                date(2026, 10, 1),
+            ),
+            form="10-Q",
+        ),
+    )
+    assert not any("pension" in n for n in tap.notes)
+    st = _nci_filer(
+        _bal("PensionAndOtherPostretirementDefinedBenefitPlansLiabilitiesNoncurrent", 4.27e8),
+        _bal("DefinedBenefitPlanAssetsForPlanBenefitsNoncurrent", 4.85e8),
+    )
+    d = st.pension_deficit(AS_OF_NCI)
+    assert d.period_end == date(2026, 6, 30) and d.value == pytest.approx(-5.8e7)
+    assert d.concept == (
+        "PensionAndOtherPostretirementDefinedBenefitPlansLiabilitiesNoncurrent"
+        " - DefinedBenefitPlanAssetsForPlanBenefitsNoncurrent"
+    )

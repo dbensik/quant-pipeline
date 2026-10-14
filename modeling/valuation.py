@@ -431,6 +431,21 @@ def build_inputs(
             f"equity-method stakes of {emi.value / 1e6:,.0f}M ({emi.value / market_cap:.0%} of "
             f"market cap, {emi.period_end}) are valued only through the dividends they pay into CFO"
         )
+    # Decision 19: unfunded pensions are NOT subtracted. Contributions,
+    # catch-up payments included, are already inside CFO, and the totals are
+    # missing for filers that tag per plan (GE, T), so a line would treat
+    # them as having no deficit. Large ones are named.
+    pension = st.pension_deficit(as_of)
+    if (
+        pension is not None
+        and (as_of - pension.period_end).days <= MAX_ANNUAL_AGE_DAYS
+        and pension.value >= settings.DCF_PENSION_NOTE_SHARE * market_cap
+    ):
+        notes.append(
+            f"unfunded pension and retiree benefits of {pension.value / 1e6:,.0f}M "
+            f"({pension.value / market_cap:.0%} of market cap, {pension.period_end}) are not "
+            "subtracted: contributions are paid inside CFO"
+        )
 
     if growth_first is None:
         growth_first, growth_src = default_growth(st, as_of)

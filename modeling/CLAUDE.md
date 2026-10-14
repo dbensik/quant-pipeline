@@ -48,6 +48,12 @@
   equity attributable to the parent is NOT preferred (J's was NCI).
   Equity-method stakes are never added (their dividends are in CFO; book
   is cost): one of 5% of market cap or more is named in the notes.
+  Unfunded pensions and OPEB (decision 19) are never subtracted either
+  (contributions are inside CFO; filers that tag per plan, GE and T, have
+  no total, so absent is not none): `Statements.pension_deficit`, the
+  balance-sheet lines less overfunded plans' assets, at an ANNUAL report's
+  date only (TAP's 10-Q tags the liability without the surplus), is named
+  at 5%.
   Growth's start years come from `Statements.annual_before`: by date, and
   on the latest year's concept unless another agrees with it everywhere. Decisions
   in `research/dcf-plan-2026-10-08.md`: weekly 5y Blume beta, 7% WACC floor

@@ -409,6 +409,17 @@ FUNDAMENTAL_CONCEPTS = (
     ("us-gaap", "PreferredStockValueOutstanding"),
     ("us-gaap", "PreferredStockLiquidationPreferenceValue"),
     ("us-gaap", "EquityMethodInvestments"),
+    # Added 2026-10-14 (decision 19): unfunded pensions and retiree benefits,
+    # NOTED, never subtracted (contributions are inside CFO; the totals are
+    # missing for filers that tag per plan, GE and T). The balance-sheet
+    # lines, net of overfunded plans' assets: GEHC $5,453M, 18% of market cap.
+    ("us-gaap", "PensionAndOtherPostretirementDefinedBenefitPlansLiabilitiesNoncurrent"),
+    ("us-gaap", "PensionAndOtherPostretirementAndPostemploymentBenefitPlansLiabilitiesNoncurrent"),
+    ("us-gaap", "DefinedBenefitPensionPlanLiabilitiesNoncurrent"),
+    ("us-gaap", "OtherPostretirementDefinedBenefitPlanLiabilitiesNoncurrent"),
+    ("us-gaap", "PensionAndOtherPostretirementDefinedBenefitPlansCurrentLiabilities"),
+    ("us-gaap", "DefinedBenefitPensionPlanLiabilitiesCurrent"),
+    ("us-gaap", "DefinedBenefitPlanAssetsForPlanBenefitsNoncurrent"),
     ("us-gaap", "StockholdersEquity"),
     ("us-gaap", "Assets"),
     ("us-gaap", "Liabilities"),
@@ -470,6 +481,9 @@ DCF_NCI_IMMATERIAL_BALANCE_SHARE = 0.01
 #: Decision 18: an equity-method stake this large a share of market cap is
 #: named in the notes (it is valued only through dividends inside CFO).
 DCF_EQUITY_METHOD_NOTE_SHARE = 0.05
+#: Decision 19: an unfunded pension and retiree-benefit balance this large a
+#: share of market cap is named in the notes; it is never subtracted.
+DCF_PENSION_NOTE_SHARE = 0.05
 DCF_EXIT_MULTIPLE = 15.0
 #: Sensitivity grid half-widths around the base case.
 DCF_GRID_WACC_STEP = 0.005
