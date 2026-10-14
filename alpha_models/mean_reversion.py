@@ -26,6 +26,11 @@ class MeanReversionStrategy(BaseAlphaModel):
         self.window = window
         self.threshold = threshold
 
+    def z_score(self, close: pd.Series) -> pd.Series:
+        """The price's Z-score against its rolling mean, as the strategy trades it."""
+        mean = close.rolling(window=self.window).mean()
+        return (close - mean) / close.rolling(window=self.window).std()
+
     def generate_signals(self, price_data: pd.DataFrame) -> pd.DataFrame:
         """
         Generates buy/sell signals based on the Z-score of the price.
@@ -43,12 +48,7 @@ class MeanReversionStrategy(BaseAlphaModel):
         signals = pd.DataFrame(index=price_data.index)
         signals["signal"] = 0.0
 
-        # Calculate the moving average and standard deviation
-        signals["moving_avg"] = price_data["Close"].rolling(window=self.window).mean()
-        signals["moving_std"] = price_data["Close"].rolling(window=self.window).std()
-
-        # Calculate the Z-score
-        signals["z_score"] = (price_data["Close"] - signals["moving_avg"]) / signals["moving_std"]
+        signals["z_score"] = self.z_score(price_data["Close"])
 
         # --- Determine the desired state (position) ---
         # We want to be LONG (position=1) when the price is oversold (Z-score is very low).

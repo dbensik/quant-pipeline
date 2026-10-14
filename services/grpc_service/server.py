@@ -90,14 +90,19 @@ class SignalService(signals_pb2_grpc.SignalServiceServicer):
                 value = 0.0
                 confidence = 0.0
             else:
-                # Get the latest signal available
-                latest = signals_df.iloc[-1]
-                value = float(latest["signal"])
+                # The signed value is the POSITION at the latest bar (1 long,
+                # 0 flat), not the latest event. A strategy's signal is an
+                # event (1 enter, -1 exit, 0 no change), so until 2026-10-14
+                # this served 0 on every bar between an entry and its exit,
+                # which reads as "flat" while the strategy is long.
+                position = signals_df["signal"].cumsum().clip(0, 1)
+                value = float(position.iloc[-1])
 
-                # Dynamic Confidence Calculation
-                # Base confidence on how extreme the Z-score is relative to threshold
-                z_score = latest.get("z_score", 0.0)
-                abs_z = abs(z_score)
+                # Confidence from how extreme the Z-score is. Until 2026-10-14
+                # it read a z_score column the strategy never returned, so
+                # every signal carried 0.5.
+                z_score = strategy.z_score(df["Close"]).iloc[-1]
+                abs_z = abs(float(z_score)) if pd.notna(z_score) else 0.0
                 # Cap confidence at 0.99
                 confidence = min(0.99, max(0.5, abs_z / 2.0)) if value != 0 else 0.5
 

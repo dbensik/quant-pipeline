@@ -42,6 +42,7 @@ def get_execution_stub():
 
 @strawberry.type
 class SignedSignalType:
+    #: The position at the latest bar: 1 long, 0 flat (not the latest event).
     value: float
     confidence: float
     features_hash: str

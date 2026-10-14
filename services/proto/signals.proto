@@ -12,7 +12,7 @@ message SignalRequest {
 }
 
 message SignedSignal {
-  double value = 1;
+  double value = 1;  // position at the latest bar: 1 long, 0 flat
   double confidence = 2;
   string features_hash = 3;
   string signature = 4;

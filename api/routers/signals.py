@@ -36,7 +36,10 @@ router = APIRouter(prefix="/api/v1/signals", tags=["signals"])
 class SignalPoint(BaseModel):
     time: datetime
     signal: Optional[float] = Field(
-        description="+1 long, -1 short/exit, 0 flat. Null where the strategy is still warming up."
+        description=(
+            "An event: +1 enter long, -1 exit, 0 no change (the position is held). "
+            "Null where the strategy is still warming up."
+        )
     )
     close: Optional[float] = Field(default=None, description="Close price at that bar")
 
