@@ -263,10 +263,19 @@ Sharpe -0.33, and a run takes ~3 s. Its look-ahead xfails are gone;
 beside the returns (a modelling choice, not a leak).
 
 **No single-asset strategy beats buy and hold at its defaults** (measured
-2026-10-14, 515 names, 2020-2026, with costs;
-`research/strategy-evaluation-2026-10-14.md`). Each one's registry caveat
-says what was measured (`measured()`, decision 25). Re-measure before
-editing a figure; a change to a strategy or the backtester makes them stale.
+2026-10-15, 428 names, 2010-2026, with costs; the best, rsi, on 28% of
+names — 25% in 2010-2019, 50% in 2020-2026 — and which names it beats does
+not persist; `research/history-2010-backfill-2026-10-14.md`, decision 28).
+Each one's registry caveat says what was measured (`measured()`). Re-measure
+before editing a figure; a change to a strategy or the backtester makes
+them stale.
+
+**Served equities and ETFs have bars from 2010** (insert-only backfill
+2026-10-14, decision 26; ^IRX from 2009-12, without which a pre-2015
+backtest is 422). Yahoo serves placeholder bars before some listings (AMCR,
+SW): those assets carry `history_valid_from`. A dividend on a split's own
+ex-date is scaled by that split (decision 27: EXPE 2011, TMUS 2013, IRM
+2014, DHR 2016).
 
 **Backtests trade in lots: whole shares, 1e-8 of a coin** (since
 2026-10-12). `config.settings.BACKTEST_LOT_SIZES` maps asset class to the
