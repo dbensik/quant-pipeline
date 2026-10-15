@@ -78,7 +78,9 @@ def test_a_rebalance_sells_before_it_buys():
         [100.0, 100.0, 140.0, 140.0],
         [1, 0, 2, 0],
     )
-    rebalance = trades[trades["timestamp"] == portfolio.index[2]]
+    # The rebalance signalled on bar 2 fills at bar 3's open (decision 31),
+    # where the prices are the same 60 / 140.
+    rebalance = trades[trades["timestamp"] == portfolio.index[3]]
     assert list(rebalance["direction"]) == ["SELL", "BUY"]
     assert list(rebalance["symbol"]) == ["B", "A"]
     assert (portfolio["cash"] >= 0).all()
@@ -94,7 +96,7 @@ def test_a_funded_rebalance_buys_the_full_target():
         [100.0, 100.0, 140.0, 140.0],
         [1, 0, 2, 0],
     )
-    bought = trades[(trades["timestamp"] == portfolio.index[2]) & (trades["symbol"] == "A")]
-    a_value = (portfolio["A_pos"].iloc[2]) * 60.0
+    bought = trades[(trades["timestamp"] == portfolio.index[3]) & (trades["symbol"] == "A")]
+    a_value = (portfolio["A_pos"].iloc[3]) * 60.0
     assert len(bought) == 1
-    assert a_value > 0.49 * portfolio["total"].iloc[2]
+    assert a_value > 0.49 * portfolio["total"].iloc[3]

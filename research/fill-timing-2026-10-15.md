@@ -92,3 +92,24 @@ Buy and hold's median Sharpe is unchanged (0.40 / 0.40 / 0.40 over
 
     Alternative: keep same-close fills and say so in each caveat
     ("fills at the signal bar's close; at the next open the share is N%").
+
+    **Approved 2026-10-15 and built.** `Backtester` and
+    `PortfolioBacktester` act at bar t+1's open on bar t's signals; the
+    basket sizes on equity valued at that open, and volatility targeting
+    reads closes before the bar. `tests/unit/test_next_open_fills.py`: 7
+    tests, 6 failing on the same-close code (the seventh, marking at the
+    close, holds under both). The shipped `Backtester` equals the measured
+    `next_open` variant on all 8,988 runs compared (seven strategies, the
+    random forest left out for time). The shipped `PortfolioBacktester`
+    differs from the variant only by sizing on open equity: Sharpes within
+    0.01. Every caveat restated from next-open figures; the two fit figures
+    re-run with the shipped optimizer (mean_reversion fitted lost to buy and
+    hold on 62% of names in 2020-2026, ma_crossover 72%).
+
+    **One finding changed.** At next-open fills the 2011-2019 fit no longer
+    picks trend's 200-day window: it picks 100 days on faber5 and 50 on
+    faber7, which then score 0.32 and 0.42 in 2020-2026 against the
+    default's 0.57 and 0.60. Decision 29's "trend's fit held up" was a
+    same-close result; at the next open, fitting trend hurt it. Momentum's
+    fit (126 days, top 3) still beat its default out of sample (0.64 / 0.81
+    against 0.55 / 0.56).

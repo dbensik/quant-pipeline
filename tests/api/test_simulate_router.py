@@ -117,12 +117,13 @@ def test_returns_mode_resamples_from_the_first_invested_bar(client: TestClient):
     """
     A strategy that waits before its first trade must not bootstrap its flat
     cash prefix. mean_reversion needs a full window before it can signal;
-    buy_and_hold is invested from bar 0.
+    buy_and_hold signals on bar 0 and is invested from bar 1, where that
+    signal fills at the open (decision 31) — one bar of cash prefix.
     """
     waiting = run(client, **TRADING).json()
     immediate = run(client, strategy_id="buy_and_hold").json()
-    assert waiting["resampled_from"] < waiting["bars"]
-    assert immediate["resampled_from"] == immediate["bars"]
+    assert waiting["resampled_from"] < immediate["resampled_from"]
+    assert immediate["resampled_from"] == immediate["bars"] - 1
 
 
 def test_prob_loss_counts_strictly_losing_paths(client: TestClient):

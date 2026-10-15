@@ -75,7 +75,20 @@ class Backtester:
         default, for the same reason as cash_accrual: a forgotten caller
         would silently keep whole units. 1.0 reproduces the old runs bit for
         bit (x / 1.0 * 1.0 is x).
+
+        FILLS AT THE NEXT BAR'S OPEN (decision 31, 2026-10-15). A signal is
+        computed from bar t's close, so the earliest a real order meets is bar
+        t+1's open: that is where it fills, sized on that open, and a signal
+        on the last bar does not fill. Until 2026-10-15 it filled at bar t's
+        own close — a price only known once the market had shut. Measured
+        before switching (research/fill-timing-2026-10-15.md): on 428 names
+        2010-2026 no conclusion moved (shares beating buy and hold changed
+        0-4 points). Positions are still marked at the close. `price_data`
+        must carry an Open column; without one the run is refused, never
+        filled at the close instead.
         """
+        if "Open" not in price_data.columns:
+            raise ValueError("price_data has no Open column: orders fill at the next bar's open")
         if not lot_size > 0:
             raise ValueError(f"lot_size must be > 0, got {lot_size}")
         accrual = np.asarray(cash_accrual, dtype=float)
@@ -111,14 +124,17 @@ class Backtester:
         # 56 real runs, see research/monte-carlo-plan-2026-10-07.md).
         n_bars = len(portfolio)
         closes = portfolio["Close"].to_numpy()
-        signal_values = portfolio["signal"].to_numpy()
+        opens = price_data["Open"].to_numpy(dtype=float)
+        # Bar i acts on bar i-1's signal: it was known at i-1's close, and
+        # i's open is the first price an order placed then can meet.
+        signal_values = np.concatenate([[0.0], portfolio["signal"].to_numpy()[:-1]])
         positions = np.zeros(n_bars)
         cash_values = np.zeros(n_bars)
         holdings = np.zeros(n_bars)
 
         for i in range(n_bars):
             date = portfolio.index[i]
-            price = closes[i]
+            price = opens[i]
             signal = signal_values[i]
 
             # Interest on idle cash for the period ending at this bar.
@@ -133,7 +149,7 @@ class Backtester:
                         order = OrderEvent(date, symbol, "MKT", shares_to_buy, "BUY")
                         fill = self.execution_handler.execute_order(order, price)
 
-                        # Sized on the close, the fill can cost more than the
+                        # Sized on the open, the fill can cost more than the
                         # cash: adverse slippage plus commission. Until
                         # 2026-10-12 such an order was DROPPED and retried next
                         # bar: 80 unfilled buy bars over 15 real runs (5
@@ -171,7 +187,7 @@ class Backtester:
             # --- Record Portfolio State for the current day ---
             positions[i] = position
             cash_values[i] = cash
-            holdings[i] = position * price
+            holdings[i] = position * closes[i]
 
         portfolio["position"] = positions
         portfolio["cash"] = cash_values

@@ -55,8 +55,10 @@ def single(prices, model):
 def test_a_zero_holds_and_a_minus_one_exits():
     results, trades = single(frame(np.linspace(100, 110, len(EVENTS))), Fixed(EVENTS))
     held = (results["position"] > 0).astype(int).tolist()
-    assert held == [0, 1, 1, 1, 1, 0, 0, 1, 1, 0]
-    assert [t.direction for t in trades] == ["BUY", "SELL", "BUY", "SELL"]
+    # Each event acts at the NEXT bar's open (decision 31), so holdings trail
+    # EVENTS by one bar; the final -1 is on the last bar and never fills.
+    assert held == [0, 0, 1, 1, 1, 1, 0, 0, 1, 1]
+    assert [t.direction for t in trades] == ["BUY", "SELL", "BUY"]
 
 
 def test_both_backtesters_trade_on_the_same_bars():

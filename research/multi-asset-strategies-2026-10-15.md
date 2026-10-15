@@ -14,6 +14,11 @@ first measurement of the three allocation rules in the registry:
 out: their pairs or weights would have to be chosen on the data they are
 tested on (and `basket_trading` cannot be built from the API).
 
+**Every figure below is at same-close fills.** Decision 31 moved both
+backtesters to next-open fills the same day; the restated figures, and one
+finding that does not survive (trend's fit), are in
+`research/fill-timing-2026-10-15.md`.
+
 ## Method
 
 - **Baskets fixed in advance, not picked on this data.** `faber5` = SPY,

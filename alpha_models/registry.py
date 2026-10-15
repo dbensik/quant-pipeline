@@ -166,7 +166,8 @@ def measured(finding: str) -> str:
     index members and ETFs with bars from 2010, 2010-01 to 2026-10, through the
     API with costs and interest on cash; the 2020-2026 figure (decision 25,
     research/strategy-evaluation-2026-10-14.md) beside it. Medians; survivors
-    only, so not 428 independent trials.
+    only, so not 428 independent trials. Restated 2026-10-15 at next-open
+    fills (decision 31, research/fill-timing-2026-10-15.md).
     """
     return f"Measured at its default parameters on 428 names, 2010-2026, with costs: {finding}"
 
@@ -177,8 +178,9 @@ def measured_allocation(finding: str) -> str:
     research/multi-asset-strategies-2026-10-15.md: ETF baskets fixed in advance
     (Faber's five: SPY EFA IEF VNQ DBC; seven: + GLD TLT) and SPY with TLT, IEF
     or AGG, 2011-01 to 2026-10, sized by weights (not the 2% buy cap), with
-    costs and interest on cash, against the same basket equal-weighted. Fills
-    at the signal bar's close; a one-bar delay cut Sharpe by 0.03-0.09.
+    costs and interest on cash, against the same basket equal-weighted.
+    Restated 2026-10-15 at next-open fills (decision 31,
+    research/fill-timing-2026-10-15.md).
     """
     return f"Measured at its defaults on fixed ETF baskets, 2011-2026, with costs: {finding}"
 
@@ -213,10 +215,10 @@ _SPECS: List[StrategySpec] = [
             "threshold": [1.0, 1.5, 2.0, 2.5],
         },
         caveat=measured(
-            "better Sharpe than buy and hold on 14% of names (19% in 2010-2019, 28% in "
-            "2020-2026), 7.6 pp a year less return. Its shallower drawdown is time in cash "
-            "(in the market 28% of the time); parameters fitted on 2010-2019 lost to buy and "
-            "hold on 64% of names in 2020-2026."
+            "better Sharpe than buy and hold on 11% of names (18% in 2010-2019, 25% in "
+            "2020-2026), 7.8 pp a year less return. Its shallower drawdown is time in cash "
+            "(in the market 28% of the time); parameters fitted on 2010-2019 lost to buy "
+            "and hold on 62% of names in 2020-2026."
         ),
     ),
     StrategySpec(
@@ -251,9 +253,9 @@ _SPECS: List[StrategySpec] = [
             "long_window": [50, 100, 200],
         },
         caveat=measured(
-            "better Sharpe than buy and hold on 13% of names (16% in 2010-2019, 29% in "
-            "2020-2026), 6.8 pp a year less return. On ETFs 7 of 11 (1 of 11 in 2010-2019, 9 "
-            "in 2020-2026). Parameters fitted on 2010-2019 lost to buy and hold on 71% of "
+            "better Sharpe than buy and hold on 12% of names (14% in 2010-2019, 25% in "
+            "2020-2026), 6.8 pp a year less return. On ETFs 6 of 11 (1 of 11 in 2010-2019, "
+            "8 in 2020-2026). Parameters fitted on 2010-2019 lost to buy and hold on 72% of "
             "names in 2020-2026."
         ),
     ),
@@ -266,7 +268,7 @@ _SPECS: List[StrategySpec] = [
             ParamSpec("window", "int", 50, "Lookback window", "Bars used to measure trend", 2, 500),
         ],
         caveat=measured(
-            "better Sharpe than buy and hold on 7% of names (7% in 2010-2019, 21% in "
+            "better Sharpe than buy and hold on 6% of names (7% in 2010-2019, 20% in "
             "2020-2026), 9.4 pp a year less return."
         ),
     ),
@@ -285,8 +287,8 @@ _SPECS: List[StrategySpec] = [
             ),
         ],
         caveat=measured(
-            "better Sharpe than buy and hold on 28% of names (25% in 2010-2019, 50% in "
-            "2020-2026), 5.1 pp a year less return, with a shallower drawdown on 97%. Which "
+            "better Sharpe than buy and hold on 26% of names (23% in 2010-2019, 49% in "
+            "2020-2026), 5.3 pp a year less return, with a shallower drawdown on 97%. Which "
             "names it beats does not persist from one decade to the next."
         ),
     ),
@@ -302,9 +304,9 @@ _SPECS: List[StrategySpec] = [
             ),
         ],
         caveat=measured(
-            "better Sharpe than buy and hold on 6% of names (8% in 2010-2019, 19% in "
-            "2020-2026), 11.0 pp a year less return. Its drawdown (-37% against -53%) is time"
-            " in cash: in the market 31% of the time."
+            "better Sharpe than buy and hold on 7% of names (8% in 2010-2019, 20% in "
+            "2020-2026), 10.8 pp a year less return. Its drawdown (-37% against -53%) is "
+            "time in cash: in the market 31% of the time."
         ),
     ),
     StrategySpec(
@@ -329,8 +331,8 @@ _SPECS: List[StrategySpec] = [
             ),
         ],
         caveat=measured(
-            "loses to buy and hold on every name (97% in 2020-2026), 18.1 pp a year less "
-            "return, with a deeper drawdown (-75% against -53%)."
+            "loses to buy and hold on every name (96% in 2020-2026), 17.7 pp a year less "
+            "return, with a deeper drawdown (-76% against -53%)."
         ),
     ),
     StrategySpec(
@@ -363,7 +365,7 @@ _SPECS: List[StrategySpec] = [
             "Flat for the first `train_window` bars while it gathers training data. "
             "Until 2026-10-14 it trained on the full history (look-ahead). "
             + measured(
-                "loses to buy and hold on every name (97% in 2020-2026), 16.6 pp a year less "
+                "loses to buy and hold on 427 of 428 names (96% in 2020-2026), 16.4 pp a year less "
                 "return."
             )
         ),
@@ -483,9 +485,9 @@ _SPECS: List[StrategySpec] = [
             "API's equal-weight default leaves it 50% in cash. Pass weights of "
             "1.0 per symbol to be fully invested. "
             + measured_allocation(
-                "on SPY with TLT, IEF or AGG it lost to a static 50/50 of the same pair in "
-                "both decades (SPY/TLT Sharpe 0.79 against 1.41 in 2011-2019, -0.09 against "
-                "0.17 in 2020-2026) and took the full 2020 crash (-34%)."
+                "on SPY with TLT, IEF or AGG it lost to a static 50/50 of the same pair in both "
+                "decades (SPY/TLT Sharpe 0.73 against 1.41 in 2011-2019, -0.18 against 0.17 in "
+                "2020-2026) and took the full 2020 crash (-34%)."
             )
         ),
         default_grid={"lookback": [21, 63, 126, 252]},
@@ -519,9 +521,9 @@ _SPECS: List[StrategySpec] = [
         input_contract="multi",
         signal_shape="wide_per_asset",
         caveat=measured_allocation(
-            "on Faber's five and seven ETFs it halved the basket's worst drawdown (-14% "
-            "against -26%; -8% against -20%) at about 1 pp a year of return, with a Sharpe "
-            "level with the basket (0.49 against 0.45; 0.54 against 0.52). Pass "
+            "on Faber's five and seven ETFs it cut the basket's worst drawdown (-15% "
+            "against -26%; -8% against -20%) at 1-2 pp a year of return, with a Sharpe "
+            "level with the basket (0.45 against 0.46; 0.51 against 0.52). Pass "
             "max_trade_risk_pct=1.0: the 2% default cap leaves it 8-10% invested."
         ),
         default_grid={"window": [50, 100, 200, 300]},
@@ -564,10 +566,10 @@ _SPECS: List[StrategySpec] = [
         input_contract="multi",
         signal_shape="wide_per_asset",
         caveat=measured_allocation(
-            "beat its basket on Faber's five ETFs (Sharpe 0.64 against 0.45) but not on "
-            "seven (0.51 against 0.52), with no drawdown protection (2022: -12%); its "
-            "2020-2026 Sharpe ranged 0.32-0.86 across its grid. Pass weights of 1/top_n "
-            "per symbol: equal weights leave it 30-42% invested."
+            "beat its basket on Faber's five ETFs (Sharpe 0.61 against 0.46) but not on "
+            "seven (0.49 against 0.52), with no drawdown protection (2022: -12%); its "
+            "2020-2026 Sharpe ranged 0.22-0.88 across its grid. Pass weights of 1/top_n per "
+            "symbol: equal weights leave it 30-42% invested."
         ),
         default_grid={"lookback": [63, 126, 252], "top_n": [1, 2, 3]},
     ),

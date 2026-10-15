@@ -211,7 +211,8 @@ the window mean rate: SPY/AGG/GLD 2023-2025 showed 1.82 (now 1.94) and a
 matrix product per 250 weightings, 14-26 ms for 5,000 (was ~140 ms).
 
 **Fills cost something** (since 2026-10-12). `SimulatedExecutionHandler`
-slippage is ADVERSE (buys fill above the close, sells below, uniform in
+slippage is ADVERSE (buys fill above the price the order meets — the next
+bar's open since decision 31 — sells below, uniform in
 [0, 0.05%]; it was +/-0.05% whatever the side, averaging to zero), and the
 API's `transaction_cost` (default 0.001 = 10 bps, which the UI always gets) is
 charged on each fill's value on top of the $1 fee. It had been accepted by
@@ -223,7 +224,8 @@ $117.5k, and the SPY ma_crossover grid winner moved from 10/50 (58 trades) to
 (`affordable_quantity`, `resize`), since the cost now scales with quantity.
 
 **An unaffordable entry is resized, not dropped** (fixed 2026-10-12).
-`Backtester` sizes a buy as `floor(cash / close)`; adverse slippage plus the
+`Backtester` sizes a buy as `floor(cash / price)` (the next bar's open since
+decision 31); adverse slippage plus the
 commission can make that fill cost more than the cash. It used to skip the
 order and retry next bar; it now buys `floor((cash - commission) / fill)` at
 the SAME fill (one slippage draw per order, so runs that never hit it are
@@ -263,9 +265,13 @@ Sharpe -0.33, and a run takes ~3 s. Its look-ahead xfails are gone;
 beside the returns (a modelling choice, not a leak).
 
 **No single-asset strategy beats buy and hold at its defaults** (measured
-2026-10-15, 428 names, 2010-2026, with costs; the best, rsi, on 28% of
-names — 25% in 2010-2019, 50% in 2020-2026 — and which names it beats does
-not persist; `research/history-2010-backfill-2026-10-14.md`, decision 28).
+2026-10-15, 428 names, 2010-2026, with costs, next-open fills; the best,
+rsi, on 26% of names — 23% in 2010-2019, 49% in 2020-2026 — and which names
+it beats does not persist; `research/history-2010-backfill-2026-10-14.md`,
+decisions 28 and 31). Of the allocation rules, trend following on fixed ETF
+baskets cuts the basket's drawdown at about its Sharpe; momentum depends on
+the basket; paired switching loses to a static 50/50
+(`research/multi-asset-strategies-2026-10-15.md`).
 Each one's registry caveat says what was measured (`measured()`). Re-measure
 before editing a figure; a change to a strategy or the backtester makes
 them stale.
@@ -276,6 +282,17 @@ backtest is 422). Yahoo serves placeholder bars before some listings (AMCR,
 SW): those assets carry `history_valid_from`. A dividend on a split's own
 ex-date is scaled by that split (decision 27: EXPE 2011, TMUS 2013, IRM
 2014, DHR 2016).
+
+**Orders fill at the NEXT bar's open** (since 2026-10-15, decision 31,
+`research/fill-timing-2026-10-15.md`), in both backtesters and so in every
+surface (backtest, compare, optimize, simulate, portfolio, websockets). A
+signal is computed on bar t's close; bar t+1's open is the first price a
+real order meets. Sizing uses that open (and, for a basket, equity valued
+at it); positions are still marked at the close; a signal on the last bar
+does not fill; a frame without an Open column is refused. Until then fills
+were at the signal bar's own close — measured before switching, it moved no
+single-asset conclusion and cost the allocation rules 0.02-0.07 Sharpe.
+`tests/unit/test_next_open_fills.py` fails on same-close fills.
 
 **Backtests trade in lots: whole shares, 1e-8 of a coin** (since
 2026-10-12). `config.settings.BACKTEST_LOT_SIZES` maps asset class to the

@@ -61,17 +61,21 @@ def run(handler) -> tuple:
 
 def test_an_unaffordable_entry_buys_what_the_cash_covers():
     """
-    floor(100000 / 99.99) = 1000 shares, whose fill costs 100,090.99 + 1.
-    Dropped before: buy and hold never bought at all, on any bar.
+    Buy and hold signals on bar 0 and fills at bar 1's open (decision 31):
+    floor(100000 / open) shares, whose fill at 0.1% above it plus $1 costs
+    more than the cash. Dropped before: buy and hold never bought at all.
     """
     handler = AdverseFills()
     bt, results = run(handler)
     trades = bt.get_trade_log()
     assert len(trades) == 1
-    fill_price = 99.99 * 1.001
+    entry_open = frame()["Open"].iloc[1]
+    assert np.floor(CAPITAL / entry_open) * entry_open * 1.001 + 1.0 > CAPITAL  # unaffordable
+    fill_price = entry_open * 1.001
     assert trades["quantity"].iloc[0] == np.floor((CAPITAL - 1.0) / fill_price)
-    assert results["position"].iloc[0] == trades["quantity"].iloc[0]
-    assert 0.0 <= results["cash"].iloc[0] < fill_price
+    assert results["position"].iloc[0] == 0.0
+    assert results["position"].iloc[1] == trades["quantity"].iloc[0]
+    assert 0.0 <= results["cash"].iloc[1] < fill_price
 
 
 def test_a_resized_entry_spends_one_slippage_draw():

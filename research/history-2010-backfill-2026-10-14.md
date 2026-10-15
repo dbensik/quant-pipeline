@@ -126,6 +126,10 @@ ranking signal. Nothing to build.
 
 ## 4. Strategies on 2010-2026 (decision 25 re-run)
 
+**These figures are at same-close fills.** Decision 31 (2026-10-15) moved
+both backtesters to next-open fills; the restated figures — rsi 26%, not
+28% — are in `research/fill-timing-2026-10-15.md` and in the caveats.
+
 Same method as decision 25 (`eval_run26.py`, `eval_analyse26.py`, through
 the live API: 10 bps + adverse slippage, idle cash earns `^IRX`, Sharpe
 against cash, lots, seed 1), on the same 515 names; analysed on the **428

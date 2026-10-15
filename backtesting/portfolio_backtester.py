@@ -74,7 +74,22 @@ class PortfolioBacktester:
                 crypto, so a basket can hold whole AAPL shares beside a
                 fraction of a BTC. Every ticker must have one; all 1.0
                 reproduces the old whole-unit runs exactly.
+
+        FILLS AT THE NEXT BAR'S OPEN (decision 31, 2026-10-15), as in
+        Backtester: the signals dated on one bar of the timeline are acted on
+        at the next, at that bar's Open, and orders are sized — and the risk
+        manager judged — on equity valued at that open. Until 2026-10-15 they
+        filled at the signal bar's own close. Measured before switching
+        (research/fill-timing-2026-10-15.md): the allocation rules lost
+        0.02-0.07 Sharpe 2011-2026; static rebalancing did not move. Holdings
+        are still marked at the close. Every frame needs an Open column.
         """
+        missing_open = sorted(t for t, f in price_data.items() if "Open" not in f.columns)
+        if missing_open:
+            raise ValueError(
+                f"price_data has no Open column for {', '.join(missing_open)}: "
+                "orders fill at the next bar's open"
+            )
         missing_lots = sorted(set(price_data) - set(lot_sizes))
         if missing_lots:
             raise ValueError(f"lot_sizes has no entry for {', '.join(missing_lots)}")
@@ -146,16 +161,32 @@ class PortfolioBacktester:
                 portfolio.loc[timestamp, "cash"] + current_holdings_value
             )
 
-            # If the current day is not a signal day, we just update values and continue
-            if timestamp not in all_signal_dates:
+            # Act on the PREVIOUS bar's signals, at this bar's open.
+            if i == 0:
                 continue
+            signal_timestamp = full_timeline[i - 1]
+            if signal_timestamp not in all_signal_dates:
+                continue
+
+            open_prices = {}
+            for ticker in all_tickers:
+                open_price = price_data[ticker]["Open"].asof(timestamp)
+                if pd.notna(open_price):
+                    open_prices[ticker] = open_price
+            # Equity as it stands at the open: what sizing and the risk
+            # manager may know. The close-valued total above is not known yet.
+            open_state = portfolio.loc[timestamp].copy()
+            open_state["total"] = open_state["cash"] + sum(
+                open_state[f"{t}_pos"] * open_prices.get(t, current_prices.get(t, 0.0))
+                for t in all_tickers
+            )
 
             # --- 4. Process Signals for the Day ---
             # This logic now correctly handles both portfolio-level and ticker-level signals.
             portfolio_signal_df = signals_data.get("Portfolio")
             portfolio_signal = (
-                portfolio_signal_df.loc[timestamp, "signal"]
-                if portfolio_signal_df is not None and timestamp in portfolio_signal_df.index
+                portfolio_signal_df.loc[signal_timestamp, "signal"]
+                if portfolio_signal_df is not None and signal_timestamp in portfolio_signal_df.index
                 else 0
             )
 
@@ -163,8 +194,8 @@ class PortfolioBacktester:
             for ticker in all_tickers:
                 ticker_signal_df = signals_data.get(ticker)
                 ticker_signal = (
-                    ticker_signal_df.loc[timestamp, "signal"]
-                    if ticker_signal_df is not None and timestamp in ticker_signal_df.index
+                    ticker_signal_df.loc[signal_timestamp, "signal"]
+                    if ticker_signal_df is not None and signal_timestamp in ticker_signal_df.index
                     else 0
                 )
 
@@ -175,7 +206,7 @@ class PortfolioBacktester:
                     continue
 
                 current_position = portfolio.loc[timestamp, f"{ticker}_pos"]
-                current_price = current_prices.get(ticker)
+                current_price = open_prices.get(ticker)
                 order = None
 
                 if not current_price or pd.isna(current_price):
@@ -194,7 +225,9 @@ class PortfolioBacktester:
 
                         # Optimization: We already have current price. We need historical.
                         # This slice might be slow inside a loop, but fine for MVP.
-                        hist_slice = price_series[:timestamp].tail(
+                        # Closes BEFORE this bar: its own close is not known
+                        # at the open the order fills at.
+                        hist_slice = price_series[price_series.index < timestamp].tail(
                             21
                         )  # 20 days returns needs 21 prices
 
@@ -203,7 +236,7 @@ class PortfolioBacktester:
                             asset_vol = returns.std() * np.sqrt(252)
 
                             quantity = self.risk_manager.calculate_volatility_adjusted_size(
-                                portfolio_equity=portfolio.loc[timestamp, "total"],
+                                portfolio_equity=open_state["total"],
                                 asset_volatility=asset_vol,
                                 target_volatility=self.target_volatility,
                                 asset_price=current_price,
@@ -211,9 +244,7 @@ class PortfolioBacktester:
                             )
                     else:
                         # Fixed Weight Sizing
-                        target_value = portfolio.loc[timestamp, "total"] * target_weights.get(
-                            ticker, 0
-                        )
+                        target_value = open_state["total"] * target_weights.get(ticker, 0)
                         quantity = to_lot(target_value / current_price, lot_sizes[ticker])
 
                     if quantity > 0:
@@ -232,7 +263,7 @@ class PortfolioBacktester:
                     # For now, we only apply vol targeting on INITIAL ENTRY (Signal 1).
                     # Standard rebalance uses fixed weights.
 
-                    target_value = portfolio.loc[timestamp, "total"] * target_weights.get(ticker, 0)
+                    target_value = open_state["total"] * target_weights.get(ticker, 0)
                     lot = lot_sizes[ticker]
                     target_quantity = to_lot(target_value / current_price, lot)
                     trade_quantity = target_quantity - current_position
@@ -257,20 +288,21 @@ class PortfolioBacktester:
             # would have turned into under-bought rebalances. sorted() is
             # stable, so tickers keep their order within each side.
             for ticker, order in sorted(bar_orders, key=lambda item: item[1].direction != "SELL"):
-                portfolio.loc[timestamp, f"{order.symbol}_price"] = current_prices[ticker]
+                portfolio.loc[timestamp, f"{order.symbol}_price"] = open_prices[ticker]
+                open_state[f"{order.symbol}_price"] = open_prices[ticker]
                 approved_order = self.risk_manager.assess_order(
-                    order, portfolio.loc[timestamp], lot_size=lot_sizes[ticker]
+                    order, open_state, lot_size=lot_sizes[ticker]
                 )
                 if not approved_order:
                     continue
 
                 fill_event = self.execution_handler.execute_order(
-                    approved_order, current_prices[ticker]
+                    approved_order, open_prices[ticker]
                 )
 
                 if fill_event and fill_event.direction == "BUY":
                     # Never spend more cash than there is. Orders are sized on
-                    # equity x weight at the close, so adverse slippage and
+                    # equity x weight at the open, so adverse slippage and
                     # the commission could overdraw the account: real
                     # AAPL+TQQQ baskets ended 60 bars below zero, by up to $70
                     # (2016-2025). Same rule as Backtester: buy what the cash
