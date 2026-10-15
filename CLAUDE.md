@@ -405,7 +405,7 @@ For the TimescaleDB layer, copy `.env.example` → `.env`; without it, `db/sessi
 - `frontend/` — React dashboard; `routes.tsx` declares pages once for both the
   router and the nav bar; TanStack Query owns server state, Zustand owns UI
   selections only
-- `services/` — 3-layer architecture: gRPC signal service → GraphQL gateway → Ed25519/SHA256 crypto audit log (`audit_log.json`)
+- `services/` — 3-layer architecture: gRPC signal service → GraphQL gateway → Ed25519/SHA256 crypto audit log (`audit_log.json`). Since 2026-10-14 the signal service reads bars from TimescaleDB (`services/grpc_service/bars.py`: its own loop thread and engine), on or before the request's `as_of`, and signs the POSITION, not the latest event. It had downloaded from yfinance by the bare symbol, ignoring `as_of`: verify's "BTC" was Yahoo's Grayscale Bitcoin Mini Trust ETF; a non-registry symbol is now NOT_FOUND.
 - `core/portfolio.py` — portfolio accounting; the trade log is the only stored
   state and cash/positions/P&L are derived from it (`db/models.py` has no
   `cash` or `positions` column, deliberately)

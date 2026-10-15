@@ -1,11 +1,11 @@
 import json
 import random
 from concurrent import futures
-from datetime import datetime, timedelta
+from datetime import date, datetime
+from typing import Optional
 
 import grpc
 import pandas as pd
-import yfinance as yf
 
 from alpha_models.mean_reversion import MeanReversionStrategy
 from services.config import ServiceConfig
@@ -13,6 +13,7 @@ from services.crypto.audit_log import AuditLog
 from services.crypto.hasher import Hasher
 from services.crypto.signer import Signer
 from services.execution_service.service import ExecutionService
+from services.grpc_service.bars import BarReader
 from services.logging_config import configure_logging
 from services.proto import execution_pb2_grpc, signals_pb2, signals_pb2_grpc
 
@@ -24,18 +25,19 @@ class SignalService(signals_pb2_grpc.SignalServiceServicer):
     gRPC Service implementation that acts as the trusted core of the pipeline.
 
     Responsibilities:
-    1. Fetch real market data (via yfinance).
+    1. Read daily bars from TimescaleDB (bars.py), on or before the request's as_of.
     2. Execute quantitative models (e.g., MeanReversion).
     3. Cryptographically sign the results using Ed25519.
     4. Log every signal generation event to an immutable audit log.
     """
 
-    def __init__(self, signer: Signer, audit_log: AuditLog):
+    def __init__(self, signer: Signer, audit_log: AuditLog, bars: Optional[BarReader] = None):
         """
         Initialize the SignalService with injected dependencies.
         """
         self.signer = signer
         self.audit_log = audit_log
+        self.bars = bars or BarReader()
         logger.info(f"Server Public Key ID: {self.signer.get_public_key_id()}")
 
     def GetSignal(self, request, context):
@@ -48,37 +50,25 @@ class SignalService(signals_pb2_grpc.SignalServiceServicer):
         logger.info(f"Received request for {symbol} as of {as_of}")
 
         try:
-            # --- 1. Fetch Real Data ---
-            # Fetch last 200 days to ensure enough data for rolling windows (e.g. 20-day MA)
-            end_date = datetime.utcnow()
-            start_date = end_date - timedelta(days=200)
-
-            # yfinance download
-            df = yf.download(symbol, start=start_date, end=end_date, progress=False)
+            # --- 1. Bars from TimescaleDB (services/grpc_service/bars.py) ---
+            # On or before the request's as_of, which until 2026-10-14 was
+            # logged and ignored: every signal used the latest 200 days.
+            try:
+                day = date.fromisoformat(as_of) if as_of else None
+            except ValueError:
+                context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+                context.set_details(f"as_of {as_of!r} is not an ISO date")
+                return signals_pb2.SignedSignal()
+            df = self.bars.frame(symbol, day)
 
             if df.empty:
                 logger.warning(f"No data found for symbol {symbol}")
                 context.set_code(grpc.StatusCode.NOT_FOUND)
-                context.set_details(f"No data found for symbol {symbol}")
+                context.set_details(
+                    f"No bars for {symbol!r} on or before {as_of or 'today'}: "
+                    "not a registry symbol, or nothing stored in the window"
+                )
                 return signals_pb2.SignedSignal()
-
-            # Handle MultiIndex columns (common in newer yfinance versions)
-            if isinstance(df.columns, pd.MultiIndex):
-                # Try to drop the Ticker level if it exists to get a flat DataFrame
-                if "Ticker" in df.columns.names:
-                    df = df.xs(symbol, axis=1, level="Ticker")
-                elif len(df.columns.levels) > 1:
-                    df.columns = df.columns.get_level_values(0)
-
-            # Ensure we have a 'Close' column for the strategy
-            if "Close" not in df.columns:
-                if "Adj Close" in df.columns:
-                    df["Close"] = df["Adj Close"]
-                else:
-                    logger.error(f"Data for {symbol} missing 'Close' column")
-                    context.set_code(grpc.StatusCode.INTERNAL)
-                    context.set_details(f"Data for {symbol} missing 'Close' column")
-                    return signals_pb2.SignedSignal()
 
             # --- 2. Run Strategy ---
             # Instantiate the verified model with specific parameters

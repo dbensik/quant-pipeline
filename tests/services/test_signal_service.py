@@ -5,14 +5,21 @@ A strategy's signal is an EVENT (1 enter, -1 exit, 0 no change). Until
 2026-10-14 the service signed the latest event, so a strategy long for weeks
 was served as 0 ("flat") on every bar but its entry; and its confidence read
 a z_score column mean_reversion never returned, so it was always 0.5.
-Checked failing against both. yfinance is stubbed: no network.
+Checked failing against both.
+
+Bars come from TimescaleDB through services/grpc_service/bars.py (until
+2026-10-14 straight from yfinance by the bare symbol: "BTC" was not
+Bitcoin but the Grayscale Bitcoin Mini Trust ETF), on or before the request's as_of, which had been ignored. The
+reader is injected here: no network, no database.
 """
 
 import json
+from datetime import date
 from unittest import mock
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from services.crypto.audit_log import AuditLog
 from services.crypto.signer import Signer
@@ -29,6 +36,23 @@ def held_long_frame() -> pd.DataFrame:
     return pd.DataFrame({"Open": c, "High": c, "Low": c, "Close": c, "Volume": 1e6})
 
 
+class FakeBars:
+    def __init__(self, frames):
+        self.frames, self.calls = frames, []
+
+    def frame(self, symbol, as_of=None):
+        self.calls.append((symbol, as_of))
+        return self.frames.get(
+            symbol, pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
+        )
+
+
+def service(tmp_path, bars):
+    return server.SignalService(
+        Signer.from_config(None), AuditLog(file_path=str(tmp_path / "audit.json")), bars
+    )
+
+
 def test_the_signed_value_is_the_position_and_confidence_reads_the_z_score(tmp_path):
     df = held_long_frame()
     from alpha_models.mean_reversion import MeanReversionStrategy
@@ -38,13 +62,49 @@ def test_the_signed_value_is_the_position_and_confidence_reads_the_z_score(tmp_p
     assert events.iloc[-1] == 0 and events.sum() == 1, "fixture: entered earlier, still long"
     z = strategy.z_score(df["Close"]).iloc[-1]
 
-    svc = server.SignalService(
-        Signer.from_config(None), AuditLog(file_path=str(tmp_path / "audit.json"))
+    bars = FakeBars({"X": df})
+    resp = service(tmp_path, bars).GetSignal(
+        signals_pb2.SignalRequest(symbol="X", as_of="2026-03-01"), mock.Mock()
     )
-    context = mock.Mock()
-    with mock.patch.object(server.yf, "download", return_value=df):
-        resp = svc.GetSignal(signals_pb2.SignalRequest(symbol="X", as_of="2026-03-01"), context)
+    assert bars.calls == [("X", date(2026, 3, 1))], "as_of must reach the read"
 
     assert resp.value == 1.0
     assert resp.confidence == min(0.99, max(0.5, abs(z) / 2.0)) and resp.confidence != 0.5
     assert json.loads(resp.payload_json)["value"] == 1.0
+
+
+def test_a_symbol_the_registry_does_not_hold_is_not_found(tmp_path):
+    context = mock.Mock()
+    resp = service(tmp_path, FakeBars({})).GetSignal(
+        signals_pb2.SignalRequest(symbol="BTC", as_of="2023-01-01"), context
+    )
+    context.set_code.assert_called_once_with(server.grpc.StatusCode.NOT_FOUND)
+    assert resp.signature == ""
+
+
+def test_a_malformed_as_of_is_refused(tmp_path):
+    context = mock.Mock()
+    bars = FakeBars({"X": held_long_frame()})
+    service(tmp_path, bars).GetSignal(
+        signals_pb2.SignalRequest(symbol="X", as_of="01/03/2026"), context
+    )
+    context.set_code.assert_called_once_with(server.grpc.StatusCode.INVALID_ARGUMENT)
+    assert bars.calls == []
+
+
+@pytest.mark.integration
+def test_the_reader_serves_stored_bars_on_or_before_as_of():
+    # Real TimescaleDB: SPY's bars end on or before as_of; a symbol the
+    # registry does not hold ("BTC", which Yahoo serves as another security)
+    # has none; the reader's own loop serves repeated calls.
+    from services.grpc_service.bars import BarReader
+
+    try:
+        reader = BarReader()
+        spy = reader.frame("SPY", date(2026, 10, 1))
+    except OSError as exc:  # pragma: no cover - database down
+        pytest.skip(f"TimescaleDB unreachable: {exc}")
+    assert not spy.empty and spy.index.max().date() <= date(2026, 10, 1)
+    assert (spy.index.max() - spy.index.min()).days >= 150
+    assert reader.frame("BTC", date(2023, 1, 1)).empty
+    assert not reader.frame("BTC-USD", date(2023, 1, 1)).empty

@@ -9,7 +9,9 @@ def verify_integration():
     Runs a full integration verification of the 3-layer architecture.
 
     Steps:
-    1. Query GraphQL: Fetches a signal for 'BTC' via the unified gateway.
+    1. Query GraphQL: Fetches a signal for 'BTC-USD' (the registry symbol; until
+       2026-10-14 'BTC', which Yahoo serves as the Grayscale Bitcoin Mini Trust
+       ETF) via the gateway.
     2. Local Verify: Re-calculates the SHA256 hash of the payload and compares it
        to the 'featuresHash' returned by the server. This proves data integrity.
     3. Audit Check: Loads the 'audit_log.json' file and verifies the entire
@@ -18,7 +20,7 @@ def verify_integration():
     print("--- 1. Querying GraphQL Gateway ---")
     query = """
         query {
-            signal(symbol: "BTC", asOf: "2023-01-01") {
+            signal(symbol: "BTC-USD", asOf: "2023-01-01") {
                 value
                 confidence
                 signature
