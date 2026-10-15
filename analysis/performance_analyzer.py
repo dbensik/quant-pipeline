@@ -9,6 +9,30 @@ import pandas as pd
 import seaborn as sns
 from matplotlib.ticker import FuncFormatter
 
+
+def periods_per_year(index) -> int:
+    """
+    Bars a year for annualizing a series, from its own calendar (decision 38):
+    CALENDAR_DAYS_PER_YEAR when at least CALENDAR_DAYS_WEEKEND_SHARE of its bars
+    fall on a weekend, else TRADING_DAYS_PER_YEAR. An equity series (no weekend
+    bars) keeps 252 exactly; crypto, and a basket whose calendar includes
+    crypto's weekends, get 365.
+    """
+    from config.settings import (
+        CALENDAR_DAYS_PER_YEAR,
+        CALENDAR_DAYS_WEEKEND_SHARE,
+        TRADING_DAYS_PER_YEAR,
+    )
+
+    dates = pd.DatetimeIndex(index)
+    if len(dates) == 0:
+        return TRADING_DAYS_PER_YEAR
+    weekend_share = float((dates.dayofweek >= 5).mean())
+    if weekend_share >= CALENDAR_DAYS_WEEKEND_SHARE:
+        return CALENDAR_DAYS_PER_YEAR
+    return TRADING_DAYS_PER_YEAR
+
+
 #: Below this annualized volatility the Sharpe ratio is reported as 0. A
 #: cash-only run's excess return is floating-point noise (~1e-17 a bar), and
 #: a ratio of two noise terms is noise; any real position is far above it.
@@ -23,7 +47,7 @@ def cash_account_sharpe(growth, cash_growth: float, days: int, excess_volatility
 
     growth: final equity / initial equity. cash_growth: the same for the cash
     account (prod(1 + accrual)). days: calendar days the run spans.
-    excess_volatility: std(returns - accrual) * sqrt(252).
+    excess_volatility: std(returns - accrual) * sqrt(periods_per_year).
 
     `growth` and `excess_volatility` may be arrays, so the portfolio optimizer
     scores thousands of weightings with the code every backtest uses. 0 below
@@ -109,7 +133,10 @@ class PerformanceAnalyzer:
         annualized_return = (1 + total_return) ** (365.0 / days) - 1 if days > 0 else 0.0
 
         # --- Risk & Risk-Adjusted Return Metrics ---
-        annualized_volatility = self.returns.std() * np.sqrt(252)
+        # Annualized on the series' own calendar: 252 for equities, 365 for a
+        # series with weekend bars (decision 38).
+        annualize = np.sqrt(periods_per_year(self.portfolio_value.index))
+        annualized_volatility = self.returns.std() * annualize
         # Sharpe against the cash account the backtest credits: geometric
         # excess growth (equity vs cash, annualized like the CAGR) over the
         # volatility of the per-bar excess return. A strategy that never trades
@@ -123,13 +150,13 @@ class PerformanceAnalyzer:
         # the old CAGR / vol. A one-bar run is NaN, which the API reports as
         # null rather than as a real 0.
         cash_growth = float(np.prod(1.0 + self.risk_free_accrual))
-        excess_volatility = (self.returns - self.risk_free_accrual).std() * np.sqrt(252)
+        excess_volatility = (self.returns - self.risk_free_accrual).std() * annualize
         sharpe_ratio = float(
             cash_account_sharpe(1 + total_return, cash_growth, days, excess_volatility)
         )
 
         downside_returns = self.returns[self.returns < 0]
-        downside_std = downside_returns.std() * np.sqrt(252)
+        downside_std = downside_returns.std() * annualize
         sortino_ratio = annualized_return / downside_std if downside_std != 0 else 0.0
 
         _series, max_drawdown, max_drawdown_duration = self._calculate_drawdowns()

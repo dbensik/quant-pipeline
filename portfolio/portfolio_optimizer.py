@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from analysis.performance_analyzer import cash_account_sharpe
+from analysis.performance_analyzer import cash_account_sharpe, periods_per_year
 
 #: Weightings scored per matrix product: bounds memory (bars x chunk floats)
 #: and sets how often progress is reported.
@@ -82,6 +82,8 @@ class PortfolioOptimizer:
         accrual = self.risk_free_accrual
         index = self.price_data.index
         days = (index[-1] - index[0]).days
+        # The same calendar rule as every backtest (decision 38).
+        annualize = np.sqrt(periods_per_year(index))
         cash_growth = float(np.prod(1.0 + accrual))
 
         annual_return = np.empty(num_portfolios)
@@ -95,10 +97,10 @@ class PortfolioOptimizer:
             portfolio_returns = returns @ all_weights[lo:hi].T
             growth = np.prod(1.0 + portfolio_returns, axis=0)
             annual_return[lo:hi] = growth ** (365.0 / days) - 1 if days > 0 else 0.0
-            volatility[lo:hi] = portfolio_returns.std(axis=0, ddof=1) * np.sqrt(252)
+            volatility[lo:hi] = portfolio_returns.std(axis=0, ddof=1) * annualize
             excess_volatility = (portfolio_returns - accrual[:, None]).std(axis=0, ddof=1)
             sharpe[lo:hi] = cash_account_sharpe(
-                growth, cash_growth, days, excess_volatility * np.sqrt(252)
+                growth, cash_growth, days, excess_volatility * annualize
             )
 
         if callback:

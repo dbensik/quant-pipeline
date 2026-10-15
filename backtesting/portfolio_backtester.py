@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from analysis.performance_analyzer import PerformanceAnalyzer
+from analysis.performance_analyzer import PerformanceAnalyzer, periods_per_year
 from execution.simulated_handler import SimulatedExecutionHandler, to_lot
 
 from .events import OrderEvent
@@ -233,7 +233,7 @@ class PortfolioBacktester:
 
                         if len(hist_slice) > 10:
                             returns = hist_slice.pct_change().dropna()
-                            asset_vol = returns.std() * np.sqrt(252)
+                            asset_vol = returns.std() * np.sqrt(periods_per_year(hist_slice.index))
 
                             quantity = self.risk_manager.calculate_volatility_adjusted_size(
                                 portfolio_equity=open_state["total"],

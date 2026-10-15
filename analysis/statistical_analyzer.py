@@ -102,7 +102,11 @@ class StatisticalAnalyzer:
         benchmark_with_const = sm.add_constant(data["benchmark"])
         model = sm.OLS(data["asset"], benchmark_with_const).fit()
 
-        alpha = model.params.get("const", 0) * 252
+        # Per bar of the OVERLAPPING dates: a coin on SPY overlaps on weekdays
+        # (252), a coin on a coin every day (365) — decision 38.
+        from analysis.performance_analyzer import periods_per_year
+
+        alpha = model.params.get("const", 0) * periods_per_year(data.index)
         beta = model.params.get("benchmark", 0)
         r_squared = model.rsquared
 

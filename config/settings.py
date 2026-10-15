@@ -1008,6 +1008,18 @@ REALISED_VOL_WINDOWS = (10, 20, 60, 120)
 #: Trading days per year, for annualising realised volatility only.
 REALISED_VOL_DAYS_PER_YEAR = 252
 
+#: Bars a year for annualising backtest metrics (volatility, Sharpe, Sortino),
+#: the portfolio optimizer and alpha — decided by the series' own calendar
+#: (decision 38, research/crypto-strategies-2026-10-15.md). A series with
+#: weekend bars (crypto, or a basket holding crypto) has 365 a year; one
+#: without has 252. Until 2026-10-15 every series used 252, so every crypto
+#: Sharpe was sqrt(365/252) = 1.2035x too high. A SHARE of weekend bars, not
+#: "any", so one stray weekend print cannot flip an equity series: equities
+#: had 0 of 2,073,293 bars on a weekend, crypto 2 in 7.
+TRADING_DAYS_PER_YEAR = 252
+CALENDAR_DAYS_PER_YEAR = 365
+CALENDAR_DAYS_WEEKEND_SHARE = 0.10
+
 # --- Option chains and the surface (pricing/chains.py, tier 2 phase 2) ---
 #: A bid below this is "no bid": its mid is not a price.
 OPTIONS_MIN_BID = 0.01

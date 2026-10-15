@@ -298,6 +298,14 @@ were at the signal bar's own close — measured before switching, it moved no
 single-asset conclusion and cost the allocation rules 0.02-0.07 Sharpe.
 `tests/unit/test_next_open_fills.py` fails on same-close fills.
 
+**Metrics are annualized on the series' own calendar** (since 2026-10-15,
+decision 38): `periods_per_year()` in `analysis/performance_analyzer.py`
+gives 365 when at least 10% of a series' bars fall on a weekend (crypto, or
+a basket holding crypto), else 252. Volatility, Sharpe, Sortino, the weights
+optimizer, alpha and volatility targeting all use it. Equities have no
+weekend bars, so every equity figure is unchanged; every crypto Sharpe had
+been sqrt(365/252) = 1.2035x too high. `tests/unit/test_annualization.py`.
+
 **Backtests trade in lots: whole shares, 1e-8 of a coin** (since
 2026-10-12). `config.settings.BACKTEST_LOT_SIZES` maps asset class to the
 smallest tradable quantity (`lot_size_for`; an unconfigured class is 422,

@@ -196,6 +196,17 @@ def measured(finding: str) -> str:
     return f"Measured at its default parameters on 428 names, 2010-2026, with costs: {finding}"
 
 
+def measured_crypto(finding: str) -> str:
+    """What decision 35 found on crypto at a strategy's defaults.
+
+    research/crypto-strategies-2026-10-15.md: the 14 coins with bars from 2018
+    (survivors only, one correlated market), 2018-01 to 2026-10, next-open
+    fills, costs and interest on cash. The edge it found is crash avoidance —
+    2018 and 2022 — so it depends on the window containing such crashes.
+    """
+    return f"On crypto, 14 coins 2018-2026: {finding}"
+
+
 def measured_allocation(finding: str) -> str:
     """What decision 29 found for a multi-asset allocation rule at its defaults.
 
@@ -294,6 +305,11 @@ _SPECS: List[StrategySpec] = [
         caveat=measured(
             "better Sharpe than buy and hold on 6% of names (7% in 2010-2019, 20% in "
             "2020-2026), 9.4 pp a year less return."
+        )
+        + " "
+        + measured_crypto(
+            "beat buy and hold on 13 by sitting out the 2018 and 2022 crashes (median "
+            "+23 pp a year); it lost in most rising years."
         ),
     ),
     StrategySpec(
@@ -331,6 +347,11 @@ _SPECS: List[StrategySpec] = [
             "better Sharpe than buy and hold on 7% of names (8% in 2010-2019, 20% in "
             "2020-2026), 10.8 pp a year less return. Its drawdown (-37% against -53%) is "
             "time in cash: in the market 31% of the time."
+        )
+        + " "
+        + measured_crypto(
+            "beat buy and hold on 12 by sitting out the 2018 and 2022 crashes (median "
+            "+25 pp a year, worst drawdown -62% against -95%); it lost in most rising years."
         ),
     ),
     StrategySpec(
@@ -548,7 +569,9 @@ _SPECS: List[StrategySpec] = [
             "on Faber's five and seven ETFs it cut the basket's worst drawdown (-15% "
             "against -26%; -8% against -20%) at 1-2 pp a year of return, with a Sharpe "
             "level with the basket (0.45 against 0.46; 0.51 against 0.52)."
-        ),
+        )
+        + " On BTC/ETH 2018-2026 it cut the worst drawdown from -87% to -59% and was flat in "
+        "2018, when holding both lost 75%.",
         default_grid={"window": [50, 100, 200, 300]},
     ),
     StrategySpec(

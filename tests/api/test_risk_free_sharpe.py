@@ -101,7 +101,12 @@ def expected_sharpe(curve: list, annual: float, initial: float = CAPITAL) -> flo
     returns = pd.Series(totals).pct_change().fillna(0).to_numpy()
     days = (times[-1] - times[0]).days
     excess = ((totals[-1] / initial) / np.prod(1.0 + accrual)) ** (365.0 / days) - 1
-    return excess / (pd.Series(returns - accrual).std() * math.sqrt(252))
+    # Annualized on the curve's own calendar (decision 38), restated here rather
+    # than imported: 365 when >= 10% of its bars fall on a weekend, else 252.
+    # The fixture has a bar every calendar day, so it is 365.
+    weekend_share = sum(t.weekday() >= 5 for t in times) / len(times)
+    bars_per_year = 365 if weekend_share >= 0.10 else 252
+    return excess / (pd.Series(returns - accrual).std() * math.sqrt(bars_per_year))
 
 
 # --- every endpoint ------------------------------------------------------------
