@@ -262,6 +262,12 @@ Sharpe -0.33, and a run takes ~3 s. Its look-ahead xfails are gone;
 `LOOK_AHEAD_XFAILS` is empty. Its features still include raw OHLCV levels
 beside the returns (a modelling choice, not a leak).
 
+**No single-asset strategy beats buy and hold at its defaults** (measured
+2026-10-14, 515 names, 2020-2026, with costs;
+`research/strategy-evaluation-2026-10-14.md`). Each one's registry caveat
+says what was measured (`measured()`, decision 25). Re-measure before
+editing a figure; a change to a strategy or the backtester makes them stale.
+
 **Backtests trade in lots: whole shares, 1e-8 of a coin** (since
 2026-10-12). `config.settings.BACKTEST_LOT_SIZES` maps asset class to the
 smallest tradable quantity (`lot_size_for`; an unconfigured class is 422,

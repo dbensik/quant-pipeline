@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
+from alpha_models import registry
 from api.risk_free import ResolvedRiskFree
 
 WINDOW = {"start": "2024-01-01", "end": "2024-12-31"}
@@ -229,8 +230,11 @@ def test_buy_and_hold_in_returns_mode_has_no_caveat(client: TestClient):
 
 
 def test_prices_mode_has_no_path_caveat(client: TestClient):
+    # mean_reversion carries its registry evidence note (decision 25), so the
+    # caveat is not None; what must be absent is the returns-mode warning.
     body = run(client, **TRADING, mode="prices", n_paths=5).json()
-    assert body["caveat"] is None
+    assert "depend on the path" not in body["caveat"]
+    assert body["caveat"] == registry.get("mean_reversion").caveat
 
 
 def test_strategy_caveat_is_passed_through(client: TestClient):

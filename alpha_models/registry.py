@@ -104,8 +104,11 @@ class StrategySpec:
         "per_symbol"
     )
 
-    # Non-empty when a strategy is known to be unsound. Surfaced through the API
-    # so a consumer can warn rather than silently trusting the numbers.
+    # Non-empty when a strategy is known to be unsound, or when what it was
+    # measured to do should be read before trusting a run (decision 25: every
+    # single-asset strategy carries its 2020-2026 evidence, `measured()`).
+    # Surfaced through the API so a consumer can warn rather than silently
+    # trusting the numbers.
     caveat: Optional[str] = None
 
     # A sensible parameter sweep, used when a caller asks to optimize without
@@ -155,6 +158,17 @@ class StrategySpec:
 # The registry
 # ---------------------------------------------------------------------------
 
+
+def measured(finding: str) -> str:
+    """What the 2020-2026 evaluation found at a strategy's defaults (decision 25).
+
+    research/strategy-evaluation-2026-10-14.md: 515 current index members and
+    ETFs, 2020-01 to 2026-10, through the API with costs and interest on cash.
+    Medians; one market regime and survivors only, so not 515 trials.
+    """
+    return f"Measured at its default parameters on 515 names, 2020-2026, with costs: {finding}"
+
+
 _SPECS: List[StrategySpec] = [
     StrategySpec(
         id="buy_and_hold",
@@ -184,6 +198,11 @@ _SPECS: List[StrategySpec] = [
             "window": [10, 20, 30, 40, 50],
             "threshold": [1.0, 1.5, 2.0, 2.5],
         },
+        caveat=measured(
+            "better Sharpe than buy and hold on 28% of names, 5.4 pp a year less return. Its "
+            "shallower drawdown is time in cash (in the market 30% of the time); parameters "
+            "fitted on 2020-2022 drew level with buy and hold in 2023-2026, not ahead."
+        ),
     ),
     StrategySpec(
         id="ma_crossover",
@@ -216,6 +235,11 @@ _SPECS: List[StrategySpec] = [
             "short_window": [10, 20, 30],
             "long_window": [50, 100, 200],
         },
+        caveat=measured(
+            "better Sharpe than buy and hold on 31% of names (9 of 12 ETFs), 5.4 pp a year "
+            "less return. Parameters fitted on 2020-2022 lost to buy and hold on 81% of names"
+            " in 2023-2026."
+        ),
     ),
     StrategySpec(
         id="trend_following",
@@ -225,6 +249,9 @@ _SPECS: List[StrategySpec] = [
         params=[
             ParamSpec("window", "int", 50, "Lookback window", "Bars used to measure trend", 2, 500),
         ],
+        caveat=measured(
+            "better Sharpe than buy and hold on 23% of names, 6.4 pp a year less return."
+        ),
     ),
     StrategySpec(
         id="rsi",
@@ -240,6 +267,10 @@ _SPECS: List[StrategySpec] = [
                 "sell_threshold", "int", 70, "Sell above", "RSI level considered overbought", 1, 99
             ),
         ],
+        caveat=measured(
+            "better Sharpe than buy and hold on 48% of names, 1.9 pp a year less return, with"
+            " a shallower drawdown on 97%."
+        ),
     ),
     StrategySpec(
         id="atr_breakout",
@@ -252,6 +283,10 @@ _SPECS: List[StrategySpec] = [
                 "multiplier", "float", 2.0, "ATR multiplier", "Breakout distance in ATRs", 0.1, 10.0
             ),
         ],
+        caveat=measured(
+            "better Sharpe than buy and hold on 20% of names, 7.5 pp a year less return. Its "
+            "drawdown (-30% against -51%) is time in cash: in the market 29% of the time."
+        ),
     ),
     StrategySpec(
         id="push_response",
@@ -274,6 +309,10 @@ _SPECS: List[StrategySpec] = [
                 "threshold", "float", 0.0, "Threshold", "Minimum response to act on", -1.0, 1.0
             ),
         ],
+        caveat=measured(
+            "loses to buy and hold on 97% of names, 14.2 pp a year less return, with a deeper"
+            " drawdown."
+        ),
     ),
     StrategySpec(
         id="ml_random_forest",
@@ -303,7 +342,8 @@ _SPECS: List[StrategySpec] = [
         ],
         caveat=(
             "Flat for the first `train_window` bars while it gathers training data. "
-            "Until 2026-10-14 it trained on the full history (look-ahead)."
+            "Until 2026-10-14 it trained on the full history (look-ahead). "
+            + measured("loses to buy and hold on 97% of names, 13.4 pp a year less return.")
         ),
     ),
     # --- multi-asset: different input contract, NOT single-symbol frames ----
