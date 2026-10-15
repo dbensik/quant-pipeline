@@ -10,7 +10,7 @@
  * Phase 5 — React pages for the ported routers
  */
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import type { ApiError, TestSchema } from '@/api/client'
 import { useRunStatistic, useStatisticsCatalogue } from '@/api/queries'
@@ -89,18 +89,19 @@ export function StatisticsPage() {
   const test = catalogue?.tests.find((t) => t.id === testId)
 
   // Prefill a symbol count that suits the chosen test's arity, so switching to
-  // a pair test does not immediately 422 on one symbol.
-  useEffect(() => {
-    if (!test) return
+  // a pair test does not immediately 422 on one symbol. Done when the test is
+  // picked, not in an effect after it renders.
+  function chooseTest(next: NonNullable<typeof test>) {
+    setTestId(next.id)
     setSymbols((current) => {
       const count = current.split(',').filter((s) => s.trim()).length
-      if (test.arity === 'single' && count !== 1) return 'AAPL'
-      if (test.arity === 'pair' && count !== 2) return 'AAPL, MSFT'
-      if (test.arity === 'multi' && count < (test.min_symbols ?? 2))
+      if (next.arity === 'single' && count !== 1) return 'AAPL'
+      if (next.arity === 'pair' && count !== 2) return 'AAPL, MSFT'
+      if (next.arity === 'multi' && count < (next.min_symbols ?? 2))
         return 'AAPL, MSFT, JPM, XOM'
       return current
     })
-  }, [test])
+  }
 
   const list = symbols
     .split(',')
@@ -127,7 +128,7 @@ export function StatisticsPage() {
               <button
                 key={t.id}
                 type="button"
-                onClick={() => setTestId(t.id)}
+                onClick={() => chooseTest(t)}
                 className={`w-full rounded-lg border p-3 text-left transition-colors ${
                   testId === t.id ? 'border-primary bg-muted/50' : 'hover:bg-muted/30'
                 }`}

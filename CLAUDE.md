@@ -279,7 +279,11 @@ them stale.
 **Served equities and ETFs have bars from 2010** (insert-only backfill
 2026-10-14, decision 26; ^IRX from 2009-12, without which a pre-2015
 backtest is 422). Yahoo serves placeholder bars before some listings (AMCR,
-SW): those assets carry `history_valid_from`. A dividend on a split's own
+SW): those assets carry `history_valid_from`. The 32 crypto coins that began
+at the 2020-01-01 default go back to Yahoo's start (BTC/LTC 2014-09, most
+2017-11; decision 33, `research/crypto-history-backfill-2026-10-15.md`);
+FIL is floored at its 2020-10-15 mainnet: Yahoo's earlier bars price a
+pre-launch IOU (decision 34). A dividend on a split's own
 ex-date is scaled by that split (decision 27: EXPE 2011, TMUS 2013, IRM
 2014, DHR 2016).
 

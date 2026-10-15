@@ -12,7 +12,7 @@
  * Phase 5 — React pages for the ported routers
  */
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 
 import type { ApiError, PositionOut } from '@/api/client'
@@ -132,7 +132,10 @@ function Positions({ positions }: { positions: PositionOut[] }) {
 
 export function PortfoliosPage() {
   const { data: portfolios, isLoading } = usePortfolios()
-  const [selected, setSelected] = useState<string | null>(null)
+  // What the user picked; until they pick, the first portfolio. Derived during
+  // render rather than copied into state by an effect, which re-rendered twice.
+  const [chosen, setSelected] = useState<string | null>(null)
+  const selected = chosen ?? portfolios?.[0]?.name ?? null
 
   const { data: state, isLoading: stateLoading } = usePortfolio(selected)
   const { data: trades } = useTrades(selected)
@@ -154,12 +157,6 @@ export function PortfoliosPage() {
   })
   const [allowOverdraft, setAllowOverdraft] = useState(false)
   const [weights, setWeights] = useState('')
-
-  // Select the first portfolio once the list arrives, so the page is not an
-  // empty shell on load.
-  useEffect(() => {
-    if (!selected && portfolios?.length) setSelected(portfolios[0].name)
-  }, [portfolios, selected])
 
   function submitTrade() {
     if (!selected) return
