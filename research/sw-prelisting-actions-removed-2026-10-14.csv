@@ -1,0 +1,3 @@
+id,asset_id,ex_date,kind,value,source,fetched_at,evidence
+32999,508,2014-04-09,dividend,0.424,yfinance,2026-10-15 01:37:26.813175+00,
+33000,508,2014-10-01,dividend,0.194,yfinance,2026-10-15 01:37:26.813175+00,
