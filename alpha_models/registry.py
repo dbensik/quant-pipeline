@@ -171,6 +171,18 @@ def measured(finding: str) -> str:
     return f"Measured at its default parameters on 428 names, 2010-2026, with costs: {finding}"
 
 
+def measured_allocation(finding: str) -> str:
+    """What decision 29 found for a multi-asset allocation rule at its defaults.
+
+    research/multi-asset-strategies-2026-10-15.md: ETF baskets fixed in advance
+    (Faber's five: SPY EFA IEF VNQ DBC; seven: + GLD TLT) and SPY with TLT, IEF
+    or AGG, 2011-01 to 2026-10, sized by weights (not the 2% buy cap), with
+    costs and interest on cash, against the same basket equal-weighted. Fills
+    at the signal bar's close; a one-bar delay cut Sharpe by 0.03-0.09.
+    """
+    return f"Measured at its defaults on fixed ETF baskets, 2011-2026, with costs: {finding}"
+
+
 _SPECS: List[StrategySpec] = [
     StrategySpec(
         id="buy_and_hold",
@@ -469,7 +481,12 @@ _SPECS: List[StrategySpec] = [
         caveat=(
             "Trades exactly two symbols, and only one leg is ever held — so the "
             "API's equal-weight default leaves it 50% in cash. Pass weights of "
-            "1.0 per symbol to be fully invested."
+            "1.0 per symbol to be fully invested. "
+            + measured_allocation(
+                "on SPY with TLT, IEF or AGG it lost to a static 50/50 of the same pair in "
+                "both decades (SPY/TLT Sharpe 0.79 against 1.41 in 2011-2019, -0.09 against "
+                "0.17 in 2020-2026) and took the full 2020 crash (-34%)."
+            )
         ),
         default_grid={"lookback": [21, 63, 126, 252]},
     ),
@@ -501,6 +518,12 @@ _SPECS: List[StrategySpec] = [
         ],
         input_contract="multi",
         signal_shape="wide_per_asset",
+        caveat=measured_allocation(
+            "on Faber's five and seven ETFs it halved the basket's worst drawdown (-14% "
+            "against -26%; -8% against -20%) at about 1 pp a year of return, with a Sharpe "
+            "level with the basket (0.49 against 0.45; 0.54 against 0.52). Pass "
+            "max_trade_risk_pct=1.0: the 2% default cap leaves it 8-10% invested."
+        ),
         default_grid={"window": [50, 100, 200, 300]},
     ),
     StrategySpec(
@@ -540,6 +563,12 @@ _SPECS: List[StrategySpec] = [
         ],
         input_contract="multi",
         signal_shape="wide_per_asset",
+        caveat=measured_allocation(
+            "beat its basket on Faber's five ETFs (Sharpe 0.64 against 0.45) but not on "
+            "seven (0.51 against 0.52), with no drawdown protection (2022: -12%); its "
+            "2020-2026 Sharpe ranged 0.32-0.86 across its grid. Pass weights of 1/top_n "
+            "per symbol: equal weights leave it 30-42% invested."
+        ),
         default_grid={"lookback": [63, 126, 252], "top_n": [1, 2, 3]},
     ),
 ]
