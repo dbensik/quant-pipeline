@@ -180,3 +180,13 @@ signals and should be more exposed. Not measured here — decision 30.
     close), and report how far every figure moves. Read-only, about 2-3 h
     agent time; whether to change the convention would be a separate
     decision on that evidence.
+
+32. **Approved 2026-10-15 and built: make the allocation rules usable.**
+    (a) `POST /backtest/portfolio` defaults `max_trade_risk_pct` and
+    `max_portfolio_drawdown_pct` to 1.0 (off), and a request without
+    `weights` takes the strategy's own `held_weight` from the registry. A
+    default run of trend or momentum on faber5 now equals the sized-by-weights
+    run to the cent. (b) An Allocation page (`/allocation`): Faber 5 / Faber 7 /
+    SPY-TLT presets or any basket, the strategy and its parameters, its caveat,
+    and the result beside the same basket equal-weighted, with both curves.
+

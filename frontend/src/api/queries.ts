@@ -375,6 +375,28 @@ export function useCompare() {
   return useMutation({ mutationFn: api.compareStrategies })
 }
 
+/**
+ * A multi-asset strategy and, beside it, the SAME basket equal-weighted and
+ * rebalanced monthly. Decision 29 measured the allocation rules against exactly
+ * that benchmark; a run without it cannot say whether the rule did anything.
+ */
+export function usePortfolioBacktest() {
+  return useMutation({
+    mutationFn: async (body: Parameters<typeof api.runPortfolioBacktest>[0]) => {
+      const [strategy, benchmark] = await Promise.all([
+        api.runPortfolioBacktest(body),
+        api.runPortfolioBacktest({
+          ...body,
+          strategy_id: 'index_rebalancing',
+          params: {},
+          weights: null,
+        }),
+      ])
+      return { strategy, benchmark }
+    },
+  })
+}
+
 export function useOptimizeStrategy() {
   return useMutation({ mutationFn: api.optimizeStrategy })
 }

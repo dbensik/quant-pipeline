@@ -126,6 +126,30 @@ class StrategySpec:
     # invented for strategies where a sensible range is a guess.
     default_grid: Optional[Dict[str, List[Any]]] = None
 
+    # How a multi-asset run weights each symbol when the caller passes no
+    # weights (decision 32). The PortfolioBacktester buys weight x equity for a
+    # symbol when it is first held, so the right default depends on how many
+    # symbols the rule holds at once:
+    #   equal      1/N each — every symbol may be held together (trend,
+    #              rebalancing): in three of five sleeves is 60% invested.
+    #   per_top_n  1/top_n each — the rule holds top_n at a time (momentum).
+    #              Equal weights left it 30-42% invested (decision 29).
+    #   full       1.0 each — one leg held at a time (paired switching).
+    #              Equal weights left it 50% in cash.
+    held_weight: Literal["equal", "per_top_n", "full"] = "equal"
+
+    def default_weights(self, symbols: List[str], params: Dict[str, Any]) -> Dict[str, float]:
+        """The weights a run uses when the caller supplies none."""
+        if self.held_weight == "full":
+            return {s: 1.0 for s in symbols}
+        if self.held_weight == "per_top_n":
+            effective = {p.name: params.get(p.name, p.default) for p in self.params}
+            top_n = int(effective["top_n"])
+            if top_n < 1:
+                raise ValueError(f"top_n must be at least 1; got {top_n}.")
+            return {s: 1.0 / min(top_n, len(symbols)) for s in symbols}
+        return {s: 1.0 / len(symbols) for s in symbols}
+
     def build(self, params: Optional[Dict[str, Any]] = None) -> BaseAlphaModel:
         """
         Instantiate the strategy, filling unspecified parameters with defaults.
@@ -478,12 +502,12 @@ _SPECS: List[StrategySpec] = [
                 "W, ME (month end), QE (quarter end) or YE",
             ),
         ],
+        held_weight="full",
         input_contract="multi",
         signal_shape="wide_per_asset",
         caveat=(
-            "Trades exactly two symbols, and only one leg is ever held — so the "
-            "API's equal-weight default leaves it 50% in cash. Pass weights of "
-            "1.0 per symbol to be fully invested. "
+            "Trades exactly two symbols, and only one leg is ever held, so each "
+            "leg defaults to a weight of 1.0 (fully invested in whichever is held). "
             + measured_allocation(
                 "on SPY with TLT, IEF or AGG it lost to a static 50/50 of the same pair in both "
                 "decades (SPY/TLT Sharpe 0.73 against 1.41 in 2011-2019, -0.18 against 0.17 in "
@@ -523,8 +547,7 @@ _SPECS: List[StrategySpec] = [
         caveat=measured_allocation(
             "on Faber's five and seven ETFs it cut the basket's worst drawdown (-15% "
             "against -26%; -8% against -20%) at 1-2 pp a year of return, with a Sharpe "
-            "level with the basket (0.45 against 0.46; 0.51 against 0.52). Pass "
-            "max_trade_risk_pct=1.0: the 2% default cap leaves it 8-10% invested."
+            "level with the basket (0.45 against 0.46; 0.51 against 0.52)."
         ),
         default_grid={"window": [50, 100, 200, 300]},
     ),
@@ -563,13 +586,13 @@ _SPECS: List[StrategySpec] = [
                 "W, ME (month end), QE (quarter end) or YE",
             ),
         ],
+        held_weight="per_top_n",
         input_contract="multi",
         signal_shape="wide_per_asset",
         caveat=measured_allocation(
             "beat its basket on Faber's five ETFs (Sharpe 0.61 against 0.46) but not on "
             "seven (0.49 against 0.52), with no drawdown protection (2022: -12%); its "
-            "2020-2026 Sharpe ranged 0.22-0.88 across its grid. Pass weights of 1/top_n per "
-            "symbol: equal weights leave it 30-42% invested."
+            "2020-2026 Sharpe ranged 0.22-0.88 across its grid."
         ),
         default_grid={"lookback": [63, 126, 252], "top_n": [1, 2, 3]},
     ),

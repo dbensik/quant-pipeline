@@ -17,12 +17,14 @@ import {
   Filter,
   LineChart,
   Newspaper,
+  PieChart,
   Save,
   Sigma,
   SlidersHorizontal,
   Star,
 } from 'lucide-react'
 
+import { AllocationPage } from '@/pages/AllocationPage'
 import { ComparePage } from '@/pages/ComparePage'
 import { DataPage } from '@/pages/DataPage'
 import { DashboardPage } from '@/pages/DashboardPage'
@@ -59,6 +61,13 @@ export const routes: RouteDef[] = [
     icon: BarChart3,
     element: ComparePage,
     blurb: 'Run several strategies on one symbol and rank them.',
+  },
+  {
+    path: '/allocation',
+    label: 'Allocation',
+    icon: PieChart,
+    element: AllocationPage,
+    blurb: 'A multi-asset allocation rule over a basket, beside the same basket equal-weighted.',
   },
   {
     path: '/optimize',

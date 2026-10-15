@@ -81,6 +81,8 @@ export type CompareRequest = components['schemas']['CompareRequest']
 export type CompareResponse = components['schemas']['CompareResponse']
 export type ComparisonRow = components['schemas']['ComparisonRow']
 export type StrategyOptimizeRequest = components['schemas']['StrategyOptimizeRequest']
+export type PortfolioBacktestRequest = components['schemas']['PortfolioBacktestRequest']
+export type PortfolioBacktestResponse = components['schemas']['PortfolioBacktestResponse']
 export type StrategyOptimizeResponse = components['schemas']['StrategyOptimizeResponse']
 export type PortfolioOptimizeRequest = components['schemas']['PortfolioOptimizeRequest']
 export type PortfolioOptimizeResponse = components['schemas']['PortfolioOptimizeResponse']
@@ -463,6 +465,22 @@ export const api = {
   },
 
   // -- compare & optimize --------------------------------------------------
+
+  /** A multi-asset strategy over a basket. Weights omitted = the strategy's own default. */
+  runPortfolioBacktest(body: {
+    symbols: string[]
+    strategy_id: string
+    start: string
+    end: string
+    params?: Record<string, unknown>
+    weights?: Record<string, number> | null
+    include_risk?: boolean
+  }): Promise<PortfolioBacktestResponse> {
+    return request('/api/v1/backtest/portfolio', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  },
 
   compareStrategies(body: {
     symbol: string

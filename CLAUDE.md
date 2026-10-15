@@ -434,6 +434,12 @@ For the TimescaleDB layer, copy `.env.example` → `.env`; without it, `db/sessi
 - `api/routers/` — the REST/WS surface: ohlcv, assets, strategies, backtest,
   compare, optimize, simulate, options, valuation, screeners, statistics, portfolios,
   watchlists, research, ingest, results, signals, ws
+- `api/routers/portfolio_backtest.py` + `frontend/src/pages/AllocationPage.tsx`
+  — multi-asset allocation rules over a basket, beside the same basket
+  equal-weighted (decision 32, 2026-10-15). With no `weights`, each strategy's
+  registry `held_weight` sets them (1/N; 1/top_n for momentum; 1.0 per leg for
+  paired switching), and the 2% buy cap / 20% drawdown halt are OFF unless
+  passed: as defaults they left trend following 7.6% invested.
 - `frontend/` — React dashboard; `routes.tsx` declares pages once for both the
   router and the nav bar; TanStack Query owns server state, Zustand owns UI
   selections only

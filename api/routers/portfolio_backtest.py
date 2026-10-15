@@ -55,8 +55,10 @@ class PortfolioBacktestRequest(BaseModel):
     weights: Optional[Dict[str, float]] = Field(
         default=None,
         description=(
-            "Target weight per symbol. Omitted means equal-weight. Must cover "
-            "every requested symbol when supplied — a partial mapping would "
+            "Target weight per symbol. Omitted means the strategy's own default "
+            "(`held_weight` in GET /strategies): 1/N for rules that may hold every "
+            "symbol, 1/top_n for momentum, 1.0 per leg for paired switching. Must "
+            "cover every requested symbol when supplied — a partial mapping would "
             "silently zero-weight the rest."
         ),
     )
@@ -76,34 +78,37 @@ class PortfolioBacktestRequest(BaseModel):
     enable_vol_targeting: bool = Field(default=False)
     target_volatility: float = Field(default=0.15, gt=0)
 
-    # Both default to PortfolioRiskManager's own defaults, so an existing
-    # request returns exactly what it returned before. They are exposed because
-    # those defaults dominate the result and were previously unreachable — a
-    # backtest was reporting the risk manager's behaviour, not the strategy's.
+    # Both default to OFF (1.0) since 2026-10-15 (decision 32). They defaulted to
+    # PortfolioRiskManager's own 0.02 / 0.20, which left trend following on a
+    # five-ETF basket 7.6% invested for 2.0% a year, against 72% and 5.2% sized
+    # by its weights (research/multi-asset-strategies-2026-10-15.md): a default
+    # run reported the risk manager, not the strategy. Pass them to apply them.
     max_trade_risk_pct: float = Field(
-        default=0.02,
+        default=1.0,
         gt=0,
         le=1.0,
         description=(
-            "Cap on a single BUY as a fraction of total equity. The default "
-            "0.02 scales every purchase to 2%, which makes `weights` inert "
-            "above 2% and leaves a portfolio ~98% in cash: measured over "
+            "Cap on a single BUY as a fraction of total equity; 1.0 (the "
+            "default) means no cap. A cap of 0.02 scales every purchase to 2%, "
+            "which makes `weights` inert above 2% and leaves a portfolio ~98% in "
+            "cash: measured over "
             "2015-2026, paired switching ran 49 trades at 1.9% average "
             "exposure for +1.03%, versus the same 49 trades at 95.7% exposure "
             "for +48.49% uncapped. Pass 1.0 to size purely from `weights`."
         ),
     )
     max_portfolio_drawdown_pct: float = Field(
-        default=0.20,
+        default=1.0,
         gt=0,
         le=1.0,
         description=(
-            "Drawdown from the high-water mark at which new BUYs stop. NOT "
+            "Drawdown from the high-water mark at which new BUYs stop; 1.0 (the "
+            "default) disables it. NOT "
             "recoverable: the high-water mark only rises, and a portfolio that "
             "cannot buy cannot recover, so once tripped it halts buying for the "
             "rest of the run. Measured over 2015-2026, paired switching sat 0% "
             "invested from 2023 onward with a perfectly flat equity curve "
-            "(standard deviation 0.0000, zero new highs). Pass 1.0 to disable."
+            "(standard deviation 0.0000, zero new highs)."
         ),
     )
 
@@ -338,7 +343,10 @@ async def run_portfolio_backtest(
             )
         price_data[symbol] = frame
 
-    weights = request.weights or {symbol: 1.0 / len(price_data) for symbol in price_data}
+    try:
+        weights = request.weights or spec.default_weights(list(price_data), request.params)
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
 
     # PortfolioBacktester runs over the UNION of the symbols' dates, so the
     # rate is averaged over the same sessions.

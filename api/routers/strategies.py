@@ -45,6 +45,13 @@ class StrategySchema(BaseModel):
         default=None,
         description="Set when the strategy is known to be unsound — surface it to the user.",
     )
+    held_weight: Literal["equal", "per_top_n", "full"] = Field(
+        default="equal",
+        description=(
+            "Multi-asset only: the default weight per symbol when a portfolio "
+            "backtest passes none — 'equal' 1/N, 'per_top_n' 1/top_n, 'full' 1.0."
+        ),
+    )
     default_grid: Optional[Dict[str, List[Any]]] = Field(
         default=None,
         description=(
@@ -79,6 +86,7 @@ def _to_schema(spec: registry.StrategySpec) -> StrategySchema:
             for p in spec.params
         ],
         caveat=spec.caveat,
+        held_weight=spec.held_weight,
         default_grid=spec.default_grid,
     )
 

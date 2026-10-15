@@ -200,15 +200,27 @@ def test_unknown_param_name_is_rejected_not_ignored(client: TestClient):
 # max_portfolio_drawdown_pct=0.20 halts buying permanently once tripped.
 
 
-def test_risk_limits_default_to_the_previous_hardcoded_values(client: TestClient):
+def test_risk_limits_default_to_off(client: TestClient):
     """
-    Backward compatibility is the point of exposing rather than changing them:
-    an existing request must return exactly what it returned before, so no
-    saved result in results/ is retroactively invalidated.
+    Decision 32 (2026-10-15): the 2% buy cap and 20% drawdown halt are opt-in.
+    As defaults they left trend following on five ETFs 7.6% invested, so a
+    default run reported the risk manager, not the strategy. They had been
+    kept for backward compatibility; the one saved result in results/ is a
+    weight optimization, not a portfolio backtest, so nothing stored changes.
     """
     body = run(client).json()
-    assert body["max_trade_risk_pct"] == 0.02
-    assert body["max_portfolio_drawdown_pct"] == 0.20
+    assert body["max_trade_risk_pct"] == 1.0
+    assert body["max_portfolio_drawdown_pct"] == 1.0
+
+
+def test_a_default_run_is_sized_by_its_weights_not_the_risk_manager(client: TestClient):
+    """Same result as the limits switched off explicitly; not the capped one."""
+    trend = {"strategy_id": "asset_class_trend", "params": {"window": 50}}
+    default = run(client, **trend).json()["metrics"]["Final Value"]
+    off = run(client, **trend, max_trade_risk_pct=1.0, max_portfolio_drawdown_pct=1.0)
+    capped = run(client, **trend, max_trade_risk_pct=0.02, max_portfolio_drawdown_pct=0.20)
+    assert default == off.json()["metrics"]["Final Value"]
+    assert default != capped.json()["metrics"]["Final Value"]
 
 
 def test_risk_limits_are_echoed_so_a_result_is_interpretable(client: TestClient):
@@ -300,6 +312,29 @@ def test_momentum_allocation_runs_through_the_router(client: TestClient):
     ).json()
     assert body["strategy_name"] == "Momentum Asset Allocation"
     assert body["metrics"]
+
+
+def test_paired_switching_defaults_each_leg_to_full_weight(client: TestClient):
+    """One leg is held at a time; equal weights left it 50% in cash (decision 32)."""
+    body = run(client, strategy_id="paired_switching", params={"lookback": 20}).json()
+    assert body["weights"] == {"AAPL": 1.0, "BTC-USD": 1.0}
+
+
+def test_momentum_defaults_each_sleeve_to_one_over_top_n(client: TestClient):
+    """It holds top_n at a time; equal weights left it 30-42% invested (decision 32)."""
+    body = run(
+        client,
+        symbols=["AAPL", "BTC-USD", "MSFT"],
+        strategy_id="momentum_allocation",
+        params={"lookback": 20, "top_n": 2},
+    ).json()
+    assert body["weights"] == {"AAPL": 0.5, "BTC-USD": 0.5, "MSFT": 0.5}
+
+
+def test_trend_defaults_to_equal_weights(client: TestClient):
+    """Every sleeve may be held together, so 1/N is right for trend."""
+    body = run(client, strategy_id="asset_class_trend", params={"window": 50}).json()
+    assert body["weights"] == {"AAPL": 0.5, "BTC-USD": 0.5}
 
 
 def test_paired_switching_requires_exactly_two_symbols(client: TestClient):

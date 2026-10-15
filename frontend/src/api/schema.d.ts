@@ -2144,7 +2144,7 @@ export interface components {
             };
             /**
              * Weights
-             * @description Target weight per symbol. Omitted means equal-weight. Must cover every requested symbol when supplied — a partial mapping would silently zero-weight the rest.
+             * @description Target weight per symbol. Omitted means the strategy's own default (`held_weight` in GET /strategies): 1/N for rules that may hold every symbol, 1/top_n for momentum, 1.0 per leg for paired switching. Must cover every requested symbol when supplied — a partial mapping would silently zero-weight the rest.
              */
             weights?: {
                 [key: string]: number;
@@ -2178,14 +2178,14 @@ export interface components {
             target_volatility: number;
             /**
              * Max Trade Risk Pct
-             * @description Cap on a single BUY as a fraction of total equity. The default 0.02 scales every purchase to 2%, which makes `weights` inert above 2% and leaves a portfolio ~98% in cash: measured over 2015-2026, paired switching ran 49 trades at 1.9% average exposure for +1.03%, versus the same 49 trades at 95.7% exposure for +48.49% uncapped. Pass 1.0 to size purely from `weights`.
-             * @default 0.02
+             * @description Cap on a single BUY as a fraction of total equity; 1.0 (the default) means no cap. A cap of 0.02 scales every purchase to 2%, which makes `weights` inert above 2% and leaves a portfolio ~98% in cash: measured over 2015-2026, paired switching ran 49 trades at 1.9% average exposure for +1.03%, versus the same 49 trades at 95.7% exposure for +48.49% uncapped. Pass 1.0 to size purely from `weights`.
+             * @default 1
              */
             max_trade_risk_pct: number;
             /**
              * Max Portfolio Drawdown Pct
-             * @description Drawdown from the high-water mark at which new BUYs stop. NOT recoverable: the high-water mark only rises, and a portfolio that cannot buy cannot recover, so once tripped it halts buying for the rest of the run. Measured over 2015-2026, paired switching sat 0% invested from 2023 onward with a perfectly flat equity curve (standard deviation 0.0000, zero new highs). Pass 1.0 to disable.
-             * @default 0.2
+             * @description Drawdown from the high-water mark at which new BUYs stop; 1.0 (the default) disables it. NOT recoverable: the high-water mark only rises, and a portfolio that cannot buy cannot recover, so once tripped it halts buying for the rest of the run. Measured over 2015-2026, paired switching sat 0% invested from 2023 onward with a perfectly flat equity curve (standard deviation 0.0000, zero new highs).
+             * @default 1
              */
             max_portfolio_drawdown_pct: number;
             /**
@@ -3207,6 +3207,13 @@ export interface components {
              * @description Set when the strategy is known to be unsound — surface it to the user.
              */
             caveat?: string | null;
+            /**
+             * Held Weight
+             * @description Multi-asset only: the default weight per symbol when a portfolio backtest passes none — 'equal' 1/N, 'per_top_n' 1/top_n, 'full' 1.0.
+             * @default equal
+             * @enum {string}
+             */
+            held_weight: "equal" | "per_top_n" | "full";
             /**
              * Default Grid
              * @description Parameter sweep used when a caller asks to optimize or compare without supplying a grid. Null means no default sweep — pass one explicitly.
