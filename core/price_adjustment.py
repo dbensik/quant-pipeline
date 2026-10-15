@@ -197,11 +197,18 @@ def to_raw(bars: Sequence[ServedBar], actions: Sequence[Action]) -> List[Bar]:
 def raw_dividends(actions: Sequence[Action]) -> List[Tuple[date, float]]:
     """
     Dividends per RAW share. Yahoo scales an amount by every split and manual
-    factor between its ex-date and the fetch, exactly as it scales a price.
+    factor from its ex-date to the fetch, exactly as it scales a price.
+
+    FROM, not after: a split on the dividend's OWN ex-date scales it too
+    (decision 27, research/history-2010-backfill-2026-10-14.md). Yahoo lists
+    a spinoff-with-reverse-split or a cash-plus-split merger as a split and a
+    dividend on one day, the amount already in the post-split basis. Leaving
+    the day out read TMUS's 2013-05-01 as +6.2% against Yahoo's -15.8%, EXPE
+    2011-12-21 +37 pp and DHR 2016-07-05 -19 pp off.
     """
     price = _price_events(actions)
     return sorted(
-        (a.ex_date, a.value / price.between(a.ex_date, _last_applied(a.fetched_at)))
+        (a.ex_date, a.value / price.between(a.ex_date - _ONE_DAY, _last_applied(a.fetched_at)))
         for a in actions
         if a.kind == DIVIDEND
     )

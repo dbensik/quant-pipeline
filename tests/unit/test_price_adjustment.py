@@ -119,6 +119,30 @@ def test_a_dividend_served_after_a_split_is_restored_to_its_raw_amount():
     assert raw_dividends([NVDA_SPLIT, fetched_then]) == [(date(2024, 3, 5), pytest.approx(0.04))]
 
 
+def test_a_split_on_the_dividends_own_ex_date_scales_it_too():
+    """
+    TMUS 2013-05-01 (MetroPCS): a 1:2 reverse split and a $4.06 distribution,
+    both on one ex-date, served today. Served 23.68 then 16.52; Yahoo's
+    auto_adjust return is -15.80%. Leaving the split's own day out of the
+    dividend's scaling read +6.2% (decision 27).
+    """
+    split = Action(date(2013, 5, 1), "split", 0.5, LATER)
+    div = Action(date(2013, 5, 1), "dividend", 4.06, LATER)
+    assert raw_dividends([split, div]) == [(date(2013, 5, 1), pytest.approx(2.03))]
+    bars = [served(date(2013, 4, 30), 23.68, LATER), served(date(2013, 5, 1), 16.52, LATER)]
+    tot = closes(adjust(bars, [split, div], "total"))
+    assert tot[1] / tot[0] - 1 == pytest.approx(-0.1580, abs=1e-4)
+
+
+def test_a_split_after_the_dividend_scales_it_and_one_before_does_not():
+    """Both sides of the boundary: the interval starts ON the ex-date."""
+    split = Action(date(2013, 5, 2), "split", 0.5, LATER)
+    div = Action(date(2013, 5, 1), "dividend", 4.06, LATER)
+    assert raw_dividends([split, div]) == [(date(2013, 5, 1), pytest.approx(2.03))]
+    before = Action(date(2013, 4, 30), "split", 0.5, LATER)
+    assert raw_dividends([before, div]) == [(date(2013, 5, 1), pytest.approx(4.06))]
+
+
 def test_a_dividend_before_the_series_starts_changes_nothing():
     bars = [served(date(2026, 6, 15), 69.59, at(date(2026, 6, 16)))]
     assert closes(adjust(bars, [MO_DIV], "total")) == [69.59]
