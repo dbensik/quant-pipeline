@@ -37,6 +37,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
+import { WatchlistMenu } from '@/components/watchlists/WatchlistMenu'
 
 /** Today's LOCAL date: toISOString() is UTC and reads tomorrow in a US evening. */
 const today = () => {
@@ -333,7 +334,10 @@ export function ValuationPage() {
       <Card>
         <CardContent className="grid gap-3 pt-4 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label htmlFor="val-symbol">Equity</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="val-symbol">Equity</Label>
+              <WatchlistMenu symbol={chosen} />
+            </div>
             {assets.isLoading ? (
               <Skeleton className="h-8 w-full" />
             ) : (

@@ -136,3 +136,31 @@ async def test_an_empty_list_is_a_valid_state(repo):
     saved = await repo.save_watchlist(NAME, [])
     assert saved.symbols == []
     assert await repo.get_watchlist(NAME) is not None
+
+
+async def test_adding_one_ticker_appends_without_rewriting(repo):
+    """add_symbol appends a child row; the existing rows and order stay."""
+    await repo.save_watchlist(NAME, ["AAPL", "MSFT"])
+    added = await repo.add_symbol(NAME, "nvda")
+    assert added.symbols == ["AAPL", "MSFT", "NVDA"]
+    assert (await repo.get_watchlist(NAME)).symbols == ["AAPL", "MSFT", "NVDA"]
+
+
+async def test_adding_a_ticker_twice_does_not_violate_the_unique_constraint(repo):
+    await repo.save_watchlist(NAME, ["AAPL"])
+    await repo.add_symbol(NAME, "AAPL")
+    assert (await repo.get_watchlist(NAME)).symbols == ["AAPL"]
+
+
+async def test_removing_one_ticker_deletes_only_its_row(repo):
+    await repo.save_watchlist(NAME, ["AAPL", "MSFT", "NVDA"])
+    removed = await repo.remove_symbol(NAME, "msft")
+    assert removed.symbols == ["AAPL", "NVDA"]
+    assert NAME not in await repo.watchlists_containing("MSFT")
+    # and it can come back, at the end
+    assert (await repo.add_symbol(NAME, "MSFT")).symbols == ["AAPL", "NVDA", "MSFT"]
+
+
+async def test_add_or_remove_on_a_missing_list_is_none(repo):
+    assert await repo.add_symbol(NAME, "AAPL") is None
+    assert await repo.remove_symbol(NAME, "AAPL") is None

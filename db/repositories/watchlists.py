@@ -47,6 +47,14 @@ class WatchlistRepository:
 
     async def delete_watchlist(self, name: str) -> bool: ...
 
+    async def add_symbol(self, name: str, symbol: str) -> Optional[Watchlist]:
+        """Append one ticker (a no-op if present). None if there is no such list."""
+        ...
+
+    async def remove_symbol(self, name: str, symbol: str) -> Optional[Watchlist]:
+        """Remove one ticker (a no-op if absent). None if there is no such list."""
+        ...
+
     async def watchlists_containing(self, symbol: str) -> List[str]:
         """Names of every watchlist holding `symbol`."""
         ...
@@ -134,6 +142,33 @@ class TimescaleWatchlistRepo:
         await self.session.delete(row)
         await self.session.commit()
         return True
+
+    async def add_symbol(self, name: str, symbol: str) -> Optional[Watchlist]:
+        # One ticker, server side. Adding from another page by re-saving the
+        # whole list would rest on whatever copy of it that page held, and a
+        # stale copy silently drops tickers saved elsewhere since.
+        upper = symbol.upper().strip()
+        row = await self._find(name)
+        if row is None:
+            return None
+        if upper not in {s.symbol for s in row.symbols}:
+            position = max((s.position for s in row.symbols), default=-1) + 1
+            row.symbols.append(WatchlistSymbolORM(symbol=upper, position=position))
+            await self.session.commit()
+        self.session.expire(row)
+        return _to_watchlist(await self._find(name))
+
+    async def remove_symbol(self, name: str, symbol: str) -> Optional[Watchlist]:
+        upper = symbol.upper().strip()
+        row = await self._find(name)
+        if row is None:
+            return None
+        for child in list(row.symbols):
+            if child.symbol == upper:
+                row.symbols.remove(child)  # delete-orphan deletes the row
+        await self.session.commit()
+        self.session.expire(row)
+        return _to_watchlist(await self._find(name))
 
     async def watchlists_containing(self, symbol: str) -> List[str]:
         result = await self.session.execute(

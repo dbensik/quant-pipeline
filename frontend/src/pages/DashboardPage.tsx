@@ -51,6 +51,12 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { useDebounced } from '@/lib/useDebounced'
 import { useAppStore } from '@/store/useAppStore'
+import { WatchlistMenu } from '@/components/watchlists/WatchlistMenu'
+
+function SelectedSymbolWatchlists() {
+  const selectedSymbol = useAppStore((s) => s.selectedSymbol)
+  return <WatchlistMenu symbol={selectedSymbol} />
+}
 
 function SymbolPicker() {
   const selectedSymbol = useAppStore((s) => s.selectedSymbol)
@@ -259,7 +265,10 @@ export function DashboardPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="symbol">Symbol</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="symbol">Symbol</Label>
+              <SelectedSymbolWatchlists />
+            </div>
             <SymbolPicker />
           </div>
           <DateRangeInputs />

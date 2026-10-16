@@ -303,6 +303,21 @@ export const api = {
     })
   },
 
+  /** Add ONE ticker, server side — never a re-save of a possibly stale list. */
+  addToWatchlist(name: string, symbol: string): Promise<WatchlistOut> {
+    return request(`/api/v1/watchlists/${encodeURIComponent(name)}/symbols`, {
+      method: 'POST',
+      body: JSON.stringify({ symbol }),
+    })
+  },
+
+  removeFromWatchlist(name: string, symbol: string): Promise<WatchlistOut> {
+    return request(
+      `/api/v1/watchlists/${encodeURIComponent(name)}/symbols/${encodeURIComponent(symbol)}`,
+      { method: 'DELETE' },
+    )
+  },
+
   deleteWatchlist(name: string): Promise<void> {
     return requestNoContent(`/api/v1/watchlists/${encodeURIComponent(name)}`, {
       method: 'DELETE',

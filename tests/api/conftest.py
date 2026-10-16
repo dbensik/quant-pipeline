@@ -359,6 +359,19 @@ class FakeWatchlistRepo:
     async def delete_watchlist(self, name: str) -> bool:
         return self._lists.pop(name, None) is not None
 
+    async def add_symbol(self, name: str, symbol: str) -> Optional[Watchlist]:
+        existing = self._lists.get(name)
+        if existing is None:
+            return None
+        return await self.save_watchlist(name, existing.symbols + [symbol])
+
+    async def remove_symbol(self, name: str, symbol: str) -> Optional[Watchlist]:
+        existing = self._lists.get(name)
+        if existing is None:
+            return None
+        upper = symbol.upper().strip()
+        return await self.save_watchlist(name, [s for s in existing.symbols if s != upper])
+
     async def watchlists_containing(self, symbol: str) -> List[str]:
         upper = symbol.upper()
         return sorted(k for k, v in self._lists.items() if upper in v.symbols)

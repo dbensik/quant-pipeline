@@ -106,6 +106,59 @@ async def save_watchlist(
     return WatchlistOut(name=saved.name, symbols=saved.symbols, created_at=saved.created_at)
 
 
+class AddSymbolRequest(BaseModel):
+    symbol: str = Field(description="The ticker to add; upper-cased.")
+
+
+@router.post(
+    "/{name}/symbols",
+    response_model=WatchlistOut,
+    summary="Add one ticker to a watchlist",
+    responses={404: {"description": "No such watchlist"}, 422: {"description": "Empty or full"}},
+)
+async def add_symbol(
+    name: str,
+    request: AddSymbolRequest,
+    repo: TimescaleWatchlistRepo = Depends(get_watchlist_repo),
+) -> WatchlistOut:
+    """
+    Append one ticker, server side; a no-op if it is already there. For saving
+    from a page that shows one ticker (Research, Valuation): re-saving the whole
+    list from such a page would write back whatever copy of the list it held,
+    and a stale copy drops tickers added elsewhere since.
+    """
+    symbol = request.symbol.upper().strip()
+    if not symbol:
+        raise HTTPException(status_code=422, detail="A ticker is required.")
+    current = await repo.get_watchlist(name)
+    if current is None:
+        raise HTTPException(status_code=404, detail=f"No watchlist named {name!r}.")
+    if symbol not in current.symbols and len(current.symbols) >= MAX_SYMBOLS:
+        raise HTTPException(
+            status_code=422, detail=f"{name!r} already holds {MAX_SYMBOLS} symbols, the limit."
+        )
+    saved = await repo.add_symbol(name, symbol)
+    return WatchlistOut(name=saved.name, symbols=saved.symbols, created_at=saved.created_at)
+
+
+@router.delete(
+    "/{name}/symbols/{symbol}",
+    response_model=WatchlistOut,
+    summary="Remove one ticker from a watchlist",
+    responses={404: {"description": "No such watchlist"}},
+)
+async def remove_symbol(
+    name: str,
+    symbol: str,
+    repo: TimescaleWatchlistRepo = Depends(get_watchlist_repo),
+) -> WatchlistOut:
+    """Remove one ticker, server side; a no-op if it is not there."""
+    saved = await repo.remove_symbol(name, symbol)
+    if saved is None:
+        raise HTTPException(status_code=404, detail=f"No watchlist named {name!r}.")
+    return WatchlistOut(name=saved.name, symbols=saved.symbols, created_at=saved.created_at)
+
+
 @router.delete(
     "/{name}",
     status_code=204,

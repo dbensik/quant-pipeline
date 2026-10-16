@@ -207,6 +207,22 @@ export function useSaveWatchlist() {
   })
 }
 
+/**
+ * Put one ticker in, or take it out of, a watchlist from a page that shows a
+ * single ticker (Research, Valuation, Chart & Backtest). One-ticker endpoints,
+ * not a re-save: re-saving would write back this page's copy of the list.
+ */
+export function useToggleWatchlistSymbol() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ name, symbol, add }: { name: string; symbol: string; add: boolean }) =>
+      add ? api.addToWatchlist(name, symbol) : api.removeFromWatchlist(name, symbol),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['watchlists'] })
+    },
+  })
+}
+
 export function useDeleteWatchlist() {
   const queryClient = useQueryClient()
   return useMutation({

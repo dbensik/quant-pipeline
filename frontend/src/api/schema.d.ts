@@ -646,6 +646,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/watchlists/{name}/symbols": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add one ticker to a watchlist
+         * @description Append one ticker, server side; a no-op if it is already there. For saving
+         *     from a page that shows one ticker (Research, Valuation): re-saving the whole
+         *     list from such a page would write back whatever copy of the list it held,
+         *     and a stale copy drops tickers added elsewhere since.
+         */
+        post: operations["add_symbol_api_v1_watchlists__name__symbols_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/watchlists/{name}/symbols/{symbol}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove one ticker from a watchlist
+         * @description Remove one ticker, server side; a no-op if it is not there.
+         */
+        delete: operations["remove_symbol_api_v1_watchlists__name__symbols__symbol__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/universe": {
         parameters: {
             query?: never;
@@ -1023,6 +1066,14 @@ export interface components {
              * @default yfinance
              */
             source: string;
+        };
+        /** AddSymbolRequest */
+        AddSymbolRequest: {
+            /**
+             * Symbol
+             * @description The ticker to add; upper-cased.
+             */
+            symbol: string;
         };
         /** AllocationPoint */
         AllocationPoint: {
@@ -5050,6 +5101,85 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description No such watchlist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_symbol_api_v1_watchlists__name__symbols_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddSymbolRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchlistOut"];
+                };
+            };
+            /** @description No such watchlist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Empty or full */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    remove_symbol_api_v1_watchlists__name__symbols__symbol__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+                symbol: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchlistOut"];
+                };
             };
             /** @description No such watchlist */
             404: {

@@ -37,6 +37,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
+import { WatchlistMenu } from '@/components/watchlists/WatchlistMenu'
 
 /**
  * Missing values render as an em dash, never as 0.
@@ -246,9 +247,12 @@ export function ResearchPage() {
               {profile.data ? (
                 <div className="space-y-3">
                   <div>
-                    <h3 className="text-lg font-semibold">
-                      {profile.data.long_name ?? profile.data.symbol}
-                    </h3>
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="text-lg font-semibold">
+                        {profile.data.long_name ?? profile.data.symbol}
+                      </h3>
+                      <WatchlistMenu symbol={symbol} />
+                    </div>
                     <p className="text-sm text-muted-foreground">
                       {[profile.data.sector, profile.data.industry, profile.data.country]
                         .filter(Boolean)

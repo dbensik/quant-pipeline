@@ -95,3 +95,41 @@ def test_symbol_filter_is_case_insensitive(client: TestClient):
 
 def test_symbol_filter_matching_nothing_returns_empty(client: TestClient):
     assert client.get(BASE, params={"symbol": "ZZZZ"}).json() == []
+
+
+# --- one ticker at a time (saving from Research / Valuation, 2026-10-15) ------
+
+
+def test_adding_a_ticker_appends_it(client: TestClient):
+    body = client.post(f"{BASE}/MAG7/symbols", json={"symbol": "tsla"}).json()
+    assert body["symbols"] == ["AAPL", "MSFT", "NVDA", "TSLA"]
+
+
+def test_adding_a_ticker_keeps_what_is_already_there(client: TestClient):
+    """The point of a one-ticker add: nothing saved elsewhere is overwritten."""
+    client.put(f"{BASE}/MAG7", json={"symbols": ["AAPL", "MSFT", "NVDA", "AMZN"]})
+    client.post(f"{BASE}/MAG7/symbols", json={"symbol": "TSLA"})
+    assert client.get(f"{BASE}/MAG7").json()["symbols"] == ["AAPL", "MSFT", "NVDA", "AMZN", "TSLA"]
+
+
+def test_adding_a_ticker_already_there_changes_nothing(client: TestClient):
+    body = client.post(f"{BASE}/MAG7/symbols", json={"symbol": "msft"}).json()
+    assert body["symbols"] == ["AAPL", "MSFT", "NVDA"]
+
+
+def test_removing_a_ticker_removes_only_it(client: TestClient):
+    body = client.delete(f"{BASE}/MAG7/symbols/msft").json()
+    assert body["symbols"] == ["AAPL", "NVDA"]
+
+
+def test_removing_a_ticker_not_there_changes_nothing(client: TestClient):
+    assert client.delete(f"{BASE}/MAG7/symbols/XOM").json()["symbols"] == ["AAPL", "MSFT", "NVDA"]
+
+
+def test_adding_or_removing_on_a_missing_list_is_404(client: TestClient):
+    assert client.post(f"{BASE}/Nope/symbols", json={"symbol": "AAPL"}).status_code == 404
+    assert client.delete(f"{BASE}/Nope/symbols/AAPL").status_code == 404
+
+
+def test_an_empty_ticker_is_422(client: TestClient):
+    assert client.post(f"{BASE}/MAG7/symbols", json={"symbol": "  "}).status_code == 422
