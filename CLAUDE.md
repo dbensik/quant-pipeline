@@ -473,7 +473,9 @@ For the TimescaleDB layer, copy `.env.example` → `.env`; without it, `db/sessi
   `insider_transactions` (migration 0011), insert-only, two years backfilled
   2026-10-16 (decision 40a). Found through each issuer's submissions list: the
   daily form index files a Form 4 under ONE CIK, often the insider's. Not in the
-  06:00 job; `desk_pack.py` refreshes its one issuer before packing. Never run
+  06:00 job; `desk_pack.py` refreshes its one issuer before packing. `recent`
+  in a submissions list keeps ~1,000 filings (a bank's is under a year), so
+  paged files are read; every CIK an asset carries is read. Never run
   two SEC loaders at once (each paces itself to 8/s; SEC's limit is 10).
 - `config.settings.RESEARCH_CONCEPTS` (decision 40b) — 69 us-gaap concepts
   stored beside the DCF's `FUNDAMENTAL_CONCEPTS` for the desk (margins,

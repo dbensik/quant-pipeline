@@ -99,24 +99,24 @@ async def _facts(session, ciks: list[int], as_of: date) -> list[dict]:
     return out
 
 
-async def _insiders(session, cik: int, as_of: date) -> dict:
+async def _insiders(session, ciks: list[int], as_of: date) -> dict:
     from core.insiders import CODES, summarise
 
     rows = await session.execute(
         text(
-            "select * from insider_transactions where issuer_cik = :cik "
+            "select * from insider_transactions where issuer_cik = any(:ciks) "
             "and filed < :as_of and filed >= :since order by filed, accn, row_no"
         ),
-        {"cik": cik, "as_of": as_of, "since": as_of - timedelta(days=730)},
+        {"ciks": ciks, "as_of": as_of, "since": as_of - timedelta(days=730)},
     )
     found = []
     for r in rows.mappings():
         row = {k: v for k, v in dict(r).items() if k not in ("id", "fetched_at")}
-        row["edgar_url"] = dp.edgar_url(cik, row["accn"])
+        row["edgar_url"] = dp.edgar_url(row["issuer_cik"], row["accn"])
         found.append(row)
     year_ago = as_of - timedelta(days=365)
     return {
-        "issuer_cik": cik,
+        "issuer_ciks": ciks,
         "window": [as_of - timedelta(days=730), as_of],
         "summary_12m": summarise([r for r in found if r["filed"] >= year_ago]),
         "summary_24m": summarise(found),
@@ -233,15 +233,14 @@ async def build(args: argparse.Namespace) -> int:
                     from core.insiders import refresh_issuer
                     from core.sec import SECGateway
 
-                    r = await refresh_issuer(
-                        SECGateway(), session, ciks[0], as_of - timedelta(days=730)
-                    )
-                    notes["insiders_refresh"] = (
-                        f"{r.filings_fetched} new Form 4s fetched, {r.rows_inserted} rows"
-                    )
+                    gateway, fetched, inserted = SECGateway(), 0, 0
+                    for cik in ciks:  # a predecessor holds a reorganised filer's older Form 4s
+                        r = await refresh_issuer(gateway, session, cik, as_of - timedelta(days=730))
+                        fetched, inserted = fetched + r.filings_fetched, inserted + r.rows_inserted
+                    notes["insiders_refresh"] = f"{fetched} new Form 4s fetched, {inserted} rows"
                 except Exception as exc:  # noqa: BLE001 — pack from what is stored
                     notes["insiders_refresh"] = f"FAILED, packed from stored rows: {str(exc)[:120]}"
-            dp.write_json(out_dir / "insiders.json", await _insiders(session, ciks[0], as_of))
+            dp.write_json(out_dir / "insiders.json", await _insiders(session, ciks, as_of))
         else:
             dp.write_json(out_dir / "insiders.json", {"reason": "no SEC filer for this asset"})
         dp.write_json(

@@ -35,6 +35,8 @@ from db.session import AsyncSessionLocal  # noqa: E402
 
 
 async def issuers(symbols: list[str] | None) -> list[tuple[str, int]]:
+    """(symbol, CIK) for each CIK an equity carries: its own and any predecessor.
+    A reorganised filer's older Form 4s are under the predecessor (XOM, BLK)."""
     async with AsyncSessionLocal() as s:
         query = select(AssetORM.symbol, AssetORM.metadata_).where(
             AssetORM.asset_class == "equity", AssetORM.delisted_at.is_(None)
@@ -42,7 +44,13 @@ async def issuers(symbols: list[str] | None) -> list[tuple[str, int]]:
         if symbols:
             query = query.where(AssetORM.symbol.in_([x.upper() for x in symbols]))
         rows = (await s.execute(query.order_by(AssetORM.symbol))).all()
-    return [(sym, int(meta["cik"])) for sym, meta in rows if meta and meta.get("cik")]
+    out = []
+    for sym, meta in rows:
+        meta = meta or {}
+        for cik in [meta.get("cik"), *(meta.get("cik_predecessors") or [])]:
+            if cik and (sym, int(cik)) not in out:
+                out.append((sym, int(cik)))
+    return out
 
 
 async def run(args: argparse.Namespace) -> int:
@@ -50,6 +58,7 @@ async def run(args: argparse.Namespace) -> int:
     targets = await issuers(args.symbols if not args.all else None)
     seen = fetched = inserted = 0
     problems: list[str] = []
+    reach: dict[str, date] = {}  # earliest filing any of a symbol's CIKs lists
     for i, (symbol, cik) in enumerate(targets, 1):
         try:
             async with AsyncSessionLocal() as session:
@@ -62,15 +71,19 @@ async def run(args: argparse.Namespace) -> int:
         fetched += r.filings_fetched
         inserted += r.rows_inserted
         problems += [f"{symbol} {f}" for f in r.failed]
-        if r.reaches_back_to and r.reaches_back_to > args.since:
-            # The recent list did not reach --since: older Form 4s are in paged
-            # files this loader does not read. Said, not hidden.
-            problems.append(f"{symbol}: submissions list starts {r.reaches_back_to}, after --since")
+        if r.reaches_back_to:
+            reach[symbol] = min(reach.get(symbol, r.reaches_back_to), r.reaches_back_to)
         print(
-            f"[{i}/{len(targets)}] {symbol}: {r.filings_seen} Form 4s since {args.since}, "
+            f"[{i}/{len(targets)}] {symbol} CIK {cik}: {r.filings_seen} Form 4s since {args.since}, "
             f"{r.filings_fetched} fetched, {r.rows_inserted} rows",
             flush=True,
         )
+    for symbol, earliest in sorted(reach.items()):
+        if earliest > args.since:
+            # Even across its CIKs and their paged files, the symbol's filings do
+            # not reach --since. Said, not hidden: a predecessor missing from
+            # cik_predecessors looks exactly like this.
+            problems.append(f"{symbol}: filings start {earliest}, after --since")
     print(
         f"Done: {len(targets)} issuers, {seen} filings seen, {fetched} fetched, "
         f"{inserted} rows inserted, {gateway.requests_made} SEC requests."

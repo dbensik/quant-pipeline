@@ -128,3 +128,36 @@ def test_the_summary_counts_only_discretionary_trades():
     }
     assert s["sales"]["transactions"] == 2 and s["sales"]["value"] == 1000.0
     assert s["sales"]["unpriced"] == 1 and s["sales"]["under_10b5_1_plan"] == 2
+
+
+def test_paged_files_are_read_only_when_recent_stops_short():
+    subs = {
+        "filings": {
+            "recent": {
+                "form": ["4"],
+                "accessionNumber": ["a"],
+                "filingDate": ["2026-10-01"],
+                "primaryDocument": ["x"],
+            },
+            "files": [
+                {"name": "p1.json", "filingFrom": "2026-06-01", "filingTo": "2026-09-30"},
+                {"name": "p2.json", "filingFrom": "2023-01-01", "filingTo": "2024-12-31"},
+                {"name": "p3.json", "filingFrom": "2019-01-01", "filingTo": "2022-12-31"},
+            ],
+        }
+    }
+    assert [f["name"] for f in ins.pages_to_read(subs, date(2024, 10, 16))] == [
+        "p1.json",
+        "p2.json",
+    ]
+    assert ins.pages_to_read(subs, date(2026, 10, 1)) == [], "recent already reaches the date"
+
+
+def test_a_paged_file_is_read_like_recent():
+    page = {
+        "form": ["4", "424B2"],
+        "accessionNumber": ["a", "b"],
+        "filingDate": ["2025-01-02"] * 2,
+        "primaryDocument": ["x", "y"],
+    }
+    assert [f["accn"] for f in ins.form4_filings(page, date(2024, 1, 1))] == ["a"]

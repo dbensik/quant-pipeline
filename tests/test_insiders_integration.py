@@ -83,6 +83,33 @@ async def test_a_refresh_fetches_only_what_is_not_stored(session):
     assert r.filings_fetched == 0 and sec.documents == []
 
 
+class PagedSEC(FakeSEC):
+    """`recent` holds only the newest filing; the older one is on a paged file."""
+
+    def submissions(self, cik):
+        full = super().submissions(cik)["filings"]["recent"]
+        recent = {k: v[:1] for k, v in full.items()}
+        return {
+            "filings": {
+                "recent": recent,
+                "files": [
+                    {"name": "page-001.json", "filingFrom": "2026-01-01", "filingTo": "2026-10-14"}
+                ],
+            }
+        }
+
+    def get_json(self, url):
+        assert url.endswith("page-001.json")
+        full = super().submissions(0)["filings"]["recent"]
+        return {k: v[1:] for k, v in full.items()}
+
+
+async def test_filings_beyond_recent_are_read_from_paged_files(session):
+    r = await refresh_issuer(PagedSEC(), session, CIK, date(2026, 1, 1))
+    assert (r.filings_seen, r.rows_inserted) == (2, 3)
+    assert r.reaches_back_to == date(2026, 1, 1)
+
+
 async def test_since_bounds_what_is_fetched(session):
     sec = FakeSEC()
     r = await refresh_issuer(sec, session, CIK, date(2026, 10, 1))

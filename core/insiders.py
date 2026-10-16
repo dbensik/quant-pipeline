@@ -72,9 +72,13 @@ def document_url(issuer_cik: int, accn: str, primary_document: str) -> str:
     )
 
 
-def form4_filings(submissions: Dict[str, Any], since: date) -> List[Dict[str, Any]]:
-    """Every Form 4 or 4/A in a submissions document filed on or after `since`."""
-    recent = submissions["filings"]["recent"]
+def form4_filings(page: Dict[str, Any], since: date) -> List[Dict[str, Any]]:
+    """
+    Every Form 4 or 4/A on one page of a submissions list filed on or after
+    `since`. A page is the document's `filings.recent`, or one of its paged
+    files, which carry the same parallel arrays at the top level.
+    """
+    recent = page.get("filings", {}).get("recent", page)
     out = []
     for form, accn, filed, doc in zip(
         recent["form"],
@@ -92,6 +96,27 @@ def oldest_recent_filing(submissions: Dict[str, Any]) -> Optional[date]:
     """How far back `recent` reaches — older filings are in paged files."""
     days = submissions["filings"]["recent"]["filingDate"]
     return date.fromisoformat(min(days)) if days else None
+
+
+#: Paged submissions files live beside the main document.
+SUBMISSIONS_PAGE_URL = "https://data.sec.gov/submissions/{name}"
+
+
+def pages_to_read(submissions: Dict[str, Any], since: date) -> List[Dict[str, Any]]:
+    """
+    The paged files that hold filings on or after `since`. `recent` keeps only
+    about the newest 1,000 filings: a bank issuing ~23,000 structured-note
+    prospectuses a year (JPM, 2025-26) has under a month of Form 4s in it.
+    Only needed when `recent` itself starts after `since`.
+    """
+    oldest = oldest_recent_filing(submissions)
+    if oldest is None or oldest <= since:
+        return []
+    return [
+        f
+        for f in submissions["filings"].get("files", [])
+        if date.fromisoformat(f["filingTo"]) >= since
+    ]
 
 
 def _text(node: Optional[ET.Element], path: str) -> Optional[str]:
@@ -284,6 +309,12 @@ async def refresh_issuer(gateway: Any, session: Any, issuer_cik: int, since: dat
     """
     submissions = gateway.submissions(issuer_cik)
     filings = form4_filings(submissions, since)
+    reaches_back_to = oldest_recent_filing(submissions)
+    for page_file in pages_to_read(submissions, since):
+        page = gateway.get_json(SUBMISSIONS_PAGE_URL.format(name=page_file["name"]))
+        filings += form4_filings(page, since)
+        start = date.fromisoformat(page_file["filingFrom"])
+        reaches_back_to = start if reaches_back_to is None else min(reaches_back_to, start)
     have = await stored_accessions(session, issuer_cik)
     fetched, inserted, failed = 0, 0, []
     for f in filings:
@@ -305,6 +336,6 @@ async def refresh_issuer(gateway: Any, session: Any, issuer_cik: int, since: dat
         filings_seen=len(filings),
         filings_fetched=fetched,
         rows_inserted=inserted,
-        reaches_back_to=oldest_recent_filing(submissions),
+        reaches_back_to=reaches_back_to,
         failed=failed,
     )
