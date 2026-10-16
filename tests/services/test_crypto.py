@@ -81,3 +81,63 @@ def test_audit_log_tamper_detect(tmp_path):
     # Reload and verify
     audit_tampered = AuditLog(file_path=str(log_file))
     assert audit_tampered.verify_integrity() is False
+
+
+# --- Signed audit entries (2026-10-15): the seal is in the entry and its hash ---
+def test_a_signed_entry_keeps_its_seal_in_the_chain(tmp_path):
+    signer = Signer()
+    audit = AuditLog(file_path=str(tmp_path / "signed.json"))
+    audit.add_entry("legacy")  # an entry from before signing
+    sig = signer.sign(b"hash2")
+    e = audit.add_entry("hash2", "meta", signature=sig, public_key_id=signer.get_public_key_id())
+    assert e["signature"] == sig and e["public_key_id"] == signer.get_public_key_id()
+    assert AuditLog(file_path=str(tmp_path / "signed.json")).verify_integrity() is True
+
+
+def _tamper(path, change):
+    data = json.loads(path.read_text())
+    change(data[-1])
+    path.write_text(json.dumps(data))
+
+
+def test_changing_or_stripping_a_seal_breaks_the_chain(tmp_path):
+    signer = Signer()
+    for change in (
+        lambda e: e.update(signature=Signer().sign(b"hash1")),
+        lambda e: e.pop("signature") and e.pop("public_key_id"),
+    ):
+        path = tmp_path / f"t{id(change)}.json"
+        audit = AuditLog(file_path=str(path))
+        audit.add_entry(
+            "hash1", signature=signer.sign(b"hash1"), public_key_id=signer.get_public_key_id()
+        )
+        _tamper(path, change)
+        assert AuditLog(file_path=str(path)).verify_integrity() is False
+
+
+def test_signatures_are_checked_against_the_trusted_key(tmp_path):
+    signer, forger = Signer(), Signer()
+    audit = AuditLog(file_path=str(tmp_path / "keys.json"))
+    audit.add_entry("old")
+    audit.add_entry(
+        "good", signature=signer.sign(b"good"), public_key_id=signer.get_public_key_id()
+    )
+    # A forger's entry is chain-valid — it is appended properly — but not the service's.
+    audit.add_entry(
+        "forged", signature=forger.sign(b"forged"), public_key_id=forger.get_public_key_id()
+    )
+    assert audit.verify_integrity() is True
+    signed, unsigned, bad = audit.verify_signatures(signer.get_public_key_pem())
+    assert (signed, unsigned, bad) == (2, 1, [2])
+
+
+def test_a_claimed_key_id_is_not_trusted_on_its_own(tmp_path):
+    signer, forger = Signer(), Signer()
+    audit = AuditLog(file_path=str(tmp_path / "claim.json"))
+    audit.add_entry("x", signature=forger.sign(b"x"), public_key_id=signer.get_public_key_id())
+    assert audit.verify_signatures(signer.get_public_key_pem())[2] == [0]
+
+
+def test_a_key_id_can_be_derived_from_a_published_pem():
+    signer = Signer()
+    assert Signer.public_key_id_of(signer.get_public_key_pem()) == signer.get_public_key_id()

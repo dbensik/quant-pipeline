@@ -13,10 +13,17 @@ def verify_integration():
        2026-10-14 'BTC', which Yahoo serves as the Grayscale Bitcoin Mini Trust
        ETF) via the gateway.
     2. Local Verify: Re-calculates the SHA256 hash of the payload and compares it
-       to the 'featuresHash' returned by the server. This proves data integrity.
-    3. Audit Check: Loads the 'audit_log.json' file and verifies the entire
-       hash chain to ensure no historical records have been tampered with.
+       to the 'featuresHash' returned by the server, then VERIFIES the signature
+       over that hash against the published public key
+       (services/crypto/signing_public_key.pem) and checks the key id matches.
+       Until 2026-10-15 it only checked a signature was present.
+    3. Audit Check: Loads the 'audit_log.json' file, verifies the hash chain,
+       and verifies every signed entry's signature against the same key.
+
+    Exits 1 on any failure. It used to print FAIL and exit 0, so
+    `./run_pipeline.sh verify` passed whatever it found.
     """
+    failures = []
     print("--- 1. Querying GraphQL Gateway ---")
     query = """
         query {
@@ -69,29 +76,42 @@ def verify_integration():
 
     if calculated_hash != features_hash:
         print("FAIL: Hash mismatch!")
-        # sys.exit(1) # Continue to see if signature fails too, but this is bad.
+        failures.append("hash")
     else:
         print("PASS: Hash matches.")
 
-    # Note: To verify the signature, we need the public key.
-    # In this MVP, the public key ID is returned, but the actual public key PEM isn't strictly passed in the payload
-    # (though it could be, or looked up).
-    # The gRPC server logs it locally. Ideally, we'd fetch it.
-    # For now, let's just confirm we got a non-empty signature as proof of service active.
-    if signature and len(signature) > 10:
-        print("PASS: Signature present.")
-    else:
-        print("FAIL: Signature missing/empty.")
+    from services.config import ServiceConfig
+    from services.crypto.signer import Signer
+
+    try:
+        public_key_pem = open(ServiceConfig.PUBLIC_KEY_PATH).read()
+    except OSError:
+        public_key_pem = None
+        print(f"FAIL: no published public key at {ServiceConfig.PUBLIC_KEY_PATH}")
+        failures.append("public key")
+    if public_key_pem:
+        trusted_id = Signer.public_key_id_of(public_key_pem)
+        if data["publicKeyId"] != trusted_id:
+            print(
+                f"FAIL: signed by key {data['publicKeyId']}, published key is {trusted_id} "
+                "(an ephemeral key, or QUANT_PRIVATE_KEY changed)"
+            )
+            failures.append("key id")
+        elif Signer.verify(public_key_pem, features_hash.encode("utf-8"), signature):
+            print(f"PASS: Signature verifies against the published key {trusted_id}.")
+        else:
+            print("FAIL: Signature does not verify.")
+            failures.append("signature")
 
     print("\n--- 3. Verifying Audit Log ---")
     # Check if log file exists
     import os
 
-    from services.config import ServiceConfig
     from services.crypto.audit_log import AuditLog
 
     if not os.path.exists(ServiceConfig.AUDIT_LOG_PATH):
         print(f"FAIL: {ServiceConfig.AUDIT_LOG_PATH} not found.")
+        failures.append("audit log")
     else:
         # Load the log and traverse the chain
         audit_log = AuditLog(file_path=ServiceConfig.AUDIT_LOG_PATH)
@@ -102,6 +122,22 @@ def verify_integration():
             print("PASS: Audit Log Integrity Verified (Chain is valid).")
         else:
             print("FAIL: Audit Log Integrity Check Failed!")
+            failures.append("chain")
+        if public_key_pem:
+            signed, unsigned, bad = audit_log.verify_signatures(public_key_pem)
+            if bad:
+                print(f"FAIL: {len(bad)} signed entr(ies) do not verify: {bad[:10]}")
+                failures.append("log signatures")
+            else:
+                print(
+                    f"PASS: {signed} signed entr(ies) verify against the published key "
+                    f"({unsigned} from before entries were signed)."
+                )
+
+    if failures:
+        print(f"\nVERIFY FAILED: {', '.join(failures)}")
+        sys.exit(1)
+    print("\nVERIFY PASSED")
 
 
 if __name__ == "__main__":

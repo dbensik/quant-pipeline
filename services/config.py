@@ -42,6 +42,14 @@ class ServiceConfig:
     # generated on startup, and every restart signs with a different one.
     PRIVATE_KEY_B64 = os.getenv("QUANT_PRIVATE_KEY") or _private_key_from_env_file()
 
+    # The service's PUBLIC key, committed so anyone can check its signatures
+    # (services/crypto/signing_public_key.pem, written from QUANT_PRIVATE_KEY).
+    # Public by design; the private key stays in .env.
+    PUBLIC_KEY_PATH = os.getenv(
+        "QUANT_PUBLIC_KEY_PATH",
+        os.path.join(os.path.dirname(__file__), "crypto", "signing_public_key.pem"),
+    )
+
     # --- Helpers ---
     @classmethod
     def get_grpc_server_target(cls) -> str:

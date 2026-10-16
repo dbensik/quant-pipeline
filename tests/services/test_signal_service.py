@@ -73,6 +73,19 @@ def test_the_signed_value_is_the_position_and_confidence_reads_the_z_score(tmp_p
     assert json.loads(resp.payload_json)["value"] == 1.0
 
 
+def test_the_audit_entry_carries_the_signature_the_caller_got(tmp_path):
+    """Since 2026-10-15 the log keeps the seal, so it can prove who issued an entry."""
+    svc = service(tmp_path, FakeBars({"X": held_long_frame()}))
+    resp = svc.GetSignal(signals_pb2.SignalRequest(symbol="X", as_of="2026-03-01"), mock.Mock())
+    entry = AuditLog(file_path=str(tmp_path / "audit.json")).get_log()[-1]
+    assert entry["payload_hash"] == resp.features_hash
+    assert entry["signature"] == resp.signature
+    assert entry["public_key_id"] == resp.public_key_id
+    assert Signer.verify(
+        svc.signer.get_public_key_pem(), resp.features_hash.encode(), entry["signature"]
+    )
+
+
 def test_a_symbol_the_registry_does_not_hold_is_not_found(tmp_path):
     context = mock.Mock()
     resp = service(tmp_path, FakeBars({})).GetSignal(

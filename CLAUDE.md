@@ -456,6 +456,13 @@ For the TimescaleDB layer, copy `.env.example` → `.env`; without it, `db/sessi
   router and the nav bar; TanStack Query owns server state, Zustand owns UI
   selections only
 - `services/` — 3-layer architecture: gRPC signal service → GraphQL gateway → Ed25519/SHA256 crypto audit log (`audit_log.json`). Since 2026-10-14 the signal service reads bars from TimescaleDB (`services/grpc_service/bars.py`: its own loop thread and engine), on or before the request's `as_of`, and signs the POSITION, not the latest event. It had downloaded from yfinance by the bare symbol, ignoring `as_of`: verify's "BTC" was Yahoo's Grayscale Bitcoin Mini Trust ETF; a non-registry symbol is now NOT_FOUND.
+  Since 2026-10-15 it signs with one persistent Ed25519 key: `QUANT_PRIVATE_KEY`
+  in `.env` (read through `config.settings.quant_private_key`; never commit or
+  print it, and it is NOT in the daily backup). Its public key is published at
+  `services/crypto/signing_public_key.pem`. Each new audit entry records the
+  signature and key id inside its hash; `verify_all.py` verifies the response's
+  signature and every signed entry against the published key, and exits 1 on
+  any failure (it had printed FAIL and exited 0).
 - `core/portfolio.py` — portfolio accounting; the trade log is the only stored
   state and cash/positions/P&L are derived from it (`db/models.py` has no
   `cash` or `positions` column, deliberately)

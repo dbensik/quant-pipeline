@@ -115,8 +115,13 @@ class SignalService(signals_pb2_grpc.SignalServiceServicer):
             signature = self.signer.sign(payload_hash.encode("utf-8"))
 
             # Add to Immutable Audit Log (Proof of History)
+            # The signature and key id go into the entry, and into its hash, so
+            # the log can show the service issued it (since 2026-10-15).
             self.audit_log.add_entry(
-                payload_hash=payload_hash, metadata=f"Generated signal for {symbol}"
+                payload_hash=payload_hash,
+                metadata=f"Generated signal for {symbol}",
+                signature=signature,
+                public_key_id=self.signer.get_public_key_id(),
             )
 
             logger.info(f"Generated and Logged signal for {symbol}: {value}")

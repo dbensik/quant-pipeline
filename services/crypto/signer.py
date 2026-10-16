@@ -89,6 +89,15 @@ class Signer:
         return base64.b64encode(pub_bytes).decode("utf-8")[:16]
 
     @staticmethod
+    def public_key_id_of(public_key_pem: str) -> str:
+        """The key id (see get_public_key_id) of a PEM public key."""
+        public_key = serialization.load_pem_public_key(public_key_pem.encode("utf-8"))
+        raw = public_key.public_bytes(
+            encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw
+        )
+        return base64.b64encode(raw).decode("utf-8")[:16]
+
+    @staticmethod
     def verify(public_key_pem: str, message: bytes, signature_b64: str) -> bool:
         """
         Static utility to verify a signature against a public key.

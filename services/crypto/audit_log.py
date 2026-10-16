@@ -2,7 +2,7 @@ import json
 import os
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from services.crypto.hasher import Hasher
 
@@ -91,17 +91,32 @@ class AuditLog:
         """Save the log to the repository."""
         self.repository.save(self.entries)
 
-    def add_entry(self, payload_hash: str, metadata: str = "") -> dict:
+    def add_entry(
+        self,
+        payload_hash: str,
+        metadata: str = "",
+        signature: Optional[str] = None,
+        public_key_id: Optional[str] = None,
+    ) -> dict:
         """
         Add a new entry to the immutable log.
 
         The 'entry_hash' is calculated as:
             SHA256(prev_hash || payload_hash || metadata || timestamp)
+        and, for a SIGNED entry (since 2026-10-15),
+            SHA256(prev_hash || payload_hash || metadata || timestamp
+                   || signature || public_key_id)
+        so the seal is part of the chain: changing or stripping it breaks the
+        entry's hash. Until then the log held hashes only — the signature went
+        to the caller and nothing kept it, so the log could not show that the
+        service issued an entry. Entries written before stay valid under the
+        old form.
         """
         timestamp = datetime.utcnow().isoformat()
 
-        # Construct content string to hash (simple concatenation for MVP)
-        content_to_hash = f"{self.last_hash}{payload_hash}{metadata}{timestamp}"
+        content_to_hash = _content(
+            self.last_hash, payload_hash, metadata, timestamp, signature, public_key_id
+        )
         entry_hash = Hasher.hash_str(content_to_hash)
 
         entry = {
@@ -112,6 +127,9 @@ class AuditLog:
             "timestamp": timestamp,
             "entry_hash": entry_hash,
         }
+        if signature is not None:
+            entry["signature"] = signature
+            entry["public_key_id"] = public_key_id
 
         self.entries.append(entry)
         self.last_hash = entry_hash
@@ -132,11 +150,55 @@ class AuditLog:
             if entry["prev_hash"] != prev_hash:
                 return False
 
-            content_to_hash = (
-                f"{prev_hash}{entry['payload_hash']}{entry['metadata']}{entry['timestamp']}"
+            content_to_hash = _content(
+                prev_hash,
+                entry["payload_hash"],
+                entry["metadata"],
+                entry["timestamp"],
+                entry.get("signature"),
+                entry.get("public_key_id"),
             )
             if Hasher.hash_str(content_to_hash) != entry["entry_hash"]:
                 return False
 
             prev_hash = entry["entry_hash"]
         return True
+
+    def verify_signatures(self, public_key_pem: str) -> Tuple[int, int, List[int]]:
+        """
+        Check every signed entry's signature against a TRUSTED public key — the
+        published one, never a key taken from the log, which a forger could
+        supply. Returns (signed, unsigned, indexes that fail): an entry fails
+        when its key id is not that key's or its signature does not verify
+        over its payload hash. Entries from before 2026-10-15 are unsigned.
+        """
+        from services.crypto.signer import Signer
+
+        trusted_id = Signer.public_key_id_of(public_key_pem)
+        signed, unsigned, failures = 0, 0, []
+        for entry in self.entries:
+            if "signature" not in entry:
+                unsigned += 1
+                continue
+            signed += 1
+            ok = entry.get("public_key_id") == trusted_id and Signer.verify(
+                public_key_pem, entry["payload_hash"].encode("utf-8"), entry["signature"]
+            )
+            if not ok:
+                failures.append(entry["index"])
+        return signed, unsigned, failures
+
+
+def _content(
+    prev_hash: str,
+    payload_hash: str,
+    metadata: str,
+    timestamp: str,
+    signature: Optional[str],
+    public_key_id: Optional[str],
+) -> str:
+    """What an entry's hash covers; a signed entry adds its seal."""
+    base = f"{prev_hash}{payload_hash}{metadata}{timestamp}"
+    if signature is None:
+        return base
+    return f"{base}{signature}{public_key_id}"
