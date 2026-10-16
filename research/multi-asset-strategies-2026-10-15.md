@@ -190,3 +190,16 @@ signals and should be more exposed. Not measured here — decision 30.
     SPY-TLT presets or any basket, the strategy and its parameters, its caveat,
     and the result beside the same basket equal-weighted, with both curves.
 
+    **Checked in a browser 2026-10-15, two faults found and fixed.** (1) On the
+    app's shared one-year range a 200-day trend rule never got past its
+    warm-up: 0 trades, cash interest only, Sharpe -0.72 against the basket's
+    1.57 — a page that made the rule look broken. The page now has its own
+    From/To, defaulting to 2011-01-01. Over 2011-2026 from that start it shows
+    trend 0.53 / -9.1% against the basket's 0.45 / -26.1% (the caveat's -15% is
+    sliced from a run warmed up in 2010; a run started in 2011 sat in cash
+    through 2011's fall). (2) Every portfolio backtest reported a Trade Count
+    of 0: PerformanceAnalyzer counts a "position" column or a "trades" column
+    and the basket frame had neither. PortfolioBacktester now records fills per
+    bar; faber5 trend reports 155 (= its trade log), the equal-weight basket
+    960.
+

@@ -172,6 +172,16 @@ describe('AllocationPage — running', () => {
     expect(strategyCall[0].weights).toBeUndefined()
   })
 
+  it('defaults to a long window of its own, not the shared one-year range', async () => {
+    const runs = mockRuns()
+    renderPage(<AllocationPage />)
+    await screen.findByLabelText('Moving average window')
+    expect(screen.getByLabelText('From')).toHaveValue('2011-01-01')
+    await userEvent.click(screen.getByRole('button', { name: 'Run backtest' }))
+    await waitFor(() => expect(runs).toHaveBeenCalledTimes(2))
+    expect(runs.mock.calls.every((c) => c[0].start === '2011-01-01')).toBe(true)
+  })
+
   it('runs the same basket equal-weighted as the benchmark', async () => {
     const runs = mockRuns()
     renderPage(<AllocationPage />)

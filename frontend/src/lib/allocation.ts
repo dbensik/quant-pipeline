@@ -21,3 +21,13 @@ export function parseSymbols(text: string): string[] {
     ),
   ]
 }
+
+/**
+ * The Allocation page's own default start, not the shared one-year range: these
+ * rules decide monthly and warm up for up to a year (a 200-day average), so on
+ * one year a trend rule cannot trade at all — seen on the page 2026-10-15, 0
+ * trades and cash interest only. 2011 is where the decision 29 measurement
+ * started, after the 2010 warm-up.
+ */
+export const ALLOCATION_DEFAULT_START = '2011-01-01'
+

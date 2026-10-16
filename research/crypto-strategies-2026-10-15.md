@@ -19,10 +19,9 @@ the first crypto measurement.
 - **Read with three caveats.** (1) Every coin is a 2026 survivor; the many
   2017-2018 coins that went to zero are not here. (2) Crypto moves as one
   market: 14 coins are not 14 trials — 2018-2026 is two bear markets and
-  two bull markets. (3) Sharpe is annualized with sqrt(252) for every asset
-  (decision 37 below); a strategy and buy and hold on the same coin share
-  that scaling, so the comparisons here hold, but the absolute Sharpes are
-  about 20% high.
+  two bull markets. (3) Sharpes below are at 365 bars a year (restated
+  after decision 38; measured at sqrt(252), every value was 1.2035x higher).
+  The counts — which beat buy and hold — do not depend on the scaling.
 - Scripts: `load35.py`, `run35.py`, `analyse35.py`, `robust35.py`,
   `alloc35.py` (session scratchpad, not committed).
 
@@ -38,7 +37,7 @@ the first crypto measurement.
 | mean_reversion | 0 | 0 | 8 | 1 | -22.1 pp | -92.4% |
 | push_response | 0 | 2 | 1 | 0 | -24.7 pp | -95.7% |
 
-Buy and hold on the median coin: Sharpe 0.04, 6.4% a year, worst drawdown
+Buy and hold on the median coin: Sharpe 0.04 (0.036), 6.4% a year, worst drawdown
 -94.7% (2018-2026).
 
 - **The opposite of equities.** Trend following and ATR breakout beat buy
@@ -67,8 +66,8 @@ Buy and hold on the median coin: Sharpe 0.04, 6.4% a year, worst drawdown
   year.
 - **Fitting does not help** (fit 2018-2021, test 2022-2026): mean_reversion
   fitted beats its default on 7/14 coins, ma_crossover on 9/14.
-- **BTC itself:** buy and hold Sharpe 0.37, worst drawdown -81.5%; trend
-  1.29 and -57.1%; MA crossover 0.75 and -59.7%.
+- **BTC itself:** buy and hold Sharpe 0.31, worst drawdown -81.5%; trend
+  1.07 and -57.1%; MA crossover 0.62 and -59.7%.
 
 ## Allocation rules on fixed crypto baskets, 2018-2026
 
@@ -77,13 +76,13 @@ market capitalisation on 2018-01-01 (BTC, ETH, XRP, BCH, ADA).
 
 | run | Sharpe | CAGR | max DD | 2018 | 2022 | 2021 |
 |---|---|---|---|---|---|---|
-| BTC/ETH equal weight | 0.34 | 23.0% | -87.4% | -75.3% | -66.1% | +204.8% |
-| BTC/ETH trend | 0.70 | 32.0% | -59.4% | +2.0% | -23.5% | +200.0% |
-| BTC/ETH momentum (top 1) | 0.59 | 38.1% | -77.3% | -27.3% | -68.4% | +213.4% |
-| top-5 equal weight | 0.17 | 14.1% | -92.3% | -85.6% | -70.1% | +344.9% |
-| top-5 trend | 0.28 | 14.6% | -60.7% | -2.8% | -20.3% | +184.0% |
-| top-5 momentum (top 2) | 0.09 | 8.7% | -87.2% | -46.6% | -78.7% | +219.8% |
-| top-5 momentum (top 1) | -0.48 | -32.6% | -99.1% | -21.3% | -78.2% | +3.4% |
+| BTC/ETH equal weight | 0.28 | 23.0% | -87.4% | -75.3% | -66.1% | +204.8% |
+| BTC/ETH trend | 0.58 | 32.0% | -59.4% | +2.0% | -23.5% | +200.0% |
+| BTC/ETH momentum (top 1) | 0.49 | 38.1% | -77.3% | -27.3% | -68.4% | +213.4% |
+| top-5 equal weight | 0.14 | 14.1% | -92.3% | -85.6% | -70.1% | +344.9% |
+| top-5 trend | 0.23 | 14.6% | -60.7% | -2.8% | -20.3% | +184.0% |
+| top-5 momentum (top 2) | 0.08 | 8.7% | -87.2% | -46.6% | -78.7% | +219.8% |
+| top-5 momentum (top 1) | -0.40 | -32.6% | -99.1% | -21.3% | -78.2% | +3.4% |
 
 - **Trend on a basket does what it did on ETFs, more strongly:** it was flat
   in 2018 and lost 20-24% in 2022 while the baskets lost 66-70%.
@@ -161,6 +160,7 @@ rule "365 when the series has weekend bars, else 252":
     test_annualization.py`: the 4 calendar-day tests fail on the old code,
     the 7 others guard 252. Real runs: 12 equity backtests identical in every
     metric; 6 crypto runs' Sharpe exactly 1.2035x lower and volatility 1.2035x
-    higher, final values unchanged. The decision 35 tables quote Sharpe at the
-    old scaling; their comparisons (same coin, same scaling) are unaffected.
+    higher, final values unchanged. The decision 35 Sharpes above were
+    restated at 365 the same day (exact: unrounded values / 1.2035, and the
+    basket table rerun at 365).
 

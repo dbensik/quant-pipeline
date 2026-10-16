@@ -100,3 +100,24 @@ def test_a_funded_rebalance_buys_the_full_target():
     a_value = (portfolio["A_pos"].iloc[3]) * 60.0
     assert len(bought) == 1
     assert a_value > 0.49 * portfolio["total"].iloc[3]
+
+
+def test_the_trade_count_is_the_number_of_fills():
+    """
+    PerformanceAnalyzer counts a "position" column's changes or a "trades"
+    column; a basket frame had neither, so every portfolio backtest reported a
+    Trade Count of 0 (found on the Allocation page, 2026-10-15). A rebalance
+    fills both symbols on one bar, so fills are counted, not bars.
+    """
+    from analysis.performance_analyzer import PerformanceAnalyzer
+
+    portfolio, trades = run(
+        [100.0, 100.0, 60.0, 60.0],
+        [100.0, 100.0, 140.0, 140.0],
+        [1, 0, 2, 0],
+    )
+    count = PerformanceAnalyzer(
+        portfolio, initial_capital=CAPITAL, risk_free_accrual=np.zeros(len(portfolio))
+    ).calculate_all_metrics()["Trade Count"]
+    assert len(trades) == 4  # two entries, then a rebalance selling B and buying A
+    assert count == len(trades)

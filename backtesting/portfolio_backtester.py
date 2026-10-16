@@ -331,6 +331,11 @@ class PortfolioBacktester:
 
         # --- Final Calculations ---
         portfolio["returns"] = portfolio["total"].pct_change().fillna(0)
+        # Fills on each bar, for the Trade Count. Added after the loop: the loop
+        # carries each row forward, which would repeat a bar's fills.
+        fill_times = pd.DatetimeIndex([t["timestamp"] for t in trade_log])
+        fills = pd.Series(1, index=fill_times).groupby(level=0).sum()
+        portfolio["trades"] = fills.reindex(portfolio.index, fill_value=0).astype(int).to_numpy()
         self.results = portfolio
 
         return portfolio, pd.DataFrame(trade_log)

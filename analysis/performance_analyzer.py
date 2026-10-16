@@ -187,12 +187,14 @@ class PerformanceAnalyzer:
         backtest reported a Trade Count of 0 regardless of activity.
 
         Position changes are the reliable signal: the Backtester emits exactly one
-        FillEvent per change in share count. A "trades" column is still honoured if
-        a caller supplies one, so PortfolioBacktester and any other producer can
-        report its own count.
+        FillEvent per change in share count. A "trades" column — FILLS on each
+        bar — is honoured when a producer supplies one: PortfolioBacktester does
+        (since 2026-10-15), because a rebalance fills several symbols on one bar
+        and its frame has per-ticker positions, no "position" column. Before
+        that every portfolio backtest reported a Trade Count of 0.
         """
         if "trades" in self.portfolio.columns:
-            return int((self.portfolio["trades"] != 0).sum())
+            return int(self.portfolio["trades"].fillna(0).sum())
         if "position" in self.portfolio.columns:
             position = self.portfolio["position"].fillna(0)
             # First bar counts only if it opened a position from flat.

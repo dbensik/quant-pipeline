@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { PRESETS, parseSymbols } from '@/lib/allocation'
+import { ALLOCATION_DEFAULT_START, PRESETS, parseSymbols } from '@/lib/allocation'
 import { useAppStore } from '@/store/useAppStore'
 
 /** The benchmark itself, not a rule to test against it. */
@@ -57,7 +57,9 @@ function typed(spec: StrategySchema | undefined, raw: Record<string, string>) {
 }
 
 export function AllocationPage() {
-  const { startDate, endDate } = useAppStore()
+  const { endDate: sharedEnd } = useAppStore()
+  const [startDate, setStartDate] = useState(ALLOCATION_DEFAULT_START)
+  const [endDate, setEndDate] = useState(sharedEnd)
   const { data: catalogue } = useStrategies('multi')
   const backtest = usePortfolioBacktest()
 
@@ -101,8 +103,7 @@ export function AllocationPage() {
         <CardHeader>
           <CardTitle className="text-base">Setup</CardTitle>
           <CardDescription>
-            Window comes from the shared date range ({startDate} → {endDate}). Fills
-            at the next bar's open, with costs; idle cash earns the T-bill rate.
+            Fills at the next bar's open, with costs; idle cash earns the T-bill rate.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -126,6 +127,32 @@ export function AllocationPage() {
               onChange={(e) => setSymbolsText(e.target.value)}
             />
           </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <Label htmlFor="alloc-start">From</Label>
+              <Input
+                id="alloc-start"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="alloc-end">To</Label>
+              <Input
+                id="alloc-end"
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            These rules decide monthly and need up to a year of history before
+            their first decision (a 200-day average), so judge them over several
+            years, not one.
+          </p>
 
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1">
