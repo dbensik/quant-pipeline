@@ -14,6 +14,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ApiError, api } from '@/api/client'
+import { useAppStore } from '@/store/useAppStore'
 import { renderPage } from '@/test/renderPage'
 import { ResearchPage } from './ResearchPage'
 
@@ -113,6 +114,16 @@ describe('ResearchPage — profile', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Look up' }))
 
     await waitFor(() => expect(getProfile).toHaveBeenCalledWith('MSFT'))
+    // ...and it becomes the shared ticker the other pages open with.
+    expect(useAppStore.getState().selectedSymbol).toBe('MSFT')
+  })
+
+  it('opens on the ticker chosen on another page', async () => {
+    const getProfile = vi.spyOn(api, 'getProfile')
+    useAppStore.getState().setSymbol('NVDA')
+    renderPage(<ResearchPage />)
+    await waitFor(() => expect(getProfile).toHaveBeenCalledWith('NVDA'))
+    expect(screen.getByLabelText('Ticker')).toHaveValue('NVDA')
   })
 
   it('marks a 503 as an upstream problem rather than a bad request', async () => {

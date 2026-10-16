@@ -167,6 +167,30 @@ export function useRunBacktest() {
   })
 }
 
+/**
+ * Buy and hold of the same symbol over the same window as a backtest just run,
+ * so the result can be read against it — every strategy finding in this
+ * project is "compared with buy and hold". Off for a buy-and-hold run itself.
+ * Keyed on symbol and window only: buy and hold has no parameters.
+ */
+export function useBuyAndHoldBenchmark(
+  run: { symbol: string; start: string; end: string; strategyId: string } | null,
+) {
+  return useQuery({
+    queryKey: ['backtest-benchmark', run?.symbol, run?.start, run?.end],
+    queryFn: () =>
+      api.runBacktest({
+        symbol: run!.symbol,
+        strategy_id: 'buy_and_hold',
+        start: run!.start,
+        end: run!.end,
+        include_trades: false,
+      }),
+    enabled: Boolean(run) && run?.strategyId !== 'buy_and_hold',
+    staleTime: 5 * 60_000,
+  })
+}
+
 export function useRunSimulation() {
   return useMutation({
     mutationFn: (request: SimulationInput) => api.runSimulation(request),

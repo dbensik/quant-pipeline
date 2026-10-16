@@ -32,6 +32,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ALLOCATION_DEFAULT_START, PRESETS, parseSymbols } from '@/lib/allocation'
 import { useAppStore } from '@/store/useAppStore'
+import { Caveat } from '@/components/layout/Caveat'
 
 /** The benchmark itself, not a rule to test against it. */
 const BENCHMARK_ID = 'index_rebalancing'
@@ -189,9 +190,7 @@ export function AllocationPage() {
           {spec?.description ? (
             <p className="text-sm text-muted-foreground">{spec.description}</p>
           ) : null}
-          {spec?.caveat ? (
-            <p className="text-xs text-amber-600">{spec.caveat}</p>
-          ) : null}
+          <Caveat text={spec?.caveat} />
 
           <Button
             onClick={run}

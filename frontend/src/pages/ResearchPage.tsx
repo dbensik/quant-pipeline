@@ -12,11 +12,12 @@
  * Phase 5 — React pages for the ported routers
  */
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ExternalLink } from 'lucide-react'
 
 import type { ApiError, NewsItem, StatementLine } from '@/api/client'
 import {
+  useAssets,
   useFinancials,
   useNews,
   usePortfolios,
@@ -24,6 +25,7 @@ import {
   useWatchlists,
 } from '@/api/queries'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { TickerInput } from '@/components/layout/TickerInput'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -34,10 +36,10 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { WatchlistMenu } from '@/components/watchlists/WatchlistMenu'
+import { useAppStore } from '@/store/useAppStore'
 
 /**
  * Missing values render as an em dash, never as 0.
@@ -167,8 +169,15 @@ type NewsSource =
   | { kind: 'symbol'; name: string }
 
 export function ResearchPage() {
-  const [entry, setEntry] = useState('AAPL')
-  const [symbol, setSymbol] = useState('AAPL')
+  // The shared ticker: one chosen here is the one Valuation, Compare and
+  // Chart & Backtest open with.
+  const symbol = useAppStore((s) => s.selectedSymbol) ?? 'AAPL'
+  const setSymbol = useAppStore((s) => s.setSymbol)
+  const registry = useAssets()
+  const suggestions = useMemo(
+    () => (registry.data?.assets ?? []).map((a) => a.symbol).sort(),
+    [registry.data],
+  )
   const [quarterly, setQuarterly] = useState(false)
   const [source, setSource] = useState<NewsSource>({ kind: 'market' })
 
@@ -209,25 +218,16 @@ export function ResearchPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <form
-                className="flex gap-2"
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  setSymbol(entry.toUpperCase().trim())
-                }}
-              >
-                <div className="flex-1 space-y-1">
-                  <Label htmlFor="research-symbol">Ticker</Label>
-                  <Input
-                    id="research-symbol"
-                    value={entry}
-                    onChange={(e) => setEntry(e.target.value)}
-                  />
-                </div>
-                <Button type="submit" className="self-end">
-                  Look up
-                </Button>
-              </form>
+              <div className="space-y-1">
+                <Label htmlFor="research-symbol">Ticker</Label>
+                <TickerInput
+                  id="research-symbol"
+                  value={symbol}
+                  onCommit={setSymbol}
+                  suggestions={suggestions}
+                  buttonLabel="Look up"
+                />
+              </div>
 
               {profile.isLoading ? <Skeleton className="h-24 w-full" /> : null}
 

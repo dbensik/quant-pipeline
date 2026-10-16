@@ -115,3 +115,34 @@ describe('ValuationPage date', () => {
     }
   })
 })
+
+describe('ValuationPage — the shared ticker (2026-10-15)', () => {
+  it('opens on the ticker chosen on another page', async () => {
+    const { useAppStore } = await import('@/store/useAppStore')
+    useAppStore.getState().setSymbol('ORCL')
+    const value = vi.spyOn(api, 'valueCompany').mockResolvedValue(ORCL_VALUATION)
+    renderPage(<ValuationPage />)
+    await waitFor(() => expect(value).toHaveBeenCalled())
+    expect(value.mock.calls[0][0]).toMatchObject({ symbol: 'ORCL' })
+  })
+
+  it('a ticker it cannot value falls back to the default and says so, keeping the shared one', async () => {
+    const { useAppStore } = await import('@/store/useAppStore')
+    useAppStore.getState().setSymbol('BTC-USD')
+    const value = vi.spyOn(api, 'valueCompany').mockResolvedValue(AAPL_VALUATION)
+    renderPage(<ValuationPage />)
+    expect(await screen.findByTestId('not-an-equity')).toHaveTextContent('BTC-USD is not an equity')
+    expect(value.mock.calls[0][0]).toMatchObject({ symbol: 'AAPL' })
+    expect(useAppStore.getState().selectedSymbol).toBe('BTC-USD')
+  })
+
+  it('choosing a ticker here sets the shared one', async () => {
+    const { useAppStore } = await import('@/store/useAppStore')
+    vi.spyOn(api, 'valueCompany').mockResolvedValue(AAPL_VALUATION)
+    renderPage(<ValuationPage />)
+    const box = await screen.findByRole('combobox')
+    await userEvent.clear(box)
+    await userEvent.type(box, 'jpm{Enter}')
+    expect(useAppStore.getState().selectedSymbol).toBe('JPM')
+  })
+})

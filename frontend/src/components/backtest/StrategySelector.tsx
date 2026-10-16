@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAppStore } from '@/store/useAppStore'
+import { Caveat } from '@/components/layout/Caveat'
 
 /** Defaults for every parameter a strategy declares. */
 function defaultsFor(strategy: StrategySchema): Record<string, number | string> {
@@ -160,12 +161,7 @@ export function StrategySelector() {
       {/* Registry-declared caveats are surfaced, not hidden — e.g. a strategy
           that is flat while it gathers training data, or one not yet
           constructible from the API. */}
-      {selected?.caveat ? (
-        <Alert variant="destructive">
-          <AlertTitle>Known limitation</AlertTitle>
-          <AlertDescription>{selected.caveat}</AlertDescription>
-        </Alert>
-      ) : null}
+      <Caveat text={selected?.caveat} />
 
       {selected && selected.params.length > 0 ? (
         <div className="space-y-3">

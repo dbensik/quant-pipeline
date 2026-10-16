@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useAppStore } from '@/store/useAppStore'
+import { Caveat } from '@/components/layout/Caveat'
 
 type Mode = SimulationInput['mode']
 type Method = SimulationInput['method']
@@ -246,12 +247,7 @@ export function SimulationPanel({ backtest }: { backtest: BacktestResult }) {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {result.caveat ? (
-              <Alert variant="destructive" className="mb-4">
-                <AlertTitle>Read the bands with this in mind</AlertTitle>
-                <AlertDescription>{result.caveat}</AlertDescription>
-              </Alert>
-            ) : null}
+            <Caveat text={result.caveat} className="mb-4" />
             {save.error ? (
               <Alert variant="destructive" className="mb-4">
                 <AlertTitle>Could not save</AlertTitle>

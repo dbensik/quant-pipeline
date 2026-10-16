@@ -65,7 +65,23 @@ function toneFor(key: string, value: unknown): string {
   return ''
 }
 
-export function BacktestResults({ result }: { result: BacktestResult }) {
+/** The figures a strategy is judged on against buy and hold. */
+const COMPARED = [
+  'Total Return',
+  'Annualized Return',
+  'Sharpe Ratio',
+  'Max Drawdown',
+  'Annualized Volatility',
+]
+
+export function BacktestResults({
+  result,
+  benchmark,
+}: {
+  result: BacktestResult
+  /** Buy and hold of the same symbol and window; null while loading or for a buy-and-hold run. */
+  benchmark?: BacktestResult | null
+}) {
   // Read from the top-level field, NOT from params: initial capital is not a
   // strategy parameter, and looking for it there silently yields undefined and
   // draws the break-even line at a hardcoded default.
@@ -92,7 +108,36 @@ export function BacktestResults({ result }: { result: BacktestResult }) {
       <EquityCurveChart
         points={result.equityCurve}
         initialCapital={initialCapital}
+        benchmark={benchmark?.equityCurve}
       />
+
+      {benchmark ? (
+        <div>
+          <h4 className="mb-2 text-sm font-medium">Against buy and hold</h4>
+          <table className="w-full text-sm" aria-label="Against buy and hold">
+            <thead className="border-b text-left text-xs text-muted-foreground">
+              <tr>
+                <th className="py-1.5 pr-4 font-normal" />
+                <th className="py-1.5 pr-4 text-right font-normal">{result.strategyName}</th>
+                <th className="py-1.5 text-right font-normal">Buy and hold</th>
+              </tr>
+            </thead>
+            <tbody>
+              {COMPARED.map((key) => (
+                <tr key={key} className="border-b last:border-0">
+                  <td className="py-1.5 pr-4 text-xs text-muted-foreground">{key}</td>
+                  <td className={`py-1.5 pr-4 text-right font-mono ${toneFor(key, result.metrics[key])}`}>
+                    {formatMetric(key, result.metrics[key])}
+                  </td>
+                  <td className={`py-1.5 text-right font-mono ${toneFor(key, benchmark.metrics[key])}`}>
+                    {formatMetric(key, benchmark.metrics[key])}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
 
       <div>
         <h4 className="mb-2 text-sm font-medium">Performance</h4>

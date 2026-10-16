@@ -8,12 +8,14 @@
  * Phase 5 — React pages for the ported routers
  */
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import type { ApiError } from '@/api/client'
-import { useCompare, useStrategies } from '@/api/queries'
+import { useAssets, useCompare, useStrategies } from '@/api/queries'
 import { ComparisonChart } from '@/components/charts/ComparisonChart'
+import { DateRangePresets } from '@/components/layout/DateRangePresets'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { TickerInput } from '@/components/layout/TickerInput'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -27,6 +29,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAppStore } from '@/store/useAppStore'
+import { Caveat } from '@/components/layout/Caveat'
 
 const METRICS = [
   'Sharpe Ratio',
@@ -47,7 +50,14 @@ export function ComparePage() {
   const { data: catalogue } = useStrategies('single')
   const compare = useCompare()
 
-  const [symbol, setSymbol] = useState('AAPL')
+  // The shared ticker, so a name chosen on another page is the one compared.
+  const symbol = useAppStore((s) => s.selectedSymbol) ?? 'AAPL'
+  const setSymbol = useAppStore((s) => s.setSymbol)
+  const registry = useAssets()
+  const suggestions = useMemo(
+    () => (registry.data?.assets ?? []).map((a) => a.symbol).sort(),
+    [registry.data],
+  )
   const [benchmark, setBenchmark] = useState('')
   const [chosen, setChosen] = useState<string[]>(['ma_crossover', 'mean_reversion'])
   const [metric, setMetric] = useState('Sharpe Ratio')
@@ -103,13 +113,15 @@ export function ComparePage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <DateRangePresets />
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1">
               <Label htmlFor="cmp-symbol">Symbol</Label>
-              <Input
+              <TickerInput
                 id="cmp-symbol"
                 value={symbol}
-                onChange={(e) => setSymbol(e.target.value)}
+                onCommit={setSymbol}
+                suggestions={suggestions}
               />
             </div>
             <div className="space-y-1">
@@ -245,9 +257,7 @@ export function ComparePage() {
                               tuned ({row.combinations_evaluated})
                             </Badge>
                           ) : null}
-                          {row.caveat ? (
-                            <div className="text-xs text-amber-600">{row.caveat}</div>
-                          ) : null}
+                          <Caveat text={row.caveat} className="mt-1 font-normal" />
                         </td>
                         <td className="py-2 pr-4 text-right tabular-nums">
                           {ratio(row.metrics['Sharpe Ratio'] as number)}

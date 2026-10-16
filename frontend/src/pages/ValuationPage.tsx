@@ -35,9 +35,10 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { WatchlistMenu } from '@/components/watchlists/WatchlistMenu'
+import { TickerInput } from '@/components/layout/TickerInput'
+import { useAppStore } from '@/store/useAppStore'
 
 /** Today's LOCAL date: toISOString() is UTC and reads tomorrow in a US evening. */
 const today = () => {
@@ -321,10 +322,16 @@ function History({ symbol }: { symbol: string }) {
 export function ValuationPage() {
   const assets = useAssets(undefined, 'equity')
   const symbols = useMemo(() => (assets.data?.assets ?? []).map((a) => a.symbol).sort(), [assets.data])
-  const [symbol, setSymbol] = useState<string | null>(null)
+  // The shared ticker, when it is an equity the DCF can value; otherwise the
+  // default — without overwriting the shared choice, so BTC-USD on Chart &
+  // Backtest is still there when you go back.
+  const shared = useAppStore((s) => s.selectedSymbol)
+  const setShared = useAppStore((s) => s.setSymbol)
   const [asOf, setAsOf] = useState<string>(today())
   const [overrides, setOverrides] = useState<Partial<ValuationRequest>>({})
-  const chosen = symbol ?? (symbols.includes('AAPL') ? 'AAPL' : (symbols[0] ?? null))
+  const fallback = symbols.includes('AAPL') ? 'AAPL' : (symbols[0] ?? null)
+  const sharedValuable = Boolean(shared && symbols.includes(shared))
+  const chosen = sharedValuable ? shared : fallback
 
   const request: ValuationRequest | null = chosen ? { symbol: chosen, as_of: asOf, ...overrides } : null
   const valuation = useValuation(request)
@@ -341,25 +348,21 @@ export function ValuationPage() {
             {assets.isLoading ? (
               <Skeleton className="h-8 w-full" />
             ) : (
-              <Select
-                value={chosen}
-                onValueChange={(s) => {
-                  setSymbol(s as string | null)
+              <TickerInput
+                id="val-symbol"
+                value={chosen ?? ''}
+                onCommit={(s) => {
+                  setShared(s)
                   setOverrides({})
                 }}
-              >
-                <SelectTrigger id="val-symbol" className="w-full">
-                  <SelectValue placeholder="Symbol">{chosen}</SelectValue>
-                </SelectTrigger>
-                <SelectContent className="max-h-72">
-                  {symbols.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                suggestions={symbols}
+              />
             )}
+            {!assets.isLoading && shared && !sharedValuable ? (
+              <p className="text-xs text-muted-foreground" data-testid="not-an-equity">
+                {shared} is not an equity this valuation covers; showing {chosen}.
+              </p>
+            ) : null}
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="val-asof">As of</Label>

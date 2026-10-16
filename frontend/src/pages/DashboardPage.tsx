@@ -51,6 +51,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { useDebounced } from '@/lib/useDebounced'
 import { useAppStore } from '@/store/useAppStore'
+import { DateRangePresets } from '@/components/layout/DateRangePresets'
 import { WatchlistMenu } from '@/components/watchlists/WatchlistMenu'
 
 function SelectedSymbolWatchlists() {
@@ -90,25 +91,28 @@ function SymbolPicker() {
 function DateRangeInputs() {
   const { startDate, endDate, setDateRange } = useAppStore()
   return (
-    <div className="grid grid-cols-2 gap-3">
-      <div className="space-y-1.5">
-        <Label htmlFor="start">Start</Label>
-        <Input
-          id="start"
-          type="date"
-          value={startDate}
-          onChange={(e) => setDateRange(e.target.value, endDate)}
-        />
+    <div className="space-y-2">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="start">Start</Label>
+          <Input
+            id="start"
+            type="date"
+            value={startDate}
+            onChange={(e) => setDateRange(e.target.value, endDate)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="end">End</Label>
+          <Input
+            id="end"
+            type="date"
+            value={endDate}
+            onChange={(e) => setDateRange(startDate, e.target.value)}
+          />
+        </div>
       </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="end">End</Label>
-        <Input
-          id="end"
-          type="date"
-          value={endDate}
-          onChange={(e) => setDateRange(startDate, e.target.value)}
-        />
-      </div>
+      <DateRangePresets />
     </div>
   )
 }

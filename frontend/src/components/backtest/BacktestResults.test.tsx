@@ -12,14 +12,17 @@ vi.mock('@/components/charts/EquityCurveChart', () => ({
   EquityCurveChart: ({
     initialCapital,
     points,
+    benchmark,
   }: {
     initialCapital: number
     points: Array<{ time: string; total: number }>
+    benchmark?: Array<{ time: string; total: number }>
   }) => (
     <div
       data-testid="equity-curve"
       data-initial-capital={initialCapital}
       data-points={points.length}
+      data-benchmark-points={benchmark?.length ?? 0}
     />
   ),
 }))
@@ -131,3 +134,36 @@ describe('BacktestResults — metric formatting', () => {
     ).toBeInTheDocument()
   })
 })
+
+describe('BacktestResults — against buy and hold', () => {
+  const BENCHMARK: BacktestResult = {
+    ...RESULT,
+    strategyId: 'buy_and_hold',
+    strategyName: 'Buy and Hold',
+    metrics: { 'Total Return': 0.5, 'Sharpe Ratio': 0.9, 'Max Drawdown': -0.3 },
+    equityCurve: [
+      { time: '2024-01-02T00:00:00Z', total: 100_000 },
+      { time: '2024-01-03T00:00:00Z', total: 101_000 },
+    ],
+  }
+
+  it('puts the strategy and buy and hold side by side', () => {
+    render(<BacktestResults result={RESULT} benchmark={BENCHMARK} />)
+    const table = screen.getByRole('table', { name: 'Against buy and hold' })
+    const totalReturn = screen.getAllByRole('row').find((r) => r.textContent?.startsWith('Total Return'))!
+    expect(table).toContainElement(totalReturn)
+    expect(totalReturn).toHaveTextContent('23.45%')
+    expect(totalReturn).toHaveTextContent('50.00%')
+  })
+
+  it('draws buy and hold on the equity chart', () => {
+    render(<BacktestResults result={RESULT} benchmark={BENCHMARK} />)
+    expect(screen.getByTestId('equity-curve')).toHaveAttribute('data-benchmark-points', '2')
+  })
+
+  it('shows no comparison until the benchmark arrives', () => {
+    render(<BacktestResults result={RESULT} benchmark={null} />)
+    expect(screen.queryByRole('table', { name: 'Against buy and hold' })).toBeNull()
+  })
+})
+

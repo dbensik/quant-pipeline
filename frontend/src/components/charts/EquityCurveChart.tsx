@@ -1,6 +1,8 @@
 /**
  * components/charts/EquityCurveChart.tsx
- * Portfolio value over the backtest, against the starting capital.
+ * Portfolio value over the backtest, against the starting capital and, when
+ * given, buy and hold of the same symbol over the same window (a grey dashed
+ * line) — the comparison every strategy finding rests on.
  *
  * Presentational only — it receives points and draws them.
  *
@@ -9,6 +11,7 @@
 
 import {
   CartesianGrid,
+  Legend,
   Line,
   LineChart,
   ReferenceLine,
@@ -17,6 +20,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+
+import { equityRows } from './equityRows'
 
 /**
  * Only what this chart actually reads. Typing the prop as the API's full
@@ -44,9 +49,11 @@ const currencyExact = new Intl.NumberFormat('en-US', {
 export function EquityCurveChart({
   points,
   initialCapital,
+  benchmark,
 }: {
   points: EquityCurvePoint[]
   initialCapital: number
+  benchmark?: EquityCurvePoint[]
 }) {
   if (points.length === 0) {
     return (
@@ -56,10 +63,8 @@ export function EquityCurveChart({
     )
   }
 
-  const data = points.map((point) => ({
-    date: point.time.slice(0, 10),
-    total: point.total,
-  }))
+  const data = equityRows(points, benchmark)
+  const hasBenchmark = data.some((row) => row.benchmark !== null)
 
   const finalValue = data[data.length - 1].total
   // Green when the strategy ended above its starting capital, red below —
@@ -86,9 +91,9 @@ export function EquityCurveChart({
           className="text-muted-foreground"
         />
         <Tooltip
-          formatter={(value) => [
+          formatter={(value, name) => [
             typeof value === 'number' ? currencyExact.format(value) : '—',
-            'Portfolio',
+            name === 'benchmark' ? 'Buy and hold' : 'Strategy',
           ]}
           contentStyle={{
             background: 'var(--color-popover)',
@@ -119,6 +124,25 @@ export function EquityCurveChart({
           dot={false}
           isAnimationActive={false}
         />
+        {hasBenchmark ? (
+          <Line
+            type="monotone"
+            dataKey="benchmark"
+            name="benchmark"
+            stroke="#94a3b8"
+            strokeDasharray="5 4"
+            strokeWidth={1.5}
+            dot={false}
+            isAnimationActive={false}
+            connectNulls={false}
+          />
+        ) : null}
+        {hasBenchmark ? (
+          <Legend
+            formatter={(value) => (value === 'benchmark' ? 'Buy and hold' : 'Strategy')}
+            wrapperStyle={{ fontSize: 12 }}
+          />
+        ) : null}
       </LineChart>
     </ResponsiveContainer>
   )

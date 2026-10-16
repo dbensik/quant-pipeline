@@ -167,15 +167,16 @@ describe('StrategySelector — parameter controls come from the schema', () => {
 describe('StrategySelector — caveats', () => {
   it('surfaces a known limitation', async () => {
     // ml_random_forest has look-ahead bias. Hiding the caveat would present
-    // un-achievable results as trustworthy.
+    // un-achievable results as trustworthy. Collapsed to a line since
+    // 2026-10-15, but the full text is still on the page.
     renderWith([RANDOM_FOREST])
-    expect(await screen.findByText(/Known limitation/i)).toBeInTheDocument()
+    expect(await screen.findByText(/Evidence and limits/i)).toBeInTheDocument()
     expect(screen.getByText(/look-ahead bias/i)).toBeInTheDocument()
   })
 
-  it('shows no warning for a sound strategy', async () => {
+  it('shows nothing for a strategy without a caveat', async () => {
     renderWith([MA_CROSSOVER])
     await screen.findByLabelText('Short window')
-    expect(screen.queryByText(/Known limitation/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Evidence and limits/i)).not.toBeInTheDocument()
   })
 })

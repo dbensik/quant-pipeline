@@ -11,10 +11,12 @@
  * Phase 4 — React frontend
  */
 
+import { useState } from 'react'
+
 import { ApiError } from '@/api/client'
 import { fromRest } from '@/api/backtestResult'
 import type { BacktestResult } from '@/api/backtestResult'
-import { useRunBacktest } from '@/api/queries'
+import { useBuyAndHoldBenchmark, useRunBacktest } from '@/api/queries'
 import { useBacktestSocket } from '@/api/useBacktestSocket'
 import { BacktestProgress } from '@/components/backtest/BacktestProgress'
 import { BacktestResults } from '@/components/backtest/BacktestResults'
@@ -31,6 +33,7 @@ import {
 } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAppStore } from '@/store/useAppStore'
+import { Caveat } from '@/components/layout/Caveat'
 
 export function BacktestPanel() {
   const {
@@ -45,6 +48,14 @@ export function BacktestPanel() {
 
   const socket = useBacktestSocket()
   const rest = useRunBacktest()
+  // The window the last run used: the benchmark must match it, not whatever
+  // the date inputs say after the run.
+  const [lastRun, setLastRun] = useState<{
+    symbol: string
+    start: string
+    end: string
+    strategyId: string
+  } | null>(null)
 
   const isRunning = streamProgress ? socket.isRunning : rest.isPending
   const canRun = Boolean(selectedSymbol && strategyId) && !isRunning
@@ -65,6 +76,9 @@ export function BacktestPanel() {
         : String(rest.error)
       : null
 
+  const benchmark = useBuyAndHoldBenchmark(result ? lastRun : null)
+  const benchmarkResult = benchmark.data ? fromRest(benchmark.data) : null
+
   const errorTitle =
     !streamProgress && rest.error instanceof ApiError && rest.error.status === 422
       ? 'Invalid backtest request'
@@ -84,6 +98,7 @@ export function BacktestPanel() {
         Object.entries(strategyParams).filter(([, value]) => value !== ''),
       ),
     }
+    setLastRun({ symbol: selectedSymbol, start: startDate, end: endDate, strategyId })
     if (streamProgress) {
       rest.reset()
       socket.run(request)
@@ -166,13 +181,8 @@ export function BacktestPanel() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {result.caveat ? (
-              <Alert variant="destructive" className="mb-4">
-                <AlertTitle>Results are not trustworthy</AlertTitle>
-                <AlertDescription>{result.caveat}</AlertDescription>
-              </Alert>
-            ) : null}
-            <BacktestResults result={result} />
+            <Caveat text={result.caveat} className="mb-4" />
+            <BacktestResults result={result} benchmark={benchmarkResult} />
           </CardContent>
         </Card>
       ) : null}
