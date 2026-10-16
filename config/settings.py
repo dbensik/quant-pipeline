@@ -122,6 +122,23 @@ def coingecko_headers() -> dict:
     return {COINGECKO_KEY_HEADER: key} if key else {}
 
 
+def quant_private_key():
+    """
+    The signal service's Ed25519 private key (base64 of its 32 raw bytes) from
+    the environment or the project's .env, or None. services/config.py read only
+    os.environ, so a key written to .env never reached the service and every
+    gRPC restart signed with a new ephemeral key (set up 2026-10-15). A secret:
+    .env is gitignored and the commit guard refuses it; never log or print it.
+    """
+    from pydantic_settings import BaseSettings, SettingsConfigDict
+
+    class _Key(BaseSettings):
+        model_config = SettingsConfigDict(env_file=ROOT_DIR / ".env", extra="ignore")
+        QUANT_PRIVATE_KEY: str = ""
+
+    return _Key().QUANT_PRIVATE_KEY.strip() or None
+
+
 # --- Tiingo (scripts/probe_tiingo_delisted.py) ---
 #
 # Evaluated 2026-10-04 as a free source of DELISTED price history, which Yahoo

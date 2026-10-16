@@ -1,6 +1,12 @@
 import os
 
 
+def _private_key_from_env_file():
+    from config.settings import quant_private_key
+
+    return quant_private_key()
+
+
 class ServiceConfig:
     """
     Central configuration for all Quant Pipeline services.
@@ -31,9 +37,10 @@ class ServiceConfig:
     AUDIT_LOG_PATH = os.getenv("QUANT_AUDIT_LOG_PATH", "audit_log.json")
 
     # --- Security ---
-    # Base64 encoded Ed25519 private key.
-    # If not set, a new ephemeral key is generated on startup.
-    PRIVATE_KEY_B64 = os.getenv("QUANT_PRIVATE_KEY")
+    # Base64 encoded Ed25519 private key, from the environment or .env
+    # (config.settings.quant_private_key). If not set, a new ephemeral key is
+    # generated on startup, and every restart signs with a different one.
+    PRIVATE_KEY_B64 = os.getenv("QUANT_PRIVATE_KEY") or _private_key_from_env_file()
 
     # --- Helpers ---
     @classmethod
