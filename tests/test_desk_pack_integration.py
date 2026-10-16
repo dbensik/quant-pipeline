@@ -18,7 +18,15 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def run(tmp_path, *args):
     return subprocess.run(
-        [sys.executable, str(ROOT / "scripts" / "desk_pack.py"), *args, "--out", str(tmp_path)],
+        # --no-refresh: a test must not reach SEC (and must not race a loader that is).
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "desk_pack.py"),
+            *args,
+            "--no-refresh",
+            "--out",
+            str(tmp_path),
+        ],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -33,12 +41,14 @@ def test_a_pack_is_point_in_time_and_hashed(tmp_path):
     assert manifest["status"] == "complete"
     facts = json.loads((tmp_path / "facts.json").read_text())
     assert facts["count"] > 0
-    assert max(f["filed"] for f in facts["facts"]) <= "2020-06-30", "no fact filed after as_of"
+    assert max(f["filed"] for f in facts["facts"]) < "2020-06-30", "filed strictly before as_of"
     prices = json.loads((tmp_path / "prices.json").read_text())
     assert prices["stats"]["last_day"] <= "2020-06-30", "no price after as_of"
     history = json.loads((tmp_path / "valuation_history.json").read_text())
     assert all(p["as_of"] <= "2020-06-30" for p in history["points"])
     assert "did not rank" in history["caveat"]
+    insiders = json.loads((tmp_path / "insiders.json").read_text())
+    assert all(t["filed"] < "2020-06-30" for t in insiders["transactions"]), "filed before as_of"
     from core.desk_pack import sha256_of
 
     for name, digest in manifest["files"].items():

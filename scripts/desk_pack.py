@@ -24,6 +24,10 @@ inputs table):
                             caveat that it does not rank returns
     options.json            ATM term structure and, with --trigger/--by, the
                             options-implied probability (desk Step 1.5)
+    insiders.json           Form 4 transactions filed in the two years before
+                            as_of, and the open-market buys and sells summed
+                            (12 and 24 months). Refreshed from SEC for this one
+                            issuer first, unless --no-refresh (decision 40a)
     pack.json               status, pipeline commit, sha256s, seat routing,
                             what the pack does not cover
 
@@ -38,7 +42,7 @@ import argparse
 import asyncio
 import subprocess
 import sys
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -82,7 +86,7 @@ async def _facts(session, ciks: list[int], as_of: date) -> list[dict]:
         text(
             "select cik, taxonomy, concept, unit, period_start, period_end, value, fy, fp, "
             "form, filed, accn, frame from fundamental_facts "
-            "where cik = any(:ciks) and filed <= :as_of "
+            "where cik = any(:ciks) and filed < :as_of "
             "order by concept, period_end, filed"
         ),
         {"ciks": ciks, "as_of": as_of},
@@ -93,6 +97,37 @@ async def _facts(session, ciks: list[int], as_of: date) -> list[dict]:
         fact["edgar_url"] = dp.edgar_url(fact["cik"], fact["accn"])
         out.append(fact)
     return out
+
+
+async def _insiders(session, cik: int, as_of: date) -> dict:
+    from core.insiders import CODES, summarise
+
+    rows = await session.execute(
+        text(
+            "select * from insider_transactions where issuer_cik = :cik "
+            "and filed < :as_of and filed >= :since order by filed, accn, row_no"
+        ),
+        {"cik": cik, "as_of": as_of, "since": as_of - timedelta(days=730)},
+    )
+    found = []
+    for r in rows.mappings():
+        row = {k: v for k, v in dict(r).items() if k not in ("id", "fetched_at")}
+        row["edgar_url"] = dp.edgar_url(cik, row["accn"])
+        found.append(row)
+    year_ago = as_of - timedelta(days=365)
+    return {
+        "issuer_cik": cik,
+        "window": [as_of - timedelta(days=730), as_of],
+        "summary_12m": summarise([r for r in found if r["filed"] >= year_ago]),
+        "summary_24m": summarise(found),
+        "codes": CODES,
+        "transactions": found,
+        "note": (
+            "Form 4 only, filed strictly before as_of. Purchases (P) and sales (S) of the "
+            "common stock are the insider's own decision; grants, tax withholding and "
+            "exercises are mechanics. plan_10b5_1 is the filer's own flag (since 2023)."
+        ),
+    }
 
 
 async def build(args: argparse.Namespace) -> int:
@@ -118,7 +153,9 @@ async def build(args: argparse.Namespace) -> int:
             print(f"{symbol}: REFUSED — {scr['reason']}. Nothing else was gathered.")
             return 3
 
-        # Filing facts, point in time, with provenance.
+        # Filing facts, point in time, with provenance. Filed STRICTLY before
+        # as_of, the DCF's rule (modeling/CLAUDE.md): a filing on the day may
+        # land after the close.
         ciks = [int(c) for c in [meta.get("cik"), *(meta.get("cik_predecessors") or [])] if c]
         facts = await _facts(session, ciks, as_of) if ciks else []
         dp.write_json(
@@ -188,6 +225,25 @@ async def build(args: argparse.Namespace) -> int:
             valuation = {"refused": f"the DCF values equities; {symbol} is {asset.asset_class}"}
             history = []
         dp.write_json(out_dir / "valuation.json", valuation)
+
+        # Insider transactions: refresh this issuer from SEC, then read point in time.
+        if ciks:
+            if not args.no_refresh:
+                try:
+                    from core.insiders import refresh_issuer
+                    from core.sec import SECGateway
+
+                    r = await refresh_issuer(
+                        SECGateway(), session, ciks[0], as_of - timedelta(days=730)
+                    )
+                    notes["insiders_refresh"] = (
+                        f"{r.filings_fetched} new Form 4s fetched, {r.rows_inserted} rows"
+                    )
+                except Exception as exc:  # noqa: BLE001 — pack from what is stored
+                    notes["insiders_refresh"] = f"FAILED, packed from stored rows: {str(exc)[:120]}"
+            dp.write_json(out_dir / "insiders.json", await _insiders(session, ciks[0], as_of))
+        else:
+            dp.write_json(out_dir / "insiders.json", {"reason": "no SEC filer for this asset"})
         dp.write_json(
             out_dir / "valuation_history.json",
             {"caveat": dp.VALUE_PRICE_CAVEAT, "points": history},
@@ -223,6 +279,9 @@ def main() -> int:
     parser.add_argument("--trigger", type=float, help="Price level for the implied probability")
     parser.add_argument("--by", type=date.fromisoformat, help="Date the trigger is judged by")
     parser.add_argument("--below", action="store_true", help="P(below trigger) instead of above")
+    parser.add_argument(
+        "--no-refresh", action="store_true", help="Do not fetch this issuer's new Form 4s from SEC"
+    )
     args = parser.parse_args()
     if (args.trigger is None) != (args.by is None):
         parser.error("--trigger and --by go together")

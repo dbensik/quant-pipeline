@@ -145,6 +145,7 @@ def test_the_manifest_hashes_every_file_but_itself(tmp_path):
         "facts.json",
         "statements.json",
         "prices.json",
+        "insiders.json",
     ]
     assert "valuation.json" not in manifest["seats"]["analysts"], (
         "the DCF would anchor the blind seats"

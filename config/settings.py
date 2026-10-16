@@ -450,6 +450,95 @@ FUNDAMENTAL_CONCEPTS = (
     ("dei", "EntityCommonStockSharesOutstanding"),
 )
 
+
+#: Research concepts (decision 40b, 2026-10-16): stored beside the DCF's for
+#: the Equity Research Desk's pack (scripts/desk_pack.py) and nothing else —
+#: the DCF reads its own concept set (core.valuation_service.ALL_CONCEPTS), so
+#: storing these changes no valuation. SEC company facts carry ~560 us-gaap
+#: concepts for a large filer (MSFT, 2026-10-16); these are the ones the desk's
+#: lenses use. Every name was checked present in at least one of MSFT, JPM,
+#: WMT, TRV, CAT and PFE before it was added. Insert-only, like the rest.
+RESEARCH_CONCEPTS = (
+    # Unit economics: margins and the cost of a revenue dollar
+    ("us-gaap", "GrossProfit"),
+    ("us-gaap", "CostOfRevenue"),
+    ("us-gaap", "CostOfGoodsSold"),
+    ("us-gaap", "ResearchAndDevelopmentExpense"),
+    ("us-gaap", "ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost"),
+    ("us-gaap", "SellingGeneralAndAdministrativeExpense"),
+    ("us-gaap", "GeneralAndAdministrativeExpense"),
+    ("us-gaap", "SellingAndMarketingExpense"),
+    ("us-gaap", "MarketingAndAdvertisingExpense"),
+    ("us-gaap", "OperatingExpenses"),
+    ("us-gaap", "CostsAndExpenses"),
+    ("us-gaap", "RestructuringCharges"),
+    ("us-gaap", "GoodwillImpairmentLoss"),
+    ("us-gaap", "ImpairmentOfIntangibleAssetsExcludingGoodwill"),
+    ("us-gaap", "AssetImpairmentCharges"),
+    ("us-gaap", "OtherNonoperatingIncomeExpense"),
+    ("us-gaap", "InvestmentIncomeInterest"),
+    ("us-gaap", "EarningsPerShareBasic"),
+    ("us-gaap", "EffectiveIncomeTaxRateContinuingOperations"),
+    ("us-gaap", "AllocatedShareBasedCompensationExpense"),
+    # Balance sheet and working capital
+    ("us-gaap", "AssetsCurrent"),
+    ("us-gaap", "LiabilitiesCurrent"),
+    ("us-gaap", "LiabilitiesAndStockholdersEquity"),
+    ("us-gaap", "AccountsReceivableNetCurrent"),
+    ("us-gaap", "InventoryNet"),
+    ("us-gaap", "AccountsPayableCurrent"),
+    ("us-gaap", "PropertyPlantAndEquipmentNet"),
+    ("us-gaap", "PropertyPlantAndEquipmentGross"),
+    ("us-gaap", "Goodwill"),
+    ("us-gaap", "IntangibleAssetsNetExcludingGoodwill"),
+    ("us-gaap", "OperatingLeaseLiability"),
+    ("us-gaap", "OperatingLeaseRightOfUseAsset"),
+    ("us-gaap", "FinanceLeaseLiability"),
+    ("us-gaap", "RetainedEarningsAccumulatedDeficit"),
+    ("us-gaap", "TreasuryStockValue"),
+    ("us-gaap", "CommonStockSharesOutstanding"),
+    # Revenue quality: deferred revenue and the contracted backlog
+    ("us-gaap", "ContractWithCustomerLiability"),
+    ("us-gaap", "ContractWithCustomerLiabilityCurrent"),
+    ("us-gaap", "DeferredRevenue"),
+    ("us-gaap", "DeferredRevenueCurrent"),
+    ("us-gaap", "RevenueRemainingPerformanceObligation"),
+    ("us-gaap", "IncreaseDecreaseInContractWithCustomerLiability"),
+    # Capital allocation: buybacks, dividends, issuance, acquisitions
+    ("us-gaap", "PaymentsForRepurchaseOfCommonStock"),
+    ("us-gaap", "PaymentsOfDividends"),
+    ("us-gaap", "PaymentsOfDividendsCommonStock"),
+    ("us-gaap", "ProceedsFromIssuanceOfCommonStock"),
+    ("us-gaap", "ProceedsFromIssuanceOfLongTermDebt"),
+    ("us-gaap", "RepaymentsOfLongTermDebt"),
+    ("us-gaap", "PaymentsToAcquireBusinessesNetOfCashAcquired"),
+    ("us-gaap", "CommonStockDividendsPerShareDeclared"),
+    ("us-gaap", "CommonStockDividendsPerShareCashPaid"),
+    ("us-gaap", "StockRepurchasedDuringPeriodShares"),
+    # Cash flow detail and accrual quality
+    ("us-gaap", "NetCashProvidedByUsedInInvestingActivities"),
+    ("us-gaap", "NetCashProvidedByUsedInFinancingActivities"),
+    ("us-gaap", "IncreaseDecreaseInAccountsReceivable"),
+    ("us-gaap", "IncreaseDecreaseInInventories"),
+    ("us-gaap", "IncreaseDecreaseInAccountsPayable"),
+    ("us-gaap", "IncomeTaxesPaidNet"),
+    ("us-gaap", "DeferredIncomeTaxExpenseBenefit"),
+    # Banks and insurers
+    ("us-gaap", "InterestAndDividendIncomeOperating"),
+    ("us-gaap", "InterestIncomeExpenseNet"),
+    ("us-gaap", "NoninterestIncome"),
+    ("us-gaap", "NoninterestExpense"),
+    ("us-gaap", "ProvisionForLoanLeaseAndOtherLosses"),
+    ("us-gaap", "ProvisionForLoanAndLeaseLosses"),
+    ("us-gaap", "Deposits"),
+    ("us-gaap", "LoansAndLeasesReceivableNetReportedAmount"),
+    ("us-gaap", "PremiumsEarnedNet"),
+    ("us-gaap", "PolicyholderBenefitsAndClaimsIncurredNet"),
+)
+
+#: Everything core/fundamentals.py stores.
+STORED_CONCEPTS = FUNDAMENTAL_CONCEPTS + RESEARCH_CONCEPTS
+
 # --- DCF (modeling/dcf.py, modeling/valuation.py; tier 3 phase 3) ---
 # Decisions 4 and 5 of research/dcf-plan-2026-10-08.md, approved 2026-10-09.
 DCF_PROJECTION_YEARS = 5

@@ -7,7 +7,8 @@ research/dcf-plan-2026-10-08.md. Mirrors core/ingest.py for prices: the
 fetch is injected (a gateway, or a saved file), nothing is ever rewritten.
 
 WHAT IS STORED
-    Every row of every concept in settings.FUNDAMENTAL_CONCEPTS, as the SEC
+    Every row of every concept in settings.STORED_CONCEPTS (the DCF's
+    FUNDAMENTAL_CONCEPTS and the desk's RESEARCH_CONCEPTS), as the SEC
     served it: value, unit, period (start is NULL for an instant), fiscal
     labels, form, filed date, accession, frame. Nothing is standardised here
     — concept priority, Q4 derivation, TTM and split-rescaled shares happen
@@ -27,7 +28,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Protocol, Sequence, Tuple
 
-from config.settings import FUNDAMENTAL_CONCEPTS
+from config.settings import STORED_CONCEPTS
 
 
 @dataclass(frozen=True)
@@ -62,7 +63,7 @@ class Fact:
 def parse_company_facts(
     doc: Dict[str, Any],
     fetched_at: datetime,
-    allow: Sequence[Tuple[str, str]] = FUNDAMENTAL_CONCEPTS,
+    allow: Sequence[Tuple[str, str]] = STORED_CONCEPTS,
 ) -> List[Fact]:
     """The allow-listed facts in one companyfacts document, as served."""
     cik = int(doc["cik"])

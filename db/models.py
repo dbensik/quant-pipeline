@@ -7,6 +7,7 @@ Phase 2 — TimescaleDB Schema & Repository Layer
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     Column,
     Date,
@@ -466,3 +467,38 @@ class FundamentalFactORM(Base):
     accn = Column(String, nullable=False)
     frame = Column(String, nullable=True)
     fetched_at = Column(DateTime(timezone=True), nullable=False)
+
+
+class InsiderTransactionORM(Base):
+    """
+    One transaction line of one SEC Form 4, for a registry issuer. Insert-only:
+    an amendment is a new accession. See migration 0011.
+    """
+
+    __tablename__ = "insider_transactions"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    issuer_cik = Column(Integer, nullable=False)
+    accn = Column(String, nullable=False)
+    row_no = Column(Integer, nullable=False)
+    form = Column(String, nullable=False)
+    filed = Column(Date, nullable=False)
+    reporter_cik = Column(Integer, nullable=True)
+    reporter_name = Column(String, nullable=True)
+    is_director = Column(Boolean, nullable=False)
+    is_officer = Column(Boolean, nullable=False)
+    is_ten_pct_owner = Column(Boolean, nullable=False)
+    officer_title = Column(String, nullable=True)
+    is_derivative = Column(Boolean, nullable=False)
+    security_title = Column(String, nullable=True)
+    transaction_date = Column(Date, nullable=True)
+    code = Column(String, nullable=True)
+    acquired_disposed = Column(String, nullable=True)
+    shares = Column(Float, nullable=True)
+    price = Column(Float, nullable=True)
+    shares_after = Column(Float, nullable=True)
+    ownership = Column(String, nullable=True)
+    plan_10b5_1 = Column(Boolean, nullable=True)
+    fetched_at = Column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (UniqueConstraint("accn", "row_no", name="uq_insider_transaction"),)

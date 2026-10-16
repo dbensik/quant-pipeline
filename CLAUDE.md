@@ -463,6 +463,22 @@ For the TimescaleDB layer, copy `.env.example` → `.env`; without it, `db/sessi
   signature and key id inside its hash; `verify_all.py` verifies the response's
   signature and every signed entry against the published key, and exits 1 on
   any failure (it had printed FAIL and exited 0).
+- `core/desk_pack.py` + `scripts/desk_pack.py` — a sourced, point-in-time data
+  pack for the Equity Research Desk (`/equity-desk`; decision 39,
+  `research/desk-pack-2026-10-16.md`): facts with accession numbers,
+  statements, dated prices, the DCF (routed to the valuation seat only, never
+  the five blind analysts), options-implied probability, insiders. Facts are
+  filed STRICTLY before as_of, the DCF's rule. Utilities refused (exit 3).
+- `core/insiders.py` + `scripts/load_insiders.py` — SEC Form 4 transactions in
+  `insider_transactions` (migration 0011), insert-only, two years backfilled
+  2026-10-16 (decision 40a). Found through each issuer's submissions list: the
+  daily form index files a Form 4 under ONE CIK, often the insider's. Not in the
+  06:00 job; `desk_pack.py` refreshes its one issuer before packing. Never run
+  two SEC loaders at once (each paces itself to 8/s; SEC's limit is 10).
+- `config.settings.RESEARCH_CONCEPTS` (decision 40b) — 69 us-gaap concepts
+  stored beside the DCF's `FUNDAMENTAL_CONCEPTS` for the desk (margins,
+  R&D, buybacks, deferred revenue, working capital, banks/insurers). The DCF
+  reads only its own set: the 2026-10-16 reload changed no valuation.
 - `core/portfolio.py` — portfolio accounting; the trade log is the only stored
   state and cash/positions/P&L are derived from it (`db/models.py` has no
   `cash` or `positions` column, deliberately)

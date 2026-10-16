@@ -42,11 +42,12 @@ REFUSED_SECTORS = {"Utilities"}
 #: What the pack does not cover, stated in every pack so no seat assumes it.
 NOT_COVERED = [
     "executive compensation (proxy statements, DEF 14A)",
-    "insider transactions (Form 4)",
     "competitive position, market share, pricing power",
     "risk factors and MD&A text (10-K Items 1A and 7)",
     "segment data (XBRL dimensions are not in SEC company facts)",
-    "financial concepts beyond the 80 the DCF reads (SEC reports ~560 for a large filer)",
+    "financial concepts beyond the 150 stored (SEC reports ~560 for a large filer; "
+    "config.settings FUNDAMENTAL_CONCEPTS + RESEARCH_CONCEPTS)",
+    "insider transactions before the 2-year Form 4 backfill, or on Forms 3 and 5",
 ]
 
 #: Travels with the value/price history wherever it goes (decision 21).
@@ -57,7 +58,7 @@ VALUE_PRICE_CAVEAT = (
 )
 
 SEATS = {
-    "analysts": ["screen.json", "facts.json", "statements.json", "prices.json"],
+    "analysts": ["screen.json", "facts.json", "statements.json", "prices.json", "insiders.json"],
     "valuation_sanity": [
         "screen.json",
         "prices.json",
