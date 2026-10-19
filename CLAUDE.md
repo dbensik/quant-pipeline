@@ -294,6 +294,15 @@ hindsight on 37-98% of names but walk-forward on 7-30%, the same as the
 defaults. A 1,000-combination grid on 16 years adds ~9 s of walk-forward to
 ~7 s of search.
 
+**No backtest holds a short** (decision 47, 2026-10-19,
+`research/short-side-2026-10-19.md`). Read as "go short", the single-asset
+strategies' -1 exits did worse than cash on all but 0-3 of 428 names and
+nearly every coin, so `Backtester` stays long-only. A negative portfolio
+weight is 422: the rebalance had sold from flat and spent the proceeds as
+cash. `pairs_trading` never holds its short leg (its caveat says how it
+misbehaves). Short support for multi-leg strategies, in
+`PortfolioBacktester` and paper portfolios, is decision 48.
+
 **Served equities and ETFs have bars from 2010** (insert-only backfill
 2026-10-14, decision 26; ^IRX from 2009-12, without which a pre-2015
 backtest is 422). Yahoo serves placeholder bars before some listings (AMCR,

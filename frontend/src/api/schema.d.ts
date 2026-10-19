@@ -2239,7 +2239,7 @@ export interface components {
             };
             /**
              * Weights
-             * @description Target weight per symbol. Omitted means the strategy's own default (`held_weight` in GET /strategies): 1/N for rules that may hold every symbol, 1/top_n for momentum, 1.0 per leg for paired switching. Must cover every requested symbol when supplied — a partial mapping would silently zero-weight the rest.
+             * @description Target weight per symbol. Omitted means the strategy's own default (`held_weight` in GET /strategies): 1/N for rules that may hold every symbol, 1/top_n for momentum, 1.0 per leg for paired switching. Must cover every requested symbol when supplied — a partial mapping would silently zero-weight the rest. Not negative: shorts are not supported.
              */
             weights?: {
                 [key: string]: number;

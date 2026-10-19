@@ -220,6 +220,18 @@ def measured_allocation(finding: str) -> str:
     return f"Measured at its defaults on fixed ETF baskets, 2011-2026, with costs: {finding}"
 
 
+def measured_short(finding: str) -> str:
+    """What decision 47 found when a strategy's -1 exit was read as "go short".
+
+    research/short-side-2026-10-19.md: the same 428 names (2010-2026) and 14
+    coins (2018-2026) as decisions 28 and 35, in a prototype engine that
+    reproduces Backtester to the cent with shorts off, borrow at 1% a year.
+    Survivors only, which biases against shorts: the names a short wins on
+    most are the ones Yahoo no longer serves.
+    """
+    return f"With its exit read as a short instead of cash: {finding}"
+
+
 _SPECS: List[StrategySpec] = [
     StrategySpec(
         id="buy_and_hold",
@@ -292,6 +304,10 @@ _SPECS: List[StrategySpec] = [
             "2020-2026), 6.8 pp a year less return. On ETFs 6 of 11 (1 of 11 in 2010-2019, "
             "8 in 2020-2026). Parameters fitted on 2010-2019 lost to buy and hold on 72% of "
             "names in 2020-2026."
+        )
+        + " "
+        + measured_short(
+            "a better Sharpe than long-only on 1 of 428 names and none of the 14 coins (decision 47)."
         ),
     ),
     StrategySpec(
@@ -310,6 +326,11 @@ _SPECS: List[StrategySpec] = [
         + measured_crypto(
             "beat buy and hold on 13 by sitting out the 2018 and 2022 crashes (median "
             "+23 pp a year); it lost in most rising years."
+        )
+        + " "
+        + measured_short(
+            "a better Sharpe than long-only on no equity and 2 of 14 coins (7 in 2018-2021, 3 in "
+            "2022-2026; decision 47)."
         ),
     ),
     StrategySpec(
@@ -330,6 +351,11 @@ _SPECS: List[StrategySpec] = [
             "better Sharpe than buy and hold on 26% of names (23% in 2010-2019, 49% in "
             "2020-2026), 5.3 pp a year less return, with a shallower drawdown on 97%. Which "
             "names it beats does not persist from one decade to the next."
+        )
+        + " "
+        + measured_short(
+            "it lost the whole account on 209 of 428 names and all 14 coins, shorting "
+            "at overbought and holding to oversold (decision 47)."
         ),
     ),
     StrategySpec(
@@ -352,6 +378,10 @@ _SPECS: List[StrategySpec] = [
         + measured_crypto(
             "beat buy and hold on 12 by sitting out the 2018 and 2022 crashes (median "
             "+25 pp a year, worst drawdown -62% against -95%); it lost in most rising years."
+        )
+        + " "
+        + measured_short(
+            "a better Sharpe than long-only on no equity and none of the 14 coins (decision 47)."
         ),
     ),
     StrategySpec(
@@ -378,6 +408,11 @@ _SPECS: List[StrategySpec] = [
         caveat=measured(
             "loses to buy and hold on every name (96% in 2020-2026), 17.7 pp a year less "
             "return, with a deeper drawdown (-76% against -53%)."
+        )
+        + " "
+        + measured_short(
+            "its -1 is a prediction of a fall, and acted on it had a better Sharpe than long-only "
+            "on no equity and no coin (decision 47)."
         ),
     ),
     StrategySpec(
@@ -437,6 +472,13 @@ _SPECS: List[StrategySpec] = [
         ],
         input_contract="multi",
         signal_shape="wide_per_asset",
+        caveat=(
+            "Does not trade a spread. The portfolio backtester reads -1 as exit, so the "
+            "short leg is never opened, and the leg that should be short is BOUGHT when "
+            "the spread trade closes. It holds only while the z-score is beyond the "
+            "threshold, usually one day; the pair is chosen by hand and never tested for "
+            "cointegration (decision 47; a replacement is decision 48)."
+        ),
     ),
     StrategySpec(
         id="cointegrated_mean_reversion",

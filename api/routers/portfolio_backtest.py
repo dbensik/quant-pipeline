@@ -59,7 +59,7 @@ class PortfolioBacktestRequest(BaseModel):
             "(`held_weight` in GET /strategies): 1/N for rules that may hold every "
             "symbol, 1/top_n for momentum, 1.0 per leg for paired switching. Must "
             "cover every requested symbol when supplied — a partial mapping would "
-            "silently zero-weight the rest."
+            "silently zero-weight the rest. Not negative: shorts are not supported."
         ),
     )
     initial_capital: float = Field(default=100_000.0, gt=0)
@@ -317,6 +317,18 @@ async def run_portfolio_backtest(
                 detail=(
                     "`weights` must name exactly the requested symbols. "
                     f"Missing: {sorted(missing)}. Unexpected: {sorted(extra)}."
+                ),
+            )
+        # A negative weight is a short. The rebalance sold it from flat and
+        # spent the proceeds as cash, with no collateral, borrow or margin
+        # (decision 47, research/short-side-2026-10-19.md).
+        negative = sorted(s for s, w in request.weights.items() if w < 0)
+        if negative:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"Weights must not be negative: {negative}. A negative weight is a short, "
+                    "and portfolio backtests do not account for shorts yet."
                 ),
             )
 

@@ -167,6 +167,18 @@ def test_weights_naming_an_unrequested_symbol_are_rejected(client: TestClient):
     assert "Unexpected" in response.json()["detail"]
 
 
+def test_a_negative_weight_is_rejected(client: TestClient):
+    """
+    A negative weight reached the rebalance branch, which SOLD from flat: a
+    short that spent its proceeds as cash, with no collateral, borrow or
+    margin (decision 47). Shorts wait for an engine that accounts for them.
+    """
+    response = run(client, weights={"AAPL": 1.3, "MSFT": -0.3}, symbols=["AAPL", "MSFT"])
+    assert response.status_code == 422
+    assert "MSFT" in response.json()["detail"]
+    assert "negative" in response.json()["detail"]
+
+
 def test_unknown_symbol_is_404(client: TestClient):
     assert run(client, symbols=["AAPL", "NOPE"]).status_code == 404
 
