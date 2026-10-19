@@ -1390,6 +1390,12 @@ export interface components {
              * @description Annual risk-free rate the Sharpe ratio is in excess of. Omitted, it is the stored ^IRX bond-equivalent rate averaged over the window's sessions.
              */
             risk_free_rate?: number | null;
+            /**
+             * Min Train Years
+             * @description With `optimize`: whole calendar years of history before the first walk-forward validate year.
+             * @default 3
+             */
+            min_train_years: number;
         };
         /** CompareResponse */
         CompareResponse: {
@@ -1426,6 +1432,11 @@ export interface components {
             /** Optimized */
             optimized: boolean;
             /**
+             * Evaluated From
+             * @description With `optimize`: every row and the benchmark are measured from here (the first walk-forward validate year) to `end`, rebased to initial_capital. Null when measured over the whole window.
+             */
+            evaluated_from?: string | null;
+            /**
              * Results
              * @description Ranked best-first by `metric`
              */
@@ -1438,6 +1449,29 @@ export interface components {
             skipped?: {
                 [key: string]: string;
             }[];
+        };
+        /**
+         * CompareWalkForwardPick
+         * @description One calendar year of a tuned row: the parameters it traded with.
+         */
+        CompareWalkForwardPick: {
+            /**
+             * Validate Start
+             * Format: date-time
+             */
+            validate_start: string;
+            /**
+             * Validate End
+             * Format: date-time
+             */
+            validate_end: string;
+            /**
+             * Params
+             * @description Picked on the years before; null when nothing traded in them
+             */
+            params: {
+                [key: string]: unknown;
+            } | null;
         };
         /**
          * ComparisonEquityPoint
@@ -1468,14 +1502,14 @@ export interface components {
             strategy_name: string;
             /**
              * Params
-             * @description Parameters actually used
+             * @description Parameters actually used; for a tuned row, the latest year's pick
              */
             params: {
                 [key: string]: unknown;
             };
             /**
              * Tuned
-             * @description Whether these came from a grid search
+             * @description Whether these came from a walk-forward grid search
              */
             tuned: boolean;
             /**
@@ -1483,6 +1517,11 @@ export interface components {
              * @default 0
              */
             combinations_evaluated: number;
+            /**
+             * Picks
+             * @description A tuned row's pick for each validate year
+             */
+            picks?: components["schemas"]["CompareWalkForwardPick"][];
             /** Metrics */
             metrics: {
                 [key: string]: unknown;
@@ -3176,6 +3215,18 @@ export interface components {
              * @description Annual risk-free rate the Sharpe ratio is in excess of. Omitted, it is the stored ^IRX bond-equivalent rate averaged over the window's sessions.
              */
             risk_free_rate?: number | null;
+            /**
+             * Walk Forward
+             * @description Also report anchored walk-forward: each calendar year's parameters picked on the years before it and traded out of sample. The ranking itself is in-sample (decision 41).
+             * @default true
+             */
+            walk_forward: boolean;
+            /**
+             * Min Train Years
+             * @description Whole calendar years of history before the first validate year.
+             * @default 3
+             */
+            min_train_years: number;
         };
         /** StrategyOptimizeResponse */
         StrategyOptimizeResponse: {
@@ -3236,6 +3287,13 @@ export interface components {
             skipped?: components["schemas"]["SkippedCombination"][];
             /** Caveat */
             caveat?: string | null;
+            /** @description Out-of-sample figures (decision 41). The ranking above is chosen and measured on the same window; this is what picking each year on the years before it earned. Null when not requested or not possible. */
+            walk_forward?: components["schemas"]["WalkForwardReport"] | null;
+            /**
+             * Walk Forward Unavailable
+             * @description Why walk_forward is null although it was requested
+             */
+            walk_forward_unavailable?: string | null;
         };
         /** StrategySchema */
         StrategySchema: {
@@ -3701,6 +3759,101 @@ export interface components {
             balances: {
                 [key: string]: components["schemas"]["ValuationLineItem"] | null;
             };
+        };
+        /** WalkForwardFoldReport */
+        WalkForwardFoldReport: {
+            /**
+             * Train Start
+             * Format: date-time
+             */
+            train_start: string;
+            /**
+             * Train End
+             * Format: date-time
+             */
+            train_end: string;
+            /**
+             * Validate Start
+             * Format: date-time
+             */
+            validate_start: string;
+            /**
+             * Validate End
+             * Format: date-time
+             */
+            validate_end: string;
+            /**
+             * Bars
+             * @description Bars in the validate window
+             */
+            bars: number;
+            /**
+             * Params
+             * @description Picked on the train window; null when no combination traded in it
+             */
+            params: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Train Metric
+             * @description The pick's `metric` on its train window
+             */
+            train_metric: number | null;
+            /**
+             * Oos Metrics
+             * @description The walk-forward account over the validate window, per initial_capital
+             */
+            oos_metrics: {
+                [key: string]: unknown;
+            };
+        };
+        /** WalkForwardReport */
+        WalkForwardReport: {
+            /** Metric */
+            metric: string;
+            /** Min Train Years */
+            min_train_years: number;
+            /**
+             * Evaluated From
+             * Format: date-time
+             * @description First bar of the first validate year
+             */
+            evaluated_from: string;
+            /**
+             * Evaluated To
+             * Format: date-time
+             */
+            evaluated_to: string;
+            /** Folds */
+            folds: components["schemas"]["WalkForwardFoldReport"][];
+            /**
+             * Oos Metrics
+             * @description One continuous account trading each year's pick from that year's first open, switches and their costs included, over evaluated_from..evaluated_to
+             */
+            oos_metrics: {
+                [key: string]: unknown;
+            };
+            /**
+             * Hindsight Params
+             * @description The best combination over the same span, chosen on that span
+             */
+            hindsight_params: {
+                [key: string]: unknown;
+            } | null;
+            /** Hindsight Metrics */
+            hindsight_metrics: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Hindsight Minus Oos
+             * @description Hindsight `metric` minus out-of-sample, both over the evaluated span
+             */
+            hindsight_minus_oos: number | null;
+            /**
+             * Mean Train Minus Oos
+             * @description Mean over folds of the pick's train `metric` minus its out-of-sample one
+             */
+            mean_train_minus_oos: number | null;
         };
         /** WatchlistOut */
         WatchlistOut: {

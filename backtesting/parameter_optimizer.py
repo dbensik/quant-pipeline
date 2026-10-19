@@ -28,12 +28,14 @@ question it was for:
 """
 
 import logging
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
 from alpha_models import registry
+from alpha_models.base_model import BaseAlphaModel
+from analysis.performance_analyzer import PerformanceAnalyzer
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +67,97 @@ MINIMIZE = {
 # "Trade Count" is deliberately absent from both: neither more nor fewer
 # trades is better on its own, so it is reported but cannot be optimized for.
 OPTIMIZABLE_METRICS = sorted(MAXIMIZE | MINIMIZE)
+
+#: Default anchored train length before the first validate year. Three years
+#: is what decision 41 measured: bars from 2010-01-04 validate from 2013.
+WALK_FORWARD_MIN_TRAIN_YEARS = 3
+
+
+# ---------------------------------------------------------------------------
+# Walk-forward helpers
+# ---------------------------------------------------------------------------
+
+
+def walk_forward_folds(index: pd.Index, min_train_years: int) -> List[Tuple[int, int]]:
+    """
+    Annual, anchored folds as (boundary, last) bar positions.
+
+    A calendar year Y is a validate fold when the data starts on or before
+    8 January of Y - min_train_years, i.e. at least `min_train_years` whole
+    calendar years precede it; the week's slack lets a series that opens on
+    the first session after New Year (2010-01-04) count its first year.
+    `boundary` is the last bar of Y-1: the train window is bars 0..boundary,
+    the pick is made on its close and first trades at Y's first open.
+    `last` is Y's last bar, so the final fold may be a partial year.
+    """
+    if min_train_years < 1:
+        raise ValueError(f"min_train_years must be >= 1, got {min_train_years}")
+    dates = pd.DatetimeIndex(index)
+    if len(dates) < 2:
+        return []
+    first = dates[0]
+    years = dates.year.to_numpy()
+    folds: List[Tuple[int, int]] = []
+    for year in sorted(set(years.tolist())):
+        if first > pd.Timestamp(year - min_train_years, 1, 8, tz=first.tz):
+            continue
+        positions = np.flatnonzero(years == year)
+        if positions[0] == 0:
+            continue
+        folds.append((int(positions[0] - 1), int(positions[-1])))
+    return folds
+
+
+def window_metrics(
+    total: np.ndarray,
+    position: Optional[np.ndarray],
+    index: pd.Index,
+    accrual: np.ndarray,
+    base: int,
+    last: int,
+    capital: float,
+) -> Dict[str, Any]:
+    """
+    PerformanceAnalyzer's metrics for bars base+1..last, as an account worth
+    `capital` at bar `base` would see them.
+
+    Every walk-forward figure goes through here so it has the definition
+    /backtest uses. The value is rebased, so Final Value and Total Return read
+    per `capital` whatever the account held before. Fills are counted from
+    position changes AFTER the base bar: a position carried into the window
+    is not a trade made in it. With base 0 this equals the metrics of a run
+    cut off at `last` (bar 0 is flat and earns no interest).
+    """
+    values = np.asarray(total[base : last + 1], dtype=float)
+    values = values * (capital / values[0])
+    frame = pd.DataFrame({"total": values}, index=index[base : last + 1])
+    frame["returns"] = frame["total"].pct_change().fillna(0.0)
+    if position is not None:
+        held = np.asarray(position[base : last + 1], dtype=float)
+        frame["trades"] = np.concatenate([[0.0], (np.diff(held) != 0).astype(float)])
+    rate = np.array(accrual[base : last + 1], dtype=float)
+    rate[0] = 0.0
+    return PerformanceAnalyzer(
+        frame, initial_capital=capital, risk_free_accrual=rate
+    ).calculate_all_metrics()
+
+
+def _pick(scores: List[float], metric: str) -> Optional[int]:
+    """Index of the best score in the metric's direction; None if all are NaN."""
+    values = np.array(scores, dtype=float)
+    if np.all(np.isnan(values)):
+        return None
+    return int(np.nanargmax(values) if metric in MAXIMIZE else np.nanargmin(values))
+
+
+class _FixedSignals(BaseAlphaModel):
+    """A precomputed signal column; how the walk-forward account is traded."""
+
+    def __init__(self, signal: np.ndarray):
+        self.signal = signal
+
+    def generate_signals(self, price_data: pd.DataFrame) -> pd.DataFrame:
+        return pd.DataFrame({"signal": self.signal}, index=price_data.index)
 
 
 class ParameterOptimizer:
@@ -136,6 +229,15 @@ class ParameterOptimizer:
         #: It cannot simply be indexed against param_grid either, since
         #: rejected combinations leave gaps.
         self._result_params: List[Dict[str, Any]] = []
+        #: (total, position) arrays of each evaluated combination, in the
+        #: order of results_df: what run_walk_forward slices.
+        self._runs: List[Tuple[np.ndarray, np.ndarray]] = []
+        #: The walk-forward account's portfolio frame, after run_walk_forward.
+        self.walk_forward_portfolio: Optional[pd.DataFrame] = None
+        #: The last run_walk_forward result, and why it was None if it was
+        #: (the window holds no fold).
+        self.walk_forward_report: Optional[Dict[str, Any]] = None
+        self.walk_forward_unavailable: Optional[str] = None
 
     # -- run ----------------------------------------------------------------
 
@@ -155,6 +257,7 @@ class ParameterOptimizer:
         results: List[Dict[str, Any]] = []
         self.skipped = []
         self._result_params = []
+        self._runs = []
         total = len(self.param_grid)
 
         for index, params in enumerate(self.param_grid, start=1):
@@ -181,7 +284,7 @@ class ParameterOptimizer:
             )
 
             try:
-                backtester.run(
+                portfolio = backtester.run(
                     self.price_data, model, cash_accrual=self.cash_accrual, lot_size=self.lot_size
                 )
                 stats = backtester.get_performance_metrics()
@@ -195,6 +298,9 @@ class ParameterOptimizer:
             record.update(stats or {})
             results.append(record)
             self._result_params.append(dict(params))
+            self._runs.append(
+                (portfolio["total"].to_numpy(copy=True), portfolio["position"].to_numpy(copy=True))
+            )
 
             if progress_callback:
                 progress_callback(index, total)
@@ -278,3 +384,139 @@ class ParameterOptimizer:
             metrics = {k: v for k, v in row.items() if k not in params}
             records.append({**params, **metrics})
         return records
+
+    # -- walk-forward -------------------------------------------------------
+
+    def run_walk_forward(
+        self, min_train_years: int = WALK_FORWARD_MIN_TRAIN_YEARS
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Anchored walk-forward over the runs of run_optimization (call it first).
+
+        Each calendar year Y of walk_forward_folds, the combination with the
+        best `metric` on bars [first, end of Y-1] is picked and traded through
+        Y. Strategies pass the look-ahead contract, so a train figure sliced
+        from a full run is the figure of a run that stopped at the train end:
+        one run per combination, not one per fold.
+
+        The out-of-sample result is ONE continuous account, not the picks'
+        own runs stitched together. In year Y its signal is that year's
+        pick's; on the boundary bar it is set to enter (1) if the pick's own
+        run held a position there, else to exit (-1), so the account holds
+        what the new pick holds from Y's first open, paying the costs of the
+        switch. Before the first fold it is flat. A fold where every
+        combination scored NaN (none traded in the train window) is flat.
+
+        Returns None, with `walk_forward_unavailable` set, when the window
+        holds no fold. Otherwise a dict of plain values: per-fold picks with
+        their train score and out-of-sample metrics, the account's metrics
+        over the whole evaluated span, and the HINDSIGHT figure: the best
+        combination's metrics on that same span, which is what ranking on
+        the full window reports. Measured against each other on one span,
+        the two answer whether the search finds anything that persists.
+        """
+        from backtesting.backtester import Backtester
+
+        if not self._runs:
+            raise RuntimeError("run_optimization() has produced no runs to walk forward over")
+
+        index = self.price_data.index
+        folds = walk_forward_folds(index, min_train_years)
+        self.walk_forward_portfolio = None
+        self.walk_forward_report = None
+        if not folds:
+            years = pd.DatetimeIndex(index)
+            self.walk_forward_unavailable = (
+                f"Walk-forward needs {min_train_years} whole calendar year(s) of history before "
+                f"a validate year; this window runs {years[0].date()} to {years[-1].date()}."
+            )
+            return None
+        self.walk_forward_unavailable = None
+
+        def score(run: Tuple[np.ndarray, np.ndarray], base: int, last: int) -> Dict[str, Any]:
+            return window_metrics(
+                run[0], run[1], index, self.cash_accrual, base, last, self.initial_capital
+            )
+
+        signals: Dict[int, np.ndarray] = {}
+        stitched = np.full(len(index), -1.0)
+        picks: List[Optional[int]] = []
+        train_scores: List[Optional[float]] = []
+        for boundary, last in folds:
+            scores = [score(run, 0, boundary).get(self.metric, np.nan) for run in self._runs]
+            choice = _pick(scores, self.metric)
+            picks.append(choice)
+            train_scores.append(None if choice is None else float(scores[choice]))
+            if choice is None:
+                stitched[boundary : last + 1] = -1.0
+                continue
+            if choice not in signals:
+                model = self.spec.build(self._result_params[choice])
+                signals[choice] = (
+                    model.generate_signals(price_data=self.price_data)["signal"]
+                    .ffill()
+                    .fillna(0)
+                    .to_numpy(dtype=float)
+                )
+            stitched[boundary + 1 : last + 1] = signals[choice][boundary + 1 : last + 1]
+            stitched[boundary] = 1.0 if self._runs[choice][1][boundary] > 0 else -1.0
+
+        backtester = Backtester(
+            initial_capital=self.initial_capital,
+            transaction_cost=self.transaction_cost,
+            seed=self.seed,
+        )
+        account = backtester.run(
+            self.price_data,
+            _FixedSignals(stitched),
+            cash_accrual=self.cash_accrual,
+            lot_size=self.lot_size,
+        )
+        self.walk_forward_portfolio = account
+        account_run = (account["total"].to_numpy(), account["position"].to_numpy())
+
+        fold_rows: List[Dict[str, Any]] = []
+        gaps: List[float] = []
+        for (boundary, last), choice, train in zip(folds, picks, train_scores, strict=True):
+            oos = score(account_run, boundary, last)
+            fold_rows.append(
+                {
+                    "train_start": index[0].isoformat(),
+                    "train_end": index[boundary].isoformat(),
+                    "validate_start": index[boundary + 1].isoformat(),
+                    "validate_end": index[last].isoformat(),
+                    "bars": last - boundary,
+                    "params": None if choice is None else dict(self._result_params[choice]),
+                    "train_metric": train,
+                    "oos_metrics": oos,
+                }
+            )
+            value = oos.get(self.metric)
+            if train is not None and value is not None and np.isfinite(value):
+                gaps.append(train - value)
+
+        span_base, span_last = folds[0][0], folds[-1][1]
+        span_scores = [score(run, span_base, span_last) for run in self._runs]
+        hindsight = _pick([s.get(self.metric, np.nan) for s in span_scores], self.metric)
+        oos_metrics = score(account_run, span_base, span_last)
+        hindsight_metrics = None if hindsight is None else span_scores[hindsight]
+        self.walk_forward_report = {
+            "metric": self.metric,
+            "min_train_years": min_train_years,
+            "evaluated_from": index[span_base + 1].isoformat(),
+            "evaluated_to": index[span_last].isoformat(),
+            "span_base": span_base,
+            "folds": fold_rows,
+            "oos_metrics": oos_metrics,
+            "hindsight_params": (
+                None if hindsight is None else dict(self._result_params[hindsight])
+            ),
+            "hindsight_metrics": hindsight_metrics,
+            "hindsight_minus_oos": (
+                None
+                if hindsight_metrics is None
+                else hindsight_metrics.get(self.metric) - oos_metrics.get(self.metric)
+            ),
+            "mean_train_minus_oos": float(np.mean(gaps)) if gaps else None,
+        }
+        return self.walk_forward_report

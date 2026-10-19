@@ -276,6 +276,23 @@ Each one's registry caveat says what was measured (`measured()`). Re-measure
 before editing a figure; a change to a strategy or the backtester makes
 them stale.
 
+**Parameter search reports walk-forward beside the in-sample ranking**
+(since 2026-10-19, decision 41, `research/walk-forward-2026-10-19.md`).
+`ParameterOptimizer.run_walk_forward` picks each calendar year's parameters
+on all the years before it (anchored, `min_train_years` = 3 by default: bars
+from 2010-01-04 validate from 2013) and trades them in ONE continuous account
+that switches at each year's first open and pays for it. `/optimize/strategy`
+returns it by default (`walk_forward`, or `walk_forward_unavailable` with the
+reason). The in-sample ranking is unchanged: bit-identical on 12 real runs
+and pinned in `tests/unit/test_walk_forward.py`. `/backtest/compare` with
+`optimize` reports a tuned row as that account, and measures EVERY row and
+the benchmark from the first validate year (`evaluated_from`), each rebased
+to the initial capital. A window with no fold is 422, never tuned in
+hindsight. Measured before building: tuned strategies beat buy and hold in
+hindsight on 37-98% of names but walk-forward on 7-30%, the same as the
+defaults. A 1,000-combination grid on 16 years adds ~9 s of walk-forward to
+~7 s of search.
+
 **Served equities and ETFs have bars from 2010** (insert-only backfill
 2026-10-14, decision 26; ^IRX from 2009-12, without which a pre-2015
 backtest is 422). Yahoo serves placeholder bars before some listings (AMCR,

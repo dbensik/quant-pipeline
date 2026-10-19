@@ -12,6 +12,17 @@ Ported from the Streamlit comparison tab. Three things it did that are kept:
   * Optional AUTO-TUNING before comparing, so the ranking is not merely
     measuring whose DEFAULTS happened to suit the window.
 
+TUNING IS WALK-FORWARD (decision 41, 2026-10-19). It used to pick each
+strategy's parameters on the window and then rank them on that same window:
+a hindsight figure, which on 428 names had tuned strategies "beat" buy and
+hold on 37-98% of names against 7-30% out of sample. A tuned row now reports
+the walk-forward account (each calendar year traded with the parameters
+picked on the years before it), and so that the rows stay comparable EVERY
+row and the benchmark are measured over the same span: from the first
+validate year to the end, each rebased to initial_capital there. A window
+too short for one fold is refused with tuning on, never tuned in hindsight
+instead.
+
 The tuning reuses ParameterOptimizer and the registry's `default_grid`. The
 controller had its own recursive grid walk, its own `_OPTIMIZATION_GRIDS`, and
 a restatement of the short<long constraint — a fifth copy of grid-search
@@ -50,7 +61,10 @@ from api.routers.backtest import _json_safe, _run_backtest_sync
 from backtesting.parameter_optimizer import (
     MINIMIZE,
     OPTIMIZABLE_METRICS,
+    WALK_FORWARD_MIN_TRAIN_YEARS,
     ParameterOptimizer,
+    walk_forward_folds,
+    window_metrics,
 )
 from core.rates import RateRepository
 from db.repositories.market_data import TimescaleMarketDataRepo
@@ -119,14 +133,38 @@ class CompareRequest(BaseModel):
     seed: Optional[int] = Field(default=42)
     include_equity_curves: bool = Field(default=True)
     risk_free_rate: Optional[float] = Field(default=None, description=RISK_FREE_RATE_DESCRIPTION)
+    min_train_years: int = Field(
+        default=WALK_FORWARD_MIN_TRAIN_YEARS,
+        ge=1,
+        le=20,
+        description=(
+            "With `optimize`: whole calendar years of history before the first "
+            "walk-forward validate year."
+        ),
+    )
+
+
+class CompareWalkForwardPick(BaseModel):
+    """One calendar year of a tuned row: the parameters it traded with."""
+
+    validate_start: datetime
+    validate_end: datetime
+    params: Optional[Dict[str, Any]] = Field(
+        description="Picked on the years before; null when nothing traded in them"
+    )
 
 
 class ComparisonRow(BaseModel):
     strategy_id: str
     strategy_name: str
-    params: Dict[str, Any] = Field(description="Parameters actually used")
-    tuned: bool = Field(description="Whether these came from a grid search")
+    params: Dict[str, Any] = Field(
+        description="Parameters actually used; for a tuned row, the latest year's pick"
+    )
+    tuned: bool = Field(description="Whether these came from a walk-forward grid search")
     combinations_evaluated: int = 0
+    picks: List[CompareWalkForwardPick] = Field(
+        default_factory=list, description="A tuned row's pick for each validate year"
+    )
     metrics: Dict[str, Any]
     caveat: Optional[str] = None
     equity_curve: List[ComparisonEquityPoint] = Field(default_factory=list)
@@ -151,6 +189,14 @@ class CompareResponse(BaseModel):
     )
     risk_free_source: str = Field(description=RISK_FREE_SOURCE_DESCRIPTION)
     optimized: bool
+    evaluated_from: Optional[datetime] = Field(
+        default=None,
+        description=(
+            "With `optimize`: every row and the benchmark are measured from here "
+            "(the first walk-forward validate year) to `end`, rebased to "
+            "initial_capital. Null when measured over the whole window."
+        ),
+    )
     results: List[ComparisonRow] = Field(description="Ranked best-first by `metric`")
     benchmark: Optional[BenchmarkRow] = None
     skipped: List[Dict[str, str]] = Field(
@@ -177,7 +223,10 @@ def _curve(frame: Optional[pd.DataFrame]) -> List[ComparisonEquityPoint]:
 
 
 def _benchmark_metrics(
-    frame: pd.DataFrame, initial_capital: float, cash_accrual: np.ndarray
+    frame: pd.DataFrame,
+    initial_capital: float,
+    cash_accrual: np.ndarray,
+    evaluated_from: Optional[pd.Timestamp] = None,
 ) -> tuple[Dict[str, Any], pd.DataFrame]:
     """
     Buy-and-hold on the benchmark, scaled to the same starting capital.
@@ -196,18 +245,59 @@ def _benchmark_metrics(
     portfolio = pd.DataFrame({"total": values})
     portfolio["returns"] = portfolio["total"].pct_change().fillna(0)
 
+    if evaluated_from is not None:
+        # The span the tuned rows are measured over: from the benchmark's last
+        # bar before the first validate bar (its own calendar may differ).
+        accrual = pd.Series(np.asarray(cash_accrual, dtype=float), index=frame.index)
+        accrual = accrual.loc[series.index].to_numpy()
+        positions = np.flatnonzero(series.index < evaluated_from)
+        base = int(positions[-1]) if len(positions) else 0
+        last = len(series) - 1
+        metrics = window_metrics(
+            values.to_numpy(), None, series.index, accrual, base, last, initial_capital
+        )
+        return metrics, _rebased(portfolio, base, initial_capital)
+
     analyzer = PerformanceAnalyzer(
         portfolio, initial_capital=initial_capital, risk_free_accrual=cash_accrual
     )
     return analyzer.calculate_all_metrics(), portfolio
 
 
+def _rebased(portfolio: pd.DataFrame, base: int, capital: float) -> pd.DataFrame:
+    """The curve from bar `base` on, worth `capital` there."""
+    total = portfolio["total"].iloc[base:]
+    return pd.DataFrame({"total": total * (capital / float(total.iloc[0]))})
+
+
 def _compare_sync(
-    frame: pd.DataFrame, request: CompareRequest, cash_accrual: np.ndarray, lot_size: float
+    frame: pd.DataFrame,
+    request: CompareRequest,
+    cash_accrual: np.ndarray,
+    lot_size: float,
+    span_base: Optional[int] = None,
 ) -> tuple[List[Dict[str, Any]], List[Dict[str, str]]]:
-    """CPU-bound half: tune (optionally), backtest, collect."""
+    """
+    CPU-bound half: tune (optionally), backtest, collect.
+
+    With `optimize`, `span_base` is the boundary bar before the first
+    walk-forward validate year, and every row is measured from it.
+    """
     rows: List[Dict[str, Any]] = []
     skipped: List[Dict[str, str]] = []
+    last = len(frame) - 1
+
+    def on_span(results: pd.DataFrame) -> tuple[Dict[str, Any], pd.DataFrame]:
+        metrics = window_metrics(
+            results["total"].to_numpy(),
+            results["position"].to_numpy() if "position" in results.columns else None,
+            frame.index,
+            cash_accrual,
+            span_base,
+            last,
+            request.initial_capital,
+        )
+        return metrics, _rebased(results, span_base, request.initial_capital)
 
     for entry in request.strategies:
         try:
@@ -230,6 +320,8 @@ def _compare_sync(
         params = dict(entry.params)
         tuned = False
         evaluated = 0
+        picks: List[Dict[str, Any]] = []
+        walked: Optional[tuple[Dict[str, Any], pd.DataFrame]] = None
 
         grid = entry.grid if entry.grid is not None else spec.default_grid
         if request.optimize and grid:
@@ -258,26 +350,48 @@ def _compare_sync(
                 lot_size=lot_size,
             )
             optimizer.run_optimization()
-            best = optimizer.get_best_parameters()
-            if best:
-                params = best
+            report = (
+                optimizer.run_walk_forward(request.min_train_years)
+                if optimizer.get_best_parameters()
+                else None
+            )
+            if report is not None:
+                picks = [
+                    {
+                        "validate_start": fold["validate_start"],
+                        "validate_end": fold["validate_end"],
+                        "params": fold["params"],
+                    }
+                    for fold in report["folds"]
+                ]
+                latest = next((p["params"] for p in reversed(picks) if p["params"]), None)
+                params = dict(latest) if latest else params
                 tuned = True
                 evaluated = len(optimizer.results_df)
+                walked = (
+                    report["oos_metrics"],
+                    _rebased(optimizer.walk_forward_portfolio, span_base, request.initial_capital),
+                )
 
-        try:
-            results, metrics, _trades = _run_backtest_sync(
-                frame,
-                spec,
-                params,
-                request.initial_capital,
-                request.transaction_cost,
-                request.seed,
-                cash_accrual=cash_accrual,
-                lot_size=lot_size,
-            )
-        except (ValueError, KeyError) as exc:
-            skipped.append({"strategy_id": spec.id, "reason": str(exc)})
-            continue
+        if walked is not None:
+            metrics, results = walked
+        else:
+            try:
+                results, metrics, _trades = _run_backtest_sync(
+                    frame,
+                    spec,
+                    params,
+                    request.initial_capital,
+                    request.transaction_cost,
+                    request.seed,
+                    cash_accrual=cash_accrual,
+                    lot_size=lot_size,
+                )
+            except (ValueError, KeyError) as exc:
+                skipped.append({"strategy_id": spec.id, "reason": str(exc)})
+                continue
+            if span_base is not None:
+                metrics, results = on_span(results)
 
         # EFFECTIVE params, not what the caller happened to send. An untuned
         # entry supplies {}, and echoing that back would leave the row unable
@@ -292,6 +406,7 @@ def _compare_sync(
                 "params": effective,
                 "tuned": tuned,
                 "combinations_evaluated": evaluated,
+                "picks": picks,
                 "metrics": {k: _json_safe(v) for k, v in (metrics or {}).items()},
                 "caveat": spec.caveat,
                 "frame": results,
@@ -385,6 +500,25 @@ async def compare_strategies(
     asset, frame = await load(request.symbol)
     lot_size = lot_size_or_422(asset)
 
+    # Tuning is walk-forward, so it needs a validate year; refused otherwise
+    # rather than tuned in hindsight, which is the figure decision 41 removed.
+    span_base: Optional[int] = None
+    evaluated_from: Optional[pd.Timestamp] = None
+    if request.optimize:
+        folds = walk_forward_folds(frame.index, request.min_train_years)
+        if not folds:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"Tuning is walk-forward: it needs {request.min_train_years} whole "
+                    f"calendar year(s) of history before a validate year, and this window "
+                    f"runs {frame.index[0].date()} to {frame.index[-1].date()}. Widen the "
+                    "window, lower min_train_years, or compare without tuning."
+                ),
+            )
+        span_base = folds[0][0]
+        evaluated_from = frame.index[span_base + 1]
+
     # One rate for the whole comparison, the benchmark's Sharpe included: the
     # rows are ranked against each other, so they must share a hurdle. It is
     # taken over the strategy symbol's sessions, the window the rows trade.
@@ -413,6 +547,7 @@ async def compare_strategies(
                 benchmark_frame,
                 request.initial_capital,
                 benchmark_rf.accrual,
+                evaluated_from,
             )
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from None
@@ -423,7 +558,7 @@ async def compare_strategies(
         )
 
     rows, skipped = await run_in_threadpool(
-        _compare_sync, frame, request, risk_free.accrual, lot_size
+        _compare_sync, frame, request, risk_free.accrual, lot_size, span_base
     )
 
     if not rows:
@@ -462,6 +597,7 @@ async def compare_strategies(
         risk_free_rate=risk_free[0],
         risk_free_source=risk_free[1],
         optimized=request.optimize,
+        evaluated_from=evaluated_from,
         results=[
             ComparisonRow(
                 strategy_id=row["strategy_id"],
@@ -469,6 +605,7 @@ async def compare_strategies(
                 params=row["params"],
                 tuned=row["tuned"],
                 combinations_evaluated=row["combinations_evaluated"],
+                picks=row["picks"],
                 metrics=row["metrics"],
                 caveat=row["caveat"],
                 equity_curve=(_curve(row["frame"]) if request.include_equity_curves else []),

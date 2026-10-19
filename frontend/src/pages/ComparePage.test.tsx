@@ -200,16 +200,31 @@ describe('ComparePage — results', () => {
     expect(screen.getByText('short_window=20, long_window=50')).toBeInTheDocument()
   })
 
-  it('badges a tuned row with how many combinations it searched', async () => {
+  it('badges a tuned row as walk-forward and says the span every row shares', async () => {
+    // Decision 41: tuning is walk-forward, and every row is measured from the
+    // first year traded out of sample.
     vi.spyOn(api, 'compareStrategies').mockResolvedValue({
       ...RESULT,
       optimized: true,
-      results: [{ ...RESULT.results[0], tuned: true, combinations_evaluated: 9 }],
+      evaluated_from: '2013-01-02T00:00:00Z',
+      results: [
+        {
+          ...RESULT.results[0],
+          tuned: true,
+          combinations_evaluated: 9,
+          picks: [
+            { validate_start: '2013-01-02', validate_end: '2013-12-31', params: {} },
+            { validate_start: '2014-01-02', validate_end: '2014-12-31', params: {} },
+          ],
+        },
+      ],
     } as never)
     renderPage(<ComparePage />)
     await userEvent.click(await screen.findByRole('button', { name: /^Compare/ }))
 
-    expect(await screen.findByText('tuned (9)')).toBeInTheDocument()
+    expect(await screen.findByText('walk-forward (9)')).toBeInTheDocument()
+    expect(screen.getByText(/measured from 2013-01-02, out of sample/)).toBeInTheDocument()
+    expect(screen.getByText(/latest of 2 yearly picks/)).toBeInTheDocument()
   })
 
   it('reports strategies that could not be compared', async () => {

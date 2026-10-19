@@ -184,6 +184,59 @@ describe('OptimizePage — grid search', () => {
     expect(screen.getByText(/cash earns a 4\.12% risk-free rate/)).toBeInTheDocument()
   })
 
+  it('shows the out-of-sample walk-forward beside the in-sample ranking', async () => {
+    vi.spyOn(api, 'optimizeStrategy').mockResolvedValue({
+      ...GRID_RESULT,
+      walk_forward: {
+        metric: 'Sharpe Ratio',
+        min_train_years: 3,
+        evaluated_from: '2019-01-02T00:00:00Z',
+        evaluated_to: '2025-12-31T00:00:00Z',
+        folds: [
+          {
+            train_start: '2016-01-04',
+            train_end: '2018-12-31',
+            validate_start: '2019-01-02T00:00:00Z',
+            validate_end: '2019-12-31T00:00:00Z',
+            bars: 252,
+            params: { short_window: 20, long_window: 200 },
+            train_metric: 1.2,
+            oos_metrics: { 'Sharpe Ratio': -0.39, 'Total Return': -0.05 },
+          },
+        ],
+        oos_metrics: { 'Sharpe Ratio': 0.318 },
+        hindsight_params: { short_window: 10, long_window: 100 },
+        hindsight_metrics: { 'Sharpe Ratio': 0.814 },
+        hindsight_minus_oos: 0.496,
+        mean_train_minus_oos: 0.515,
+      },
+      walk_forward_unavailable: null,
+    } as never)
+    renderPage(<OptimizePage />)
+    await userEvent.click(await screen.findByRole('button', { name: /Run grid search/ }))
+
+    expect(await screen.findByText('Out of sample (walk-forward)')).toBeInTheDocument()
+    expect(screen.getByText('0.318')).toBeInTheDocument()
+    expect(screen.getByText(/hindsight\s+overstates it by 0\.496/)).toBeInTheDocument()
+    expect(screen.getByText('short_window=20, long_window=200')).toBeInTheDocument()
+    expect(screen.getByText('-0.390')).toBeInTheDocument()
+    expect(screen.getByText('In-sample ranking')).toBeInTheDocument()
+  })
+
+  it('says when the window is too short to check out of sample', async () => {
+    vi.spyOn(api, 'optimizeStrategy').mockResolvedValue({
+      ...GRID_RESULT,
+      walk_forward: null,
+      walk_forward_unavailable:
+        'Walk-forward needs 3 whole calendar year(s) of history before a validate year.',
+    } as never)
+    renderPage(<OptimizePage />)
+    await userEvent.click(await screen.findByRole('button', { name: /Run grid search/ }))
+
+    expect(await screen.findByText(/No out-of-sample check: Walk-forward needs 3/)).toBeInTheDocument()
+    expect(screen.queryByText('Out of sample (walk-forward)')).not.toBeInTheDocument()
+  })
+
   it('reports combinations the strategy rejected', async () => {
     vi.spyOn(api, 'optimizeStrategy').mockResolvedValue({
       ...GRID_RESULT,

@@ -37,7 +37,11 @@ from api.risk_free import (
     risk_free_refusal,
 )
 from api.routers.backtest import _json_safe
-from backtesting.parameter_optimizer import OPTIMIZABLE_METRICS, ParameterOptimizer
+from backtesting.parameter_optimizer import (
+    OPTIMIZABLE_METRICS,
+    WALK_FORWARD_MIN_TRAIN_YEARS,
+    ParameterOptimizer,
+)
 from core.rates import RateRepository
 from db.repositories.market_data import TimescaleMarketDataRepo
 
@@ -169,11 +173,64 @@ class StrategyOptimizeRequest(BaseModel):
     )
     top_n: int = Field(default=25, gt=0, le=MAX_COMBINATIONS)
     risk_free_rate: Optional[float] = Field(default=None, description=RISK_FREE_RATE_DESCRIPTION)
+    walk_forward: bool = Field(
+        default=True,
+        description=(
+            "Also report anchored walk-forward: each calendar year's parameters "
+            "picked on the years before it and traded out of sample. The "
+            "ranking itself is in-sample (decision 41)."
+        ),
+    )
+    min_train_years: int = Field(
+        default=WALK_FORWARD_MIN_TRAIN_YEARS,
+        ge=1,
+        le=20,
+        description="Whole calendar years of history before the first validate year.",
+    )
 
 
 class SkippedCombination(BaseModel):
     params: Dict[str, Any]
     reason: str
+
+
+class WalkForwardFoldReport(BaseModel):
+    train_start: datetime
+    train_end: datetime
+    validate_start: datetime
+    validate_end: datetime
+    bars: int = Field(description="Bars in the validate window")
+    params: Optional[Dict[str, Any]] = Field(
+        description="Picked on the train window; null when no combination traded in it"
+    )
+    train_metric: Optional[float] = Field(description="The pick's `metric` on its train window")
+    oos_metrics: Dict[str, Any] = Field(
+        description="The walk-forward account over the validate window, per initial_capital"
+    )
+
+
+class WalkForwardReport(BaseModel):
+    metric: str
+    min_train_years: int
+    evaluated_from: datetime = Field(description="First bar of the first validate year")
+    evaluated_to: datetime
+    folds: List[WalkForwardFoldReport]
+    oos_metrics: Dict[str, Any] = Field(
+        description=(
+            "One continuous account trading each year's pick from that year's first "
+            "open, switches and their costs included, over evaluated_from..evaluated_to"
+        )
+    )
+    hindsight_params: Optional[Dict[str, Any]] = Field(
+        description="The best combination over the same span, chosen on that span"
+    )
+    hindsight_metrics: Optional[Dict[str, Any]]
+    hindsight_minus_oos: Optional[float] = Field(
+        description="Hindsight `metric` minus out-of-sample, both over the evaluated span"
+    )
+    mean_train_minus_oos: Optional[float] = Field(
+        description="Mean over folds of the pick's train `metric` minus its out-of-sample one"
+    )
 
 
 class StrategyOptimizeResponse(BaseModel):
@@ -201,6 +258,38 @@ class StrategyOptimizeResponse(BaseModel):
         ),
     )
     caveat: Optional[str] = None
+    walk_forward: Optional[WalkForwardReport] = Field(
+        default=None,
+        description=(
+            "Out-of-sample figures (decision 41). The ranking above is chosen and "
+            "measured on the same window; this is what picking each year on the "
+            "years before it earned. Null when not requested or not possible."
+        ),
+    )
+    walk_forward_unavailable: Optional[str] = Field(
+        default=None, description="Why walk_forward is null although it was requested"
+    )
+
+
+def json_deep(value: Any) -> Any:
+    """_json_safe through nested dicts and lists (walk-forward reports nest metrics)."""
+    if isinstance(value, dict):
+        return {k: json_deep(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [json_deep(v) for v in value]
+    return _json_safe(value)
+
+
+def walk_forward_payload(optimizer: ParameterOptimizer) -> Dict[str, Any]:
+    """The response's walk_forward fields, JSON-safe; shared by REST, websocket and compare."""
+    report = optimizer.walk_forward_report
+    if report is None:
+        return {
+            "walk_forward": None,
+            "walk_forward_unavailable": optimizer.walk_forward_unavailable,
+        }
+    public = {k: v for k, v in report.items() if k != "span_base"}
+    return {"walk_forward": json_deep(public), "walk_forward_unavailable": None}
 
 
 def _optimize_sync(
@@ -225,6 +314,8 @@ def _optimize_sync(
         lot_size=lot_size,
     )
     optimizer.run_optimization(progress_callback=progress_callback)
+    if request.walk_forward and optimizer.results_df is not None and not optimizer.results_df.empty:
+        optimizer.run_walk_forward(request.min_train_years)
     return optimizer
 
 
@@ -265,6 +356,7 @@ def build_optimize_payload(
         "results": results,
         "skipped": optimizer.skipped,
         "caveat": spec.caveat,
+        **walk_forward_payload(optimizer),
     }
 
 

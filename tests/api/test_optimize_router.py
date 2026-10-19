@@ -558,3 +558,67 @@ def test_crypto_candidates_trade_below_one_coin(client: TestClient):
     """Every candidate of a BTC grid traded nothing with less cash than a coin."""
     body = optimize(client, symbol="BTC-USD", initial_capital=20_000).json()
     assert all(r["Trade Count"] > 0 for r in body["results"])
+
+
+# ---------------------------------------------------------------------------
+# Walk-forward (decision 41)
+# ---------------------------------------------------------------------------
+# The fixture runs 400 daily bars from 2024-01-01, so one whole calendar year
+# precedes 2025: walk-forward needs min_train_years=1 here, and the default
+# (3) has no fold.
+
+LONG_WINDOW = {"start": "2024-01-01", "end": "2025-12-31"}
+
+
+def test_walk_forward_is_reported_beside_the_in_sample_ranking(client: TestClient):
+    body = optimize(client, min_train_years=1, **LONG_WINDOW).json()
+    report = body["walk_forward"]
+
+    assert body["walk_forward_unavailable"] is None
+    assert report["evaluated_from"].startswith("2025-01-01")
+    assert len(report["folds"]) == 1
+    fold = report["folds"][0]
+    assert fold["train_end"].startswith("2024-12-31")
+    assert fold["params"]["short_window"] in (5, 10, 15)
+    assert fold["params"]["long_window"] in (30, 40)
+    assert report["oos_metrics"]["Sharpe Ratio"] is not None
+    assert report["hindsight_minus_oos"] == pytest.approx(
+        report["hindsight_metrics"]["Sharpe Ratio"] - report["oos_metrics"]["Sharpe Ratio"]
+    )
+    # The in-sample ranking is unchanged by asking for walk-forward.
+    without = optimize(client, walk_forward=False, **LONG_WINDOW).json()
+    assert body["results"] == without["results"]
+    assert body["best_params"] == without["best_params"]
+
+
+@pytest.mark.parametrize("metric", ["Sharpe Ratio", "Annualized Volatility"])
+def test_the_2025_pick_is_what_a_search_on_2024_alone_ranks_best(client: TestClient, metric):
+    """
+    The fold's train window is 2024, so its pick must be the in-sample winner
+    of a search over 2024 only, in the metric's direction (volatility is
+    minimised). That holds only if the pick never saw 2025.
+    """
+    report = optimize(client, metric=metric, min_train_years=1, **LONG_WINDOW).json()
+    in_2024 = optimize(client, metric=metric, **WINDOW).json()
+    assert report["walk_forward"]["metric"] == metric
+    assert report["walk_forward"]["folds"][0]["params"] == in_2024["best_params"]
+    assert report["walk_forward"]["folds"][0]["train_metric"] == pytest.approx(
+        in_2024["best_metrics"][metric]
+    )
+
+
+def test_a_window_too_short_for_a_fold_says_why(client: TestClient):
+    body = optimize(client, **LONG_WINDOW).json()
+    assert body["walk_forward"] is None
+    assert "3 whole calendar year" in body["walk_forward_unavailable"]
+    assert body["results"]
+
+
+def test_walk_forward_off_reports_neither_field(client: TestClient):
+    body = optimize(client, walk_forward=False, min_train_years=1, **LONG_WINDOW).json()
+    assert body["walk_forward"] is None
+    assert body["walk_forward_unavailable"] is None
+
+
+def test_min_train_years_below_one_is_422(client: TestClient):
+    assert optimize(client, min_train_years=0).status_code == 422

@@ -123,6 +123,21 @@ def test_result_carries_the_same_payload_as_the_rest_route(
     assert over_socket["results"] == over_http["results"]
 
 
+def test_result_carries_walk_forward_like_the_rest_route(ws_client: TestClient, client: TestClient):
+    """Decision 41: the socket's payload has the same out-of-sample report."""
+    window = {"end": "2025-12-31", "min_train_years": 1}
+    over_socket = run_grid(ws_client, **window)[-1]
+    over_http = client.post("/api/v1/optimize/strategy", json={**GRID_REQUEST, **window}).json()
+
+    assert over_socket["walk_forward"] is not None
+    assert (
+        over_socket["walk_forward"]["folds"][0]["params"]
+        == (over_http["walk_forward"]["folds"][0]["params"])
+    )
+    assert over_socket["walk_forward"]["oos_metrics"] == over_http["walk_forward"]["oos_metrics"]
+    assert "span_base" not in over_socket["walk_forward"]
+
+
 def test_invalid_grid_parameter_is_an_error_message_not_a_crash(
     ws_client: TestClient,
 ):

@@ -52,6 +52,22 @@ const percent = (v: number | null | undefined) =>
   v == null ? '—' : `${(v * 100).toFixed(2)}%`
 const ratio = (v: number | null | undefined) => (v == null ? '—' : v.toFixed(3))
 
+/** Metrics that read as a share of capital rather than as a ratio. */
+const PERCENT_METRICS = new Set([
+  'Total Return',
+  'Annualized Return',
+  'Annualized Volatility',
+  'Max Drawdown',
+])
+const metricValue = (metric: string, v: unknown) =>
+  PERCENT_METRICS.has(metric) ? percent(v as number | null) : ratio(v as number | null)
+const paramText = (params: Record<string, unknown> | null | undefined) =>
+  params
+    ? Object.entries(params)
+        .map(([k, v]) => `${k}=${v}`)
+        .join(', ')
+    : 'none (nothing traded)'
+
 export function OptimizePage() {
   const { startDate, endDate } = useAppStore()
   const { data: catalogue } = useStrategies('single')
@@ -116,6 +132,7 @@ export function OptimizePage() {
   const strategyError = strategyRun.error as ApiError | null
   const portfolioError = portfolioRun.error as ApiError | null
   const result = strategyRun.data
+  const walk = result?.walk_forward ?? null
 
   return (
     <div>
@@ -239,7 +256,7 @@ export function OptimizePage() {
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                   <Badge variant="secondary">
-                    best:{' '}
+                    in-sample best:{' '}
                     {Object.entries(result.best_params)
                       .map(([k, v]) => `${k}=${v}`)
                       .join(', ')}
@@ -263,6 +280,71 @@ export function OptimizePage() {
                   </Alert>
                 ) : null}
 
+                {/* Decision 41: the ranking is chosen and measured on one window,
+                    a hindsight figure. Walk-forward is what the search would
+                    have earned picking each year on the years before it. */}
+                {walk ? (
+                  <div className="space-y-2 rounded-lg border p-3">
+                    <h4 className="font-medium">Out of sample (walk-forward)</h4>
+                    <p className="text-sm">
+                      Picking each year's parameters on the years before it and trading them
+                      from {walk.evaluated_from.slice(0, 10)} to {walk.evaluated_to.slice(0, 10)}{' '}
+                      earned a {walk.metric} of{' '}
+                      <strong>{metricValue(walk.metric, walk.oos_metrics[walk.metric])}</strong>.
+                      The best combination chosen on that same span (
+                      {paramText(walk.hindsight_params)}) shows{' '}
+                      {metricValue(walk.metric, walk.hindsight_metrics?.[walk.metric])}: hindsight
+                      overstates it by {metricValue(walk.metric, walk.hindsight_minus_oos)}.
+                    </p>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="border-b text-left text-xs uppercase text-muted-foreground">
+                          <tr>
+                            <th className="py-2 pr-4">Traded</th>
+                            <th className="py-2 pr-4">Picked on the years before</th>
+                            <th className="py-2 pr-4 text-right">In sample</th>
+                            <th className="py-2 pr-4 text-right">Out of sample</th>
+                            <th className="py-2 text-right">Return</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {walk.folds.map((fold) => (
+                            <tr key={fold.validate_start} className="border-b last:border-0">
+                              <td className="py-2 pr-4 tabular-nums">
+                                {fold.validate_start.slice(0, 10)} → {fold.validate_end.slice(0, 10)}
+                              </td>
+                              <td className="py-2 pr-4 font-mono text-xs">
+                                {paramText(fold.params)}
+                              </td>
+                              <td className="py-2 pr-4 text-right tabular-nums">
+                                {metricValue(walk.metric, fold.train_metric)}
+                              </td>
+                              <td className="py-2 pr-4 text-right tabular-nums">
+                                {metricValue(walk.metric, fold.oos_metrics[walk.metric])}
+                              </td>
+                              <td className="py-2 text-right tabular-nums">
+                                {percent(fold.oos_metrics['Total Return'] as number)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : result.walk_forward_unavailable ? (
+                  <Alert>
+                    <AlertDescription>
+                      No out-of-sample check: {result.walk_forward_unavailable} The ranking
+                      below is in-sample only.
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
+
+                <h4 className="font-medium">In-sample ranking</h4>
+                <p className="text-xs text-muted-foreground">
+                  Each combination is chosen and measured on the same window, so the top
+                  rows are partly luck.
+                </p>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="border-b text-left text-xs uppercase text-muted-foreground">

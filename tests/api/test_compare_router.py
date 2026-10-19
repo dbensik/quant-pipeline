@@ -10,6 +10,9 @@ from fastapi.testclient import TestClient
 
 BASE = "/api/v1/backtest/compare"
 WINDOW = {"start": "2024-01-01", "end": "2024-12-31"}
+# Tuning is walk-forward (decision 41) and needs a validate year. The fixture
+# runs 400 daily bars from 2024-01-01, so 2024 trains and early 2025 validates.
+TUNE = {"optimize": True, "min_train_years": 1, "end": "2025-12-31"}
 
 
 def compare(client: TestClient, **overrides):
@@ -135,7 +138,7 @@ def test_optimize_tunes_from_the_registry_default_grid(client: TestClient):
     The grids moved from the Streamlit controller's _OPTIMIZATION_GRIDS into
     the registry, where every other strategy fact lives.
     """
-    body = compare(client, optimize=True).json()
+    body = compare(client, **TUNE).json()
     assert body["optimized"] is True
     for row in body["results"]:
         assert row["tuned"] is True
@@ -148,7 +151,7 @@ def test_tuning_actually_changes_the_parameters(client: TestClient):
     same defaults, the flag would be doing nothing.
     """
     untuned = compare(client).json()["results"]
-    tuned = compare(client, optimize=True).json()["results"]
+    tuned = compare(client, **TUNE).json()["results"]
 
     untuned_params = {r["strategy_id"]: r["params"] for r in untuned}
     tuned_params = {r["strategy_id"]: r["params"] for r in tuned}
@@ -158,7 +161,7 @@ def test_tuning_actually_changes_the_parameters(client: TestClient):
 def test_an_explicit_grid_overrides_the_default(client: TestClient):
     body = compare(
         client,
-        optimize=True,
+        **TUNE,
         strategies=[
             {
                 "strategy_id": "ma_crossover",
@@ -171,7 +174,7 @@ def test_an_explicit_grid_overrides_the_default(client: TestClient):
 
 def test_a_strategy_without_a_grid_runs_on_its_params(client: TestClient):
     """`optimize` must not fail a strategy the registry has no sweep for."""
-    body = compare(client, optimize=True, strategies=[{"strategy_id": "trend_following"}]).json()
+    body = compare(client, **TUNE, strategies=[{"strategy_id": "trend_following"}]).json()
     assert body["results"][0]["tuned"] is False
     assert body["results"][0]["metrics"]
 
@@ -179,7 +182,7 @@ def test_a_strategy_without_a_grid_runs_on_its_params(client: TestClient):
 def test_oversized_grid_is_skipped_with_a_reason(client: TestClient):
     body = compare(
         client,
-        optimize=True,
+        **TUNE,
         strategies=[
             {
                 "strategy_id": "ma_crossover",
@@ -190,6 +193,56 @@ def test_oversized_grid_is_skipped_with_a_reason(client: TestClient):
     ).json()
     assert [s["strategy_id"] for s in body["skipped"]] == ["ma_crossover"]
     assert "limit is 500" in body["skipped"][0]["reason"]
+
+
+def test_tuning_without_a_validate_year_is_422_not_hindsight(client: TestClient):
+    """Decision 41: a window too short to walk forward is refused, never tuned in hindsight."""
+    response = compare(client, optimize=True)
+    assert response.status_code == 422
+    assert "walk-forward" in response.json()["detail"]
+    assert "3 whole calendar year" in response.json()["detail"]
+
+
+def test_tuned_rows_carry_each_years_pick(client: TestClient):
+    body = compare(client, **TUNE).json()
+    assert body["evaluated_from"].startswith("2025-01-01")
+    for row in body["results"]:
+        assert len(row["picks"]) == 1
+        assert row["picks"][0]["validate_start"].startswith("2025-01-01")
+        effective = {k: row["params"][k] for k in row["picks"][0]["params"]}
+        assert effective == row["picks"][0]["params"]
+
+
+def test_with_tuning_every_row_and_the_benchmark_share_one_span(client: TestClient):
+    """
+    Tuned rows are out of sample from the first validate year only, so an
+    untuned row and the benchmark are measured over the same span, each
+    worth initial_capital at its start; otherwise the ranking compares a
+    year of 2025 with two years of 2024-25.
+    """
+    body = compare(
+        client,
+        **TUNE,
+        strategies=[{"strategy_id": "ma_crossover"}, {"strategy_id": "trend_following"}],
+        benchmark_symbol="MSFT",
+        initial_capital=50_000,
+    ).json()
+    curves = [r["equity_curve"] for r in body["results"]] + [body["benchmark"]["equity_curve"]]
+    for curve in curves:
+        assert curve[0]["time"].startswith("2024-12-31")
+        assert curve[0]["total"] == 50_000
+        assert curve[-1]["time"].startswith("2025-02-03")
+    untuned = next(r for r in body["results"] if r["strategy_id"] == "trend_following")
+    assert untuned["tuned"] is False
+    assert untuned["metrics"]["Final Value"] == curves[1][-1]["total"]
+    assert body["benchmark"]["metrics"]["Final Value"] == curves[-1][-1]["total"]
+
+
+def test_without_tuning_the_whole_window_is_measured(client: TestClient):
+    body = compare(client).json()
+    assert body["evaluated_from"] is None
+    assert body["results"][0]["equity_curve"][0]["time"].startswith("2024-01-01")
+    assert all(r["picks"] == [] for r in body["results"])
 
 
 # ---------------------------------------------------------------------------

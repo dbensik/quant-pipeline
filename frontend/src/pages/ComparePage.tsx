@@ -185,8 +185,9 @@ export function ComparePage() {
               checked={optimize}
               onChange={(e) => setOptimize(e.target.checked)}
             />
-            Tune each strategy before comparing, so the ranking is not just
-            measuring whose defaults suited this window
+            Tune each strategy before comparing, walk-forward: each year traded with
+            the parameters that ranked best on the years before it (needs three whole
+            years before the first year compared)
           </label>
 
           <Button
@@ -225,7 +226,10 @@ export function ComparePage() {
                 Ranked by {result.metric}
               </CardTitle>
               <CardDescription>
-                {result.bars} bars · {result.optimized ? 'tuned' : 'default parameters'} ·
+                {result.evaluated_from
+                  ? `tuned walk-forward; every row and the benchmark measured from ${result.evaluated_from.slice(0, 10)}, out of sample`
+                  : `${result.bars} bars · default parameters`}{' '}
+                ·
                 idle cash earns a {percent(result.risk_free_rate)} risk-free rate (
                 {result.risk_free_source}), and every Sharpe is measured against it
               </CardDescription>
@@ -254,7 +258,7 @@ export function ComparePage() {
                           {row.strategy_name}
                           {row.tuned ? (
                             <Badge variant="secondary" className="ml-2">
-                              tuned ({row.combinations_evaluated})
+                              walk-forward ({row.combinations_evaluated})
                             </Badge>
                           ) : null}
                           <Caveat text={row.caveat} className="mt-1 font-normal" />
@@ -275,6 +279,9 @@ export function ComparePage() {
                           {Object.entries(row.params)
                             .map(([k, v]) => `${k}=${v}`)
                             .join(', ') || 'none'}
+                          {(row.picks ?? []).length > 1
+                            ? ` (latest of ${(row.picks ?? []).length} yearly picks)`
+                            : ''}
                         </td>
                       </tr>
                     ))}
