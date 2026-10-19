@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 from api.dependencies import get_market_data_repo, get_universe_repo
 from api.frames import records_to_frame
 from config import settings
+from core.crypto_class import META_CRYPTO_CLASS, PEGGED
 from core.membership_reconstruction import renames_from_rows, todays_symbol
 from db.repositories.market_data import TimescaleMarketDataRepo
 from db.repositories.universe import TimescaleUniverseRepo
@@ -103,6 +104,13 @@ class ScreenRequest(BaseModel):
             "same composition ScreenerPipeline performs."
         )
     )
+    include_pegged: bool = Field(
+        default=False,
+        description=(
+            "With a crypto `index`: keep stablecoins and tokenized assets, which are "
+            "left out by default (decision 46) and listed in `excluded_pegged`."
+        ),
+    )
 
 
 class ScreenerStepResult(BaseModel):
@@ -153,6 +161,14 @@ class ScreenResponse(BaseModel):
             "Listed tickers mapped to the registry's: a reconstructed ticker of its "
             "day to today's (FB -> META), and a share class to Yahoo's form "
             "(BRK.B -> BRK-B). `universe` carries the mapped ones"
+        ),
+    )
+    excluded_pegged: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Index members left out because they are pegged: stablecoins and "
+            "tokenized off-chain assets, by CoinGecko's categories (decision 46). "
+            "A low-volatility screen would otherwise rank every dollar first."
         ),
     )
     without_data: List[str] = Field(
@@ -222,6 +238,22 @@ def _registry_form(symbol: str) -> str:
     BF-B, so read as listed both counted as members without prices.
     """
     return symbol.replace(".", "-")
+
+
+def _is_crypto_index(index: str) -> bool:
+    return settings.NEW_MEMBER_INDEXES.get(index, (None, None))[0] == "crypto"
+
+
+async def _is_pegged(repo: TimescaleMarketDataRepo, symbol: str) -> bool:
+    """
+    A stablecoin or tokenized asset: by the class recorded on its asset row
+    (scripts/classify_crypto.py), or, for a member deliberately left
+    unregistered, by its reason in CRYPTO_MEMBERS_NOT_REGISTERED.
+    """
+    if settings.CRYPTO_MEMBERS_NOT_REGISTERED.get(symbol) in PEGGED:
+        return True
+    asset = await repo.find_asset(symbol, "crypto")
+    return asset is not None and (asset.metadata or {}).get(META_CRYPTO_CLASS) in PEGGED
 
 
 @lru_cache(maxsize=1)
@@ -362,6 +394,10 @@ async def run_screen(
                 ),
                 "renamed": {old: new for old, new in mapped.items() if old != new},
             }
+        if _is_crypto_index(request.index) and not request.include_pegged:
+            pegged = [s for s in symbols if await _is_pegged(repo, s)]
+            symbols = [s for s in symbols if s not in pegged]
+            provenance["excluded_pegged"] = pegged
         if len(symbols) > MAX_INDEX_SYMBOLS:
             raise HTTPException(
                 status_code=422,

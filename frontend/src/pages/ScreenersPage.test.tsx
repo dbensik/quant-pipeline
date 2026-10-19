@@ -189,6 +189,33 @@ describe('ScreenersPage — an index as of the start date', () => {
   })
 })
 
+describe('ScreenersPage — pegged crypto', () => {
+  it('offers to include pegged assets for the crypto index and names what was left out', async () => {
+    const run = vi.spyOn(api, 'runScreen').mockResolvedValue({
+      ...RESULT,
+      membership_source: 'observed',
+      membership_date: '2026-10-19T00:00:00Z',
+      excluded_pegged: ['USDT-USD', 'PAXG-USD'],
+    } as never)
+    renderPage(<ScreenersPage />)
+    await userEvent.selectOptions(await screen.findByLabelText('Universe'), 'top_100_crypto')
+    await userEvent.click(screen.getByLabelText(/Include stablecoins and tokenized assets/))
+    await userEvent.click(screen.getByRole('button', { name: 'Screen the index' }))
+
+    await waitFor(() => expect(run).toHaveBeenCalled())
+    expect(run.mock.calls[0][0]).toMatchObject({ index: 'top_100_crypto', include_pegged: true })
+    expect(
+      await screen.findByText(/Left out as stablecoins or tokenized assets: USDT-USD, PAXG-USD/),
+    ).toBeInTheDocument()
+  })
+
+  it('does not offer it for an equity index', async () => {
+    renderPage(<ScreenersPage />)
+    await userEvent.selectOptions(await screen.findByLabelText('Universe'), 'sp500')
+    expect(screen.queryByLabelText(/Include stablecoins/)).not.toBeInTheDocument()
+  })
+})
+
 describe('ScreenersPage — results', () => {
   it('shows the per-step counts, not just the survivors', async () => {
     vi.spyOn(api, 'runScreen').mockResolvedValue(RESULT as never)

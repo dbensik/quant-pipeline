@@ -175,5 +175,5 @@ def test_an_unpriceable_asset_that_gains_fresh_bars_counts_again():
 def test_every_configured_unpriced_asset_has_a_reason():
     from config.settings import UNPRICED_ASSETS
 
-    assert set(UNPRICED_ASSETS) == {"PEPE-USD", "TON-USD", "BSC-USD", "BUIDL-USD"}
+    assert set(UNPRICED_ASSETS) == {"PEPE-USD", "BSC-USD", "BUIDL-USD"}
     assert all(reason.strip() for reason in UNPRICED_ASSETS.values())

@@ -18,7 +18,9 @@ mapping the screener uses):
     from NEW_MEMBER_BACKFILL_START, and marked `served` when every bar has
     served values. A series that opens on zero-volume bars is flagged with a
     suggested history_valid_from; nothing is trimmed.
-Crypto members are listed, never registered.
+Crypto members are never registered: a reviewed one left out on purpose
+(CRYPTO_MEMBERS_NOT_REGISTERED) is counted; any other is FLAGGED as a new coin,
+with its CoinGecko class (crypto, stablecoin, tokenized; decision 46).
 
 Exit 0: nothing needs a human. 1: something was flagged. 2: the run failed.
 SEC's ticker map is read only when an equity joiner exists (needs SEC_USER_AGENT).
@@ -56,6 +58,34 @@ from db.session import get_session  # noqa: E402
 logger = logging.getLogger("register_new_members")
 
 
+def classify_new_coins(symbols: list[str]) -> dict[str, str]:
+    """
+    CoinGecko's class for each new crypto member (decision 46), so the flag
+    says whether it is pegged. Best effort: an unreachable CoinGecko leaves it
+    "unclassified", and the member is flagged either way.
+    """
+    if not symbols:
+        return {}
+    import time
+
+    from core.crypto_class import classify
+    from data_pipeline.dynamic_universe import DynamicUniverse
+
+    universe = DynamicUniverse()
+    out: dict[str, str] = {}
+    try:
+        references: dict[str, str] = {}
+        for ref in universe.fetch_crypto_references(pages=3):
+            references.setdefault(ref.symbol.upper() + "-USD", ref.coingecko_id)
+        for symbol in symbols:
+            if symbol in references:
+                time.sleep(settings.COINGECKO_REQUEST_DELAY_SECONDS)
+                out[symbol] = classify(universe.fetch_coin_categories(references[symbol]))
+    except Exception as exc:  # noqa: BLE001 — classification only informs the flag
+        logger.warning("could not classify new crypto members: %s", exc)
+    return out
+
+
 async def run(dry_run: bool) -> int:
     today = datetime.now(timezone.utc)
     with open(settings.SP500_TICKER_RENAMES_CSV, newline="") as fh:
@@ -83,8 +113,9 @@ async def run(dry_run: bool) -> int:
         # SEC only when an equity joiner exists: most mornings there is none.
         ticker_ciks: dict[str, int] = {}
         titles: dict[int, str] = {}
+        known = settings.CRYPTO_MEMBERS_NOT_REGISTERED
         probe = plan_registrations(
-            members, classes, registered, {}, registered_ciks, renames, today.date()
+            members, classes, registered, {}, registered_ciks, renames, today.date(), known
         )
         if probe.no_cik:
             from core.sec import SECGateway
@@ -93,12 +124,13 @@ async def run(dry_run: bool) -> int:
                 ticker_ciks[registry_form(row["ticker"].upper())] = int(row["cik_str"])
                 titles[int(row["cik_str"])] = row["title"]
         plan = plan_registrations(
-            members, classes, registered, ticker_ciks, registered_ciks, renames, today.date()
+            members, classes, registered, ticker_ciks, registered_ciks, renames, today.date(), known
         )
+        crypto_classes = classify_new_coins(plan.crypto_unregistered)
 
         if dry_run:
             print(f"dry run: would register {[s for s, _ in plan.register]}")
-            lines, code = report(plan, {}, {}, [])
+            lines, code = report(plan, {}, {}, [], crypto_classes)
             print("\n".join(lines) or "nothing to do")
             return code
 
@@ -160,7 +192,7 @@ async def run(dry_run: bool) -> int:
                     )
             await session.commit()
 
-    lines, code = report(plan, written, placeholders, empty)
+    lines, code = report(plan, written, placeholders, empty, crypto_classes)
     print("\n".join(lines) or "No new index members.")
     return code
 

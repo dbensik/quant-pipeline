@@ -103,6 +103,8 @@ SP500_RECONSTRUCTION_MAX_MONTHLY_CHANGE = 40
 WIKIPEDIA_REQUEST_DELAY_SECONDS = 1.5
 URL_NASDAQ100_WIKIPEDIA = "https://en.wikipedia.org/wiki/Nasdaq-100"
 URL_COINGECKO_API = "https://api.coingecko.com/api/v3/coins/markets"
+#: One coin's detail, for its categories (decision 46, core/crypto_class.py).
+URL_COINGECKO_COIN = "https://api.coingecko.com/api/v3/coins/{coin_id}"
 
 #: The header CoinGecko reads a Demo API key from. From 2026-09-29 the public
 #: API answered 403 to keyless requests from this machine and the daily
@@ -843,10 +845,11 @@ CRYPTO_PRICE_GAP_TOLERANCE = 1.5
 #:             /coins/markets endpoint is ORDERED BY market cap, so an
 #:             unranked coin appears on no page at all, ever.
 #:
-#:   TON-USD   Toncoin has been RENAMED. CoinGecko id `the-open-network` now
+#:   GRAM-USD  Toncoin was RENAMED. CoinGecko id `the-open-network` now
 #:             carries the symbol GRAM ("Gram (prev. Toncoin)", rank 30), so
-#:             a lookup keyed on "TON" finds nothing however deep it pages.
-#:             A crypto ticker rename, the same shape as BK->BNY.
+#:             a lookup keyed on "TON" found nothing however deep it paged.
+#:             A crypto ticker rename, the same shape as BK->BNY: the asset
+#:             row was re-keyed TON-USD -> GRAM-USD on 2026-10-19 (decision 46).
 #:
 #: An entry here asserts only WHICH COIN WE MEANT. It does not assert that the
 #: price provider serves it — that is exactly what the audit then checks, and
@@ -956,6 +959,9 @@ CRYPTO_IDENTITY_OVERRIDES = {
 #:              to six decimals: 27 distinct closes in 1254 bars and 906 days
 #:              of exactly zero return. A series, not a usable one.
 #:   TON-USD    TON11419-USD is the right coin and serves ONE bar of history.
+#:              (Re-keyed GRAM-USD 2026-10-19 and priced from Yahoo's GRAM-USD,
+#:              floored at 2026-06-12: before that the key served another
+#:              token at ~$0.008, 786 of 916 bars outside Toncoin's range.)
 #:   BSC-USD, BUIDL-USD   no Yahoo ticker found for either.
 CRYPTO_PROVIDER_SYMBOLS = {
     "APT-USD": "APT21794-USD",
@@ -980,6 +986,21 @@ CRYPTO_PROVIDER_SYMBOLS = {
     "UNI-USD": "UNI7083-USD",
     "USDE-USD": "USDE29470-USD",
     "USDS-USD": "USDS33039-USD",
+    # --- Added 2026-10-19 (decision 46). Found by searching Yahoo for each
+    # coin's NAME; bare tickers AERO-USD, M-USD and WLFI-USD are other tokens,
+    # and bare NIGHT-USD is "Midnight (midnight.vip)", a lookalike within 0.4%
+    # of the real price that the name matcher passed. Every history checked
+    # against CoinGecko's all-time range before a bar was stored.
+    "AERO-USD": "AERO29270-USD",
+    "BTW-USD": "BTW39158-USD",
+    "CC-USD": "CC37263-USD",
+    "LIT-USD": "LIT39125-USD",
+    "M-USD": "M35491-USD",
+    "MORPHO-USD": "MORPHO34104-USD",
+    "NIGHT-USD": "NIGHT39064-USD",
+    "VVV-USD": "VVV35509-USD",
+    "WLFI-USD": "WLFI33251-USD",
+    "ZRO-USD": "ZRO26997-USD",
 }
 
 #: Registered assets with NO usable price source, and why: the "deliberately
@@ -997,15 +1018,57 @@ UNPRICED_ASSETS = {
         "Yahoo's PEPE24478-USD is the right coin but rounds to six decimals: 27 distinct "
         "closes in 1,254 bars"
     ),
-    "TON-USD": "Yahoo's TON11419-USD is the right coin but serves one bar of history",
     "BSC-USD": "No Yahoo ticker found for Binance Bridged USDT (BNB Smart Chain)",
     "BUIDL-USD": (
         "No Yahoo ticker found for BlackRock BUIDL; the bare key is DFOhub (wrong_asset)"
     ),
 }
 
+#: top_100_crypto members deliberately NOT registered, and why (decision 46,
+#: research/crypto-universe-pegged-2026-10-19.md). The 06:00 new-member step
+#: reports these as known and FLAGS any other unregistered member: a coin
+#: that needs classifying and an identity audit. Pegged assets (CoinGecko
+#: "Stablecoins", "Tokenized Assets") are not crypto risk; the rest have no
+#: usable Yahoo series.
+CRYPTO_MEMBERS_NOT_REGISTERED = {
+    **{
+        s: "stablecoin"
+        for s in (
+            "BFUSD-USD",
+            "GHO-USD",
+            "OUSD-USD",
+            "PYUSD-USD",
+            "RLUSD-USD",
+            "U-USD",
+            "USDD-USD",
+            "USDF-USD",
+            "USDG-USD",
+            "USDGO-USD",
+        )
+    },
+    **{
+        s: "tokenized"
+        for s in (
+            "BCAP-USD",
+            "EURSAFO-USD",
+            "EUTBL-USD",
+            "FIGR_HELOC-USD",
+            "PAXG-USD",
+            "USDY-USD",
+            "USTB-USD",
+            "USYC-USD",
+            "XAUT-USD",
+        )
+    },
+    "HTX-USD": "unpriceable: Yahoo's HTX-USD has 5 distinct closes in 1,000 bars",
+    "ASTER-USD": "unpriceable: no Yahoo ticker found",
+    "PRL-USD": "unpriceable: no Yahoo ticker found (bare PRL-USD is The Parallel)",
+    "RAIN-USD": "unpriceable: no Yahoo ticker found",
+    "STABLE-USD": "unpriceable: no Yahoo ticker found",
+}
+
 CRYPTO_ID_OVERRIDES = {
-    "TON-USD": "the-open-network",
+    "GRAM-USD": "the-open-network",
     "METH-USD": "mantle-staked-ether",
     # --- Mapped 2026-09-23 from CoinGecko's full 21,382-coin index. ---
     # These are all UNRANKED (liquid-staking and wrapped tokens sit below the

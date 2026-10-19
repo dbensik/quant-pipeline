@@ -176,10 +176,10 @@ its symbol everywhere; only the fetch and `scripts/audit_crypto_identity.py`
 use the provider ticker, and bars are stored under the asset. An entry is a
 claim, not a verdict: ingest refuses a mapped symbol until the audit has been
 run with `--write` against that exact ticker (`identity_provider_symbol` on
-the row), so editing a mapping blocks the asset until it is re-verified. 22
-assets are mapped and loaded (POL-USD since 2026-10-14: `suspect` on its
+the row), so editing a mapping blocks the asset until it is re-verified. 32
+assets are mapped and loaded (10 added 2026-10-19, decision 46; POL-USD since 2026-10-14: `suspect` on its
 names across the MATIC rename, settled `match` in `CRYPTO_IDENTITY_OVERRIDES`;
-1,080 bars from 2023-10-30, bounds clean); PEPE, TON, BSC and BUIDL have no
+1,080 bars from 2023-10-30, bounds clean); PEPE, BSC and BUIDL have no
 usable ticker and stay empty — the reasons are beside the mapping.
 
 **The risk-free rate is `^IRX`, in `rate_observations`, not `assets`**
@@ -414,15 +414,27 @@ backfilled insert-only from 2010 and marked served, unless a registered asset
 already has its CIK (a probable RENAME, as PSKY to SKYD: flagged, re-key the
 row), it has no CIK, or its series opens on zero-volume bars (a suggested
 `history_valid_from` is flagged; nothing is trimmed). Crypto members are
-listed in the log, never registered, and never set the exit code.
+never registered: one on `CRYPTO_MEMBERS_NOT_REGISTERED` is counted, any other flagged (decision 46).
 
 **`low_volatility` measures volatility itself** (decision 43, 2026-10-19):
 the annualized std of the last `window` (90) daily returns in the range.
 It had read a `volatility_90d` column only the SQLite store had, and
 returned nothing for every screen since the TimescaleDB cutover.
 
+**Crypto screens leave out pegged assets** (decision 46, 2026-10-19,
+`research/crypto-universe-pegged-2026-10-19.md`). Every crypto row carries
+`crypto_class` (crypto, stablecoin, tokenized) from CoinGecko's categories
+(`scripts/classify_crypto.py --write`; never from names: STABLE is a layer-1
+chain). A `top_100_crypto` screen drops stablecoins and tokenized assets
+unless `include_pegged`, and lists them in `excluded_pegged`. Their 0.4-5.5%
+volatility put every dollar at the top of a low-volatility screen.
+`CRYPTO_MEMBERS_NOT_REGISTERED` lists the members left unregistered on
+purpose; the 06:00 new-member step flags any other as a new coin.
+TON-USD is GRAM-USD since 2026-10-19 (Toncoin renamed), priced from
+2026-06-12.
+
 **Assets with no usable price source are listed apart**
-(`config.settings.UNPRICED_ASSETS`, 2026-10-19): PEPE, TON, BSC and BUIDL
+(`config.settings.UNPRICED_ASSETS`, 2026-10-19): PEPE, BSC and BUIDL (TON became GRAM-USD, priced)
 stay registered (the snapshot records them as members) and the freshness
 surface reports them in `unpriced_assets`, not as stale, but only while they
 have no fresh bar.

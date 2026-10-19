@@ -17,6 +17,9 @@ WHY NOT REGISTER EVERY UNKNOWN TICKER
 
     Crypto is never registered here. A ticker is not an identifier: 22 coins
     once held another token's history. Each needs the identity audit first.
+    Members deliberately left unregistered (pegged, or no usable Yahoo
+    series: CRYPTO_MEMBERS_NOT_REGISTERED, decision 46) are counted; any
+    OTHER unregistered member is a new coin and flagged for a human.
 """
 
 from __future__ import annotations
@@ -46,8 +49,10 @@ class RegistrationPlan:
     rename_candidates: List[Tuple[str, int, List[str]]] = field(default_factory=list)
     #: Equity joiners with no CIK in SEC's ticker map: cannot be guarded.
     no_cik: List[str] = field(default_factory=list)
-    #: Unregistered crypto members: reported, never registered.
+    #: Unregistered crypto members not on the reviewed list: flagged.
     crypto_unregistered: List[str] = field(default_factory=list)
+    #: Unregistered crypto members on the reviewed list: counted only.
+    crypto_known: List[str] = field(default_factory=list)
     #: symbol -> the index it was found in, for the asset's metadata.
     index_of: Dict[str, str] = field(default_factory=dict)
 
@@ -60,6 +65,7 @@ def plan_registrations(
     registered_ciks: Dict[int, List[str]],
     renames: Dict[str, Tuple[str, Optional[date]]],
     today: date,
+    crypto_not_registered: Optional[Dict[str, str]] = None,
 ) -> RegistrationPlan:
     """
     members:         index -> current members, as the snapshot lists them.
@@ -68,7 +74,9 @@ def plan_registrations(
     ticker_ciks:     SEC's ticker map, in registry form.
     registered_ciks: CIK -> registered symbols carrying it (own or predecessor).
     renames:         the dated rename map (decision 42).
+    crypto_not_registered: reviewed crypto members left unregistered, and why.
     """
+    crypto_not_registered = crypto_not_registered or {}
     plan = RegistrationPlan()
     seen: Set[str] = set()
     for index, listed in members.items():
@@ -79,7 +87,10 @@ def plan_registrations(
                 continue
             seen.add(symbol)
             if asset_class == "crypto":
-                plan.crypto_unregistered.append(symbol)
+                if symbol in crypto_not_registered:
+                    plan.crypto_known.append(symbol)
+                else:
+                    plan.crypto_unregistered.append(symbol)
                 continue
             plan.index_of[symbol] = index
             cik = ticker_ciks.get(symbol)
@@ -90,6 +101,7 @@ def plan_registrations(
             else:
                 plan.register.append((symbol, cik))
     plan.crypto_unregistered.sort()
+    plan.crypto_known.sort()
     return plan
 
 
@@ -119,17 +131,21 @@ def report(
     registered: Dict[str, Tuple[int, Optional[date]]],
     placeholders: Dict[str, date],
     empty: List[str],
+    crypto_classes: Optional[Dict[str, str]] = None,
 ) -> Tuple[List[str], int]:
     """
     The run's log lines and exit code: 0 clean, 1 when anything needs a human.
 
-    registered:   symbol -> (bars written, first bar) for what was registered.
-    placeholders: symbol -> suggested floor (placeholder_floor).
-    empty:        registered symbols the backfill found no bars for.
+    registered:     symbol -> (bars written, first bar) for what was registered.
+    placeholders:   symbol -> suggested floor (placeholder_floor).
+    empty:          registered symbols the backfill found no bars for.
+    crypto_classes: a new crypto member's class from CoinGecko, when read.
 
-    Unregistered crypto never sets the exit code: dozens are listed every day
-    by design, and a flag that always fires is a flag nobody reads.
+    A reviewed crypto member left unregistered is counted, never flagged: it
+    would fire every day. A NEW one is flagged: a few a month, each needing a
+    class, an identity audit and a Yahoo ticker, or a line on the reviewed list.
     """
+    crypto_classes = crypto_classes or {}
     lines: List[str] = []
     for symbol, (bars, first) in sorted(registered.items()):
         lines.append(f"REGISTERED {symbol} ({plan.index_of.get(symbol)}): {bars} bars from {first}")
@@ -147,11 +163,18 @@ def report(
         )
     for symbol in empty:
         lines.append(f"EMPTY {symbol}: registered, but the backfill found no bars.")
-    if plan.crypto_unregistered:
+    for symbol in plan.crypto_unregistered:
+        kind = crypto_classes.get(symbol, "unclassified")
         lines.append(
-            f"crypto: {len(plan.crypto_unregistered)} index members unregistered, never "
-            f"registered automatically (identity audit first): "
-            + ", ".join(plan.crypto_unregistered)
+            f"NEW COIN {symbol} ({kind}): not registered. Pegged: add it to "
+            "CRYPTO_MEMBERS_NOT_REGISTERED. Otherwise: identity audit, Yahoo ticker, register."
         )
-    needs_human = plan.rename_candidates or plan.no_cik or placeholders or empty
+    if plan.crypto_known:
+        lines.append(
+            f"crypto: {len(plan.crypto_known)} members deliberately not registered "
+            "(CRYPTO_MEMBERS_NOT_REGISTERED)"
+        )
+    needs_human = (
+        plan.rename_candidates or plan.no_cik or placeholders or empty or plan.crypto_unregistered
+    )
     return lines, 1 if needs_human else 0

@@ -221,3 +221,49 @@ def test_an_observed_member_renamed_since_is_priced_under_todays_ticker(
     body = screen(client, index="sp500").json()
     assert body["renamed"] == {"OLDAAPL": "AAPL"}
     assert "AAPL" in body["universe"] and "AAPL" not in body["without_data"]
+
+
+# ---------------------------------------------------------------------------
+# Pegged crypto members (decision 46)
+# ---------------------------------------------------------------------------
+
+
+def _as_crypto_index(monkeypatch, not_registered=None):
+    # The fake repo's only index is "sp500"; treat it as a crypto index.
+    monkeypatch.setattr(
+        "api.routers.screeners.settings.NEW_MEMBER_INDEXES", {"sp500": ("crypto", None)}
+    )
+    monkeypatch.setattr(
+        "api.routers.screeners.settings.CRYPTO_MEMBERS_NOT_REGISTERED", not_registered or {}
+    )
+
+
+def test_a_crypto_index_screen_leaves_out_a_classified_stablecoin(client: TestClient, monkeypatch):
+    from dataclasses import replace
+
+    from tests.api import conftest
+
+    _as_crypto_index(monkeypatch)
+    pegged = replace(conftest.KNOWN_ASSETS["BTC-USD"], metadata={"crypto_class": "stablecoin"})
+    monkeypatch.setitem(conftest.KNOWN_ASSETS, "BTC-USD", pegged)
+
+    body = screen(client, index="sp500").json()
+    assert body["excluded_pegged"] == ["BTC-USD"]
+    assert "BTC-USD" not in body["universe"]
+    kept = screen(client, index="sp500", include_pegged=True).json()
+    assert "BTC-USD" in kept["universe"] and kept["excluded_pegged"] == []
+
+
+def test_a_deliberately_unregistered_pegged_member_is_left_out_by_name(
+    client: TestClient, monkeypatch
+):
+    _as_crypto_index(monkeypatch, {"AAPL": "tokenized", "BTC-USD": "unpriceable: no ticker"})
+    body = screen(client, index="sp500").json()
+    # Pegged is left out; an unpriceable coin is not pegged and stays (without data).
+    assert body["excluded_pegged"] == ["AAPL"]
+    assert "BTC-USD" in body["universe"]
+
+
+def test_an_equity_index_never_excludes_anything(client: TestClient):
+    body = screen(client, index="sp500").json()
+    assert body["excluded_pegged"] == []

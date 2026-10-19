@@ -80,6 +80,7 @@ export function ScreenersPage() {
 
   const [universe, setUniverse] = useState('AAPL, MSFT, NVDA, JPM, XOM, KO, PG')
   const [index, setIndex] = useState('')
+  const [includePegged, setIncludePegged] = useState(false)
   const [steps, setSteps] = useState<Step[]>([])
 
   function addStep(screenerId: string) {
@@ -133,6 +134,18 @@ export function ScreenersPage() {
               ))}
             </select>
           </div>
+
+          {index === 'top_100_crypto' ? (
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={includePegged}
+                onChange={(e) => setIncludePegged(e.target.checked)}
+              />
+              Include stablecoins and tokenized assets (left out by default: they are
+              not crypto risk, and a low-volatility screen would rank every dollar first)
+            </label>
+          ) : null}
 
           {index ? (
             <p className="text-xs text-muted-foreground">
@@ -227,7 +240,13 @@ export function ScreenersPage() {
             onClick={() =>
               run.mutate(
                 index
-                  ? { index, start: startDate, end: endDate, screeners: steps }
+                  ? {
+                      index,
+                      include_pegged: includePegged,
+                      start: startDate,
+                      end: endDate,
+                      screeners: steps,
+                    }
                   : { symbols, start: startDate, end: endDate, screeners: steps },
               )
             }
@@ -273,6 +292,13 @@ export function ScreenersPage() {
                     : ''}
                 </AlertDescription>
               </Alert>
+            ) : null}
+
+            {(result.excluded_pegged ?? []).length > 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Left out as stablecoins or tokenized assets:{' '}
+                {(result.excluded_pegged ?? []).join(', ')}
+              </p>
             ) : null}
 
             {(result.without_data ?? []).length > 0 ? (

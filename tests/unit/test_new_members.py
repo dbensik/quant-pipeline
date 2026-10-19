@@ -89,12 +89,20 @@ def test_a_halt_deep_in_a_long_history_is_not_a_placeholder():
     assert placeholder_floor(_days(len(volumes)), volumes) is None
 
 
-def test_clean_runs_exit_zero_and_crypto_alone_never_flags():
-    p = plan({"sp500": ["VYLR"], "top_100_crypto": ["PYUSD-USD"]}, ciks={"VYLR": 1})
+def test_clean_runs_exit_zero_and_reviewed_crypto_never_flags():
+    p = plan_registrations(
+        {"sp500": ["VYLR"], "top_100_crypto": ["PYUSD-USD"]},
+        CLASSES,
+        set(),
+        {"VYLR": 1},
+        {},
+        {},
+        TODAY,
+        {"PYUSD-USD": "stablecoin"},
+    )
     lines, code = report(p, {"VYLR": (12, date(2026, 10, 1))}, {}, [])
     assert code == 0
     assert any(line.startswith("REGISTERED VYLR") for line in lines)
-    assert any("PYUSD-USD" in line for line in lines)
 
 
 def test_anything_a_human_must_judge_exits_one():

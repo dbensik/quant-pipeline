@@ -2704,6 +2704,12 @@ export interface components {
              * @description Applied in order, each narrowing the output of the last — the same composition ScreenerPipeline performs.
              */
             screeners: components["schemas"]["ScreenerStep"][];
+            /**
+             * Include Pegged
+             * @description With a crypto `index`: keep stablecoins and tokenized assets, which are left out by default (decision 46) and listed in `excluded_pegged`.
+             * @default false
+             */
+            include_pegged: boolean;
         };
         /** ScreenResponse */
         ScreenResponse: {
@@ -2745,6 +2751,11 @@ export interface components {
             renamed?: {
                 [key: string]: string;
             };
+            /**
+             * Excluded Pegged
+             * @description Index members left out because they are pegged: stablecoins and tokenized off-chain assets, by CoinGecko's categories (decision 46). A low-volatility screen would otherwise rank every dollar first.
+             */
+            excluded_pegged?: string[];
             /**
              * Without Data
              * @description Members with no bars in the window, by name. For a past list these are mostly names that later left the index, which is the survivorship gap: read `with_data` against `requested` before trusting a screen.

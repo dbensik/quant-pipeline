@@ -10,6 +10,7 @@ from config.settings import (
     DOWJONES_EXPECTED_COUNT,
     SP500_EXPECTED_RANGE,
     URL_COINGECKO_API,
+    URL_COINGECKO_COIN,
     URL_DOWJONES_CONSTITUENTS,
     URL_NASDAQ100_WIKIPEDIA,
     URL_SP500_WIKIPEDIA,
@@ -238,7 +239,7 @@ class DynamicUniverse:
             logger.error(f"Could not fetch NASDAQ-100 tickers: {e}")
             return []
 
-    def _coingecko_get(self, params: dict):
+    def _coingecko_get(self, params: dict, url: str = URL_COINGECKO_API):
         """
         One CoinGecko call, retrying a 429 with exponential backoff.
 
@@ -259,7 +260,7 @@ class DynamicUniverse:
         wait = COINGECKO_THROTTLE_BACKOFF_SECONDS
         for attempt in range(1, COINGECKO_MAX_RETRIES + 1):
             response = self.session.get(
-                URL_COINGECKO_API,
+                url,
                 params=params,
                 headers=coingecko_headers(),
                 timeout=self.timeout,
@@ -382,6 +383,25 @@ class DynamicUniverse:
             for item in data
             if item.get("id")
         ]
+
+    def fetch_coin_categories(self, coin_id: str) -> List[str]:
+        """
+        CoinGecko's category names for one coin (decision 46). One request per
+        coin, retried on a 429 like every other call here, and never failing
+        soft: a coin whose categories could not be read must not be classified
+        as plain crypto by default.
+        """
+        data = self._coingecko_get(
+            {
+                "localization": "false",
+                "tickers": "false",
+                "market_data": "false",
+                "community_data": "false",
+                "developer_data": "false",
+            },
+            url=URL_COINGECKO_COIN.format(coin_id=coin_id),
+        )
+        return [c for c in (data.get("categories") or []) if c]
 
     def fetch_crypto_bounds_by_id(self, coin_ids) -> List["CoinBounds"]:
         """

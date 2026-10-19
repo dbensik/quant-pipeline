@@ -451,6 +451,7 @@ export const api = {
   runScreen(body: {
     symbols?: string[]
     index?: string | null
+    include_pegged?: boolean
     start: string
     end: string
     screeners: { screener_id: string; params?: Record<string, unknown> }[]

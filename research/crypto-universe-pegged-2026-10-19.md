@@ -103,3 +103,43 @@ Not current members but registered and pegged: SUSDE, FDUSD and USDT0
     - **B: classify and exclude only.** Points 1-3. The screens stop
       ranking dollars as crypto; no new coins. About 1.5 h.
     - **C: as now.** A crypto low-volatility screen returns stablecoins.
+
+## Built (A, approved 2026-10-19)
+
+- **Classes recorded.** `core/crypto_class.py` and
+  `scripts/classify_crypto.py --write` (112 registered crypto rows): 100
+  crypto, 11 stablecoin, 1 tokenized (BUIDL). The first pass matched only
+  "Stablecoins" and read SUSDE, USDT0 and BSC-USD as crypto: staked and
+  bridged dollars carry only "Yield-Bearing Stablecoin", "Bridged
+  Stablecoin" and "Bridged USDT". Any category naming a stablecoin now
+  counts, except "Stablecoin Issuer" (WLFI, SKY). FTN-USD and IP-USD have no
+  `coingecko_id` and stay unclassified, so they are treated as crypto.
+- **Screens.** A `top_100_crypto` screen leaves pegged members out unless
+  `include_pegged`, and lists them in `excluded_pegged`. The Screeners page
+  has the checkbox.
+  - Real run, 60-day volatility from 2026-08-10, bottom 10%: by default BGB,
+    BNB, BTC, KCS, LEO, TRX and WLFI. With pegged assets included: DAI,
+    LEO, TRX, USDC, USDE, USDS and USDT.
+- **New members.** `CRYPTO_MEMBERS_NOT_REGISTERED` lists the 24 members
+  left out on purpose: 10 stablecoins, 9 tokenized assets, HTX, ASTER, PRL,
+  RAIN and STABLE. The 06:00 step counts them and FLAGS any other
+  unregistered crypto member as a new coin, with its CoinGecko class. That
+  changes decision 44, where crypto never flagged: the backlog is now
+  reviewed, so what remains is a few joiners a month.
+- **15 coins added.** Mapped where the bare ticker is another token,
+  registered, and identity-audited: 16 of 16 MATCH, GRAM included. Four
+  floors were set BEFORE ingest, so no bar was stored and then deleted:
+  BTW 2026-03-04, CAKE 2020-09-30, NIGHT 2025-12-10 and WLFI 2025-09-02,
+  each a launch-day bar outside CoinGecko's range. 14,511 bars were loaded.
+  - The bounds audit after loading: 13 clean and 3 SCATTERED (JST
+    2021-04-05, M 2025-07-04, MORPHO 2025-10-10). Each is one bar whose
+    close is in range and whose intraday wick grazes CoinGecko's aggregated
+    all-time low or high. By the bar's own body none is a bad extreme,
+    which is the CRO/ETC false-positive class `repair_bad_extremes.py`
+    describes. Kept.
+- **TON-USD re-keyed to GRAM-USD** and priced from Yahoo's `GRAM-USD`,
+  floored at 2026-06-12. Before that date the key served another token
+  (~$0.008; 786 of 916 bars outside Toncoin's range). Strictly, the plan
+  said "if the audit passes"; the audit said TRIM, treated as for the other
+  four floors. That leaves 129 bars, and Toncoin's history before June 2026
+  is not available from Yahoo.
