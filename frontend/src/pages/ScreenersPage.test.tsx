@@ -154,6 +154,41 @@ describe('ScreenersPage — building a screen', () => {
   })
 })
 
+describe('ScreenersPage — an index as of the start date', () => {
+  it('sends the index, not the typed symbols', async () => {
+    const run = vi.spyOn(api, 'runScreen').mockResolvedValue(RESULT as never)
+    renderPage(<ScreenersPage />)
+    await userEvent.selectOptions(await screen.findByLabelText('Universe'), 'sp500')
+    expect(screen.queryByLabelText('Symbols')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Screen the index' }))
+
+    await waitFor(() => expect(run).toHaveBeenCalled())
+    expect(run.mock.calls[0][0]).toMatchObject({ index: 'sp500' })
+    expect(run.mock.calls[0][0]).not.toHaveProperty('symbols')
+  })
+
+  it('says the membership is reconstructed and names the members without prices', async () => {
+    vi.spyOn(api, 'runScreen').mockResolvedValue({
+      ...RESULT,
+      requested: 504,
+      with_data: 336,
+      membership_source: 'reconstructed',
+      membership_date: '2015-12-31T00:00:00Z',
+      membership_note: 'Reconstructed, not observed: the month-end list of 2015-12-31.',
+      renamed: { FB: 'META' },
+      without_data: ['AAL', 'ACE'],
+    } as never)
+    renderPage(<ScreenersPage />)
+    await userEvent.selectOptions(await screen.findByLabelText('Universe'), 'sp500')
+    await userEvent.click(screen.getByRole('button', { name: 'Screen the index' }))
+
+    expect(await screen.findByText(/Reconstructed membership of 2015-12-31/)).toBeInTheDocument()
+    expect(screen.getByText(/336 of 504 members have prices/)).toBeInTheDocument()
+    expect(screen.getByText(/2 without prices in the window/)).toBeInTheDocument()
+    expect(screen.getByText('ACE')).toBeInTheDocument()
+  })
+})
+
 describe('ScreenersPage — results', () => {
   it('shows the per-step counts, not just the survivors', async () => {
     vi.spyOn(api, 'runScreen').mockResolvedValue(RESULT as never)

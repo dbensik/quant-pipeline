@@ -256,6 +256,26 @@ describe('DataPage — data freshness', () => {
     expect(screen.getByText('1645d')).toBeInTheDocument()
   })
 
+  it('lists assets with no price source apart from the stale ones', async () => {
+    vi.spyOn(api, 'dataFreshness').mockResolvedValue({
+      ...FRESHNESS,
+      unpriced_assets: [
+        {
+          symbol: 'BUIDL-USD',
+          asset_class: 'crypto',
+          reason: 'No Yahoo ticker found for BlackRock BUIDL',
+          last_bar: null,
+        },
+      ],
+    } as never)
+    renderPage(<DataPage />)
+    expect(await screen.findByText(/No usable price source/)).toBeInTheDocument()
+    expect(screen.getByText('BUIDL-USD')).toHaveAttribute(
+      'title',
+      'No Yahoo ticker found for BlackRock BUIDL',
+    )
+  })
+
   it('goes red when the whole store is older than the threshold', async () => {
     vi.spyOn(api, 'dataFreshness').mockResolvedValue({
       ...FRESHNESS,

@@ -117,3 +117,39 @@ def month_ends(start: date, end: date) -> list[date]:
     """Every calendar month-end from `start` to `end`, both inclusive."""
     stamps = pd.date_range(start=start, end=end, freq="ME")
     return [stamp.date() for stamp in stamps]
+
+
+def renames_from_rows(rows) -> dict[str, str]:
+    """
+    Old ticker -> new ticker, from the rename CSV's rows
+    (research/sp500-ticker-renames-2026-10-04.csv; every row is a same-CIK
+    rename). A reconstructed list carries the ticker of its day, the registry
+    the ticker of today.
+    """
+    out: dict[str, str] = {}
+    for row in rows:
+        old = (row.get("old_symbol") or "").strip().upper()
+        new = (row.get("new_symbol") or "").strip().upper()
+        if old and new and old != new and row.get("evidence", "same_cik") == "same_cik":
+            out[old] = new
+    return out
+
+
+def todays_symbol(symbol: str, renames: dict[str, str]) -> str:
+    """
+    The registry's ticker for a listed one, following chained renames
+    (A -> B -> C). Unchanged when it was never renamed.
+
+    No check that the company behind today's ticker is the one listed then is
+    needed for prices: a US ticker belongs to one company at a time, and
+    Yahoo serves a ticker's history from its CURRENT holder's listing on, so
+    a ticker re-issued since the list date has no bars on that date (the
+    pre-listing placeholders some carry are cut by `history_valid_from`).
+    """
+    seen = {symbol}
+    while symbol in renames:
+        symbol = renames[symbol]
+        if symbol in seen:  # a cycle in the file: stop rather than loop
+            break
+        seen.add(symbol)
+    return symbol

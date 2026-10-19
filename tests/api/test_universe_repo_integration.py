@@ -146,3 +146,21 @@ async def test_snapshot_history_is_newest_first(repo):
     history = await repo.snapshots(INDEX)
     assert [s.taken_at for s in history] == [T2, T0]
     assert [s.member_count for s in history] == [2, 1]
+
+
+async def test_the_reconstructed_list_on_or_before_a_date_is_read_whole(repo):
+    """Read-only against the loaded sp500 lists (2014-12 to 2026-07, decision 42)."""
+    listed = await repo.reconstructed_members_as_of(
+        "sp500", datetime(2016, 1, 15, tzinfo=timezone.utc)
+    )
+    assert listed is not None
+    assert listed.list_date.date().isoformat() == "2015-12-31"
+    assert 480 <= len(listed.symbols) <= 520
+    assert listed.source == "wikipedia_revision"
+
+
+async def test_no_reconstructed_list_before_the_first_one(repo):
+    assert (
+        await repo.reconstructed_members_as_of("sp500", datetime(2014, 6, 1, tzinfo=timezone.utc))
+        is None
+    )

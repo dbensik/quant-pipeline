@@ -34,6 +34,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import get_db, get_fetcher, get_market_data_repo
+from config import settings
 from core.ingest import IngestReport, ingest_symbols, job
 from db.models import AssetORM
 from db.repositories.market_data import AssetLastBar, TimescaleMarketDataRepo
@@ -159,9 +160,16 @@ class AssetFreshness(BaseModel):
     )
 
 
+class UnpricedAsset(BaseModel):
+    symbol: str
+    asset_class: str
+    reason: str = Field(description="Why no usable price source exists (config.settings)")
+    last_bar: Optional[datetime] = None
+
+
 class ClassFreshness(BaseModel):
     asset_class: str
-    assets: int = Field(description="Registered, not delisted")
+    assets: int = Field(description="Registered, not delisted, not known to be unpriceable")
     with_bars: int
     newest_bar: Optional[datetime] = None
     stale: int = Field(description="Assets with no bar newer than max_age_days")
@@ -190,6 +198,13 @@ class DataFreshnessResponse(BaseModel):
     by_class: List[ClassFreshness]
     stale_assets: List[AssetFreshness] = Field(
         description="The stale ones, oldest first, capped by `limit`"
+    )
+    unpriced_assets: List[UnpricedAsset] = Field(
+        default_factory=list,
+        description=(
+            "Registered with no usable price source (config.settings.UNPRICED_ASSETS), "
+            "listed here instead of counting as stale. Excluded from every count."
+        ),
     )
 
 
@@ -360,7 +375,11 @@ def _age_days(as_of: datetime, when: Optional[datetime]) -> Optional[int]:
 
 
 def summarise_freshness(
-    rows: List[AssetLastBar], as_of: datetime, max_age_days: int, limit: int
+    rows: List[AssetLastBar],
+    as_of: datetime,
+    max_age_days: int,
+    limit: int,
+    unpriced: Optional[Dict[str, str]] = None,
 ) -> DataFreshnessResponse:
     """
     Pure: the shape of the response given what the repository returned.
@@ -368,13 +387,21 @@ def summarise_freshness(
     Delisted assets are excluded from every count. They are legitimately
     frozen; counting them would keep the badge red for a reason nobody can
     act on, which is how a warning gets ignored and then removed.
+
+    So are `unpriced` ones (symbol -> reason), which are listed apart, but
+    only while stale: one that gains a fresh bar counts as an ordinary asset,
+    so a source that appears is not hidden behind its old entry.
     """
-    live = [r for r in rows if r.delisted_at is None]
-    newest = max((r.last_bar for r in live if r.last_bar is not None), default=None)
 
     def is_stale(r: AssetLastBar) -> bool:
         age = _age_days(as_of, r.last_bar)
         return age is None or age > max_age_days
+
+    unpriced = unpriced or {}
+    listed = [r for r in rows if r.delisted_at is None]
+    set_apart = [r for r in listed if r.symbol in unpriced and is_stale(r)]
+    live = [r for r in listed if not (r.symbol in unpriced and is_stale(r))]
+    newest = max((r.last_bar for r in live if r.last_bar is not None), default=None)
 
     stale_rows = [r for r in live if is_stale(r)]
     # Oldest first: no bars at all sorts before any dated bar, because "never
@@ -412,6 +439,15 @@ def summarise_freshness(
             )
             for r in stale_rows[:limit]
         ],
+        unpriced_assets=[
+            UnpricedAsset(
+                symbol=r.symbol,
+                asset_class=r.asset_class,
+                reason=unpriced[r.symbol],
+                last_bar=r.last_bar,
+            )
+            for r in set_apart
+        ],
     )
 
 
@@ -443,7 +479,11 @@ async def data_freshness(
     """
     rows = await repo.latest_bars()
     return summarise_freshness(
-        rows, as_of=datetime.now(timezone.utc), max_age_days=max_age_days, limit=limit
+        rows,
+        as_of=datetime.now(timezone.utc),
+        max_age_days=max_age_days,
+        limit=limit,
+        unpriced=settings.UNPRICED_ASSETS,
     )
 
 

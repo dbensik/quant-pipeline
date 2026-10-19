@@ -1319,7 +1319,7 @@ export interface components {
             asset_class: string;
             /**
              * Assets
-             * @description Registered, not delisted
+             * @description Registered, not delisted, not known to be unpriceable
              */
             assets: number;
             /** With Bars */
@@ -1593,6 +1593,11 @@ export interface components {
              * @description The stale ones, oldest first, capped by `limit`
              */
             stale_assets: components["schemas"]["AssetFreshness"][];
+            /**
+             * Unpriced Assets
+             * @description Registered with no usable price source (config.settings.UNPRICED_ASSETS), listed here instead of counting as stale. Excluded from every count.
+             */
+            unpriced_assets?: components["schemas"]["UnpricedAsset"][];
         };
         /** DataHealthResponse */
         DataHealthResponse: {
@@ -2681,7 +2686,7 @@ export interface components {
             symbols?: string[];
             /**
              * Index
-             * @description Resolve the universe from this index's membership AS OF `start`, rather than from whatever is registered today. Requires a snapshot at or before `start` — see POST /api/v1/universe/{index}/snapshot. Without this, screening a past window uses today's membership, which excludes everything since dropped and flatters the result.
+             * @description Resolve the universe from this index's membership AS OF `start`, rather than from whatever is registered today. Requires a snapshot at or before `start` — see POST /api/v1/universe/{index}/snapshot — or, for sp500 before the first snapshot, the reconstructed month-end list on or before `start`. Without this, screening a past window uses today's membership, which excludes everything since dropped and flatters the result.
              */
             index?: string | null;
             /**
@@ -2721,6 +2726,30 @@ export interface components {
              * @description Per-step counts, so a screen returning nothing shows where it emptied.
              */
             steps: components["schemas"]["ScreenerStepResult"][];
+            /**
+             * Membership Source
+             * @description With `index`: `observed` (the daily snapshots) or `reconstructed` (a month-end list read from a past revision of the source page, not an observation). Never a blend of the two.
+             */
+            membership_source?: ("observed" | "reconstructed") | null;
+            /**
+             * Membership Date
+             * @description With `index`: the date of the member list used, on or before `start`
+             */
+            membership_date?: string | null;
+            /** Membership Note */
+            membership_note?: string | null;
+            /**
+             * Renamed
+             * @description Listed tickers mapped to the registry's: a reconstructed ticker of its day to today's (FB -> META), and a share class to Yahoo's form (BRK.B -> BRK-B). `universe` carries the mapped ones
+             */
+            renamed?: {
+                [key: string]: string;
+            };
+            /**
+             * Without Data
+             * @description Members with no bars in the window, by name. For a past list these are mostly names that later left the index, which is the survivorship gap: read `with_data` against `requested` before trusting a screen.
+             */
+            without_data?: string[];
         };
         /** ScreenerListResponse */
         ScreenerListResponse: {
@@ -3469,6 +3498,20 @@ export interface components {
             symbols: string[];
             /** Count */
             count: number;
+        };
+        /** UnpricedAsset */
+        UnpricedAsset: {
+            /** Symbol */
+            symbol: string;
+            /** Asset Class */
+            asset_class: string;
+            /**
+             * Reason
+             * @description Why no usable price source exists (config.settings)
+             */
+            reason: string;
+            /** Last Bar */
+            last_bar?: string | null;
         };
         /** ValidationError */
         ValidationError: {

@@ -29,6 +29,17 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAppStore } from '@/store/useAppStore'
 
+/**
+ * Indexes whose membership the API resolves AS OF the window's start
+ * (decision 42). The S&P 500 falls back to reconstructed month-end lists
+ * before the first daily snapshot; the others are refused before it.
+ */
+const INDEXES = [
+  { id: 'sp500', label: 'S&P 500 as of the start date (reconstructed from 2014-12)' },
+  { id: 'dow_jones', label: 'Dow Jones as of the start date (observed from 2026-08-09)' },
+  { id: 'top_100_crypto', label: 'Top 100 crypto as of the start date (observed from 2026-08-09)' },
+]
+
 interface Step {
   screener_id: string
   params: Record<string, number>
@@ -68,6 +79,7 @@ export function ScreenersPage() {
   const run = useRunScreen()
 
   const [universe, setUniverse] = useState('AAPL, MSFT, NVDA, JPM, XOM, KO, PG')
+  const [index, setIndex] = useState('')
   const [steps, setSteps] = useState<Step[]>([])
 
   function addStep(screenerId: string) {
@@ -106,25 +118,50 @@ export function ScreenersPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1">
-            <Label htmlFor="screen-universe">Symbols</Label>
-            <Input
-              id="screen-universe"
-              value={universe}
-              onChange={(e) => setUniverse(e.target.value)}
-            />
-            <div className="flex flex-wrap gap-2 pt-1">
-              {watchlists?.map((w) => (
-                <Button
-                  key={w.name}
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setUniverse(w.symbols.join(', '))}
-                >
-                  ★ {w.name} ({w.symbols.length})
-                </Button>
+            <Label htmlFor="screen-index">Universe</Label>
+            <select
+              id="screen-index"
+              className="h-9 w-full rounded-md border bg-transparent px-3 text-sm"
+              value={index}
+              onChange={(e) => setIndex(e.target.value)}
+            >
+              <option value="">Symbols typed below</option>
+              {INDEXES.map((i) => (
+                <option key={i.id} value={i.id}>
+                  {i.label}
+                </option>
               ))}
-            </div>
+            </select>
           </div>
+
+          {index ? (
+            <p className="text-xs text-muted-foreground">
+              Members are taken as they stood on {startDate}, not today, so names that
+              have left since are included. The index screen loads every member and
+              takes about half a minute.
+            </p>
+          ) : (
+            <div className="space-y-1">
+              <Label htmlFor="screen-universe">Symbols</Label>
+              <Input
+                id="screen-universe"
+                value={universe}
+                onChange={(e) => setUniverse(e.target.value)}
+              />
+              <div className="flex flex-wrap gap-2 pt-1">
+                {watchlists?.map((w) => (
+                  <Button
+                    key={w.name}
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setUniverse(w.symbols.join(', '))}
+                  >
+                    ★ {w.name} ({w.symbols.length})
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label>Add a filter</Label>
@@ -188,16 +225,19 @@ export function ScreenersPage() {
 
           <Button
             onClick={() =>
-              run.mutate({
-                symbols,
-                start: startDate,
-                end: endDate,
-                screeners: steps,
-              })
+              run.mutate(
+                index
+                  ? { index, start: startDate, end: endDate, screeners: steps }
+                  : { symbols, start: startDate, end: endDate, screeners: steps },
+              )
             }
-            disabled={symbols.length === 0 || run.isPending}
+            disabled={(!index && symbols.length === 0) || run.isPending}
           >
-            {run.isPending ? 'Screening…' : `Screen ${symbols.length} symbols`}
+            {run.isPending
+              ? 'Screening…'
+              : index
+                ? 'Screen the index'
+                : `Screen ${symbols.length} symbols`}
           </Button>
         </CardContent>
       </Card>
@@ -218,6 +258,39 @@ export function ScreenersPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {result.membership_source ? (
+              <Alert>
+                <AlertDescription>
+                  <span className="font-medium">
+                    {result.membership_source === 'reconstructed' ? 'Reconstructed' : 'Observed'}{' '}
+                    membership of {result.membership_date?.slice(0, 10)}
+                  </span>
+                  : {result.with_data} of {result.requested} members have prices in the
+                  window.{' '}
+                  {result.membership_note}
+                  {Object.keys(result.renamed ?? {}).length > 0
+                    ? ` ${Object.keys(result.renamed ?? {}).length} listed tickers were mapped to today's.`
+                    : ''}
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            {(result.without_data ?? []).length > 0 ? (
+              <details className="text-sm">
+                <summary className="cursor-pointer text-muted-foreground">
+                  {(result.without_data ?? []).length} without prices in the window (not
+                  screened)
+                </summary>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {(result.without_data ?? []).map((symbol) => (
+                    <Badge key={symbol} variant="outline">
+                      {symbol}
+                    </Badge>
+                  ))}
+                </div>
+              </details>
+            ) : null}
+
             {/* Per-step counts, so a screen that ends empty shows WHERE it
                 emptied rather than just returning nothing. */}
             <ol className="space-y-1 text-sm">

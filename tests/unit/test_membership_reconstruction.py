@@ -9,7 +9,13 @@ list that looks healthy must be rejected, and an older revision tried.
 
 from datetime import date, datetime, timezone
 
-from core.membership_reconstruction import judge, month_ends, parse_constituents
+from core.membership_reconstruction import (
+    judge,
+    month_ends,
+    parse_constituents,
+    renames_from_rows,
+    todays_symbol,
+)
 from scripts import reconstruct_sp500_membership as script
 
 RANGE = (480, 520)
@@ -145,3 +151,40 @@ def test_steps_back_past_a_vandalised_revision():
 def test_gives_up_rather_than_store_a_bad_month():
     wiki = FakeWiki({30: "<p>blanked</p>", 20: page("Symbol", members(100))})
     assert script.reconstruct_month(wiki, date(2020, 1, 31), members(500)) is None
+
+
+# ---------------------------------------------------------------------------
+# Tickers of the day -> today's (decision 42)
+# ---------------------------------------------------------------------------
+
+
+def test_a_renamed_member_maps_to_todays_ticker_through_a_chain():
+    renames = renames_from_rows(
+        [
+            {"old_symbol": "AA", "new_symbol": "ARNC", "evidence": "same_cik"},
+            {"old_symbol": "ARNC", "new_symbol": "HWM", "evidence": "same_cik"},
+        ]
+    )
+    assert todays_symbol("AA", renames) == "HWM"
+    assert todays_symbol("AAPL", renames) == "AAPL"
+
+
+def test_only_same_cik_renames_are_followed():
+    renames = renames_from_rows([{"old_symbol": "X", "new_symbol": "Y", "evidence": "guess"}])
+    assert todays_symbol("X", renames) == "X"
+
+
+def test_a_cycle_in_the_rename_file_stops_instead_of_looping():
+    renames = {"A": "B", "B": "A"}
+    assert todays_symbol("A", renames) in {"A", "B"}
+
+
+def test_the_committed_rename_file_maps_known_renames():
+    import csv
+
+    from config.settings import SP500_TICKER_RENAMES_CSV
+
+    with open(SP500_TICKER_RENAMES_CSV, newline="") as fh:
+        renames = renames_from_rows(csv.DictReader(fh))
+    assert todays_symbol("WAG", renames) == "WBA"
+    assert len(renames) == 50

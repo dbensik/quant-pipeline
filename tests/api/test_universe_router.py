@@ -142,3 +142,69 @@ def test_neither_symbols_nor_index_is_422(client: TestClient):
     response = screen(client)
     assert response.status_code == 422
     assert "must not be empty" in response.json()["detail"]
+
+
+# ---------------------------------------------------------------------------
+# Reconstructed membership and the index cap (decision 42)
+# ---------------------------------------------------------------------------
+
+BETWEEN = "2024-04-15"  # after the reconstructed 2024-03-31 list, before the first snapshot
+
+
+def test_before_the_first_snapshot_the_reconstructed_list_is_used_and_said(
+    client: TestClient, monkeypatch
+):
+    monkeypatch.setattr("api.routers.screeners._renames", lambda: {"OLDMSFT": "MSFT"})
+    body = screen(client, index="sp500", start=f"{BETWEEN}T00:00:00Z").json()
+
+    assert body["membership_source"] == "reconstructed"
+    assert body["membership_date"].startswith("2024-03-31")
+    assert "not observed" in body["membership_note"]
+    # The ticker of the day is priced under today's ticker...
+    assert body["renamed"] == {"OLDMSFT": "MSFT"}
+    assert body["universe"] == ["AAPL", "GONE", "MSFT"]
+    # ...and a member with no prices is named, not silently dropped.
+    assert body["requested"] == 3
+    assert body["with_data"] == 2
+    assert body["without_data"] == ["GONE"]
+
+
+def test_an_observed_date_says_it_is_observed(client: TestClient):
+    body = screen(client, index="sp500").json()
+    assert body["membership_source"] == "observed"
+    assert body["renamed"] == {}
+
+
+def test_typed_symbols_report_no_membership_source(client: TestClient):
+    body = screen(client, symbols=["AAPL", "MSFT"]).json()
+    assert body["membership_source"] is None
+    assert body["without_data"] == []
+
+
+def test_an_index_larger_than_the_typed_symbol_cap_can_be_screened(
+    client: TestClient, universe_repo
+):
+    """
+    The S&P 500 is ~503 securities; with the 200-symbol cap applied to
+    index-resolved universes every S&P 500 screen was refused.
+    """
+    first, second = universe_repo.FIRST, universe_repo.SECOND
+    for i in range(300):
+        universe_repo.members[f"X{i:03d}"] = (first, second)
+    response = screen(client, index="sp500")
+    assert response.status_code == 200
+    assert response.json()["requested"] > 300
+
+
+def test_typed_symbols_keep_their_cap(client: TestClient):
+    response = screen(client, symbols=[f"X{i:03d}" for i in range(201)])
+    assert response.status_code == 422
+    assert "limit is 200" in response.json()["detail"]
+
+
+def test_a_listed_share_class_is_priced_under_the_registry_form(client: TestClient, universe_repo):
+    """The source page writes BRK.B; its bars are stored as BRK-B."""
+    universe_repo.members["BRK.B"] = (universe_repo.FIRST, universe_repo.SECOND)
+    body = screen(client, index="sp500").json()
+    assert body["renamed"] == {"BRK.B": "BRK-B"}
+    assert "BRK-B" in body["universe"] and "BRK.B" not in body["universe"]

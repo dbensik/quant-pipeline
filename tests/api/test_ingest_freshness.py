@@ -142,3 +142,38 @@ def test_empty_registry():
 def test_naive_timestamps_are_read_as_utc():
     rows = [AssetLastBar("AAPL", "equity", (AS_OF - timedelta(days=2)).replace(tzinfo=None))]
     assert summarise_freshness(rows, AS_OF, 5, 50).age_days == 2
+
+
+def test_unpriceable_assets_are_listed_apart_not_counted_stale():
+    """
+    PEPE, TON, BSC and BUIDL have no usable price source (2026-10-19). As
+    stale they kept the badge red every day for nothing anyone could do,
+    which is the noise that hides a real stoppage.
+    """
+    rows = [
+        AssetLastBar("AAPL", "equity", bar(1)),
+        AssetLastBar("PEPE-USD", "crypto", None),
+        AssetLastBar("WBD", "equity", bar(13)),
+    ]
+    out = summarise_freshness(rows, AS_OF, 5, 50, unpriced={"PEPE-USD": "rounds to zero"})
+    assert out.stale == 1
+    assert [a.symbol for a in out.stale_assets] == ["WBD"]
+    assert out.assets == 2
+    assert [(u.symbol, u.reason) for u in out.unpriced_assets] == [("PEPE-USD", "rounds to zero")]
+    crypto = [c for c in out.by_class if c.asset_class == "crypto"]
+    assert crypto == []
+
+
+def test_an_unpriceable_asset_that_gains_fresh_bars_counts_again():
+    """A source that appears must not stay hidden behind its old entry."""
+    rows = [AssetLastBar("PEPE-USD", "crypto", bar(1))]
+    out = summarise_freshness(rows, AS_OF, 5, 50, unpriced={"PEPE-USD": "rounds to zero"})
+    assert out.assets == 1
+    assert out.unpriced_assets == []
+
+
+def test_every_configured_unpriced_asset_has_a_reason():
+    from config.settings import UNPRICED_ASSETS
+
+    assert set(UNPRICED_ASSETS) == {"PEPE-USD", "TON-USD", "BSC-USD", "BUIDL-USD"}
+    assert all(reason.strip() for reason in UNPRICED_ASSETS.values())

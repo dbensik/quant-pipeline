@@ -8,6 +8,11 @@ ROOT_DIR = Path(__file__).parent.parent
 # --- Database Configuration ---
 # Use the '/' operator for clean path joining
 DB_PATH = ROOT_DIR / "quant_pipeline.db"
+
+#: Same-CIK S&P 500 ticker renames, 2014-2026 (FB -> META). Read by CIK
+#: resolution and by the screener when a RECONSTRUCTED member list, whose
+#: symbols are the tickers of their day, is priced (decision 42).
+SP500_TICKER_RENAMES_CSV = ROOT_DIR / "research" / "sp500-ticker-renames-2026-10-04.csv"
 DB_PRICE_TABLE = "price_data_daily"
 DB_PRICE_DATA_COLUMNS = [
     "Date",
@@ -963,6 +968,28 @@ CRYPTO_PROVIDER_SYMBOLS = {
     "UNI-USD": "UNI7083-USD",
     "USDE-USD": "USDE29470-USD",
     "USDS-USD": "USDS33039-USD",
+}
+
+#: Registered assets with NO usable price source, and why: the "deliberately
+#: not mapped" list above as data (2026-10-19). They stay registered because
+#: the daily snapshot really records them as index members. Deleting them
+#: would only have tomorrow's snapshot register them again, and
+#: point-in-time membership would lose real members. The freshness surface
+#: lists them apart from the stale ones: counted as stale they kept the
+#: header badge red every day for something nobody can act on, the noise that
+#: hides a real stoppage. Only while they have no fresh bar: a coin that
+#: gains a source shows up as an ordinary asset again, and its line here
+#: should go.
+UNPRICED_ASSETS = {
+    "PEPE-USD": (
+        "Yahoo's PEPE24478-USD is the right coin but rounds to six decimals: 27 distinct "
+        "closes in 1,254 bars"
+    ),
+    "TON-USD": "Yahoo's TON11419-USD is the right coin but serves one bar of history",
+    "BSC-USD": "No Yahoo ticker found for Binance Bridged USDT (BNB Smart Chain)",
+    "BUIDL-USD": (
+        "No Yahoo ticker found for BlackRock BUIDL; the bare key is DFOhub (wrong_asset)"
+    ),
 }
 
 CRYPTO_ID_OVERRIDES = {

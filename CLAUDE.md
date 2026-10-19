@@ -385,11 +385,30 @@ screening possible — so this job matters more than its size suggests.
 for 2014-12 to 2026-07, read from past revisions of the Wikipedia page by
 `scripts/reconstruct_sp500_membership.py` (insert-only; a re-run adds only
 missing months). It is never mixed into `universe_membership`, which stays
-observations only, and nothing reads it yet. Symbols are the tickers of the
+observations only. Symbols are the tickers of the
 day (FB, not META). It does NOT make a cross-sectional backtest honest: Yahoo
 has no prices for 151 of the 268 tickers that left the index since 2015, and
 every departed name it can price is a survivor. See
 `research/sp500-membership-reconstruction-2026-10-04.md`.
+
+**Screens resolve an index as of their start date** (decision 42,
+2026-10-19, `research/point-in-time-universe-2026-10-19.md`).
+`POST /screeners/run` with `index` uses the daily snapshots, or for sp500
+before the first one the reconstructed month-end list on or before `start`.
+The response says which (`membership_source`, `membership_date`) and never
+blends them. Tickers of the day are mapped to today's through
+`SP500_TICKER_RENAMES_CSV`, and share classes to Yahoo's form (BRK.B to
+BRK-B), both listed in `renamed`. Members with no bars in the window are
+named in `without_data`: 63% of the 2014 list is priced, 98% of 2024's. The
+200-symbol cap applies to typed lists only; an index may resolve to 600
+(`MAX_INDEX_SYMBOLS`). A full S&P screen takes ~25 s. NO backtest takes an
+index universe: that waits for prices of delisted names (Sharadar).
+
+**Assets with no usable price source are listed apart**
+(`config.settings.UNPRICED_ASSETS`, 2026-10-19): PEPE, TON, BSC and BUIDL
+stay registered (the snapshot records them as members) and the freshness
+surface reports them in `unpriced_assets`, not as stale, but only while they
+have no fresh bar.
 
 It needs TimescaleDB up at 06:00, which takes two settings, both applied
 2026-08-09:

@@ -449,7 +449,8 @@ export const api = {
   },
 
   runScreen(body: {
-    symbols: string[]
+    symbols?: string[]
+    index?: string | null
     start: string
     end: string
     screeners: { screener_id: string; params?: Record<string, unknown> }[]

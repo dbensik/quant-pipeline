@@ -162,6 +162,20 @@ function FreshnessCard({
                 </div>
               </div>
             ) : null}
+            {(data.unpriced_assets ?? []).length > 0 ? (
+              <div>
+                <p className="mb-1 text-xs text-muted-foreground">
+                  No usable price source, so not counted as stale (hover for why):
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(data.unpriced_assets ?? []).map((a) => (
+                    <Badge key={a.symbol} variant="outline" title={a.reason}>
+                      {a.symbol}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </>
         )}
       </CardContent>

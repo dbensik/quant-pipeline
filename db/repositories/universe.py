@@ -21,7 +21,7 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.models import UniverseMembershipORM, UniverseSnapshotORM
+from db.models import ReconstructedMembershipORM, UniverseMembershipORM, UniverseSnapshotORM
 
 
 @dataclass
@@ -45,6 +45,23 @@ class Membership:
     observed: bool
 
 
+@dataclass
+class ReconstructedMembership:
+    """
+    A RECONSTRUCTED member list (decision 42): the month-end list on or before
+    the requested date, read from a past revision of the source page. Not an
+    observation; never merged into `Membership`. Symbols are the tickers in
+    use at the time (FB, not META).
+    """
+
+    index_name: str
+    list_date: datetime
+    symbols: List[str]
+    source: str
+    source_revision: int
+    revision_at: datetime
+
+
 class UniverseRepository:
     """Structural Protocol — no explicit inheritance required."""
 
@@ -55,6 +72,10 @@ class UniverseRepository:
     async def members_as_of(self, index_name: str, as_of: datetime) -> Membership: ...
 
     async def indexes(self) -> List[str]: ...
+
+    async def reconstructed_members_as_of(
+        self, index_name: str, as_of: datetime
+    ) -> Optional[ReconstructedMembership]: ...
 
 
 class TimescaleUniverseRepo:
@@ -215,6 +236,48 @@ class TimescaleUniverseRepo:
             first_observed=first_observed,
             last_observed=last_observed,
             observed=True,
+        )
+
+    async def reconstructed_members_as_of(
+        self, index_name: str, as_of: datetime
+    ) -> Optional[ReconstructedMembership]:
+        """
+        The newest reconstructed list dated on or before `as_of`, or None.
+
+        For dates the daily snapshots do not cover (before 2026-08-09). The
+        caller says which source it used; the two are never blended.
+        """
+        latest = await self.session.execute(
+            select(func.max(ReconstructedMembershipORM.as_of)).where(
+                ReconstructedMembershipORM.index_name == index_name,
+                ReconstructedMembershipORM.as_of <= as_of.date(),
+            )
+        )
+        list_date = latest.scalar_one_or_none()
+        if list_date is None:
+            return None
+        rows = (
+            (
+                await self.session.execute(
+                    select(ReconstructedMembershipORM)
+                    .where(
+                        ReconstructedMembershipORM.index_name == index_name,
+                        ReconstructedMembershipORM.as_of == list_date,
+                    )
+                    .order_by(ReconstructedMembershipORM.symbol)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        first = rows[0]
+        return ReconstructedMembership(
+            index_name=index_name,
+            list_date=datetime(list_date.year, list_date.month, list_date.day, tzinfo=timezone.utc),
+            symbols=[row.symbol for row in rows],
+            source=first.source,
+            source_revision=first.source_revision,
+            revision_at=first.revision_at,
         )
 
     async def indexes(self) -> List[str]:

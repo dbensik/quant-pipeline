@@ -110,3 +110,41 @@ recommendation:
   rename class above.
 - The licence for personal research use, and the price of the smallest
   plan that includes delisted names.
+
+## Built (B, approved 2026-10-19)
+
+- `TimescaleUniverseRepo.reconstructed_members_as_of`, and the screener's
+  fallback to it for sp500 before the first daily snapshot. The response
+  carries `membership_source`, `membership_date`, `membership_note`,
+  `renamed` and `without_data`.
+- Index-resolved universes may reach 600 symbols (`MAX_INDEX_SYMBOLS`); typed
+  lists keep 200.
+- **Found while building:** the snapshots write share classes as BRK.B and
+  BF.B, but the registry stores them as BRK-B and BF-B, so both read as
+  members without prices. They are now mapped, and listed in `renamed`.
+- The Screeners page has a Universe picker (typed symbols, or the S&P 500,
+  the Dow or the top 100 crypto as of the start date). It shows the
+  membership source and date, the priced share, and the members without
+  prices.
+- Real runs through the API, with one screening step:
+
+  | window start | source, list date | members | with data | renamed |
+  |---|---|---|---|---|
+  | 2026-08-10 | observed | 503 | 477 before the share-class fix | 0 |
+  | 2016-01-04 | reconstructed, 2015-12-31 | 504 | 336 | 29 (AA to HWM, ANTM to ELV, ...) |
+  | 2024-06-03 | reconstructed, 2024-05-31 | 503 | 480 | 2 (BK to BNY, MMC to MRSH) |
+
+  Each screen took 23-26 s.
+
+**Two findings for Danny, not fixed:**
+
+1. **26 current S&P 500 members are not registered**, so they have never
+   been ingested: LITE, CIEN, COHR, IBKR, ARES, CASY, VRT, HOOD, RDDT, TWLO,
+   SKYD and 15 more, most of them members since the first snapshot. The
+   registry came from an older list, and nothing adds a new member. Even an
+   observed screen today misses 5%. Registering and ingesting them is a data
+   backfill, which needs your yes.
+2. **The `low_volatility` screener never passes anything through the API.**
+   It reads a `volatility_90d` column that nothing has computed since the
+   API port. Every page and API screen that uses it returns an empty list.
+   The tests only ever used it as a step that lets everything through.

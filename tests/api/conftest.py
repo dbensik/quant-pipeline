@@ -46,7 +46,7 @@ from core.models import OHLCV, Asset, MarketDataRecord, Timestamp
 from core.portfolio import Portfolio, Trade
 from core.rates import RateObservation
 from db.repositories.market_data import AssetLastBar
-from db.repositories.universe import Membership, Snapshot
+from db.repositories.universe import Membership, ReconstructedMembership, Snapshot
 from db.repositories.watchlists import Watchlist
 
 # ---------------------------------------------------------------------------
@@ -560,6 +560,24 @@ class FakeUniverseRepo:
             first_observed=self.FIRST,
             last_observed=self.SECOND,
             observed=True,
+        )
+
+    #: One reconstructed month-end list, between BEFORE_ANY and FIRST. Its
+    #: tickers are of their day: OLDMSFT is renamed MSFT by tests that patch the
+    #: rename map, and GONE was never registered (a departed member).
+    RECONSTRUCTED_DATE = datetime(2024, 3, 31, tzinfo=timezone.utc)
+    RECONSTRUCTED = ["AAPL", "GONE", "OLDMSFT"]
+
+    async def reconstructed_members_as_of(self, index_name, as_of):
+        if index_name != self.index_name or as_of.date() < self.RECONSTRUCTED_DATE.date():
+            return None
+        return ReconstructedMembership(
+            index_name=index_name,
+            list_date=self.RECONSTRUCTED_DATE,
+            symbols=list(self.RECONSTRUCTED),
+            source="wikipedia_revision",
+            source_revision=123,
+            revision_at=datetime(2024, 3, 30, tzinfo=timezone.utc),
         )
 
     async def indexes(self):
