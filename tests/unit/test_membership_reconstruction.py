@@ -175,7 +175,7 @@ def test_only_same_cik_renames_are_followed():
 
 
 def test_a_cycle_in_the_rename_file_stops_instead_of_looping():
-    renames = {"A": "B", "B": "A"}
+    renames = {"A": ("B", None), "B": ("A", None)}
     assert todays_symbol("A", renames) in {"A", "B"}
 
 
@@ -187,4 +187,19 @@ def test_the_committed_rename_file_maps_known_renames():
     with open(SP500_TICKER_RENAMES_CSV, newline="") as fh:
         renames = renames_from_rows(csv.DictReader(fh))
     assert todays_symbol("WAG", renames) == "WBA"
-    assert len(renames) == 50
+    assert len(renames) == 51
+    assert todays_symbol("PSKY", renames) == "SKYD"
+
+
+def test_a_re_issued_ticker_is_not_renamed_after_the_new_one_listed():
+    """
+    Q was Quintiles (renamed IQV, first listed 2017-11-30) and is Qnity
+    Electronics since 2025. Undated, Qnity in a 2026 list was priced as IQVIA.
+    """
+    from datetime import date
+
+    renames = renames_from_rows(
+        [{"old_symbol": "Q", "new_symbol": "IQV", "first_listed_as_new": "2017-11-30"}]
+    )
+    assert todays_symbol("Q", renames, date(2017, 10, 31)) == "IQV"
+    assert todays_symbol("Q", renames, date(2026, 6, 30)) == "Q"

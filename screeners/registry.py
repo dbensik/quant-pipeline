@@ -85,7 +85,9 @@ _SPECS: List[ScreenerSpec] = [
         cls=LowVolatilityScreener,
         description=(
             "Keep the least volatile names — those whose realised volatility "
-            "falls in the bottom `quantile` of the universe."
+            "(annualized, over the last `window` daily returns of the range) "
+            "falls in the bottom `quantile` of the universe. A name with fewer "
+            "returns than `window` is not ranked."
         ),
         params=[
             ParamSpec(
@@ -96,6 +98,15 @@ _SPECS: List[ScreenerSpec] = [
                 "Fraction of the universe to keep, lowest volatility first",
                 0.01,
                 1.0,
+            ),
+            ParamSpec(
+                "window",
+                "int",
+                90,
+                "Volatility window",
+                "Daily returns measured, ending at the last bar",
+                2,
+                1000,
             ),
         ],
     ),

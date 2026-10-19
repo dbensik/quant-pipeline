@@ -1,55 +1,74 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
+import numpy as np
 import pandas as pd
+
+from analysis.performance_analyzer import periods_per_year
 
 from .base_screener import BaseScreener
 
 
+def realised_volatility(close: pd.Series, window: int) -> Optional[float]:
+    """
+    Annualized standard deviation of the last `window` daily returns.
+
+    Annualized on the series' own calendar (decision 38): 252 for equities,
+    365 for crypto. None when there are fewer than `window` returns, so a
+    name too young to measure is left unranked rather than ranked on less.
+    """
+    returns = close.astype(float).pct_change().dropna()
+    if len(returns) < window:
+        return None
+    return float(returns.iloc[-window:].std() * np.sqrt(periods_per_year(close.index)))
+
+
 class LowVolatilityScreener(BaseScreener):
     """
-    A screener that filters for stocks with the lowest pre-calculated
-    90-day volatility. This is very fast as it uses cached data from the DB.
+    Keeps the names whose realised volatility, at the end of the window, falls
+    in the bottom `quantile` of the universe.
+
+    FIXED 2026-10-19 (decision 43, research/low-volatility-screener-2026-10-19.md).
+    It read a precomputed `volatility_90d` column that only the SQLite store
+    had. Since the TimescaleDB cutover the frames it receives carry OHLCV
+    only, so it returned an empty list for every screen: 495 S&P names with
+    data and 0 kept, even at quantile 1.0. It now measures volatility from the
+    closes it is given.
     """
 
-    def __init__(self, quantile: float = 0.25):
+    def __init__(self, quantile: float = 0.25, window: int = 90):
         """
-        Initializes the LowVolatilityScreener.
-
         Args:
-            quantile (float): The quantile of lowest volatility stocks to keep
-                              (e.g., 0.25 keeps the bottom 25%).
+            quantile: The fraction of the universe to keep, lowest volatility
+                      first (0.25 keeps the bottom 25%).
+            window:   Daily returns the volatility is measured over, ending at
+                      the last bar. 90 is what the old precomputed column used.
         """
         super().__init__()
         self.quantile = quantile
+        self.window = window
 
     def screen(self, tickers: List[str], data: Dict[str, pd.DataFrame]) -> List[str]:
-        """Filters tickers based on their latest volatility reading."""
+        """Filters tickers on their realised volatility at the end of the window."""
         volatilities = {}
         for ticker in tickers:
-            if (
-                ticker in data
-                and not data[ticker].empty
-                and "volatility_90d" in data[ticker].columns
-            ):
-                # Get the last valid volatility reading from the pre-calculated column
-                last_vol_value = data[ticker]["volatility_90d"].dropna().iloc[-1]
-                if pd.notna(last_vol_value):
-                    volatilities[ticker] = last_vol_value
+            frame = data.get(ticker)
+            if frame is None or frame.empty or "Close" not in frame.columns:
+                continue
+            value = realised_volatility(frame["Close"], self.window)
+            if value is not None and np.isfinite(value):
+                volatilities[ticker] = value
 
         if not volatilities:
             return []
 
         vol_series = pd.Series(volatilities)
-        # Find the volatility value at the specified quantile (e.g., the 25th percentile)
         cutoff = vol_series.quantile(self.quantile)
-        # Return tickers whose volatility is at or below the cutoff
         return vol_series[vol_series <= cutoff].index.tolist()
 
     def get_analysis_metric(self, price_data: pd.DataFrame) -> Dict[str, Any]:
-        """Returns the latest volatility for display in the UI analysis table."""
-        column_name = "Volatility (90d)"
-        if price_data.empty or "volatility_90d" not in price_data.columns:
+        """The realised volatility, for display in an analysis table."""
+        column_name = f"Volatility ({self.window}d)"
+        if price_data.empty or "Close" not in price_data.columns:
             return {column_name: "N/A"}
-
-        last_vol = price_data["volatility_90d"].dropna().iloc[-1]
-        return {column_name: f"{last_vol:.2%}" if pd.notna(last_vol) else "N/A"}
+        value = realised_volatility(price_data["Close"], self.window)
+        return {column_name: f"{value:.2%}" if value is not None else "N/A"}

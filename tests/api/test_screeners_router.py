@@ -213,3 +213,23 @@ def test_invalid_params_fail_before_any_data_is_loaded(client: TestClient):
     """
     response = run(client, [{"screener_id": "momentum", "params": {"bogus": 1}}])
     assert response.status_code == 422
+
+
+def test_low_volatility_keeps_names_through_the_api(client: TestClient):
+    """
+    Decision 43: it read a `volatility_90d` column the API's frames never
+    carry, so it kept nothing, even at quantile 1.0.
+    """
+    everything = run(
+        client, [{"screener_id": "low_volatility", "params": {"quantile": 1.0}}]
+    ).json()
+    assert everything["passed"] and len(everything["passed"]) == everything["with_data"]
+    # MSFT's seeded walk is far rougher than the AAPL/BTC-USD sawtooth: the
+    # least volatile third is not MSFT.
+    calm = run(
+        client,
+        [{"screener_id": "low_volatility", "params": {"quantile": 0.34, "window": 60}}],
+        symbols=["AAPL", "MSFT", "BTC-USD"],
+    ).json()
+    assert "MSFT" not in calm["passed"]
+    assert calm["steps"][0]["params"]["window"] == 60

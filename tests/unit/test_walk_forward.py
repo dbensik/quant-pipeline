@@ -55,6 +55,9 @@ def _optimizer(frame, grid=MA_GRID, accrual=None, **kwargs):
 
 # Captured from ParameterOptimizer at e231ce0, BEFORE walk-forward was added:
 # (short, long, Final Value, Sharpe Ratio, Trade Count), ranked best-first.
+# Bit-identical on this Mac; compared to 1e-12 relative because CI's Linux
+# numpy differs in the last digit or two (e.g. -0.1140696882921665 against
+# -0.11406968829216642), which is platform float noise, not a change.
 GOLDEN_AT_E231CE0 = [
     (20, 100, 122668.74038654706, 0.24660671900036357, 9.0),
     (30, 100, 120322.38720964287, 0.20220341042819284, 9.0),
@@ -81,7 +84,9 @@ def test_the_in_sample_search_is_bit_identical_to_before_walk_forward():
         (r["short_window"], r["long_window"], r["Final Value"], r["Sharpe Ratio"], r["Trade Count"])
         for r in optimizer.get_ranked_records()
     ]
-    assert ranked == GOLDEN_AT_E231CE0
+    assert [r[:2] + r[4:] for r in ranked] == [g[:2] + g[4:] for g in GOLDEN_AT_E231CE0]
+    for row, golden in zip(ranked, GOLDEN_AT_E231CE0, strict=True):
+        assert row[2:4] == pytest.approx(golden[2:4], rel=1e-12, abs=1e-12)
     assert optimizer.get_best_parameters() == {"short_window": 20, "long_window": 100}
 
 

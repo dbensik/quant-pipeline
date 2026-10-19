@@ -119,26 +119,37 @@ def month_ends(start: date, end: date) -> list[date]:
     return [stamp.date() for stamp in stamps]
 
 
-def renames_from_rows(rows) -> dict[str, str]:
+def renames_from_rows(rows) -> dict[str, tuple[str, Optional[date]]]:
     """
-    Old ticker -> new ticker, from the rename CSV's rows
-    (research/sp500-ticker-renames-2026-10-04.csv; every row is a same-CIK
-    rename). A reconstructed list carries the ticker of its day, the registry
-    the ticker of today.
+    Old ticker -> (new ticker, first date the new one was listed), from the
+    rename CSV's rows (research/sp500-ticker-renames-2026-10-04.csv; every
+    row is a same-CIK rename). A reconstructed list carries the ticker of its
+    day, the registry the ticker of today.
+
+    The date matters because tickers are re-issued: Q was Quintiles until
+    IQVIA took IQV in 2017, and is Qnity Electronics since 2025. Read without
+    it, Qnity in a 2026 list was priced as IQVIA.
     """
-    out: dict[str, str] = {}
+    out: dict[str, tuple[str, Optional[date]]] = {}
     for row in rows:
         old = (row.get("old_symbol") or "").strip().upper()
         new = (row.get("new_symbol") or "").strip().upper()
-        if old and new and old != new and row.get("evidence", "same_cik") == "same_cik":
-            out[old] = new
+        if not (old and new and old != new and row.get("evidence", "same_cik") == "same_cik"):
+            continue
+        raw = (row.get("first_listed_as_new") or "").strip()
+        out[old] = (new, date.fromisoformat(raw) if raw else None)
     return out
 
 
-def todays_symbol(symbol: str, renames: dict[str, str]) -> str:
+def todays_symbol(
+    symbol: str, renames: dict[str, tuple[str, Optional[date]]], as_of: Optional[date] = None
+) -> str:
     """
-    The registry's ticker for a listed one, following chained renames
-    (A -> B -> C). Unchanged when it was never renamed.
+    The registry's ticker for one listed on `as_of`, following chained renames
+    (A -> B -> C). Unchanged when it was never renamed, or when `as_of` is on
+    or after the date the new ticker was first listed: by then the old one
+    names whatever company took it next (a re-issued ticker). A rename with
+    no recorded date is followed whatever `as_of` says.
 
     No check that the company behind today's ticker is the one listed then is
     needed for prices: a US ticker belongs to one company at a time, and
@@ -148,7 +159,10 @@ def todays_symbol(symbol: str, renames: dict[str, str]) -> str:
     """
     seen = {symbol}
     while symbol in renames:
-        symbol = renames[symbol]
+        new, first_listed = renames[symbol]
+        if as_of is not None and first_listed is not None and as_of >= first_listed:
+            break
+        symbol = new
         if symbol in seen:  # a cycle in the file: stop rather than loop
             break
         seen.add(symbol)

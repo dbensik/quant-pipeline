@@ -225,7 +225,7 @@ def _registry_form(symbol: str) -> str:
 
 
 @lru_cache(maxsize=1)
-def _renames() -> Dict[str, str]:
+def _renames() -> Dict[str, Any]:
     with open(settings.SP500_TICKER_RENAMES_CSV, newline="") as fh:
         return renames_from_rows(csv.DictReader(fh))
 
@@ -304,7 +304,13 @@ async def run_screen(
                     f"{membership.first_observed.date().isoformat()})."
                 ),
             }
-            mapped = {s: _registry_form(s) for s in membership.symbols}
+            # An observed ticker can be renamed later too (PSKY -> SKYD,
+            # 2026-10-06): its bars are stored under today's key.
+            renames = _renames()
+            mapped = {
+                s: _registry_form(todays_symbol(s, renames, request.start.date()))
+                for s in membership.symbols
+            }
             symbols = list(dict.fromkeys(mapped.values()))
             provenance["renamed"] = {old: new for old, new in mapped.items() if old != new}
         else:
@@ -339,7 +345,10 @@ async def run_screen(
             # Tickers of the day -> today's registry tickers, so a renamed
             # member is priced under the key its bars are stored under.
             renames = _renames()
-            mapped = {s: _registry_form(todays_symbol(s, renames)) for s in reconstructed.symbols}
+            on = reconstructed.list_date.date()
+            mapped = {
+                s: _registry_form(todays_symbol(s, renames, on)) for s in reconstructed.symbols
+            }
             symbols = list(dict.fromkeys(mapped.values()))
             provenance = {
                 "membership_source": "reconstructed",

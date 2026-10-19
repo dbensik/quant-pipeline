@@ -138,13 +138,43 @@ recommendation:
 
 **Two findings for Danny, not fixed:**
 
-1. **26 current S&P 500 members are not registered**, so they have never
-   been ingested: LITE, CIEN, COHR, IBKR, ARES, CASY, VRT, HOOD, RDDT, TWLO,
-   SKYD and 15 more, most of them members since the first snapshot. The
-   registry came from an older list, and nothing adds a new member. Even an
-   observed screen today misses 5%. Registering and ingesting them is a data
-   backfill, which needs your yes.
-2. **The `low_volatility` screener never passes anything through the API.**
+1. **30 current S&P 500 members were not registered** (first counted as
+   26, wrongly), so they had never been ingested. **Done 2026-10-19 on
+   Danny's yes, for 29 of them:**
+   - Registered through `POST /ingest/assets` and backfilled insert-only
+     from 2010: 81,573 bars and 538 corporate actions.
+   - FERG trimmed to its 2021-03-08 NYSE listing. Yahoo serves an illiquid
+     line back to 2010: 2,811 bars, 2,079 of them with zero volume. P (Pure
+     Storage, renamed Everpure) trimmed to its 2015-10-07 IPO, dropping a
+     zero-volume placeholder bar. Both have `history_valid_from` set, and the
+     removed rows are kept in `research/ferg-p-prelisting-*-2026-10-19.csv`.
+   - Then marked `served`. Every bar has served values, and read-time
+     returns match Yahoo's adjusted series on every day of every name
+     (worst 0.0001pp).
+   - CIKs recorded by `scripts/resolve_ciks.py --write`. Diffed against the
+     06:00 backup, the only other row it changed was PSKY, which gained its
+     CIK.
+   - `check_missing_days`: clean. `check_reassigned` flags VRT at
+     2019-04-08: a volume collapse inside its pre-merger SPAC history (GS
+     Acquisition Holdings, merged 2020-02-07), which needs a human verdict.
+   - **SKYD was not added as a new row.** It is PSKY renamed: same CIK
+     2041610, renamed 2026-10-06, moved from Nasdaq to NYSE, with identical
+     Yahoo closes. On Danny's yes the PSKY row was re-keyed to SKYD, with the
+     evidence in its metadata, and PSKY -> SKYD added to the rename CSV.
+   - **VRT floored at 2020-02-07**, the close of its merger with GS
+     Acquisition Holdings, on Danny's decision. The 381 SPAC-shell bars are
+     in `research/vrt-spac-bars-removed-2026-10-19.csv`, and
+     `check_reassigned` is clean again.
+   - Still open: nothing registers a member that joins later. VYLR and SKYD
+     both joined on 2026-10-08.
+2. **Re-issued tickers in the rename map (fixed 2026-10-19).** Q was
+   Quintiles, which became IQV in 2017, and is Qnity Electronics since
+   2025. Undated, the map priced Qnity in 2026 lists as IQVIA. A rename now
+   applies only to lists dated before the new ticker was first listed. Renames
+   also apply to observed membership, so PSKY in a snapshot before
+   2026-10-08 is priced as SKYD.
+
+3. **The `low_volatility` screener (fixed by decision 43) never passed anything through the API.**
    It reads a `volatility_90d` column that nothing has computed since the
    API port. Every page and API screen that uses it returns an empty list.
    The tests only ever used it as a step that lets everything through.

@@ -154,7 +154,7 @@ BETWEEN = "2024-04-15"  # after the reconstructed 2024-03-31 list, before the fi
 def test_before_the_first_snapshot_the_reconstructed_list_is_used_and_said(
     client: TestClient, monkeypatch
 ):
-    monkeypatch.setattr("api.routers.screeners._renames", lambda: {"OLDMSFT": "MSFT"})
+    monkeypatch.setattr("api.routers.screeners._renames", lambda: {"OLDMSFT": ("MSFT", None)})
     body = screen(client, index="sp500", start=f"{BETWEEN}T00:00:00Z").json()
 
     assert body["membership_source"] == "reconstructed"
@@ -208,3 +208,16 @@ def test_a_listed_share_class_is_priced_under_the_registry_form(client: TestClie
     body = screen(client, index="sp500").json()
     assert body["renamed"] == {"BRK.B": "BRK-B"}
     assert "BRK-B" in body["universe"] and "BRK.B" not in body["universe"]
+
+
+def test_an_observed_member_renamed_since_is_priced_under_todays_ticker(
+    client: TestClient, universe_repo, monkeypatch
+):
+    """PSKY was observed in the index until 2026-10-08; its bars are now stored as SKYD."""
+    monkeypatch.setattr("api.routers.screeners._renames", lambda: {"OLDAAPL": ("AAPL", None)})
+    first, second = universe_repo.FIRST, universe_repo.SECOND
+    del universe_repo.members["AAPL"]
+    universe_repo.members["OLDAAPL"] = (first, second)
+    body = screen(client, index="sp500").json()
+    assert body["renamed"] == {"OLDAAPL": "AAPL"}
+    assert "AAPL" in body["universe"] and "AAPL" not in body["without_data"]

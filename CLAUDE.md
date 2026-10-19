@@ -149,7 +149,7 @@ bit-identical to the old `auto_adjust=True` — and `served_*` + `fetched_at`,
 plus splits and dividends into `corporate_actions`. Served values are written
 once — filled only where NULL, never overwritten — and an action keeps its
 first row. `fetch_range(..., adjust="total"|"split"|"none")` derives every
-read from them for assets with `price_basis = 'served'` (518 equities/ETFs; TQQQ joined 2026-10-08),
+read from them for assets with `price_basis = 'served'` (547 equities/ETFs; TQQQ joined 2026-10-08, 29 S&P members 2026-10-19),
 so all bars are adjusted to one as-of date and the dividend/split drift is
 gone. `legacy` assets (11: PARA and names Yahoo no longer serves) and crypto
 (NULL) read the stored columns. `config.settings.SERVED_PRICES_ENABLED` is
@@ -397,12 +397,18 @@ every departed name it can price is a survivor. See
 before the first one the reconstructed month-end list on or before `start`.
 The response says which (`membership_source`, `membership_date`) and never
 blends them. Tickers of the day are mapped to today's through
-`SP500_TICKER_RENAMES_CSV`, and share classes to Yahoo's form (BRK.B to
+`SP500_TICKER_RENAMES_CSV` (only for lists dated before the new ticker was
+first listed: Q was Quintiles, then IQV, and is Qnity since 2025), and share classes to Yahoo's form (BRK.B to
 BRK-B), both listed in `renamed`. Members with no bars in the window are
 named in `without_data`: 63% of the 2014 list is priced, 98% of 2024's. The
 200-symbol cap applies to typed lists only; an index may resolve to 600
 (`MAX_INDEX_SYMBOLS`). A full S&P screen takes ~25 s. NO backtest takes an
 index universe: that waits for prices of delisted names (Sharadar).
+
+**`low_volatility` measures volatility itself** (decision 43, 2026-10-19):
+the annualized std of the last `window` (90) daily returns in the range.
+It had read a `volatility_90d` column only the SQLite store had, and
+returned nothing for every screen since the TimescaleDB cutover.
 
 **Assets with no usable price source are listed apart**
 (`config.settings.UNPRICED_ASSETS`, 2026-10-19): PEPE, TON, BSC and BUIDL
