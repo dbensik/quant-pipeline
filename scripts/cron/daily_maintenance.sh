@@ -4,11 +4,13 @@
 #
 # Daily data maintenance, for launchd. In this order: ingest new price bars,
 # the risk-free rate, SEC facts for recent filers, the read-only checks
-# (reassigned tickers, missing days, fresh returns), the index snapshot, the
-# DCF line-concept check, option surfaces, then the backup.
+# (reassigned tickers, missing days, fresh returns), the index snapshot, new
+# index members, the DCF line-concept check, option surfaces, then the backup.
 #
-# Ingest runs FIRST so that any name which joined an index today already has
-# bars by the time the snapshot records it.
+# Ingest only fetches REGISTERED assets. This header used to say ingest ran
+# first "so that any name which joined an index today already has bars"; it
+# never did, and 30 S&P members went unpriced. Joiners are registered and
+# backfilled by the new-member step right after the snapshot (decision 44).
 #
 # WHY A WRAPPER AND NOT A CRONTAB ONE-LINER
 #   cron runs with a near-empty environment and an arbitrary working
@@ -209,6 +211,28 @@ if [ "$MODE" != "--ingest-only" ]; then
     else
         log "snapshot FAILED (exit $?)"
         fail snapshot
+    fi
+fi
+
+# Register the equities that just joined an index (decision 44,
+# research/new-index-members-2026-10-19.md). Right after the snapshot that
+# records them; ingest only fetches REGISTERED assets, so until 2026-10-19 a
+# joiner was never priced (30 S&P members had no bars). A probable rename (its
+# CIK already registered), a joiner with no CIK, or a new series opening on
+# zero-volume bars is FLAGGED for a human, never registered or trimmed.
+# Crypto members are listed, never registered. See scripts/register_new_members.py.
+if [ "$MODE" != "--ingest-only" ]; then
+    log "--- new index members ---"
+    "$VENV_PYTHON" scripts/register_new_members.py >> "$LOG_FILE" 2>&1
+    CHECK_EXIT=$?
+    if [ "$CHECK_EXIT" -eq 0 ]; then
+        log "new-member registration OK"
+    elif [ "$CHECK_EXIT" -eq 1 ]; then
+        log "new-member registration FLAGGED a joiner — see RENAME?/NO CIK/PLACEHOLDER/EMPTY lines above"
+        flag new-members
+    else
+        log "new-member registration FAILED to run (exit $CHECK_EXIT)"
+        fail new-members
     fi
 fi
 

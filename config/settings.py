@@ -13,6 +13,18 @@ DB_PATH = ROOT_DIR / "quant_pipeline.db"
 #: resolution and by the screener when a RECONSTRUCTED member list, whose
 #: symbols are the tickers of their day, is priced (decision 42).
 SP500_TICKER_RENAMES_CSV = ROOT_DIR / "research" / "sp500-ticker-renames-2026-10-04.csv"
+
+#: Snapshotted indexes whose new members the 06:00 job registers (decision 44,
+#: scripts/register_new_members.py): index -> (asset class, metadata label).
+#: Crypto members are listed, never registered: each needs the identity audit.
+NEW_MEMBER_INDEXES = {
+    "sp500": ("equity", "S&P 500"),
+    "dow_jones": ("equity", "Dow Jones"),
+    "top_100_crypto": ("crypto", None),
+}
+#: First date a newly registered equity is backfilled from, insert-only: the
+#: start of every other served equity's history (decision 26).
+NEW_MEMBER_BACKFILL_START = "2010-01-01"
 DB_PRICE_TABLE = "price_data_daily"
 DB_PRICE_DATA_COLUMNS = [
     "Date",

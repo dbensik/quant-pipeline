@@ -71,6 +71,7 @@ scripts/check_missing_days.py               # holes inside series; read-only, ex
 scripts/check_fresh_returns.py              # returns readers see vs fresh Yahoo, 30 sessions; exit 1 = mismatch
 scripts/check_line_concepts.py              # DCF lines another concept reports differently, or a stale per-filer map; exit 1 = flagged
 scripts/precompute_surfaces.py --days 7     # option surfaces for the last week + missed capture days; 1 = missed, 2 = failed
+scripts/register_new_members.py --dry-run   # index joiners: what would be registered / flagged (decision 44)
 scripts/load_fundamentals.py --recent       # SEC facts for registry filers of the last 7 days (--all: everyone, ~10 min)
 scripts/backup.py                           # LAST step: DB dump + option archive to QUANT_BACKUP_DIR, proven by a restore
 tail -f logs/daily_maintenance.log
@@ -404,6 +405,16 @@ named in `without_data`: 63% of the 2014 list is priced, 98% of 2024's. The
 200-symbol cap applies to typed lists only; an index may resolve to 600
 (`MAX_INDEX_SYMBOLS`). A full S&P screen takes ~25 s. NO backtest takes an
 index universe: that waits for prices of delisted names (Sharadar).
+
+**Index joiners are registered by the 06:00 job** (decision 44, 2026-10-19,
+`scripts/register_new_members.py`, right after the snapshot). Ingest only
+fetches REGISTERED assets, so before this a company that joined an index was
+never priced (30 S&P members). An sp500 or dow_jones joiner is registered,
+backfilled insert-only from 2010 and marked served, unless a registered asset
+already has its CIK (a probable RENAME, as PSKY to SKYD: flagged, re-key the
+row), it has no CIK, or its series opens on zero-volume bars (a suggested
+`history_valid_from` is flagged; nothing is trimmed). Crypto members are
+listed in the log, never registered, and never set the exit code.
 
 **`low_volatility` measures volatility itself** (decision 43, 2026-10-19):
 the annualized std of the last `window` (90) daily returns in the range.

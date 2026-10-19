@@ -75,3 +75,33 @@ Registering a ticker blindly is not safe. Of the 30:
     members are mostly stablecoins and tokenized assets (USDG, PYUSD,
     RLUSD, PAXG, XAUT, USTB, BUIDL-like funds). Whether the crypto universe
     should hold them at all is its own question.
+
+## Built (A, approved 2026-10-19)
+
+- `core/new_members.py` holds the rules and `scripts/register_new_members.py`
+  does the I/O. The daily job runs it right after the snapshot, with flags
+  and failures reported like the other checks. The job header's false claim
+  about ingest is corrected.
+- **Real run today:** nothing to register (the 29 were added by hand this
+  morning), exit 0. 39 crypto members are listed. Unregistered crypto never
+  sets the exit code, a deviation from the plan above: 39 permanent entries
+  would have flagged every morning, the noise decision 42 just removed from
+  the badge.
+- **Placeholder rule, checked on today's real cases:** it suggests
+  2021-03-08 for FERG and 2015-10-07 for P, exactly the floors set by hand,
+  and flags VRT (suggesting 2019-12-02; the floor chosen was the 2020-02-07
+  merger close). IBKR's 2019 halt days are not flagged.
+- **Run over all 558 stored equity and ETF series, it would flag 7.** These
+  are not acted on, because the rule only judges new registrations:
+  - GDDY, SHOP and TEAM: one zero-volume bar the day before each IPO, the
+    P pattern.
+  - CHTR: 18 zero-volume bars before its 2010-09 relisting.
+  - HWM: 35 in its 2016 when-issued stretch.
+  - VST: one, during its OTC period.
+  - VRTX: one halt day in 2011, a false positive.
+
+  Cleaning the first six would be its own decision.
+- **Tests:** `tests/unit/test_new_members.py` covers every rule, and
+  `tests/api/test_register_new_members_integration.py` drives the write
+  path against real Postgres with a throwaway index, faking SEC and the
+  price fetch and removing everything afterwards.
