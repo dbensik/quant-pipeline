@@ -475,6 +475,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/portfolios/{name}/tracking": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The paper portfolio beside a backtest of its strategy from the attach date */
+        get: operations["get_tracking_api_v1_portfolios__name__tracking_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/signals/{symbol}": {
         parameters: {
             query?: never;
@@ -2966,6 +2983,28 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** RestatedOut */
+        RestatedOut: {
+            /**
+             * Day
+             * @description A signal day already traded
+             */
+            day: string;
+            /**
+             * Then
+             * @description What the signals asked for when it was traded
+             */
+            then: {
+                [key: string]: number;
+            };
+            /**
+             * Now
+             * @description What today's history gives for that day
+             */
+            now: {
+                [key: string]: number;
+            };
+        };
         /** ResultSummary */
         ResultSummary: {
             /** Name */
@@ -3845,6 +3884,86 @@ export interface components {
             params: components["schemas"]["ParamSchema"][];
             /** Caveat */
             caveat?: string | null;
+        };
+        /** TrackedFillOut */
+        TrackedFillOut: {
+            /** Session */
+            session: string;
+            /** Ticker */
+            ticker: string;
+            /** Action */
+            action: string;
+            /** Quantity */
+            quantity: number;
+            /** Price */
+            price: number;
+            /** Costs */
+            costs: number;
+        };
+        /** TrackingOut */
+        TrackingOut: {
+            /** Name */
+            name: string;
+            /** Strategy */
+            strategy: string;
+            /** Attached On */
+            attached_on: string;
+            /**
+             * Paper
+             * @description Paper equity at each raw close
+             */
+            paper: components["schemas"]["TrackingPoint"][];
+            /**
+             * Backtest
+             * @description The same strategy backtested flat from the attach date, at the defaults
+             */
+            backtest: components["schemas"]["TrackingPoint"][];
+            /**
+             * Gap
+             * @description Paper less backtest at the last close both have
+             */
+            gap?: number | null;
+            /**
+             * Backtest Slippage
+             * @description Adverse slippage the backtest paid
+             */
+            backtest_slippage: number;
+            /**
+             * Costs Difference
+             * @description Commissions the backtest paid less paper costs
+             */
+            costs_difference: number;
+            /**
+             * Other
+             * @description The gap slippage and costs leave: sizing on raw opens, dividends as cash against reinvested, the interest method
+             */
+            other?: number | null;
+            /**
+             * Dividends Received
+             * @description Net dividends the paper portfolio took as cash
+             */
+            dividends_received: number;
+            /** Paper Fills */
+            paper_fills: components["schemas"]["TrackedFillOut"][];
+            /** Backtest Fills */
+            backtest_fills: components["schemas"]["TrackedFillOut"][];
+            /**
+             * Restated
+             * @description Traded decisions today's history no longer gives: the record has moved
+             */
+            restated?: components["schemas"]["RestatedOut"][];
+            /** Flags */
+            flags?: string[];
+        };
+        /** TrackingPoint */
+        TrackingPoint: {
+            /**
+             * Time
+             * @description New York date of the close
+             */
+            time: string;
+            /** Total */
+            total: number;
         };
         /** TradeIn */
         TradeIn: {
@@ -5425,6 +5544,49 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+        };
+    };
+    get_tracking_api_v1_portfolios__name__tracking_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrackingOut"];
+                };
+            };
+            /** @description No such portfolio */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No strategy attached */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The risk-free rate does not cover the window */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

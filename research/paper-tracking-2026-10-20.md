@@ -124,3 +124,79 @@ On the Strategy card:
       but the portfolio keeps trading on the moved history until it is.
 
 **Approved: A, 2026-10-20.**
+
+## Built (A, 2026-10-20)
+
+- **`derive_state(..., curve=)`:** the day loop emits equity at each raw
+  close: the state's own cash, in one pass. A day on which a holding has no
+  close is left out, never valued at cost.
+- **The RESTATED check compares DECISIONS, not fills.** This is a change from
+  the design above. Each session now records, in
+  `metadata.strategy.decisions`, what its signal day asked for: each
+  non-zero event or non-NaN target, by key. The check re-derives those from
+  today's bars (one signal computation) for every signal day already traded,
+  and flags any difference.
+  - Comparing fills would also have flagged expected sizing differences: a
+    rebalance can buy in one and sell in the other over a two-share gap.
+  - It would also have missed a changed decision that traded nothing in
+    either.
+  - Signal days not yet traded are not checked.
+- **`api/paper_tracking.track`:**
+  - **Paper:** the curve from the attach date.
+  - **Backtest:** `PortfolioBacktester` on the same signals, masked before
+    the attach date. It uses seed 42, the handler's 0.05% slippage bound, the
+    stored cost, ^IRX accrual and the portfolio's short terms.
+  - **The gap at the last common close,** split into the slippage the
+    backtest paid (fill against open, times quantity), the cost difference,
+    and the rest.
+  - **The dividend part could not be split exactly.** The backtest also
+    earns dividends, through adjusted prices, so dividends sit inside the
+    rest, and the response labels the rest that way.
+- **A finding, not changed here:** on the event path, `PortfolioBacktester`'s
+  `total` for a bar is computed BEFORE that bar's open fills. A fill day's
+  equity is the previous position marked at the close, and the fill first
+  shows at the next close.
+  - Tracking values the backtest from the engine's own cash and positions at
+  each close instead. Read raw, that column put a one-bar step into the gap
+  on every fill day.
+  - The target path does not have this.
+  - Every allocation-rule metric reads that column. The effect is one bar
+    per fill, so small for monthly rules, but it has not been measured. That
+    would be its own decision.
+- **REST:** `GET /portfolios/{name}/tracking`: 404, 409 without a strategy,
+  422 when ^IRX misses the window.
+- **The 06:00 job:** `run_paper_strategies.py` prints a TRACKING line per
+  portfolio, and a RESTATED flag (exit 1). A missing rate skips the
+  comparison, never the fills.
+- **The page:** the two curves on the Strategy card, the gap table, and a
+  RESTATED alert.
+
+### Tests
+
+- **API:** 6.
+  - With slippage 0 the two curves are the same curve and the gap is 0.
+  - The gap splits exactly into its parts.
+  - A halved AAPL bar on a traded decision day is flagged (with the later
+    decision whose average holds it).
+  - A restated newest bar is not flagged, and neither are new bars' decisions
+    not yet traded.
+- **Accounting:** 1 (the curve). **Page:** 3.
+- **9 mutants** (7 Python, 2 page), each caught.
+
+### Real-data check
+
+Two scratch portfolios, attached as of 2026-07-01 and traded through
+2026-10-19 (77 closes), then deleted:
+
+| strategy | gap | slippage | costs | other | slippage-free gap | restated |
+|---|---|---|---|---|---|---|
+| asset_class_trend, weekly, 5 ETFs | +$27.01 | $24.92 | $0.00 | +$2.09 | +$1.91 | 0 |
+| pairs_trading GLD/SLV | +$28.60 | $28.42 | -$0.01 | +$0.20 | +$0.05 | 0 |
+
+- **The gap is slippage.** Paper is ahead by what the backtest's slippage
+  cost; without it they differ by $0.05-1.91.
+- **The decision 50 table's $1-12 gaps** compared the engine's
+  `total`, with the one-bar lag above.
+- **Run time:** a comparison takes 1-2 s.
+
+The change to the RESTATED check (decisions, not fills) approved by Danny, 2026-10-20.

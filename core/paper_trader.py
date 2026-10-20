@@ -74,6 +74,9 @@ class StrategyBinding:
                   does not move from day to day
     last_session  the newest session traded (at attach: the attach date, so
                   the first session is the next bar)
+    decisions     per signal day traded, what the signals asked for that
+                  day (decision_on), as the trader saw them: what the
+                  RESTATED check compares today's history with (decision 51)
     """
 
     strategy: str
@@ -84,6 +87,7 @@ class StrategyBinding:
     attached_on: date
     signal_from: date
     last_session: date
+    decisions: Dict[str, Dict[str, float]] = field(default_factory=dict)
 
     def to_metadata(self) -> dict:
         return {
@@ -95,6 +99,7 @@ class StrategyBinding:
             "attached_on": self.attached_on.isoformat(),
             "signal_from": self.signal_from.isoformat(),
             "last_session": self.last_session.isoformat(),
+            "decisions": {d: dict(v) for d, v in self.decisions.items()},
         }
 
     @classmethod
@@ -108,6 +113,10 @@ class StrategyBinding:
             attached_on=date.fromisoformat(raw["attached_on"]),
             signal_from=date.fromisoformat(raw["signal_from"]),
             last_session=date.fromisoformat(raw["last_session"]),
+            decisions={
+                d: {k: float(x) for k, x in v.items()}
+                for d, v in (raw.get("decisions") or {}).items()
+            },
         )
 
 
@@ -569,4 +578,56 @@ def wanted_vs_held(
             or (side == "short" and quantity >= 0)
         )
         out.append(Holding(symbol, side, quantity, drift))
+    return out
+
+
+def decision_on(
+    signal_shape: str, signals: Mapping[str, pd.DataFrame], day: date
+) -> Dict[str, float]:
+    """
+    What the signals ask for on `day`: each frame's event (non-zero) or
+    target (non-NaN), by key ("Portfolio" for a basket-wide signal). Empty
+    when the day asks for nothing.
+    """
+    column = "target" if signal_shape == "target" else "signal"
+    out = {}
+    for key, frame in signals.items():
+        if frame is None or column not in frame:
+            continue
+        value = _value_at(frame, day, column)
+        if pd.notna(value) and (column == "target" or value != 0):
+            out[key] = float(value)
+    return out
+
+
+@dataclass(frozen=True)
+class Restatement:
+    """A traded signal day whose decision today's history no longer gives."""
+
+    day: date
+    then: Dict[str, float]
+    now: Dict[str, float]
+
+
+def restatements(
+    binding: StrategyBinding,
+    signal_shape: str,
+    signals_today: Mapping[str, pd.DataFrame],
+    traded_signal_days: Sequence[date],
+) -> List[Restatement]:
+    """
+    The traded signal days whose decision, re-derived from today's bars,
+    differs from the one recorded when the session was traded. A record that
+    passes still follows the strategy it names; one that fails traded on a
+    history that has since moved (a restated bar, a re-adjusting action).
+    """
+    out = []
+    for day in traded_signal_days:
+        then = binding.decisions.get(day.isoformat(), {})
+        now = decision_on(signal_shape, signals_today, day)
+        same = then.keys() == now.keys() and all(
+            math.isclose(then[k], now[k], rel_tol=1e-9, abs_tol=1e-12) for k in then
+        )
+        if not same:
+            out.append(Restatement(day, then, now))
     return out

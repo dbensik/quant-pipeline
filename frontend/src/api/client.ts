@@ -98,6 +98,7 @@ export type FlowOut = components['schemas']['FlowOut']
 export type PaperStrategyOut = components['schemas']['PaperStrategyOut']
 export type AttachStrategyRequest = components['schemas']['AttachStrategyRequest']
 export type PaperRunOut = components['schemas']['PaperRunOut']
+export type TrackingOut = components['schemas']['TrackingOut']
 export type PositionOut = components['schemas']['PositionOut']
 export type TradeOut = components['schemas']['TradeOut']
 export type TradeIn = components['schemas']['TradeIn']
@@ -390,6 +391,11 @@ export const api = {
       `/api/v1/portfolios/${encodeURIComponent(name)}/run${qs({ dry_run: !write })}`,
       { method: 'POST' },
     )
+  },
+
+  /** The paper record beside a backtest of its strategy from the attach date (decision 51). */
+  getTracking(name: string): Promise<TrackingOut> {
+    return request(`/api/v1/portfolios/${encodeURIComponent(name)}/tracking`)
   },
 
   deletePortfolio(name: string): Promise<void> {

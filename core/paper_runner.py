@@ -32,6 +32,7 @@ from core.paper_trader import (
     StrategyBinding,
     binding_of,
     cut_frames,
+    decision_on,
     pending_sessions,
     plan_session,
     wanted_vs_held,
@@ -104,7 +105,7 @@ def _on(frame: pd.DataFrame, day: date, column: str) -> float:
     return float(frame.loc[frame.index.date == day, column].iloc[0])
 
 
-def _next_business_day(day: date) -> date:
+def next_business_day(day: date) -> date:
     return (pd.Timestamp(day) + pd.offsets.BDay(1)).date()
 
 
@@ -219,7 +220,14 @@ async def run_strategy(
                 await _record(portfolios, name, [], metadata, current.last_session)
             break
         previous = current.last_session
-        current = replace(current, last_session=session)
+        decided = decision_on(spec.signal_shape, signals, signal_day)
+        current = replace(
+            current,
+            last_session=session,
+            decisions={**current.decisions, signal_day.isoformat(): decided}
+            if decided
+            else current.decisions,
+        )
         metadata = {**metadata, META_STRATEGY: current.to_metadata()}
         trades += plan.fills
         if write:
@@ -232,7 +240,7 @@ async def run_strategy(
         signals = build_signals(
             spec,
             spec.build(binding.params),
-            cut_frames(adjusted, newest, _next_business_day(newest)),
+            cut_frames(adjusted, newest, next_business_day(newest)),
         )
         timeline = sorted(set().union(*bar_days.values()))
         before = [d for d in timeline if d <= binding.attached_on]

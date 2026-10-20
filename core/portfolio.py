@@ -240,6 +240,7 @@ def derive_state(
     *,
     history: Optional[MarketHistory] = None,
     terms: Optional[ShortTerms] = None,
+    curve: Optional[List[Tuple[date, float]]] = None,
 ) -> PortfolioState:
     """
     Fold a trade log into cash, positions and P&L.
@@ -255,6 +256,10 @@ def derive_state(
                 the first trade to `history.as_of` (module docstring).
         terms:  The portfolio's short terms: borrow rate and margin. Without
                 them a short pays no borrow and has no margin status.
+        curve:  With a history, a list that receives (day, equity at that
+                day's raw close) for each day through `as_of` that has a
+                close in the history (decision 51): the day loop's own
+                cash, so it is the state's equity on every day, in one pass.
     """
     ordered = sorted(trades, key=lambda t: (t.ts, t.id or ""))
 
@@ -291,7 +296,7 @@ def derive_state(
             book(trade)
     else:
         cash = _fold_with_history(
-            ordered, cash, running, book, history, terms, totals, flows, unhandled
+            ordered, cash, running, book, history, terms, totals, flows, unhandled, curve
         )
 
     # A closed position is dropped from the holdings list, but its realised
@@ -357,6 +362,7 @@ def _fold_with_history(
     totals: Dict[str, float],
     flows: List[Flow],
     unhandled: List[Flow],
+    curve: Optional[List[Tuple[date, float]]] = None,
 ) -> float:
     """
     Trades, corporate actions, interest and borrow, one New York day at a time.
@@ -380,6 +386,7 @@ def _fold_with_history(
         t: {x.ex_date: x.value for x in a if x.kind == MANUAL} for t, a in history.actions.items()
     }
     rate_days = [d for d, _ in history.rates]
+    sessions = {d for series in history.closes.values() for d, _ in series}
 
     firsts = [d for d in (min(by_day, default=None), history.start) if d is not None]
     day = min(firsts)
@@ -407,6 +414,17 @@ def _fold_with_history(
         for trade in by_day.get(day, []):
             cash += trade.cash_delta
             book(trade)
+
+        if curve is not None and day <= history.as_of and day in sessions:
+            marks = {
+                t: _close_on_or_before(history.closes.get(t, ()), day)
+                for t, p in running.items()
+                if p.quantity
+            }
+            # A day a holding has no close for is left out, never valued at cost.
+            if all(c is not None for c in marks.values()):
+                value = sum(running[t].quantity * c for t, c in marks.items())
+                curve.append((day, cash + value))
 
         if day < history.as_of:
             closes = {

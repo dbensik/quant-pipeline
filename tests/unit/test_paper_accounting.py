@@ -167,6 +167,29 @@ def test_cash_earns_from_cash_from_when_that_is_before_the_first_trade():
     assert idle.interest == pytest.approx(100_000.0 * (1.0001**10 - 1), rel=1e-12)
 
 
+def test_the_curve_is_the_states_equity_at_each_close():
+    # Decision 51: one pass of the day loop, valued at that day's raw close.
+    end = D0 + timedelta(days=10)
+    closes = {
+        "X": [
+            (D0 + timedelta(days=i), 100.0 + i)
+            for i in range(11)
+            if (D0 + timedelta(days=i)).weekday() < 5
+        ]
+    }
+    h = MarketHistory(actions={}, closes=closes, rates=daily_rates(D0, end), as_of=end)
+    trades = [trade("X", "BUY", 10, 100.0, D0)]
+    curve = []
+    state = derive_state(trades, 100_000.0, {"X": closes["X"][-1][1]}, history=h, curve=curve)
+    assert [d for d, _ in curve] == [d for d, _ in closes["X"]]
+    assert curve[-1][1] == pytest.approx(state.total_equity, rel=1e-12)
+    # Each day: cash after that day's trades (interest through the night
+    # before) plus the holding at the close.
+    day3 = closes["X"][2]
+    nights = (day3[0] - D0).days
+    assert dict(curve)[day3[0]] == pytest.approx(99_000.0 * 1.0001**nights + 10 * day3[1])
+
+
 def test_no_interest_where_the_rate_is_older_than_a_week():
     end = D0 + timedelta(days=20)
     h = history(end, rates=[(D0, RATE)])

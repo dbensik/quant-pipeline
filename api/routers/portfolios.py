@@ -25,7 +25,8 @@ from pydantic import BaseModel, Field
 
 from alpha_models import registry
 from api.dependencies import get_market_data_repo, get_portfolio_repo
-from api.risk_free import get_rate_repo
+from api.paper_tracking import track
+from api.risk_free import get_rate_repo, risk_free_refusal
 from config import settings
 from core.ledger import ShortTerms
 from core.paper_history import latest_prices, load_history, new_york_today
@@ -46,7 +47,7 @@ from core.portfolio import (
     trade_day,
     trade_refusal,
 )
-from core.rates import RateRepository
+from core.rates import RateRepository, RiskFreeCoverageError
 from db.repositories.market_data import TimescaleMarketDataRepo
 from db.repositories.portfolios import TimescalePortfolioRepo
 
@@ -1021,5 +1022,116 @@ def run_out(report) -> PaperRunOut:
         ],
         next_signals=report.next_signals,
         ruined_on=None if report.ruined_on is None else report.ruined_on.isoformat(),
+        flags=report.flags,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Against its own backtest (decision 51, research/paper-tracking-2026-10-20.md)
+# ---------------------------------------------------------------------------
+
+
+class TrackingPoint(BaseModel):
+    time: str = Field(description="New York date of the close")
+    total: float
+
+
+class TrackedFillOut(BaseModel):
+    session: str
+    ticker: str
+    action: str
+    quantity: float
+    price: float
+    costs: float
+
+
+class RestatedOut(BaseModel):
+    day: str = Field(description="A signal day already traded")
+    then: Dict[str, float] = Field(description="What the signals asked for when it was traded")
+    now: Dict[str, float] = Field(description="What today's history gives for that day")
+
+
+class TrackingOut(BaseModel):
+    name: str
+    strategy: str
+    attached_on: str
+    paper: List[TrackingPoint] = Field(description="Paper equity at each raw close")
+    backtest: List[TrackingPoint] = Field(
+        description="The same strategy backtested flat from the attach date, at the defaults"
+    )
+    gap: Optional[float] = Field(
+        default=None, description="Paper less backtest at the last close both have"
+    )
+    backtest_slippage: float = Field(description="Adverse slippage the backtest paid")
+    costs_difference: float = Field(description="Commissions the backtest paid less paper costs")
+    other: Optional[float] = Field(
+        default=None,
+        description=(
+            "The gap slippage and costs leave: sizing on raw opens, dividends as cash "
+            "against reinvested, the interest method"
+        ),
+    )
+    dividends_received: float = Field(description="Net dividends the paper portfolio took as cash")
+    paper_fills: List[TrackedFillOut]
+    backtest_fills: List[TrackedFillOut]
+    restated: List[RestatedOut] = Field(
+        default_factory=list,
+        description="Traded decisions today's history no longer gives: the record has moved",
+    )
+    flags: List[str] = Field(default_factory=list)
+
+
+def _fill_out(f) -> TrackedFillOut:
+    return TrackedFillOut(
+        session=f.session.isoformat(),
+        ticker=f.ticker,
+        action=f.action,
+        quantity=f.quantity,
+        price=f.price,
+        costs=f.costs,
+    )
+
+
+@router.get(
+    "/{name}/tracking",
+    response_model=TrackingOut,
+    summary="The paper portfolio beside a backtest of its strategy from the attach date",
+    responses={
+        404: {"description": "No such portfolio"},
+        409: {"description": "No strategy attached"},
+        422: {"description": "The risk-free rate does not cover the window"},
+    },
+)
+async def get_tracking(
+    name: str,
+    repo: TimescalePortfolioRepo = Depends(get_portfolio_repo),
+    market: TimescaleMarketDataRepo = Depends(get_market_data_repo),
+    rates: RateRepository = Depends(get_rate_repo),
+) -> TrackingOut:
+    try:
+        report = await track(name, repo, market, rates)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from None
+    except RiskFreeCoverageError as exc:
+        # Before ValueError, which it subclasses.
+        raise HTTPException(status_code=422, detail=risk_free_refusal(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
+    return TrackingOut(
+        name=report.name,
+        strategy=report.strategy,
+        attached_on=report.attached_on.isoformat(),
+        paper=[TrackingPoint(time=d.isoformat(), total=v) for d, v in report.paper],
+        backtest=[TrackingPoint(time=d.isoformat(), total=v) for d, v in report.backtest],
+        gap=report.gap,
+        backtest_slippage=report.backtest_slippage,
+        costs_difference=report.costs_difference,
+        other=report.other,
+        dividends_received=report.dividends_received,
+        paper_fills=[_fill_out(f) for f in report.paper_fills],
+        backtest_fills=[_fill_out(f) for f in report.backtest_fills],
+        restated=[
+            RestatedOut(day=r.day.isoformat(), then=r.then, now=r.now) for r in report.restated
+        ],
         flags=report.flags,
     )

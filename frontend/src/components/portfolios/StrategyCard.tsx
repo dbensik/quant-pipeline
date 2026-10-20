@@ -5,6 +5,10 @@
  * or see what the attached one would trade next and whether what it holds
  * is what it wants. The 06:00 job writes the fills; this card only reads
  * (the run endpoint's dry run) unless "Trade now" is pressed.
+ *
+ * Decision 51 (research/paper-tracking-2026-10-20.md): the paper record beside
+ * a backtest of the same strategy from the attach date, the gap split into
+ * what is measured, and RESTATED decisions.
  */
 
 import { useState } from 'react'
@@ -16,7 +20,9 @@ import {
   useRunStrategy,
   useStrategies,
   useStrategyPreview,
+  useTracking,
 } from '@/api/queries'
+import { ComparisonChart } from '@/components/charts/ComparisonChart'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -131,6 +137,85 @@ function AttachForm({ name }: { name: string }) {
   )
 }
 
+const signedMoney = (v: number | null | undefined) =>
+  v == null
+    ? '—'
+    : `${v >= 0 ? '+' : '-'}${Math.abs(v).toLocaleString(undefined, {
+        style: 'currency',
+        currency: 'USD',
+        maximumFractionDigits: 2,
+      })}`
+
+function Tracking({ name }: { name: string }) {
+  const { data, error } = useTracking(name, true)
+  if (error) {
+    return (
+      <Alert>
+        <AlertDescription>
+          Comparison unavailable: {(error as ApiError).detail}
+        </AlertDescription>
+      </Alert>
+    )
+  }
+  if (!data) return null
+  const restated = data.restated ?? []
+  return (
+    <div className="space-y-2 border-t pt-3">
+      <div className="text-sm font-medium">Against its own backtest</div>
+      {restated.length ? (
+        <Alert variant="destructive">
+          <AlertDescription>
+            {(data.flags ?? []).map((f) => (
+              <div key={f}>{f}</div>
+            ))}
+            The record is kept as traded; the history it traded on has moved.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {data.gap == null ? (
+        <p className="text-sm text-muted-foreground">
+          No close since it was attached yet: nothing to compare.
+        </p>
+      ) : (
+        <>
+          <ComparisonChart
+            series={[
+              { name: 'Paper', points: data.paper },
+              { name: 'Backtest from the attach date', points: data.backtest },
+            ]}
+          />
+          <table className="w-full text-sm">
+            <tbody>
+              <tr className="border-b">
+                <td className="py-1 pr-4">Paper less backtest</td>
+                <td className="py-1 text-right tabular-nums">{signedMoney(data.gap)}</td>
+              </tr>
+              <tr className="border-b">
+                <td className="py-1 pr-4">Slippage the backtest paid</td>
+                <td className="py-1 text-right tabular-nums">
+                  {signedMoney(data.backtest_slippage)}
+                </td>
+              </tr>
+              <tr className="border-b">
+                <td className="py-1 pr-4">Costs: backtest less paper</td>
+                <td className="py-1 text-right tabular-nums">
+                  {signedMoney(data.costs_difference)}
+                </td>
+              </tr>
+              <tr>
+                <td className="py-1 pr-4">
+                  Other (raw-open sizing, dividends as cash, interest method)
+                </td>
+                <td className="py-1 text-right tabular-nums">{signedMoney(data.other)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </>
+      )}
+    </div>
+  )
+}
+
 function Attached({ state }: { state: PortfolioStateOut }) {
   const strategy = state.strategy!
   const preview = useStrategyPreview(state.name, true)
@@ -229,6 +314,7 @@ function Attached({ state }: { state: PortfolioStateOut }) {
           Detach
         </Button>
       </div>
+      <Tracking name={state.name} />
     </div>
   )
 }

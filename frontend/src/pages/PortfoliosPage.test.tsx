@@ -18,6 +18,14 @@ import { api } from '@/api/client'
 import { renderPage } from '@/test/renderPage'
 import { PortfoliosPage } from './PortfoliosPage'
 
+const chartProps = vi.fn()
+vi.mock('@/components/charts/ComparisonChart', () => ({
+  ComparisonChart: (props: unknown) => {
+    chartProps(props)
+    return <div data-testid="comparison-chart" />
+  },
+}))
+
 const SUMMARY = [
   { name: 'Growth', initial_cash: 100000, created_at: null, metadata: null },
 ]
@@ -419,7 +427,31 @@ describe('PortfoliosPage — an attached strategy (decision 50)', () => {
     flags: ['DRIFT Growth: SPY wanted long, held 0'],
   }
 
+  const TRACKING = {
+    name: 'Growth',
+    strategy: 'asset_class_trend',
+    attached_on: '2026-10-20',
+    paper: [
+      { time: '2026-10-20', total: 100000 },
+      { time: '2026-11-02', total: 100512.25 },
+    ],
+    backtest: [
+      { time: '2026-10-20', total: 100000 },
+      { time: '2026-11-02', total: 100480.0 },
+    ],
+    gap: 32.25,
+    backtest_slippage: 24.5,
+    costs_difference: 0,
+    other: 7.75,
+    dividends_received: 0,
+    paper_fills: [],
+    backtest_fills: [],
+    restated: [],
+    flags: [],
+  }
+
   beforeEach(() => {
+    vi.spyOn(api, 'getTracking').mockResolvedValue(TRACKING as never)
     vi.spyOn(api, 'listStrategies').mockResolvedValue({
       strategies: [
         {
@@ -483,5 +515,50 @@ describe('PortfoliosPage — an attached strategy (decision 50)', () => {
     // The state and the dry run are both re-read after the write.
     await waitFor(() => expect(get.mock.calls.length).toBeGreaterThan(calls))
     await waitFor(() => expect(run.mock.calls.filter((c) => c.length === 1).length).toBe(2))
+  })
+
+  it('shows the paper record beside its backtest, with the gap split', async () => {
+    vi.spyOn(api, 'getPortfolio').mockResolvedValue(ATTACHED as never)
+    vi.spyOn(api, 'runStrategy').mockResolvedValue({ ...RUN, flags: [] } as never)
+    renderPage(<PortfoliosPage />)
+    expect(await screen.findByText('+$32.25')).toBeInTheDocument()
+    expect(screen.getByText('+$24.50')).toBeInTheDocument()
+    expect(screen.getByText('+$7.75')).toBeInTheDocument()
+    const { series } = chartProps.mock.calls.at(-1)![0] as {
+      series: { name: string; points: unknown[] }[]
+    }
+    expect(series.map((x) => x.name)).toEqual(['Paper', 'Backtest from the attach date'])
+    expect(series[0].points).toEqual(TRACKING.paper)
+    expect(series[1].points).toEqual(TRACKING.backtest)
+    expect(screen.queryByText(/history it traded on has moved/)).toBeNull()
+  })
+
+  it('raises a restated decision', async () => {
+    vi.spyOn(api, 'getPortfolio').mockResolvedValue(ATTACHED as never)
+    vi.spyOn(api, 'runStrategy').mockResolvedValue({ ...RUN, flags: [] } as never)
+    const flag = 'RESTATED Growth: the decision of 2026-10-30 was {SPY: 1}; today gives nothing'
+    vi.spyOn(api, 'getTracking').mockResolvedValue({
+      ...TRACKING,
+      restated: [{ day: '2026-10-30', then: { SPY: 1 }, now: {} }],
+      flags: [flag],
+    } as never)
+    renderPage(<PortfoliosPage />)
+    expect(await screen.findByText(flag)).toBeInTheDocument()
+    expect(screen.getByText(/history it traded on has moved/)).toBeInTheDocument()
+  })
+
+  it('says there is nothing to compare before the first close', async () => {
+    vi.spyOn(api, 'getPortfolio').mockResolvedValue(ATTACHED as never)
+    vi.spyOn(api, 'runStrategy').mockResolvedValue({ ...RUN, flags: [] } as never)
+    vi.spyOn(api, 'getTracking').mockResolvedValue({
+      ...TRACKING,
+      paper: [],
+      backtest: [],
+      gap: null,
+      other: null,
+    } as never)
+    renderPage(<PortfoliosPage />)
+    expect(await screen.findByText(/nothing to compare/)).toBeInTheDocument()
+    expect(screen.queryByTestId('comparison-chart')).toBeNull()
   })
 })

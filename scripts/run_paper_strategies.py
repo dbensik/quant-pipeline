@@ -13,11 +13,15 @@ D the newest bar is D-1: the run fills at D-1's open what D-2's close
 decided, and prints what D-1's close asks for at D's open (NEXT lines).
 A missed morning is caught up session by session.
 
+Then each portfolio is compared with its own backtest (decision 51,
+api/paper_tracking.py): a TRACKING line with the gap and its parts, and a
+RESTATED flag for any traded decision today's history no longer gives.
+
 Exit 0 when nothing needs a look, 1 when something is flagged (a fill the
 trade check refused, a holding that is not what the strategy wants, a basket
 symbol's missing bar holding the trader for
-PAPER_TRADER_HELD_SESSIONS_FLAGGED sessions, a strategy detached at ruin),
-2 if the run itself failed. A portfolio with no strategy is not touched.
+PAPER_TRADER_HELD_SESSIONS_FLAGGED sessions, a strategy detached at ruin, a
+restated decision), 2 if the run itself failed. A portfolio with no strategy is not touched.
 """
 
 from __future__ import annotations
@@ -30,8 +34,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from api.paper_tracking import track  # noqa: E402
 from core.paper_runner import StaleSession, run_strategy  # noqa: E402
 from core.paper_trader import binding_of  # noqa: E402
+from core.rates import RiskFreeCoverageError  # noqa: E402
 from db.repositories.market_data import TimescaleMarketDataRepo  # noqa: E402
 from db.repositories.portfolios import TimescalePortfolioRepo  # noqa: E402
 from db.repositories.rates import TimescaleRateRepo  # noqa: E402
@@ -72,6 +78,23 @@ async def run(dry_run: bool) -> int:
                 f"{report.name}: {len(report.sessions)} session(s) "
                 f"{'planned' if dry_run else 'traded'}, through {report.last_session}"
             )
+            if report.ruined_on is not None:
+                continue  # detached: nothing left to track
+            try:
+                tracking = await track(listed.name, portfolios, market, rates)
+            except RiskFreeCoverageError as exc:
+                # The fills are already written; a missing rate only delays the check.
+                print(f"TRACKING {report.name} skipped: {exc}")
+                continue
+            if tracking.gap is not None:
+                print(
+                    f"TRACKING {report.name}: paper less backtest {tracking.gap:+,.2f} "
+                    f"(backtest slippage {tracking.backtest_slippage:,.2f}, costs "
+                    f"{tracking.costs_difference:+,.2f}, other {tracking.other:+,.2f})"
+                )
+            for line in tracking.flags:
+                print(line)
+                flagged += 1
     print(f"Ran {attached} attached portfolio(s); {flagged} flag(s).")
     return 1 if flagged else 0
 

@@ -368,6 +368,16 @@ export function useStrategyPreview(name: string | null, attached: boolean) {
   })
 }
 
+/** Keyed under 'portfolio', so a run or any other portfolio write refreshes it. */
+export function useTracking(name: string | null, attached: boolean) {
+  return useQuery({
+    queryKey: ['portfolio', name ?? '', 'tracking'] as const,
+    queryFn: () => api.getTracking(name as string),
+    enabled: Boolean(name) && attached,
+    retry: retryUnlessNotFound,
+  })
+}
+
 /** Trade the pending sessions now: writes trades, so every portfolio query refreshes. */
 export function useRunStrategy() {
   const queryClient = useQueryClient()

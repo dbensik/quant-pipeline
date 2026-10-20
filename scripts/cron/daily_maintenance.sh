@@ -208,8 +208,9 @@ fi
 # Paper portfolios with an attached strategy trade the sessions they have
 # not (decision 50, research/paper-trader-2026-10-20.md): fills at each
 # session's raw open, decided on the close before it. Before the margin check,
-# so it sees today's fills. A refused fill, drift, a held session or ruin is a
-# flag; nothing trades until a strategy is attached.
+# so it sees today's fills. Each is then compared with its own backtest
+# (decision 51). A refused fill, drift, a held session, ruin or a RESTATED
+# decision is a flag; nothing trades until a strategy is attached.
 if [ "$MODE" != "--snapshot-only" ]; then
     log "--- paper trader ---"
     "$VENV_PYTHON" scripts/run_paper_strategies.py >> "$LOG_FILE" 2>&1
@@ -217,7 +218,7 @@ if [ "$MODE" != "--snapshot-only" ]; then
     if [ "$CHECK_EXIT" -eq 0 ]; then
         log "paper trader OK"
     elif [ "$CHECK_EXIT" -eq 1 ]; then
-        log "paper trader FLAGGED a portfolio — see REFUSED/DRIFT/HELD/RUINED lines above"
+        log "paper trader FLAGGED a portfolio — see REFUSED/DRIFT/HELD/RUINED/RESTATED lines above"
         flag paper-trader
     else
         log "paper trader FAILED to run (exit $CHECK_EXIT)"

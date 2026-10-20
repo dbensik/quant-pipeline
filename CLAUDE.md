@@ -72,7 +72,7 @@ scripts/check_fresh_returns.py              # returns readers see vs fresh Yahoo
 scripts/check_line_concepts.py              # DCF lines another concept reports differently, or a stale per-filer map; exit 1 = flagged
 scripts/precompute_surfaces.py --days 7     # option surfaces for the last week + missed capture days; 1 = missed, 2 = failed
 scripts/register_new_members.py --dry-run   # index joiners: what would be registered / flagged (decision 44)
-scripts/run_paper_strategies.py --dry-run   # attached strategies' next fills; without the flag it WRITES them (decision 50)
+scripts/run_paper_strategies.py --dry-run   # attached strategies' next fills + RESTATED check; without the flag it WRITES them (decisions 50-51)
 scripts/check_paper_margin.py               # paper portfolios below maintenance; read-only, exit 1 = flagged (decision 49)
 scripts/load_fundamentals.py --recent       # SEC facts for registry filers of the last 7 days (--all: everyone, ~10 min)
 scripts/backup.py                           # LAST step: DB dump + option archive to QUANT_BACKUP_DIR, proven by a restore
@@ -354,6 +354,19 @@ backtest, equity within $1-12 of it. Flags (exit 1): a refused fill, drift
 (held is not what the signals since attach want), 3 sessions held by a
 missing bar, ruin (detached). Crypto with stocks in one basket is 422 (no
 common session).
+
+**Each attached paper portfolio is checked against its own backtest**
+(decision 51, 2026-10-20, `research/paper-tracking-2026-10-20.md`,
+`api/paper_tracking.py`, `GET /portfolios/{name}/tracking`). Paper equity at
+each raw close (`derive_state(..., curve=)`) beside `PortfolioBacktester` on
+the same signals from the attach date at the defaults (seed 42 slippage);
+the gap is split into backtest slippage, costs and the rest. Each session
+records its signal day's decision in `metadata.strategy.decisions`; the
+06:00 job re-derives them from today's bars and flags RESTATED when the
+history a record traded on has moved. The record is never rewritten. On the
+event path `PortfolioBacktester`'s `total` is computed before that bar's
+open fills (a fill shows a bar late): tracking values the engine from its
+own cash and positions instead; the metrics have not been re-measured.
 
 **Served equities and ETFs have bars from 2010** (insert-only backfill
 2026-10-14, decision 26; ^IRX from 2009-12, without which a pre-2015
