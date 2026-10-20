@@ -9,9 +9,22 @@ and no unlimited leverage.
 Phase 5 — decommissioning Streamlit
 """
 
+import pytest
 from fastapi.testclient import TestClient
 
+from tests.api.conftest import FakeRates
+
 BASE = "/api/v1/portfolios"
+
+
+@pytest.fixture
+def rates() -> FakeRates:
+    """
+    No ^IRX here, so cash is the trade log's alone and the hand-computed
+    figures below hold. Interest, dividends, splits and borrow (decision 49)
+    are covered in test_paper_portfolios.py.
+    """
+    return FakeRates(quoted_pct=None)
 
 
 # ---------------------------------------------------------------------------
@@ -194,6 +207,10 @@ def test_unknown_action_is_422(client: TestClient):
 
 
 def test_selling_more_than_held_opens_a_short(client: TestClient):
+    client.put(
+        f"{BASE}/Growth/short-terms",
+        json={"borrow_rate": 0.01, "max_gross": 2.0, "maintenance": 0.3},
+    )
     client.post(
         f"{BASE}/Growth/trades",
         json={"ticker": "AAPL", "action": "SELL", "quantity": 15, "price": 120.0},
@@ -267,11 +284,11 @@ def test_overdraft_can_be_opted_into_for_recording_real_trades(client: TestClien
     assert client.get(f"{BASE}/Growth").json()["cash"] < 0
 
 
-def test_selling_is_never_blocked_by_cash(client: TestClient):
-    """A sale raises cash; it can never be the thing that overdraws it."""
+def test_selling_a_holding_is_never_blocked_by_cash(client: TestClient):
+    """A sale of what is held raises cash; it can never overdraw it."""
     response = client.post(
         f"{BASE}/Growth/trades",
-        json={"ticker": "AAPL", "action": "SELL", "quantity": 1_000, "price": 1_000.0},
+        json={"ticker": "AAPL", "action": "SELL", "quantity": 10, "price": 1_000.0},
     )
     assert response.status_code == 201
 

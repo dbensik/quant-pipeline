@@ -411,6 +411,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/portfolios/{name}/short-terms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set the borrow rate and margin terms that let a portfolio short
+         * @description Facts about the account this portfolio mirrors; never defaulted. Changing
+         *     them re-derives past borrow at the new rate: the terms are the account's,
+         *     not a dated history.
+         */
+        put: operations["set_short_terms_api_v1_portfolios__name__short_terms_put"];
+        post?: never;
+        /** Remove a portfolio's short terms */
+        delete: operations["clear_short_terms_api_v1_portfolios__name__short_terms_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/signals/{symbol}": {
         parameters: {
             query?: never;
@@ -1544,6 +1567,8 @@ export interface components {
             metadata?: {
                 [key: string]: unknown;
             } | null;
+            /** @description Set to let the portfolio short; none means it cannot */
+            short_terms?: components["schemas"]["PortfolioShortTerms"] | null;
         };
         /**
          * DataFreshnessResponse
@@ -1698,6 +1723,31 @@ export interface components {
             balance_sheet: components["schemas"]["StatementLine"][];
             /** Cash Flow */
             cash_flow: components["schemas"]["StatementLine"][];
+        };
+        /**
+         * FlowOut
+         * @description A dated corporate action that changed cash or a holding without a trade.
+         */
+        FlowOut: {
+            /** Day */
+            day: string;
+            /**
+             * Kind
+             * @description dividend, split, or manual_factor (listed, not modelled)
+             */
+            kind: string;
+            /** Ticker */
+            ticker: string;
+            /**
+             * Amount
+             * @description Cash change for a dividend; the ratio or factor otherwise
+             */
+            amount: number;
+            /**
+             * Quantity
+             * @description Quantity held when it applied
+             */
+            quantity: number;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -2473,6 +2523,27 @@ export interface components {
             /** Frontier */
             frontier?: components["schemas"]["AllocationPoint"][];
         };
+        /**
+         * PortfolioShortTerms
+         * @description A portfolio's short terms (decision 49): without them it cannot short.
+         */
+        PortfolioShortTerms: {
+            /**
+             * Borrow Rate
+             * @description Annual fee on the shorts' value
+             */
+            borrow_rate: number;
+            /**
+             * Max Gross
+             * @description Gross exposure cap, x equity
+             */
+            max_gross: number;
+            /**
+             * Maintenance
+             * @description Equity / gross exposure below which it is flagged
+             */
+            maintenance: number;
+        };
         /** PortfolioStateOut */
         PortfolioStateOut: {
             /** Name */
@@ -2500,6 +2571,51 @@ export interface components {
             unpriced?: string[];
             /** Priced At */
             priced_at?: string | null;
+            /**
+             * Free Cash
+             * @description Cash less the shorts' collateral: what a buy may spend
+             */
+            free_cash: number;
+            /** Long Value */
+            long_value: number;
+            /**
+             * Short Value
+             * @description Priced shorts, as a positive value
+             */
+            short_value: number;
+            /** Gross Exposure */
+            gross_exposure: number;
+            /** Dividends Received */
+            dividends_received: number;
+            /**
+             * Dividends Paid
+             * @description Owed on shorts over their ex-dates
+             */
+            dividends_paid: number;
+            /**
+             * Interest
+             * @description ^IRX earned on free cash, by calendar day
+             */
+            interest: number;
+            /** Borrow Paid */
+            borrow_paid: number;
+            /** Flows */
+            flows?: components["schemas"]["FlowOut"][];
+            /**
+             * Unhandled Actions
+             * @description Corporate actions on a holding that are not modelled (a spinoff factor)
+             */
+            unhandled_actions?: components["schemas"]["FlowOut"][];
+            short_terms?: components["schemas"]["PortfolioShortTerms"] | null;
+            /** Maintenance Required */
+            maintenance_required?: number | null;
+            /** Margin Excess */
+            margin_excess?: number | null;
+            /**
+             * Below Maintenance
+             * @default false
+             */
+            below_maintenance: boolean;
         };
         /** PortfolioSummary */
         PortfolioSummary: {
@@ -4758,7 +4874,7 @@ export interface operations {
     add_trade_api_v1_portfolios__name__trades_post: {
         parameters: {
             query?: {
-                /** @description Permit a BUY that takes cash negative. Off by default so paper trading cannot run on unlimited leverage — PortfolioManager never checked cash at all. Turn it on when RECORDING trades that already happened elsewhere, where rejecting them would be wrong. */
+                /** @description Permit a trade that takes free cash negative or gross exposure past the portfolio's cap. Off by default so paper trading cannot run on unlimited leverage — PortfolioManager never checked cash at all. Turn it on when RECORDING trades that already happened elsewhere, where rejecting them would be wrong. A short still needs short terms. */
                 allow_overdraft?: boolean;
             };
             header?: never;
@@ -4789,7 +4905,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Bad action, or insufficient cash */
+            /** @description Bad action, insufficient free cash, or a short not allowed */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -4872,6 +4988,89 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    set_short_terms_api_v1_portfolios__name__short_terms_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PortfolioShortTerms"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortfolioShortTerms"];
+                };
+            };
+            /** @description No such portfolio */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Terms that cannot hold */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    clear_short_terms_api_v1_portfolios__name__short_terms_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such portfolio */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A short is open: it needs terms to be charged borrow */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
         };
     };

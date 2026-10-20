@@ -144,3 +144,70 @@ The Portfolios page:
     - **C: refuse shorts in paper portfolios** until decision 50 (a SELL
       beyond the holding is 422, on both paths). About 1 h. Honest but
       gives up the goal, and leaves the corporate-action errors in place.
+
+## Built (A, approved 2026-10-19)
+
+- **`core/portfolio.py`:**
+  - `derive_state(..., history=, terms=)` folds a `MarketHistory` in, one
+    New York day at a time. On each day, in order:
+    1. the corporate actions on what was held at the previous close (a
+       dividend before a split on the same ex-date);
+    2. the day's trades;
+    3. for days before `as_of`, the night's interest on free cash and the
+       night's borrow on the shorts' previous raw close.
+
+    A spinoff's manual factor is listed in `unhandled_actions`, not valued.
+    The state adds free cash, long, short and gross value, dividends
+    received and paid, interest, borrow, the flows, and maintenance
+    required, excess and `below_maintenance`. Without a history it is the
+    trade log alone, as before.
+  - `trade_refusal`: the one check for REST and gRPC.
+  - `short_terms_of(metadata)`.
+- **`core/paper_history.py`:** loads the history (actions, closes read with
+  `adjust="none"`, ^IRX as bond-equivalent) and the latest prices. Shared by
+  the router, the gRPC store and the margin check.
+- **REST (`api/routers/portfolios.py`):**
+  - state, trades and rebalance all derive with the history;
+  - `PUT`/`DELETE /portfolios/{name}/short-terms`, where a delete with a
+    short open is 409;
+  - `short_terms` on create;
+  - `allow_overdraft` bypasses the amounts, never the terms.
+- **gRPC:**
+  - `TradeRequest.costs` (field 7), recorded;
+  - `PortfolioStore` runs `trade_refusal` and derives state with the same
+    history and terms;
+  - its async reads run on an engine of their own (NullPool) under
+    `asyncio.run`, never the module-level one;
+  - the "signed path" docstrings are corrected, and the GraphQL mutation
+    takes `costs`;
+  - the store's own sync pricing (stored `close`) is gone, so it values
+    through the same read as REST.
+- **06:00 job:** `scripts/check_paper_margin.py` after the fresh-return
+  check: exit 1 and a notification for a portfolio below maintenance, NOTE
+  lines for an unmodelled action.
+- **Page:**
+  - free cash beside cash;
+  - dividends received and paid, interest and borrow;
+  - a table of the dividend and split flows;
+  - a Short terms card, to set, change or remove them, showing the margin
+    room;
+  - a below-maintenance alert.
+- **Tests:**
+  - `tests/unit/test_paper_accounting.py` (14, worked by hand);
+  - `tests/api/test_paper_portfolios.py` (10);
+  - 3 gRPC store tests and 1 gRPC costs test;
+  - 4 page tests.
+
+  16 mutants were each caught by at least one test. Two existing tests
+  changed meaning: a short now needs terms, and a sale that "is never
+  blocked by cash" is now a sale of what is held.
+- **Real data:**
+  - The Default Portfolio now shows AAPL's $2.70 and MSFT's $4.55 dividends
+    and $747.06 of interest since 2026-08-09 (about 4% on $96k for 71 days),
+    read in 0.5 s.
+  - A scratch portfolio was created and deleted again. It had terms of 1%,
+    2x and 30%, and shorted 500 TLT on 2026-09-01:
+    - it paid TLT's 2026-10-01 dividend ($156) and $52.53 of borrow;
+    - a $320k SPY buy paid with the proceeds was refused, and so was a
+      BTC short;
+    - the margin check passed it.

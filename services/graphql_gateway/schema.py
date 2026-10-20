@@ -150,9 +150,11 @@ class Mutation:
         price: float,
         timestamp: str,
         portfolio: Optional[str] = None,
+        costs: float = 0.0,
     ) -> TradeResponseType:
         """
-        Record a signed paper trade against a database-backed portfolio.
+        Record a paper trade against a database-backed portfolio, through the
+        same buying-power check as the REST API (decision 49). Not signed.
 
         `timestamp` is when the user saw the quote; the service rejects it
         after 30 seconds. An unnamed portfolio uses the service default —
@@ -166,6 +168,7 @@ class Mutation:
             price=price,
             timestamp=timestamp,
             portfolio=portfolio or "",
+            costs=costs,
         )
         try:
             resp = await asyncio.to_thread(get_execution_stub().ExecuteTrade, req, timeout=10)

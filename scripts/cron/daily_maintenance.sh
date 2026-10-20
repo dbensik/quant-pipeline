@@ -4,7 +4,7 @@
 #
 # Daily data maintenance, for launchd. In this order: ingest new price bars,
 # the risk-free rate, SEC facts for recent filers, the read-only checks
-# (reassigned tickers, missing days, fresh returns), the index snapshot, new
+# (reassigned tickers, missing days, fresh returns, paper margin), the index snapshot, new
 # index members, the DCF line-concept check, option surfaces, then the backup.
 #
 # Ingest only fetches REGISTERED assets. This header used to say ingest ran
@@ -201,6 +201,24 @@ if [ "$MODE" != "--snapshot-only" ]; then
     else
         log "fresh-return check FAILED to run (exit $CHECK_EXIT)"
         fail fresh-return-check
+    fi
+fi
+
+# Paper portfolios below their maintenance margin (decision 49,
+# research/paper-shorts-2026-10-19.md), marked at the closes ingest just
+# wrote. Flags only: a cover nobody placed is never written into a paper book.
+if [ "$MODE" != "--snapshot-only" ]; then
+    log "--- paper margin check ---"
+    "$VENV_PYTHON" scripts/check_paper_margin.py >> "$LOG_FILE" 2>&1
+    CHECK_EXIT=$?
+    if [ "$CHECK_EXIT" -eq 0 ]; then
+        log "paper margin check OK"
+    elif [ "$CHECK_EXIT" -eq 1 ]; then
+        log "paper margin check FLAGGED a portfolio — see BELOW MAINTENANCE/UNPRICED lines above"
+        flag paper-margin
+    else
+        log "paper margin check FAILED to run (exit $CHECK_EXIT)"
+        fail paper-margin-check
     fi
 fi
 

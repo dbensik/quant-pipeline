@@ -23,6 +23,10 @@ message TradeRequest {
   // portfolios.json and onto the database, where there are many. Empty means
   // the configured default. Field 6 is new, so old clients still parse.
   string portfolio = 6;
+
+  // Commission, recorded with the trade (decision 49). It had been written as
+  // 0 whatever the trade cost. Field 7 is new, so old clients still parse.
+  double costs = 7;
 }
 
 message TradeResponse {

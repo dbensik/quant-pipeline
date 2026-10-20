@@ -72,6 +72,7 @@ scripts/check_fresh_returns.py              # returns readers see vs fresh Yahoo
 scripts/check_line_concepts.py              # DCF lines another concept reports differently, or a stale per-filer map; exit 1 = flagged
 scripts/precompute_surfaces.py --days 7     # option surfaces for the last week + missed capture days; 1 = missed, 2 = failed
 scripts/register_new_members.py --dry-run   # index joiners: what would be registered / flagged (decision 44)
+scripts/check_paper_margin.py               # paper portfolios below maintenance; read-only, exit 1 = flagged (decision 49)
 scripts/load_fundamentals.py --recent       # SEC facts for registry filers of the last 7 days (--all: everyone, ~10 min)
 scripts/backup.py                           # LAST step: DB dump + option archive to QUANT_BACKUP_DIR, proven by a restore
 tail -f logs/daily_maintenance.log
@@ -308,10 +309,25 @@ a gross cap, a maintenance cut at the next open, ruin at 0. Covers never
 pass through the risk manager. Event-shaped runs take the old loop
 untouched (28 real runs identical). The terms (`SHORT_BORROW_RATE`,
 `SHORT_MAX_GROSS`, `SHORT_MAINTENANCE` in `config/settings.py`) have no
-default: a short run without them is 422. Crypto cannot be shorted. Paper
-portfolios still treat a short's proceeds as cash (decision 49). Measured on 33 ETFs
+default: a short run without them is 422. Crypto cannot be shorted. Measured on 33 ETFs
 2013-2026 (pairs re-chosen yearly), pairs_trading had a Sharpe of -0.27
 against cash at beta 0.003 and beat 50 of 100 random pair sets: no edge.
+
+**Paper portfolios fold in corporate actions, interest and shorts**
+(decision 49, 2026-10-19, `research/paper-shorts-2026-10-19.md`).
+`derive_state` takes a `MarketHistory` (`core/paper_history.py`: corporate
+actions, raw closes, ^IRX) and, day by day from the first trade: a split
+rescales a holding, a dividend pays a long and charges a short (per raw
+share, `raw_dividends`), free cash earns ^IRX, and a short pays borrow at the
+portfolio's own terms (`metadata.short_terms`, set by `PUT
+/portfolios/{name}/short-terms`; none = it cannot short). Nothing new is
+stored. Before this a split showed a held position at the post-split price
+(a 4:1 split read as -75%) and no dividend was ever credited. One check,
+`core.portfolio.trade_refusal`, guards REST and gRPC alike: buys come from
+free cash (short proceeds are collateral), gross within `max_gross`, shorts
+need terms and an equity/ETF. Margin is FLAGGED (`check_paper_margin.py` in
+the 06:00 job), never forced. The gRPC path is not signed (its docstring had
+said so) and now records `costs`.
 
 **Served equities and ETFs have bars from 2010** (insert-only backfill
 2026-10-14, decision 26; ^IRX from 2009-12, without which a pre-2015

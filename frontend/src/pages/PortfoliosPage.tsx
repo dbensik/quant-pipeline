@@ -9,15 +9,21 @@
  * so nothing here computes them locally; that is what kept the old file's two
  * copies disagreeing.
  *
+ * Decision 49 (research/paper-shorts-2026-10-19.md): the server also folds in
+ * splits, dividends, interest on free cash and borrow, and checks margin. A
+ * portfolio shorts only once its short terms are set here.
+ *
  * Phase 5 — React pages for the ported routers
  */
 
 import { useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 
-import type { ApiError, PositionOut } from '@/api/client'
+import type { ApiError, PortfolioStateOut, PositionOut } from '@/api/client'
 import {
   useAddTrade,
+  useClearShortTerms,
+  useSetShortTerms,
   useCreatePortfolio,
   useDeletePortfolio,
   useDeleteTrade,
@@ -130,6 +136,146 @@ function Positions({ positions }: { positions: PositionOut[] }) {
   )
 }
 
+const pct = (v: number) => `${(v * 100).toFixed(2)}%`
+
+/** Borrow and margin terms: shown when set, a form either way (decision 49). */
+function ShortTermsCard({ name, state }: { name: string; state: PortfolioStateOut }) {
+  const setTerms = useSetShortTerms()
+  const clearTerms = useClearShortTerms()
+  const [form, setForm] = useState({ borrow: '', maxGross: '', maintenance: '' })
+  const terms = state.short_terms
+  const ready = form.borrow !== '' && form.maxGross !== '' && form.maintenance !== ''
+  const error = (setTerms.error ?? clearTerms.error) as ApiError | null
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Short terms</CardTitle>
+        <CardDescription>
+          {terms
+            ? `Borrow ${pct(terms.borrow_rate)} a year · gross capped at ${terms.max_gross}x ·
+               maintenance ${pct(terms.maintenance)} of gross`
+            : 'None set: this portfolio cannot short. They are your broker’s terms; nothing is assumed.'}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {terms && state.maintenance_required != null ? (
+          <p className="text-sm">
+            Equity {money(state.total_equity)} against {money(state.maintenance_required)}{' '}
+            required: {signed(state.margin_excess)} of room.
+          </p>
+        ) : null}
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="space-y-1">
+            <Label htmlFor="terms-borrow">Borrow (% a year)</Label>
+            <Input
+              id="terms-borrow"
+              type="number"
+              value={form.borrow}
+              onChange={(e) => setForm({ ...form, borrow: e.target.value })}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="terms-gross">Max gross (x equity)</Label>
+            <Input
+              id="terms-gross"
+              type="number"
+              value={form.maxGross}
+              onChange={(e) => setForm({ ...form, maxGross: e.target.value })}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="terms-maintenance">Maintenance (% of gross)</Label>
+            <Input
+              id="terms-maintenance"
+              type="number"
+              value={form.maintenance}
+              onChange={(e) => setForm({ ...form, maintenance: e.target.value })}
+            />
+          </div>
+        </div>
+        {error ? (
+          <Alert variant="destructive">
+            <AlertDescription>{error.detail}</AlertDescription>
+          </Alert>
+        ) : null}
+        <div className="flex gap-2">
+          <Button
+            disabled={!ready || setTerms.isPending}
+            onClick={() =>
+              setTerms.mutate({
+                name,
+                terms: {
+                  borrow_rate: Number(form.borrow) / 100,
+                  max_gross: Number(form.maxGross),
+                  maintenance: Number(form.maintenance) / 100,
+                },
+              })
+            }
+          >
+            {terms ? 'Change terms' : 'Set terms'}
+          </Button>
+          {terms ? (
+            <Button variant="outline" onClick={() => clearTerms.mutate(name)}>
+              Remove terms
+            </Button>
+          ) : null}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+/** Dividends and splits folded into the holdings, and what was not modelled. */
+function Flows({ state }: { state: PortfolioStateOut }) {
+  const flows = state.flows ?? []
+  const unhandled = state.unhandled_actions ?? []
+  return (
+    <div className="space-y-2">
+      <div className="grid gap-3 sm:grid-cols-4">
+        <Metric label="Dividends received" value={money(state.dividends_received)} />
+        <Metric label="Dividends paid (shorts)" value={money(state.dividends_paid)} />
+        <Metric label="Interest on free cash" value={money(state.interest)} />
+        <Metric label="Borrow paid" value={money(state.borrow_paid)} />
+      </div>
+      {flows.length ? (
+        <table className="w-full text-sm">
+          <thead className="border-b text-left text-xs uppercase text-muted-foreground">
+            <tr>
+              <th className="py-2 pr-4">Date</th>
+              <th className="py-2 pr-4">Ticker</th>
+              <th className="py-2 pr-4">Event</th>
+              <th className="py-2 pr-4 text-right">Held</th>
+              <th className="py-2 text-right">Effect</th>
+            </tr>
+          </thead>
+          <tbody>
+            {flows.map((f) => (
+              <tr key={`${f.day}-${f.ticker}-${f.kind}`} className="border-b last:border-0">
+                <td className="py-2 pr-4 tabular-nums">{f.day}</td>
+                <td className="py-2 pr-4 font-medium">{f.ticker}</td>
+                <td className="py-2 pr-4">{f.kind}</td>
+                <td className="py-2 pr-4 text-right tabular-nums">{f.quantity}</td>
+                <td className="py-2 text-right tabular-nums">
+                  {f.kind === 'dividend' ? signed(f.amount) : `${f.amount}:1`}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : null}
+      {unhandled.length ? (
+        <Alert>
+          <AlertDescription>
+            Not modelled:{' '}
+            {unhandled.map((f) => `${f.ticker} ${f.kind} ${f.amount} on ${f.day}`).join('; ')}.
+            A spinoff's shares are not credited, so equity is understated.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+    </div>
+  )
+}
+
 export function PortfoliosPage() {
   const { data: portfolios, isLoading } = usePortfolios()
   // What the user picked; until they pick, the first portfolio. Derived during
@@ -193,7 +339,9 @@ export function PortfoliosPage() {
   }
 
   const tradeError = addTrade.error as ApiError | null
-  const overdraft = tradeError?.detail?.includes('Insufficient cash')
+  const overdraft =
+    tradeError?.detail?.includes('Insufficient cash') ||
+    tradeError?.detail?.includes('Gross exposure')
 
   return (
     <div>
@@ -305,9 +453,10 @@ export function PortfoliosPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                  <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
                     <Metric label="Total equity" value={money(state.total_equity)} />
                     <Metric label="Cash" value={money(state.cash)} />
+                    <Metric label="Free cash" value={money(state.free_cash)} />
                     <Metric label="Market value" value={money(state.market_value)} />
                     <Metric
                       label="Realised P&L"
@@ -341,17 +490,30 @@ export function PortfoliosPage() {
                     </Alert>
                   ) : null}
 
+                  {state.below_maintenance ? (
+                    <Alert variant="destructive">
+                      <AlertDescription>
+                        Below maintenance: equity {money(state.total_equity)} against{' '}
+                        {money(state.maintenance_required)} required. A broker would cover;
+                        nothing here does it for you.
+                      </AlertDescription>
+                    </Alert>
+                  ) : null}
+
                   <Positions positions={state.positions} />
+                  <Flows state={state} />
                 </CardContent>
               </Card>
+
+              <ShortTermsCard key={state.name} name={state.name} state={state} />
 
               {/* -- record a trade ---------------------------------- */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">Record a trade</CardTitle>
                   <CardDescription>
-                    Selling more than you hold opens a short — there is no separate
-                    direction field.
+                    Selling more than you hold opens a short, which needs short terms.
+                    Its proceeds are collateral: buys are paid from free cash.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">

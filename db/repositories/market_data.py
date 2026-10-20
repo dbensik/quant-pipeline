@@ -508,6 +508,23 @@ class TimescaleMarketDataRepo:
             )
         return out
 
+    async def corporate_actions(self, symbol: str) -> List[Action]:
+        """
+        Every stored split, dividend and manual factor of `symbol`, as served
+        (core.price_adjustment converts them). [] for an unknown symbol.
+        Paper portfolios fold them into holdings (decision 49).
+        """
+        stmt = (
+            select(CorporateActionORM)
+            .join(AssetORM, CorporateActionORM.asset_id == AssetORM.id)
+            .where(AssetORM.symbol == symbol)
+            .order_by(CorporateActionORM.ex_date)
+        )
+        return [
+            Action(a.ex_date, a.kind, a.value, a.fetched_at)
+            for a in (await self.session.execute(stmt)).scalars()
+        ]
+
     async def find_asset(self, symbol: str, asset_class: Optional[str] = None) -> Optional[Asset]:
         """
         Look up a registered asset by symbol.

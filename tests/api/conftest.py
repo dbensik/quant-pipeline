@@ -162,6 +162,12 @@ class FakeRepo:
         #: `replace` flag per write() call, so tests can assert a full
         #: backfill actually asks the database to overwrite.
         self.replace_calls: List[bool] = []
+        #: Corporate actions per symbol (core.price_adjustment.Action); none
+        #: by default, set by the paper-portfolio tests.
+        self.actions: Dict[str, list] = {}
+
+    async def corporate_actions(self, symbol: str) -> list:
+        return list(self.actions.get(symbol, []))
 
     async def write(self, records: List[MarketDataRecord], replace: bool = False) -> int:
         self.written.extend(records)
@@ -296,6 +302,13 @@ class FakePortfolioRepo:
 
     async def delete_portfolio(self, name: str) -> bool:
         return self._portfolios.pop(name, None) is not None
+
+    async def set_metadata(self, name: str, metadata: Optional[dict]) -> bool:
+        found = self._portfolios.get(name)
+        if found is None:
+            return False
+        self._portfolios[name] = replace(found, metadata=metadata)
+        return True
 
     async def add_trade(self, name: str, trade: Trade) -> Optional[Trade]:
         found = self._portfolios.get(name)

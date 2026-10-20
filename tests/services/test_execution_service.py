@@ -73,13 +73,11 @@ class FakeStore:
             raise PortfolioNotFound(f"No portfolio named {name!r}.")
 
     def state(self, name, prices=None):
+        # Like PortfolioStore: valued at the latest prices unless given some.
         self._check(name)
-        return derive_state(self.trades, 100_000.0, prices)
+        return derive_state(self.trades, 100_000.0, self.prices if prices is None else prices)
 
-    def latest_prices(self, tickers):
-        return {t: self.prices[t] for t in tickers if t in self.prices}
-
-    def append_trade(self, name, symbol, action, quantity, price, when=None):
+    def append_trade(self, name, symbol, action, quantity, price, when=None, costs=0.0):
         self._check(name)
         action = (action or "").upper()
         if action not in ("BUY", "SELL"):
@@ -87,6 +85,7 @@ class FakeStore:
         if quantity <= 0:
             raise ValueError("Quantity must be positive.")
         self.appended.append((name, symbol, action, quantity, price))
+        self.costs = costs
         self.next_id += 1
         return self.next_id
 
@@ -280,3 +279,95 @@ def test_a_short_position_reports_a_negative_quantity():
 
     assert response.positions["AAPL"].quantity == pytest.approx(-5.0)
     assert response.positions["AAPL"].current_value == pytest.approx(-900.0)
+
+
+def test_costs_reach_the_store():
+    """They had been recorded as 0 whatever the trade cost (decision 49)."""
+    store = FakeStore()
+    ExecutionService(store=store).ExecuteTrade(
+        execution_pb2.TradeRequest(
+            symbol="AAPL", action="BUY", quantity=1, price=1.0, timestamp=fresh(), costs=1.25
+        ),
+        FakeContext(),
+    )
+    assert store.costs == 1.25
+
+
+# ---------------------------------------------------------------------------
+# PortfolioStore: the same check as the REST API (decision 49)
+# ---------------------------------------------------------------------------
+
+
+class RecordingEngine:
+    """Captures the INSERT instead of reaching a database."""
+
+    def __init__(self):
+        self.params = None
+
+    def begin(self):
+        engine = self
+
+        class Tx:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def execute(self, statement, params=None):
+                if params and "ticker" in params:
+                    engine.params = params
+
+                    class Row:
+                        id = 7
+
+                    class Result:
+                        def first(self):
+                            return Row()
+
+                    return Result()
+
+                class Portfolio:
+                    id = 1
+
+                class Result:
+                    def first(self):
+                        return Portfolio()
+
+                return Result()
+
+        return Tx()
+
+
+def store_with(trades, metadata, asset_class="equity", prices=None):
+    from services.execution_service.portfolio_store import MarketContext, PortfolioStore
+
+    store = PortfolioStore(engine=RecordingEngine())
+    store.load_trades = lambda name: (list(trades), 100_000.0)
+    store.metadata = lambda name: metadata
+    store._market_context = lambda tickers, first: MarketContext(
+        None, prices or {"AAPL": 100.0}, {"AAPL": asset_class}
+    )
+    return store
+
+
+def test_the_store_refuses_a_short_without_terms_as_rest_does():
+    store = store_with([], None)
+    with pytest.raises(ValueError, match="no short terms"):
+        store.append_trade("P", "AAPL", "SELL", 5, 100.0)
+    assert store.engine.params is None
+
+
+def test_the_store_refuses_a_buy_paid_with_short_proceeds():
+    terms = {"short_terms": {"borrow_rate": 0.01, "max_gross": 3.0, "maintenance": 0.3}}
+    short = [trade("AAPL", "SELL", 1000, 100.0)]
+    store = store_with(short, terms)
+    # $200k of cash, $100k of it collateral: 1,001 x $100 is over by $100.
+    with pytest.raises(ValueError, match="collateral"):
+        store.append_trade("P", "MSFT", "BUY", 1001, 100.0)
+
+
+def test_the_store_records_costs():
+    store = store_with([], None)
+    assert store.append_trade("P", "AAPL", "BUY", 1, 100.0, costs=1.25) == 7
+    assert store.engine.params["costs"] == 1.25

@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1eservices/proto/execution.proto\x12\x08services\"u\n\x0cTradeRequest\x12\x0e\n\x06symbol\x18\x01 \x01(\t\x12\x0e\n\x06\x61\x63tion\x18\x02 \x01(\t\x12\x10\n\x08quantity\x18\x03 \x01(\x01\x12\r\n\x05price\x18\x04 \x01(\x01\x12\x11\n\ttimestamp\x18\x05 \x01(\t\x12\x11\n\tportfolio\x18\x06 \x01(\t\"_\n\rTradeResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x16\n\x0etransaction_id\x18\x03 \x01(\t\x12\x14\n\x0c\x66illed_price\x18\x04 \x01(\x01\"%\n\x10PortfolioRequest\x12\x11\n\tportfolio\x18\x01 \x01(\t\"\xc4\x01\n\x11PortfolioResponse\x12=\n\tpositions\x18\x01 \x03(\x0b\x32*.services.PortfolioResponse.PositionsEntry\x12\x14\n\x0c\x63\x61sh_balance\x18\x02 \x01(\x01\x12\x14\n\x0ctotal_equity\x18\x03 \x01(\x01\x1a\x44\n\x0ePositionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12!\n\x05value\x18\x02 \x01(\x0b\x32\x12.services.Position:\x02\x38\x01\"Z\n\x08Position\x12\x0e\n\x06symbol\x18\x01 \x01(\t\x12\x10\n\x08quantity\x18\x02 \x01(\x01\x12\x15\n\raverage_price\x18\x03 \x01(\x01\x12\x15\n\rcurrent_value\x18\x04 \x01(\x01\x32\x9c\x01\n\x10\x45xecutionService\x12?\n\x0c\x45xecuteTrade\x12\x16.services.TradeRequest\x1a\x17.services.TradeResponse\x12G\n\x0cGetPortfolio\x12\x1a.services.PortfolioRequest\x1a\x1b.services.PortfolioResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1eservices/proto/execution.proto\x12\x08services\"\x84\x01\n\x0cTradeRequest\x12\x0e\n\x06symbol\x18\x01 \x01(\t\x12\x0e\n\x06\x61\x63tion\x18\x02 \x01(\t\x12\x10\n\x08quantity\x18\x03 \x01(\x01\x12\r\n\x05price\x18\x04 \x01(\x01\x12\x11\n\ttimestamp\x18\x05 \x01(\t\x12\x11\n\tportfolio\x18\x06 \x01(\t\x12\r\n\x05\x63osts\x18\x07 \x01(\x01\"_\n\rTradeResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x16\n\x0etransaction_id\x18\x03 \x01(\t\x12\x14\n\x0c\x66illed_price\x18\x04 \x01(\x01\"%\n\x10PortfolioRequest\x12\x11\n\tportfolio\x18\x01 \x01(\t\"\xc4\x01\n\x11PortfolioResponse\x12=\n\tpositions\x18\x01 \x03(\x0b\x32*.services.PortfolioResponse.PositionsEntry\x12\x14\n\x0c\x63\x61sh_balance\x18\x02 \x01(\x01\x12\x14\n\x0ctotal_equity\x18\x03 \x01(\x01\x1a\x44\n\x0ePositionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12!\n\x05value\x18\x02 \x01(\x0b\x32\x12.services.Position:\x02\x38\x01\"Z\n\x08Position\x12\x0e\n\x06symbol\x18\x01 \x01(\t\x12\x10\n\x08quantity\x18\x02 \x01(\x01\x12\x15\n\raverage_price\x18\x03 \x01(\x01\x12\x15\n\rcurrent_value\x18\x04 \x01(\x01\x32\x9c\x01\n\x10\x45xecutionService\x12?\n\x0c\x45xecuteTrade\x12\x16.services.TradeRequest\x1a\x17.services.TradeResponse\x12G\n\x0cGetPortfolio\x12\x1a.services.PortfolioRequest\x1a\x1b.services.PortfolioResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,18 +33,18 @@ if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_PORTFOLIORESPONSE_POSITIONSENTRY']._loaded_options = None
   _globals['_PORTFOLIORESPONSE_POSITIONSENTRY']._serialized_options = b'8\001'
-  _globals['_TRADEREQUEST']._serialized_start=44
-  _globals['_TRADEREQUEST']._serialized_end=161
-  _globals['_TRADERESPONSE']._serialized_start=163
-  _globals['_TRADERESPONSE']._serialized_end=258
-  _globals['_PORTFOLIOREQUEST']._serialized_start=260
-  _globals['_PORTFOLIOREQUEST']._serialized_end=297
-  _globals['_PORTFOLIORESPONSE']._serialized_start=300
-  _globals['_PORTFOLIORESPONSE']._serialized_end=496
-  _globals['_PORTFOLIORESPONSE_POSITIONSENTRY']._serialized_start=428
-  _globals['_PORTFOLIORESPONSE_POSITIONSENTRY']._serialized_end=496
-  _globals['_POSITION']._serialized_start=498
-  _globals['_POSITION']._serialized_end=588
-  _globals['_EXECUTIONSERVICE']._serialized_start=591
-  _globals['_EXECUTIONSERVICE']._serialized_end=747
+  _globals['_TRADEREQUEST']._serialized_start=45
+  _globals['_TRADEREQUEST']._serialized_end=177
+  _globals['_TRADERESPONSE']._serialized_start=179
+  _globals['_TRADERESPONSE']._serialized_end=274
+  _globals['_PORTFOLIOREQUEST']._serialized_start=276
+  _globals['_PORTFOLIOREQUEST']._serialized_end=313
+  _globals['_PORTFOLIORESPONSE']._serialized_start=316
+  _globals['_PORTFOLIORESPONSE']._serialized_end=512
+  _globals['_PORTFOLIORESPONSE_POSITIONSENTRY']._serialized_start=444
+  _globals['_PORTFOLIORESPONSE_POSITIONSENTRY']._serialized_end=512
+  _globals['_POSITION']._serialized_start=514
+  _globals['_POSITION']._serialized_end=604
+  _globals['_EXECUTIONSERVICE']._serialized_start=607
+  _globals['_EXECUTIONSERVICE']._serialized_end=763
 # @@protoc_insertion_point(module_scope)

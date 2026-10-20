@@ -1,6 +1,12 @@
 """
 services/execution_service/service.py
-gRPC ExecutionService — the SIGNED path for paper trades.
+gRPC ExecutionService — paper trades over the gRPC/GraphQL path.
+
+NOT SIGNED. This was described as "the signed path" with an audit log; it
+signs nothing and writes no audit log (only SignalService signs, through
+services/crypto). Corrected 2026-10-19 (decision 49). What it does share with
+the REST API is the book and its rules: the same tables, derive_state and the
+same buying-power check (core.portfolio.trade_refusal).
 
 REWIRED 2026-08-09. This read `portfolios.json` through PortfolioManager, a
 file nothing else has used since portfolios moved into the database in 0003.
@@ -12,8 +18,7 @@ reached it.
 It now reads and writes the same `portfolios` / `portfolio_trades` tables the
 REST API uses, deriving cash and positions with `core.portfolio.derive_state`
 — so the signed layer and the API cannot disagree about what a portfolio
-holds. That is the point of keeping this service: an audit-logged execution
-path over the real book, rather than a second book nobody reads.
+holds: one book, not a second one nobody reads.
 
 Access is synchronous (see portfolio_store.py): gRPC servicers are sync, and
 db/session.py's async engine binds its pool to one event loop.
@@ -96,6 +101,7 @@ class ExecutionService(execution_pb2_grpc.ExecutionServiceServicer):
                 action=request.action,
                 quantity=request.quantity,
                 price=request.price,
+                costs=request.costs,
             )
         except PortfolioNotFound as exc:
             # Named but absent. PortfolioManager fell back to "the only
@@ -124,12 +130,11 @@ class ExecutionService(execution_pb2_grpc.ExecutionServiceServicer):
     def GetPortfolio(self, request, context):
         name = self._name(request.portfolio)
         try:
+            # Valued at the latest STORED close (the store's default), not at
+            # entry price. The old implementation used the entry price "as
+            # proxy for value in MVP", which made unrealised P&L identically
+            # zero and total equity wrong.
             state = self.store.state(name)
-            # Value at the latest STORED close, not at entry price. The old
-            # implementation used the entry price "as proxy for value in MVP",
-            # which made unrealised P&L identically zero and total equity wrong.
-            prices = self.store.latest_prices([p.ticker for p in state.positions])
-            state = self.store.state(name, prices)
         except PortfolioNotFound as exc:
             context.set_code(grpc.StatusCode.NOT_FOUND)
             context.set_details(str(exc))

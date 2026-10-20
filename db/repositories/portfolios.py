@@ -59,6 +59,10 @@ class PortfolioRepository:
         """Append one trade. None if the portfolio does not exist."""
         ...
 
+    async def set_metadata(self, name: str, metadata: Optional[dict]) -> bool:
+        """Replace the portfolio's metadata. False if it does not exist."""
+        ...
+
     async def delete_trade(self, name: str, trade_id: str) -> bool:
         """Remove one trade. False if the portfolio or trade does not exist."""
         ...
@@ -163,6 +167,14 @@ class TimescalePortfolioRepo:
         await self.session.commit()
         await self.session.refresh(orm)
         return _to_trade(orm)
+
+    async def set_metadata(self, name: str, metadata: Optional[dict]) -> bool:
+        row = await self._find(name)
+        if row is None:
+            return False
+        row.metadata_ = metadata
+        await self.session.commit()
+        return True
 
     async def delete_trade(self, name: str, trade_id: str) -> bool:
         row = await self._find(name)

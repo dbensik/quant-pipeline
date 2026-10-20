@@ -93,6 +93,8 @@ export type NewsItem = components['schemas']['NewsItem']
 export type StatementLine = components['schemas']['StatementLine']
 export type PortfolioSummary = components['schemas']['PortfolioSummary']
 export type PortfolioStateOut = components['schemas']['PortfolioStateOut']
+export type PortfolioShortTerms = components['schemas']['PortfolioShortTerms']
+export type FlowOut = components['schemas']['FlowOut']
 export type PositionOut = components['schemas']['PositionOut']
 export type TradeOut = components['schemas']['TradeOut']
 export type TradeIn = components['schemas']['TradeIn']
@@ -348,6 +350,20 @@ export const api = {
     return request('/api/v1/portfolios', {
       method: 'POST',
       body: JSON.stringify(body),
+    })
+  },
+
+  /** Borrow and margin terms; without them a portfolio cannot short (decision 49). */
+  setShortTerms(name: string, terms: PortfolioShortTerms): Promise<PortfolioShortTerms> {
+    return request(`/api/v1/portfolios/${encodeURIComponent(name)}/short-terms`, {
+      method: 'PUT',
+      body: JSON.stringify(terms),
+    })
+  },
+
+  clearShortTerms(name: string): Promise<void> {
+    return requestNoContent(`/api/v1/portfolios/${encodeURIComponent(name)}/short-terms`, {
+      method: 'DELETE',
     })
   },
 

@@ -308,6 +308,29 @@ export function useCreatePortfolio() {
   })
 }
 
+/** Short terms change the derived state (borrow, margin), so it is invalidated too. */
+export function useSetShortTerms() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      name,
+      terms,
+    }: {
+      name: string
+      terms: import('./client').PortfolioShortTerms
+    }) => api.setShortTerms(name, terms),
+    onSuccess: () => invalidatePortfolio(queryClient),
+  })
+}
+
+export function useClearShortTerms() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (name: string) => api.clearShortTerms(name),
+    onSuccess: () => invalidatePortfolio(queryClient),
+  })
+}
+
 export function useDeletePortfolio() {
   const queryClient = useQueryClient()
   return useMutation({

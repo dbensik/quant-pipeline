@@ -305,3 +305,68 @@ describe('PortfoliosPage — portfolio CRUD', () => {
     ).toBeInTheDocument()
   })
 })
+
+describe('PortfoliosPage — flows, short terms and margin (decision 49)', () => {
+  const TERMS = { borrow_rate: 0.01, max_gross: 2, maintenance: 0.3 }
+  const WITH_FLOWS = {
+    ...STATE,
+    free_cash: 31999,
+    long_value: 6273.3,
+    short_value: 1200,
+    gross_exposure: 7473.3,
+    dividends_received: 7.25,
+    dividends_paid: 1.1,
+    interest: 412.5,
+    borrow_paid: 3.2,
+    flows: [{ day: '2026-08-10', kind: 'dividend', ticker: 'AAPL', amount: 2.7, quantity: 10 }],
+    unhandled_actions: [],
+    short_terms: TERMS,
+    maintenance_required: 2241.99,
+    margin_excess: 36030.31,
+    below_maintenance: false,
+  }
+
+  it('shows free cash, the derived flows and the terms', async () => {
+    vi.spyOn(api, 'getPortfolio').mockResolvedValue(WITH_FLOWS as never)
+    renderPage(<PortfoliosPage />)
+    expect(await screen.findByText('$31,999.00')).toBeInTheDocument()
+    expect(screen.getByText('$412.50')).toBeInTheDocument()
+    expect(screen.getByText('+$2.70')).toBeInTheDocument()
+    expect(screen.getByText(/Borrow 1.00% a year/)).toBeInTheDocument()
+    expect(screen.queryByText(/Below maintenance/)).toBeNull()
+  })
+
+  it('says a portfolio without terms cannot short', async () => {
+    vi.spyOn(api, 'getPortfolio').mockResolvedValue({ ...WITH_FLOWS, short_terms: null } as never)
+    renderPage(<PortfoliosPage />)
+    expect(await screen.findByText(/this portfolio cannot short/)).toBeInTheDocument()
+  })
+
+  it('flags a portfolio below maintenance', async () => {
+    vi.spyOn(api, 'getPortfolio').mockResolvedValue({
+      ...WITH_FLOWS,
+      below_maintenance: true,
+      margin_excess: -500,
+    } as never)
+    renderPage(<PortfoliosPage />)
+    expect(await screen.findByText(/Below maintenance/)).toBeInTheDocument()
+  })
+
+  it('sends the terms as fractions and refreshes the derived state', async () => {
+    const set = vi.spyOn(api, 'setShortTerms').mockResolvedValue(TERMS as never)
+    const get = vi.spyOn(api, 'getPortfolio').mockResolvedValue({
+      ...WITH_FLOWS,
+      short_terms: null,
+    } as never)
+    renderPage(<PortfoliosPage />)
+    await userEvent.type(await screen.findByLabelText('Borrow (% a year)'), '1')
+    await userEvent.type(screen.getByLabelText('Max gross (x equity)'), '2')
+    await userEvent.type(screen.getByLabelText('Maintenance (% of gross)'), '30')
+    const calls = get.mock.calls.length
+    await userEvent.click(screen.getByRole('button', { name: 'Set terms' }))
+    await waitFor(() => expect(set).toHaveBeenCalled())
+    expect(set.mock.calls[0][0]).toBe('Growth')
+    expect(set.mock.calls[0][1]).toEqual({ borrow_rate: 0.01, max_gross: 2, maintenance: 0.3 })
+    await waitFor(() => expect(get.mock.calls.length).toBeGreaterThan(calls))
+  })
+})
