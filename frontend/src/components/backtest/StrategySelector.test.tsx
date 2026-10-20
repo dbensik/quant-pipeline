@@ -15,6 +15,7 @@ const MA_CROSSOVER: StrategySchema = {
   description: 'Long when the short moving average is above the long one.',
   input_contract: 'single',
   held_weight: 'equal',
+  shorts: false,
   caveat: null,
   params: [
     {
@@ -44,6 +45,7 @@ const RANDOM_FOREST: StrategySchema = {
   description: 'Random-forest classifier over lagged returns.',
   input_contract: 'single',
   held_weight: 'equal',
+  shorts: false,
   caveat: 'Known look-ahead bias: the model trains on the full history.',
   params: [],
 }

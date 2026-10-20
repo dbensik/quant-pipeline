@@ -359,7 +359,8 @@ function ShortsCard({
     ['Time with a short held', percent(exposure.time_short)],
     ['Highest gross exposure', `${ratio(exposure.max_gross_exposure)}x equity`],
     ['Highest net exposure', `${ratio(exposure.max_net_exposure)}x equity`],
-    ['Margin cuts', String(exposure.margin_cuts.length)],
+    // Optional in the generated schema (a server-side default); absent is none.
+    ['Margin cuts', String((exposure.margin_cuts ?? []).length)],
   ]
   if (exposure.ruined_at) rows.push(['Equity reached 0', exposure.ruined_at.slice(0, 10)])
   return (
