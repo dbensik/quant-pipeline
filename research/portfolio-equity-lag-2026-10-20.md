@@ -132,5 +132,5 @@ every quoted figure. Before against after:
   quote is unchanged: the switching decades, the momentum grid range, and
   all drawdowns (max drawdown did not move in any run).
 - **Not changed here:** the trend caveat quotes the Faber seven basket's
-  drawdown as -20%. The method gives -19.5% both before and after this fix,
-  so it is not a lag effect. It is left for Danny.
+  drawdown as -20%. The method gives -19.49% both before and after this fix,
+  so it is not a lag effect. Corrected to -19% on his word, 2026-10-20.

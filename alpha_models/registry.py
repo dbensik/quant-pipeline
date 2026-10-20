@@ -630,7 +630,7 @@ _SPECS: List[StrategySpec] = [
         signal_shape="wide_per_asset",
         caveat=measured_allocation(
             "on Faber's five and seven ETFs it cut the basket's worst drawdown (-15% "
-            "against -26%; -8% against -20%) at 1-2 pp a year of return, with a Sharpe "
+            "against -26%; -8% against -19%) at 1-2 pp a year of return, with a Sharpe "
             "level with the basket (0.45 against 0.46; 0.52 against 0.52)."
         )
         + " On BTC/ETH 2018-2026 it cut the worst drawdown from -87% to -59% and was flat in "
