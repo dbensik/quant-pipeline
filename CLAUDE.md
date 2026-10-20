@@ -363,10 +363,15 @@ the same signals from the attach date at the defaults (seed 42 slippage);
 the gap is split into backtest slippage, costs and the rest. Each session
 records its signal day's decision in `metadata.strategy.decisions`; the
 06:00 job re-derives them from today's bars and flags RESTATED when the
-history a record traded on has moved. The record is never rewritten. On the
-event path `PortfolioBacktester`'s `total` is computed before that bar's
-open fills (a fill shows a bar late): tracking values the engine from its
-own cash and positions instead; the metrics have not been re-measured.
+history a record traded on has moved. The record is never rewritten.
+
+**A basket's fill is in its own bar's equity** (decision 52, 2026-10-20,
+`research/portfolio-equity-lag-2026-10-20.md`). `PortfolioBacktester`'s
+event path valued each bar BEFORE that bar's open fills, so a fill first
+showed a bar late. It now revalues a bar with orders after them. Trades,
+cash, positions, final equity and drawdown were identical on 27 real runs;
+Sharpe moved -0.001 to +0.009. Two caveats moved by 0.01 (momentum on Faber
+five 0.62, trend on seven 0.52).
 
 **Served equities and ETFs have bars from 2010** (insert-only backfill
 2026-10-14, decision 26; ^IRX from 2009-12, without which a pre-2015

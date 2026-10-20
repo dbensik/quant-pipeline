@@ -194,13 +194,7 @@ async def track(
         lot_sizes=lots,
         short_terms=terms if spec.signal_shape == "target" else None,
     )
-    # Equity at each close, from the engine's own cash and positions. Its
-    # `total` column on the event path is computed BEFORE that bar's open
-    # fills (a bar's fills first show at the next close), which would put a
-    # one-bar step into the gap on every fill day.
-    closes = pd.DataFrame({s: f["Close"] for s, f in prices.items()}).reindex(frame.index).ffill()
-    total = frame["cash"] + sum(frame[f"{s}_pos"] * closes[s] for s in binding.symbols)
-    report.backtest = [(t.date(), float(v)) for t, v in total.items()]
+    report.backtest = [(t.date(), float(v)) for t, v in frame["total"].items()]
     slippage = commissions = 0.0
     for row in log.itertuples():
         ts = pd.Timestamp(row.timestamp)

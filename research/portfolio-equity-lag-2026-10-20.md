@@ -84,3 +84,53 @@ momentum_allocation's 0.61 can move by 0.01.
       one-day step on each fill day.
 
 **Approved: A, 2026-10-20.**
+
+## Built (A, 2026-10-20)
+
+- **The fix:** after a bar's fills, `PortfolioBacktester.run` revalues that
+  bar's `holdings_value` and `total` at the close, from the cash and
+  positions the fills left. Only bars with orders are revalued. A bar whose
+  orders all failed revalues to the same figure.
+- **The 27 pinned runs, HEAD against the fix:**
+  - trade logs, cash and every position column are identical;
+  - `total` changes on exactly the fill bars and on no other;
+  - final equity, total return and max drawdown are identical;
+  - each run's new Sharpe equals the "corrected" figure measured above, to
+    the last digit;
+  - pairs_trading did not change.
+- **Test:** `test_a_basket_fill_shows_in_the_equity_of_its_own_bar` in
+  `tests/unit/test_next_open_fills.py` covers a buy and a sale. It fails on
+  the old code.
+- **Tracking (decision 51)** now reads the engine's `total` directly, and its
+  workaround is gone. `test_without_slippage_the_backtest_is_the_paper_record`
+  fails without the engine fix, so it pins this too.
+
+### The caveats, re-measured
+
+Decision 29's method: one run per configuration, 2010-01-04 to 2026-10-14,
+at its defaults through the API. Settings: seed 1, 10 bps, interest on cash,
+risk caps off. Sharpe is measured on slices. On HEAD the method reproduces
+every quoted figure. Before against after:
+
+| run | 2011-26 | 2011-19 | 2020-26 |
+|---|---|---|---|
+| faber5 equal weight | 0.457 / 0.457 | 0.499 / 0.499 | 0.422 / 0.422 |
+| faber5 trend | 0.446 / 0.449 | 0.343 / 0.345 | 0.574 / 0.580 |
+| faber5 momentum | **0.613 / 0.617** | 0.672 / 0.673 | 0.546 / 0.564 |
+| faber7 equal weight | 0.522 / 0.522 | 0.630 / 0.630 | 0.435 / 0.435 |
+| faber7 trend | **0.514 / 0.516** | 0.435 / 0.437 | 0.596 / 0.598 |
+| faber7 momentum | 0.491 / 0.492 | 0.429 / 0.429 | 0.556 / 0.559 |
+| SPY/TLT switching | 0.265 / 0.265 | 0.732 / 0.734 | -0.180 / -0.180 |
+| SPY/TLT 50/50 | 0.686 / 0.686 | 1.413 / 1.413 | 0.174 / 0.174 |
+| momentum grid, 2020-26 (both baskets) | | | 0.221-0.879 / 0.222-0.880 |
+
+- **Two quoted figures moved at two decimals:**
+  - momentum on Faber five: 0.61 to **0.62** against 0.46;
+  - trend on Faber seven: 0.51 to **0.52** against 0.52, so it is now
+    level with its basket on both baskets.
+- **Both caveats are restated in the registry.** Every other figure they
+  quote is unchanged: the switching decades, the momentum grid range, and
+  all drawdowns (max drawdown did not move in any run).
+- **Not changed here:** the trend caveat quotes the Faber seven basket's
+  drawdown as -20%. The method gives -19.5% both before and after this fix,
+  so it is not a lag effect. It is left for Danny.

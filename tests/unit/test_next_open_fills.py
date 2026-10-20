@@ -156,3 +156,21 @@ def test_a_rebalance_is_sized_on_equity_at_the_open():
     assert b_buy["quantity"] != np.floor(
         (cash_after_a + a_qty * a["Close"].iloc[3]) * 0.3 / b["Open"].iloc[3]
     )
+
+
+def test_a_basket_fill_shows_in_the_equity_of_its_own_bar():
+    """
+    Decision 52 (research/portfolio-equity-lag-2026-10-20.md): the fill bar's
+    total is the cash after its fills plus the new holdings at its close. It
+    was valued before the fills, so the buy first showed a bar later and the
+    sale's bar still marked the sold shares at the close.
+    """
+    prices = frame()
+    results, trades = basket({"A": prices}, {"A": SIGNALS}, {"A": 1.0})
+    qty = trades["quantity"].iloc[0]
+    cash = CAPITAL - qty * prices["Open"].iloc[1]
+    assert results["total"].iloc[1] == cash + qty * prices["Close"].iloc[1]
+    assert results["holdings_value"].iloc[1] == qty * prices["Close"].iloc[1]
+    assert results["total"].iloc[4] == cash + qty * prices["Open"].iloc[4]
+    assert results["holdings_value"].iloc[4] == 0.0
+    assert results["returns"].iloc[1] == results["total"].iloc[1] / CAPITAL - 1

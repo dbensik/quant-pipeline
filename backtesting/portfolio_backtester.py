@@ -366,6 +366,20 @@ class PortfolioBacktester:
                     trade_data["total_cost"] = fill_event.total_cost
                     trade_log.append(trade_data)
 
+            # The bar's equity after its fills, at the close. Valued before
+            # them (above), a fill showed a bar late: the old holdings marked
+            # at this close, and the new ones only from the next (decision 52,
+            # research/portfolio-equity-lag-2026-10-20.md).
+            if bar_orders:
+                current_holdings_value = sum(
+                    portfolio.loc[timestamp, f"{t}_pos"] * price
+                    for t, price in current_prices.items()
+                )
+                portfolio.loc[timestamp, "holdings_value"] = current_holdings_value
+                portfolio.loc[timestamp, "total"] = (
+                    portfolio.loc[timestamp, "cash"] + current_holdings_value
+                )
+
         # --- Final Calculations ---
         portfolio["returns"] = portfolio["total"].pct_change().fillna(0)
         # Fills on each bar, for the Trade Count. Added after the loop: the loop

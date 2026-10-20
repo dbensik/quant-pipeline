@@ -220,7 +220,8 @@ def measured_allocation(finding: str) -> str:
     or AGG, 2011-01 to 2026-10, sized by weights (not the 2% buy cap), with
     costs and interest on cash, against the same basket equal-weighted.
     Restated 2026-10-15 at next-open fills (decision 31,
-    research/fill-timing-2026-10-15.md).
+    research/fill-timing-2026-10-15.md), and 2026-10-20 with each fill in its
+    own bar's equity (decision 52, research/portfolio-equity-lag-2026-10-20.md).
     """
     return f"Measured at its defaults on fixed ETF baskets, 2011-2026, with costs: {finding}"
 
@@ -630,7 +631,7 @@ _SPECS: List[StrategySpec] = [
         caveat=measured_allocation(
             "on Faber's five and seven ETFs it cut the basket's worst drawdown (-15% "
             "against -26%; -8% against -20%) at 1-2 pp a year of return, with a Sharpe "
-            "level with the basket (0.45 against 0.46; 0.51 against 0.52)."
+            "level with the basket (0.45 against 0.46; 0.52 against 0.52)."
         )
         + " On BTC/ETH 2018-2026 it cut the worst drawdown from -87% to -59% and was flat in "
         "2018, when holding both lost 75%.",
@@ -675,7 +676,7 @@ _SPECS: List[StrategySpec] = [
         input_contract="multi",
         signal_shape="wide_per_asset",
         caveat=measured_allocation(
-            "beat its basket on Faber's five ETFs (Sharpe 0.61 against 0.46) but not on "
+            "beat its basket on Faber's five ETFs (Sharpe 0.62 against 0.46) but not on "
             "seven (0.49 against 0.52), with no drawdown protection (2022: -12%); its "
             "2020-2026 Sharpe ranged 0.22-0.88 across its grid."
         ),
