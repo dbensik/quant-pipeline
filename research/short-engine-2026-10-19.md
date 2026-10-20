@@ -290,3 +290,136 @@ advance, not tuned.
     -0.42 to 0.30.
   - These pairs are mostly rejected by the cointegration test; step 3 is
     the measurement.
+
+### Step 3: ETFs registered, and the study's rules before it runs (2026-10-19)
+
+**23 ETFs registered**, insert-only from 2010, all `served`:
+- sector SPDRs XLB, XLE, XLF, XLI, XLK, XLP, XLU, XLV, XLY;
+- XOP, GDX, KRE, SMH;
+- EWA, EWC, EWG, EWJ, EWU, EEM;
+- LQD, HYG, TIP, SLV.
+
+That is 4,224 bars each, with no missing days. The fresh-return check
+against Yahoo found 0 days off over 30 sessions.
+
+SMH is floored at 2011-12-20 (3,728 bars). Before that date Yahoo's SMH is
+the Semiconductor HOLDRS, which VanEck's ETF replaced: daily volume falls
+from 5-16M to 1-2M at the conversion.
+
+**Pre-registered rules.** Written before the study was run; nothing below
+changes after seeing a result.
+- **Candidate pairs, only within a group (165):**
+  - US equity (16): SPY, QQQ, IWM, VNQ, the 9 sector SPDRs, XOP, KRE, SMH.
+  - International (7): EFA, EEM, EWA, EWC, EWG, EWJ, EWU.
+  - Bonds (7): AGG, IEF, TLT, SHY, LQD, HYG, TIP.
+  - Metals (3): GLD, SLV, GDX.
+
+  Left out: DBC (alone in its group) and TQQQ (leveraged).
+- **Selection:**
+  - For each year from 2013 to 2026, test every candidate pair whose two
+    legs have bars over the whole formation window (the three prior
+    calendar years).
+  - Run Engle-Granger on the leg that sorts first alphabetically against
+    the other, as `pairs_trading` does.
+  - Keep pairs with p < 0.05 and a positive hedge ratio, and trade the 5
+    with the lowest p.
+  - Fewer than 5 qualifying means fewer pairs; none means cash that year.
+- **Trading:**
+  - Each selected pair runs `pairs_trading` at its defaults (formation
+    252, refit 21, entry 2, exit 0, stop 4, p < 0.05), warmed up on the
+    prior year.
+  - Each pair gets a fifth of the book: each leg is ±0.1 of equity, and a
+    leg shared by two pairs nets.
+  - All in one account from 2013-01-02 to 2026-10-16, switching pairs at
+    each year's first open and paying for it.
+  - 10 bps plus $1 a fill, slippage seed 42, borrow 1%, max gross 2,
+    maintenance 30%, idle cash at ^IRX.
+- **Reported:**
+  - Sharpe against cash, CAGR and maximum drawdown;
+  - beta and correlation of daily returns to SPY;
+  - returns in 2020-02-19 to 2020-03-23 and in 2022;
+  - time in a trade, gross and net exposure, borrow paid.
+- **Controls:**
+  - (a) the same pairs long-only: each short leg's target set to 0;
+  - (b) 100 draws of 5 random candidate pairs a year from the same groups,
+    under the same rules (seeds 0-99).
+- **Success:** all three of
+  - a positive Sharpe against cash over 2013-2026;
+  - |beta| to SPY below 0.2;
+  - a Sharpe above at least 90 of the 100 random draws.
+- **Secondary, not part of the test:** borrow at 0% and 5%.
+
+### Step 3: results (2026-10-19)
+
+Scripts: `study48.py`, `register_etfs.py` and `etf_probe.py` in the session
+scratchpad. Total-return prices through the repository; ^IRX averaged 1.82%
+over the window.
+
+**The pairs chosen** (5 a year, lowest Engle-Granger p over the prior three
+years):
+
+| year | pairs |
+|---|---|
+| 2013 | IWM/XLI, QQQ/XLK, AGG/TIP, EWA/EWU, EFA/EWG |
+| 2014 | XLE/XLF, IWM/XLI, XLB/XLE, KRE/SPY, XLV/XLY |
+| 2015 | IWM/KRE, GDX/GLD, GDX/SLV, VNQ/XLU, KRE/XLY |
+| 2016 | SPY/XLF, GDX/GLD, SMH/XLU, EEM/EWC, GLD/SLV |
+| 2017 | EWA/EWC, SMH/XLI, VNQ/XLP, VNQ/XLU, GLD/SLV |
+| 2018 | EFA/EWG, SMH/XLI, EWA/EWC, SPY/XLI, SMH/SPY |
+| 2019 | QQQ/XLK, EWC/EWJ, SMH/XLI, EWA/EWC, GDX/SLV |
+| 2020 | SPY/XLK, EWA/EWC, VNQ/XLU, QQQ/SPY, HYG/TIP |
+| 2021 | AGG/SHY, GDX/GLD, AGG/IEF, HYG/SHY, EEM/EWJ |
+| 2022 | XLK/XLV, SMH/XLV, XLU/XLY, AGG/SHY, LQD/SHY |
+| 2023 | XLU/XOP, EWC/EWU, LQD/SHY, AGG/SHY, QQQ/XLY |
+| 2024 | HYG/SHY, SMH/XLK, EWA/EWG, XLB/XLK, XLF/XLY |
+| 2025 | IWM/XLF, IWM/XLI, IWM/SPY, XLE/XLV, IWM/XLP |
+| 2026 | XLE/XLV, XLE/XLK, XLE/XLI, XLE/XLY, XLE/XLF |
+
+The list changes almost completely from year to year. Several picks are not
+economic pairs (SMH/XLU, XLU/XOP), and 2026 is five pairs that share one
+leg, XLE. A three-year cointegration test on ETFs mostly finds coincidences.
+
+**Results, 2013-01-02 to 2026-10-16:**
+
+| run | Sharpe vs cash | CAGR | max DD | beta to SPY | corr | 2020-02-19 to 03-23 | 2022 | in a trade | fills | borrow |
+|---|---|---|---|---|---|---|---|---|---|---|
+| **pairs (the test)** | **-0.27** | 1.60% | -2.0% | **0.003** | 0.05 | -0.3% | +2.0% | 9.8% | 133 | $165 |
+| (a) same pairs, long-only | -0.02 | 1.81% | -2.4% | 0.011 | 0.14 | -1.0% | +2.0% | 9.8% | 65 | $0 |
+| (b) 100 random pair sets, median | -0.26 (range -0.92 to 0.26) | 1.72% | | 0.0005 | | | | 8.4% | 88 | |
+| borrow 0% (secondary) | -0.25 | 1.61% | | | | | | | | $0 |
+| borrow 5% (secondary) | -0.32 | 1.56% | | | | | | | | $825 |
+
+**Against the pre-registered bar:**
+- Sharpe above 0: **failed** (-0.27).
+- |beta| below 0.2: passed (0.003). It is market-neutral, but mostly
+  because it is mostly cash.
+- Above at least 90 of 100 random draws: **failed**. It beat 50, exactly
+  the median: choosing the most cointegrated pairs did no better than
+  choosing at random.
+
+**Reading:**
+- **The trades lost a little, and the book was almost always in cash.** 42
+  of the 70 pairs chosen never traded: their rolling one-year test stopped
+  calling them cointegrated, or the spread never reached 2 standard
+  deviations.
+  - The book's average gross exposure was 2.3% of equity.
+  - It ended at $124.5k against about $128k for cash alone.
+  - The losses are small because so little was at risk, not because the
+    edge was nearly there.
+- **The short leg cost money:** long-only on the same pairs was at cash
+  (-0.02), and adding the hedge took it to -0.27. Borrow is not the reason:
+  at 0% it is still -0.25. The short legs lost on price.
+- **This matches the literature's prior.** Simple pairs rules on liquid US
+  instruments stopped paying after about 2000, and ETFs are as liquid as
+  it gets.
+
+**What it settles and what it doesn't:**
+- **The engine works as specified.** It was market-neutral as designed
+  (beta 0.003, net exposure never above 1.2% of equity), with no margin
+  call and no ruin, and borrow charged as configured.
+- **This pairs rule at its defaults has no edge on ETFs.** The registry
+  caveat now says so.
+- **Untested:** single-stock pairs (after Sharadar, where survivorship
+  biases them upward), other formation lengths and entry thresholds
+  (tuning them now would be fitting to this result), and long/short across
+  the S&P (needs delisted prices).

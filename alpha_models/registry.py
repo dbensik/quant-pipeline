@@ -493,8 +493,11 @@ _SPECS: List[StrategySpec] = [
         signal_shape="target",
         caveat=(
             "Shorts one leg: borrow and margin are charged as the run's terms say, at one "
-            "flat rate (no hard-to-borrow names). Rebuilt 2026-10-19 (decision 48); not yet "
-            "measured. The version before never held its short leg."
+            "flat rate (no hard-to-borrow names). Measured at its defaults (decision 48): on "
+            "33 ETFs, 2013-2026, the 5 most cointegrated pairs of the prior three years, "
+            "re-chosen yearly, with costs and 1% borrow, had a Sharpe of -0.27 against cash "
+            "with a beta of 0.003. That beat 50 of 100 random pair sets: the selection added "
+            "nothing. In a trade 10% of the time; 42 of the 70 chosen pairs never traded."
         ),
     ),
     StrategySpec(

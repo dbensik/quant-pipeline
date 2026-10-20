@@ -150,7 +150,7 @@ bit-identical to the old `auto_adjust=True` — and `served_*` + `fetched_at`,
 plus splits and dividends into `corporate_actions`. Served values are written
 once — filled only where NULL, never overwritten — and an action keeps its
 first row. `fetch_range(..., adjust="total"|"split"|"none")` derives every
-read from them for assets with `price_basis = 'served'` (547 equities/ETFs; TQQQ joined 2026-10-08, 29 S&P members 2026-10-19),
+read from them for assets with `price_basis = 'served'` (547 equities/ETFs; TQQQ joined 2026-10-08, 29 S&P members and 23 ETFs 2026-10-19; SMH floored at 2011-12-20, before which Yahoo serves the HOLDRS),
 so all bars are adjusted to one as-of date and the dividend/split drift is
 gone. `legacy` assets (11: PARA and names Yahoo no longer serves) and crypto
 (NULL) read the stored columns. `config.settings.SERVED_PRICES_ENABLED` is
@@ -309,7 +309,9 @@ pass through the risk manager. Event-shaped runs take the old loop
 untouched (28 real runs identical). The terms (`SHORT_BORROW_RATE`,
 `SHORT_MAX_GROSS`, `SHORT_MAINTENANCE` in `config/settings.py`) have no
 default: a short run without them is 422. Crypto cannot be shorted. Paper
-portfolios still treat a short's proceeds as cash (decision 49).
+portfolios still treat a short's proceeds as cash (decision 49). Measured on 33 ETFs
+2013-2026 (pairs re-chosen yearly), pairs_trading had a Sharpe of -0.27
+against cash at beta 0.003 and beat 50 of 100 random pair sets: no edge.
 
 **Served equities and ETFs have bars from 2010** (insert-only backfill
 2026-10-14, decision 26; ^IRX from 2009-12, without which a pre-2015
