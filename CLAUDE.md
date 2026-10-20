@@ -294,14 +294,22 @@ hindsight on 37-98% of names but walk-forward on 7-30%, the same as the
 defaults. A 1,000-combination grid on 16 years adds ~9 s of walk-forward to
 ~7 s of search.
 
-**No backtest holds a short** (decision 47, 2026-10-19,
-`research/short-side-2026-10-19.md`). Read as "go short", the single-asset
+**Only a strategy that declares it can short** (decisions 47 and 48,
+2026-10-19, `research/short-side-2026-10-19.md`,
+`research/short-engine-2026-10-19.md`). Read as "go short", the single-asset
 strategies' -1 exits did worse than cash on all but 0-3 of 428 names and
-nearly every coin, so `Backtester` stays long-only. A negative portfolio
-weight is 422: the rebalance had sold from flat and spent the proceeds as
-cash. `pairs_trading` never holds its short leg (its caveat says how it
-misbehaves). Short support for multi-leg strategies, in
-`PortfolioBacktester` and paper portfolios, is decision 48.
+nearly every coin, so `Backtester` stays long-only, and a negative portfolio
+weight is 422. A multi-asset strategy with `signal_shape="target"` (today
+only `pairs_trading`, rebuilt: walk-forward hedge ratio and cointegration
+test) returns each leg's wanted position as a signed fraction of equity, and
+`PortfolioBacktester._run_targets` trades it with `core/ledger.py`: short
+proceeds are collateral, borrow by calendar day, buys from free cash only,
+a gross cap, a maintenance cut at the next open, ruin at 0. Covers never
+pass through the risk manager. Event-shaped runs take the old loop
+untouched (28 real runs identical). The terms (`SHORT_BORROW_RATE`,
+`SHORT_MAX_GROSS`, `SHORT_MAINTENANCE` in `config/settings.py`) have no
+default: a short run without them is 422. Crypto cannot be shorted. Paper
+portfolios still treat a short's proceeds as cash (decision 49).
 
 **Served equities and ETFs have bars from 2010** (insert-only backfill
 2026-10-14, decision 26; ^IRX from 2009-12, without which a pre-2015

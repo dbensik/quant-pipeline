@@ -95,14 +95,19 @@ class StrategySpec:
     #                    Every single-asset strategy.
     #   wide_per_asset   wide frame in, ONE POSITION COLUMN PER ASSET out, no
     #                    'signal' column. Split into the per-ticker dict.
-    #                    pairs_trading; the shape allocation strategies want.
+    #                    The shape allocation strategies want.
     #   wide_portfolio   wide frame in, ONE 'signal' column for the basket as a
     #                    single unit. Filed under the "Portfolio" key.
     #   calendar_shared  only the DatetimeIndex is read; emits a rebalance
     #                    schedule every symbol shares. Uses signal == 2.
-    signal_shape: Literal["per_symbol", "wide_per_asset", "wide_portfolio", "calendar_shared"] = (
-        "per_symbol"
-    )
+    #   target           wide frame in, one TARGET column per asset out: the
+    #                    position wanted as a signed fraction of equity, NaN =
+    #                    unchanged. The only shape that can SHORT, so a run
+    #                    needs borrow and margin terms (decision 48).
+    #                    pairs_trading.
+    signal_shape: Literal[
+        "per_symbol", "wide_per_asset", "wide_portfolio", "calendar_shared", "target"
+    ] = "per_symbol"
 
     # Non-empty when a strategy is known to be unsound, or when what it was
     # measured to do should be read before trusting a run (decisions 25, 28:
@@ -455,29 +460,41 @@ _SPECS: List[StrategySpec] = [
         id="pairs_trading",
         display_name="Pairs Trading",
         cls=PairsTradingStrategy,
-        description="Trade the spread between two cointegrated symbols.",
+        description=(
+            "Long one leg and short the other when a cointegrated spread diverges; out "
+            "when it reverts. Refits the hedge ratio and re-tests cointegration on the "
+            "trailing window."
+        ),
         params=[
             ParamSpec(
-                "window", "int", 20, "Lookback window", "Bars in the spread's rolling stats", 2, 500
+                "formation",
+                "int",
+                252,
+                "Formation window",
+                "Bars each fit and test reads",
+                30,
+                2000,
             ),
+            ParamSpec("refit", "int", 21, "Refit every", "Bars between refits", 1, 500),
+            ParamSpec("entry", "float", 2.0, "Entry z", "Spread std devs to enter", 0.1, 10.0),
+            ParamSpec("exit", "float", 0.0, "Exit z", "Out when z crosses back past it", 0.0, 10.0),
+            ParamSpec("stop", "float", 4.0, "Stop z", "Out when z passes it", 0.2, 20.0),
             ParamSpec(
-                "threshold",
+                "max_pvalue",
                 "float",
-                2.0,
-                "Z-score threshold",
-                "Spread std devs to trigger",
-                0.1,
-                10.0,
+                0.05,
+                "Max p-value",
+                "Engle-Granger p-value below which the pair is traded",
+                0.001,
+                0.5,
             ),
         ],
         input_contract="multi",
-        signal_shape="wide_per_asset",
+        signal_shape="target",
         caveat=(
-            "Does not trade a spread. The portfolio backtester reads -1 as exit, so the "
-            "short leg is never opened, and the leg that should be short is BOUGHT when "
-            "the spread trade closes. It holds only while the z-score is beyond the "
-            "threshold, usually one day; the pair is chosen by hand and never tested for "
-            "cointegration (decision 47; a replacement is decision 48)."
+            "Shorts one leg: borrow and margin are charged as the run's terms say, at one "
+            "flat rate (no hard-to-borrow names). Rebuilt 2026-10-19 (decision 48); not yet "
+            "measured. The version before never held its short leg."
         ),
     ),
     StrategySpec(

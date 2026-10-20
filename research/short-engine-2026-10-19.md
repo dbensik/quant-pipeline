@@ -250,3 +250,43 @@ advance, not tuned.
 - **Real-data check:** SPY long 0.5 / TLT short 0.5, 2016-2025, never
   rebalanced: 2 fills, $5,579 borrow, gross drifting to 1.62x equity, no
   margin call, 0.02 s.
+
+### Step 2: the strategy, the API and the page (2026-10-19)
+
+- **`pairs_trading` rebuilt** (`alpha_models/pairs_trading.py`), signal shape
+  `target`. Every `refit` bars (21) it fits A = alpha + beta x B by OLS on the
+  trailing `formation` closes (252) and runs an Engle-Granger test. It trades
+  only while p < `max_pvalue` (0.05) and beta > 0:
+  - long the spread below -`entry` (2), short it above +`entry`;
+  - out when z crosses back past `exit` (0), or at a stop beyond `stop` (4);
+  - never enters beyond the stop, and after a stop waits for |z| to come back
+    inside `entry`;
+  - a refit that loses the pair closes the position.
+
+  Legs are dollar-neutral, 0.5 of equity each.
+- **API** (`POST /backtest/portfolio`):
+  - `borrow_rate`, `max_gross` and `maintenance` in the request, each
+    falling back to `SHORT_*` in `config/settings.py`, which are unset;
+  - 422 when one is still missing, for terms that cannot hold, for a crypto
+    leg (`SHORTABLE_ASSET_CLASSES`), for terms sent with a strategy that
+    doesn't short, and for `weights` sent with a strategy that sizes its own
+    legs;
+  - the response echoes `short_terms` with their source and reports
+    `short_exposure`: borrow paid, highest gross and net exposure, time
+    short, margin cuts, ruin;
+  - `GET /strategies` says which strategies short (`shorts`).
+- **Allocation page:** borrow, max gross and maintenance inputs for a
+  strategy that shorts (a blank one is left to the settings), a Shorts card,
+  and a benchmark run that never sends terms.
+- **Tests:**
+  - 15 strategy tests, including a look-ahead check that refits every bar
+    and cuts the data at 15 points;
+  - 8 router tests and 3 page tests.
+  - Of 13 mutants, 12 were caught. The survivor duplicates a check the
+    engine makes again, and still returns 422.
+- **Real data, 2010-2025, 1% borrow, max gross 2, 30% maintenance:**
+  - IEF/TLT, SPY/IWM, SPY/QQQ, AGG/IEF and EFA/SPY each ran in about 1 s.
+  - Each held a trade 0.5-1.4% of the time (4-26 fills), with a Sharpe of
+    -0.42 to 0.30.
+  - These pairs are mostly rejected by the cointegration test; step 3 is
+    the measurement.

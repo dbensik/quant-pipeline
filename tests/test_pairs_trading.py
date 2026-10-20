@@ -1,122 +1,148 @@
+"""
+pairs_trading, rebuilt as targets (decision 48, research/short-engine-2026-10-19.md).
+
+Fixtures: B is a seeded random walk and A = 10 + 2B + small noise, so the pair
+is cointegrated with a hedge ratio near 2, with the noise nearly gone after
+the formation window, so a shock added to A moves z by a known amount. `refit` is set past the end of
+each frame, so one fit (at bar formation - 1) governs every bar after it and
+z is predictable.
+"""
+
+import numpy as np
 import pandas as pd
 import pytest
 
-from alpha_models.pairs_trading import PairsTradingStrategy
+from alpha_models.pairs_trading import LEG, PairsTradingStrategy
+
+N = 200
+FORMATION = 100
 
 
-@pytest.fixture
-def strategy():
-    return PairsTradingStrategy(window=5, threshold=1.0)
+def pair(shock=None, seed=3, cointegrated=True):
+    rng = np.random.default_rng(seed)
+    idx = pd.bdate_range("2024-01-02", periods=N, tz="UTC")
+    b = 50 + np.cumsum(rng.normal(0, 1, N))
+    if cointegrated:
+        # Noisy in the formation window, quiet after it: out of sample z
+        # stays near 0 and moves only where a shock puts it.
+        noise = rng.normal(0, 0.5, N)
+        noise[FORMATION:] *= 0.05
+        a = 10 + 2 * b + noise
+    else:
+        a = 100 + np.cumsum(rng.normal(0, 1, N))
+    if shock is not None:
+        a = a + shock
+    return pd.DataFrame({"A": a, "B": b}, index=idx)
 
 
-def test_initialization():
-    """Test proper initialization and parameter inputs."""
-    strategy = PairsTradingStrategy(window=10, threshold=2.0)
-    assert strategy.window == 10
-    assert strategy.threshold == 2.0
-
-    with pytest.raises(ValueError, match="Window must be greater than 1"):
-        PairsTradingStrategy(window=1)
-
-    with pytest.raises(ValueError, match="Threshold must be a positive number"):
-        PairsTradingStrategy(threshold=-1)
+def strategy(**kw):
+    return PairsTradingStrategy(**{"formation": FORMATION, "refit": 10_000, **kw})
 
 
-def test_input_validation(strategy):
-    """Test that the strategy validates input dataframe columns."""
-    # Dataframe with 1 column (should fail)
-    df_one = pd.DataFrame({"A": [1, 2, 3]})
-    with pytest.raises(ValueError, match="requires a DataFrame with exactly two price columns"):
-        strategy.generate_signals(df_one)
-
-    # Dataframe with 3 columns (should fail)
-    df_three = pd.DataFrame({"A": [1, 2], "B": [1, 2], "C": [1, 2]})
-    with pytest.raises(ValueError, match="requires a DataFrame with exactly two price columns"):
-        strategy.generate_signals(df_three)
+def shock(at, size, length):
+    s = np.zeros(N)
+    s[at : at + length] = size
+    return s
 
 
-def test_signal_generation_logic(strategy):
-    """
-    Test the core signal logic:
-    Spread = A / B
-    Z-Score = (Spread - Mean) / Std
-    """
-    # Create controlled data
-    # Asset B is constant 1.0, so Spread = Asset A price.
-    # We want a sequence that moves:
-    # 1. Start at mean
-    # 2. Move up (Spread > Mean) -> Z > Threshold (1.0) -> Short Signal
-    # 3. Move down back to mean -> Exit Signal
-    # 4. Move down (Spread < Mean) -> Z < -Threshold (-1.0) -> Long Signal
-
-    # Window is 5.
-
-    # Index: 0, 1, 2, 3, 4 -> Rolling window calc starts at index 4
-    # Prices: 10, 10, 10, 10, 10 -> Mean=10, Std=0 (NaN z-score handling check?)
-    # Let's make it vary slightly to avoid div by zero if std=0, though pandas handles it (NaN).
-
-    data = {
-        "A": [
-            10.0,
-            10.0,
-            10.0,
-            10.0,
-            10.0,  # Stable period (Mean ~10)
-            12.0,
-            12.0,  # Spike up (Z-score should rise)
-            10.0,  # Return to mean
-            8.0,
-            8.0,
-        ],  # Spike down
-        "B": [1.0] * 10,
-    }
-    df = pd.DataFrame(data)
-
-    # We need to ensure we don't get NaNs that break everything, or that we handle them.
-    # The first (window-1) values will be NaN for rolling metrics.
-
-    signals = strategy.generate_signals(df)
-
-    assert "A" in signals.columns
-    assert "B" in signals.columns
-
-    # Check stable period (index 0-4) -> Should be 0 signals (or NaN/0 at start)
-    assert signals.iloc[4]["A"] == 0.0
-
-    # Note: Precise numeric testing of Z-score requires exact std dev calc.
-    # Instead, let's verify directionality if we force a massive move.
-
-    # Massive spike up -> Short A (-1), Long B (1)
-    # 10,10,10,10,10 -> Mean=10, Std=0.
-    # Next is 20. Mean=(10+10+10+10+20)/5 = 12. Std approx 4.47.
-    # Spread=20. Z = (20-12)/4.47 = 1.78 > Threshold(1.0). Signal: Short Spread.
-
-    df_extreme = pd.DataFrame({"A": [10, 10, 10, 10, 10, 20, 10, 0], "B": [1, 1, 1, 1, 1, 1, 1, 1]})
-
-    sigs_extreme = strategy.generate_signals(df_extreme)
-
-    # Index 5 (Value 20): Spread=20. Z > 1.0.
-    # Action: Short Spread -> Sell A, Buy B.
-    # Signal is the DIFF of positions. Position goes 0 -> -1. Signal = -1.
-    assert sigs_extreme.iloc[5]["A"] == -1.0  # Short A
-    assert sigs_extreme.iloc[5]["B"] == 1.0  # Long B
-
-    # Index 6 (Value 10): Back to mean. Z ~ 0. Exit condition |Z| < 0.5.
-    # Position goes -1 -> 0. Signal (Diff) = +1 (Cover Short).
-    assert sigs_extreme.iloc[6]["A"] == 1.0  # Buy back A
-
-    # Index 7 (Value 0): Crash. Spread=0. Mean=(10+10+10+20+0)/5 = 10. Spread < Mean.
-    # Z will be negative.
-    # Position 0 -> 1 (Long Spread -> Buy A). Signal = 1.
-    assert sigs_extreme.iloc[7]["A"] == 1.0
-    assert sigs_extreme.iloc[7]["B"] == -1.0
+def residual_sd(frame):
+    w = frame.iloc[:FORMATION]
+    beta, alpha = np.polyfit(w["B"], w["A"], 1)
+    return (w["A"] - alpha - beta * w["B"]).std(ddof=1)
 
 
-def test_zero_variance_handling(strategy):
-    """Ensure strategy doesn't crash if price is constant (std=0)."""
-    df_const = pd.DataFrame({"A": [10.0] * 20, "B": [1.0] * 20})
-    # Z-score will be NaN because std=0.
-    # np.where comparisons with NaN usually return False.
-    # Signals should remain 0.
-    signals = strategy.generate_signals(df_const)
-    assert (signals["A"] == 0).all()
+def decisions(targets):
+    return targets.dropna(how="all")
+
+
+def test_a_spread_above_entry_shorts_a_and_buys_b_then_exits_at_the_mean():
+    sd = residual_sd(pair())
+    targets = strategy().generate_signals(pair(shock(150, 3 * sd, 5)))
+    d = decisions(targets)
+    assert list(d.index) == [targets.index[150], targets.index[155]]
+    assert list(d.iloc[0]) == [-LEG, LEG]
+    assert list(d.iloc[1]) == [0.0, 0.0]
+
+
+def test_a_spread_below_entry_buys_a_and_shorts_b():
+    sd = residual_sd(pair())
+    d = decisions(strategy().generate_signals(pair(shock(150, -3 * sd, 5))))
+    assert list(d.iloc[0]) == [LEG, -LEG]
+
+
+@pytest.mark.parametrize("side", [1, -1])
+def test_it_never_enters_beyond_the_stop(side):
+    sd = residual_sd(pair())
+    assert decisions(strategy().generate_signals(pair(shock(150, side * 6 * sd, 5)))).empty
+
+
+@pytest.mark.parametrize("side", [1, -1])
+def test_a_stop_exits_and_blocks_re_entry_until_z_is_back_inside_entry(side):
+    sd = residual_sd(pair())
+    s = np.zeros(N)
+    s[150:152] = side * 3 * sd  # enter
+    s[152:155] = side * 6 * sd  # past the stop: out
+    s[155:158] = side * 3 * sd  # still beyond entry: no re-entry
+    targets = strategy().generate_signals(pair(s))
+    d = decisions(targets)
+    assert list(d.index[:2]) == [targets.index[150], targets.index[152]]
+    assert list(d.iloc[1]) == [0.0, 0.0]
+    assert targets.index[155] not in d.index
+
+
+def test_an_uncointegrated_pair_is_never_traded():
+    targets = strategy().generate_signals(pair(cointegrated=False, seed=11))
+    assert decisions(targets).empty
+
+
+def test_a_refit_that_loses_cointegration_closes_the_position():
+    class BreaksAtSecondFit(PairsTradingStrategy):
+        fits = 0
+
+        def fit(self, a, b):
+            self.fits += 1
+            return super().fit(a, b) if self.fits == 1 else None
+
+    sd = residual_sd(pair())
+    model = BreaksAtSecondFit(formation=FORMATION, refit=30)  # fits at 99, 129, 159
+    targets = model.generate_signals(pair(shock(110, 3 * sd, 40)))
+    d = decisions(targets)
+    assert list(d.index) == [targets.index[110], targets.index[129]]
+    assert list(d.iloc[1]) == [0.0, 0.0]
+
+
+def test_nothing_is_decided_before_the_formation_window_is_full():
+    targets = strategy().generate_signals(pair(shock(10, 50.0, 80)))
+    assert targets.iloc[: FORMATION - 1].isna().all().all()
+
+
+def test_no_decision_reads_a_later_bar():
+    """Refitting every bar, cut at many points: the targets up to each cut are unchanged."""
+    sd = residual_sd(pair())
+    frame = pair(shock(150, 3 * sd, 5) + shock(170, -3 * sd, 5))
+    model = PairsTradingStrategy(formation=FORMATION, refit=1)
+    full = model.generate_signals(frame)
+    assert not decisions(full).empty
+    for cut in range(FORMATION, N, 7):
+        part = model.generate_signals(frame.iloc[:cut])
+        pd.testing.assert_frame_equal(part, full.iloc[:cut])
+
+
+def test_requires_exactly_two_columns():
+    with pytest.raises(ValueError, match="exactly two"):
+        strategy().generate_signals(pair()[["A"]])
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"formation": 10},
+        {"refit": 0},
+        {"entry": 2.0, "exit": 2.0},
+        {"entry": 4.0, "stop": 4.0},
+        {"max_pvalue": 0.0},
+    ],
+)
+def test_parameters_that_cannot_work_are_refused(kwargs):
+    with pytest.raises(ValueError):
+        PairsTradingStrategy(**kwargs)

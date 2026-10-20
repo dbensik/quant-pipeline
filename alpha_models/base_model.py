@@ -37,13 +37,13 @@ class BaseAlphaModel(ABC):
 
         Returns:
             pd.DataFrame: A DataFrame with the same index as `price_data`, in
-                          one of the four sanctioned shapes below. Which one a
+                          one of the five sanctioned shapes below. Which one a
                           strategy uses is DECLARED in alpha_models/registry.py
                           as `signal_shape`, and that declaration is what the
                           portfolio backtest router dispatches on — so a shape
                           that is not declared is not wired up.
 
-        THE FOUR SHAPES
+        THE FIVE SHAPES
 
         `per_symbol` — the default, and every single-asset strategy. One
             'signal' column:
@@ -54,8 +54,8 @@ class BaseAlphaModel(ABC):
         `wide_per_asset` — takes a WIDE frame (one close column per symbol) and
             returns ONE POSITION COLUMN PER ASSET, named for the input columns.
             No 'signal' column at all. Values are the same {-1, 0, 1}. This is
-            the shape for anything that must compare assets against each other:
-            pairs trading today, and asset-allocation strategies next. Sizing
+            the shape for allocation strategies that compare assets against
+            each other. Sizing
             comes from the caller's `weights` (equal-weight by default), NOT
             from the strategy — the values here are directional, not fractional.
 
@@ -66,6 +66,12 @@ class BaseAlphaModel(ABC):
             schedule every symbol shares. Uses `signal == 2`, which means
             "rebalance to target weights" and is deliberately outside the
             {-1, 0, 1} set the other shapes use.
+
+        `target` — takes a wide frame and returns one column per asset holding
+            the POSITION WANTED as a signed fraction of equity (-0.5 = short
+            half the equity), NaN = unchanged. The only shape that can short
+            (decision 48): PortfolioBacktester trades each leg to it and
+            charges borrow and margin (core/ledger.py). Pairs trading.
 
         Historically these existed but were undocumented and dispatched on by
         hardcoded strategy id inside the router; `tests/test_strategy_contract.py`

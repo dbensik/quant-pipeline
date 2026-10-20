@@ -1202,6 +1202,20 @@ def lot_size_for(asset_class: str) -> float:
         raise ValueError(f"No backtest lot size for asset class {asset_class!r}.") from None
 
 
+# --- Short positions (decision 48, research/short-engine-2026-10-19.md) ---
+# Facts about a broker the repo cannot verify, so unset (None) until Danny sets
+# them: a portfolio backtest whose strategy shorts is 422 unless each is set
+# here or passed in the request (core/ledger.ShortTerms). Reference points,
+# not defaults: Reg T initial margin 50% (max gross 2), FINRA maintenance on a
+# short at least 30%, borrow on easy-to-borrow ETFs usually well under 1%.
+SHORT_BORROW_RATE = None  # annual, on the shorts' value
+SHORT_MAX_GROSS = None  # gross exposure cap, as a multiple of equity
+SHORT_MAINTENANCE = None  # equity / gross exposure below which positions are cut
+#: Asset classes a backtest may short. Crypto is not: borrow and margin on it
+#: differ by venue, and nothing here models them.
+SHORTABLE_ASSET_CLASSES = frozenset({"equity", "etf"})
+
+
 # --- Option pricing kernels (pricing/, tier 2 phase 1) ---
 # Plan: research/option-pricing-plan-2026-10-08.md. Pricing time is ACT/365;
 # realised volatility is annualised over trading days. Never mixed in one function.

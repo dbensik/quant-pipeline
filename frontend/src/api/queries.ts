@@ -430,6 +430,10 @@ export function usePortfolioBacktest() {
           strategy_id: 'index_rebalancing',
           params: {},
           weights: null,
+          // The benchmark never shorts; the server refuses short terms on it.
+          borrow_rate: undefined,
+          max_gross: undefined,
+          maintenance: undefined,
         }),
       ])
       return { strategy, benchmark }

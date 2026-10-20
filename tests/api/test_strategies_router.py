@@ -41,6 +41,12 @@ def test_multi_contract_filter(client: TestClient):
     }
 
 
+def test_only_pairs_trading_shorts(client: TestClient):
+    """The UI shows borrow and margin inputs for a strategy that shorts (decision 48)."""
+    body = client.get("/api/v1/strategies").json()
+    assert {s["id"] for s in body["strategies"] if s["shorts"]} == {"pairs_trading"}
+
+
 def test_each_strategy_carries_a_usable_param_schema(client: TestClient):
     """
     The UIs generate every parameter control from this schema. A missing type,

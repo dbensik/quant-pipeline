@@ -52,6 +52,13 @@ class StrategySchema(BaseModel):
             "backtest passes none — 'equal' 1/N, 'per_top_n' 1/top_n, 'full' 1.0."
         ),
     )
+    shorts: bool = Field(
+        default=False,
+        description=(
+            "Holds short positions (decision 48). A portfolio backtest of it needs "
+            "borrow_rate, max_gross and maintenance, from the request or the settings."
+        ),
+    )
     default_grid: Optional[Dict[str, List[Any]]] = Field(
         default=None,
         description=(
@@ -87,6 +94,7 @@ def _to_schema(spec: registry.StrategySpec) -> StrategySchema:
         ],
         caveat=spec.caveat,
         held_weight=spec.held_weight,
+        shorts=spec.signal_shape == "target",
         default_grid=spec.default_grid,
     )
 

@@ -492,6 +492,10 @@ export const api = {
     params?: Record<string, unknown>
     weights?: Record<string, number> | null
     include_risk?: boolean
+    /** Short terms, for a strategy that shorts; omitted = the server's settings. */
+    borrow_rate?: number
+    max_gross?: number
+    maintenance?: number
   }): Promise<PortfolioBacktestResponse> {
     return request('/api/v1/backtest/portfolio', {
       method: 'POST',

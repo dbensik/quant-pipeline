@@ -33,7 +33,7 @@ const param = (name: string, type: string, def: unknown, label: string) => ({
 })
 
 const CATALOGUE = {
-  count: 3,
+  count: 4,
   strategies: [
     {
       id: 'asset_class_trend',
@@ -56,6 +56,17 @@ const CATALOGUE = {
       caveat: null,
       held_weight: 'per_top_n',
       params: [param('lookback', 'int', 126, 'Lookback'), param('top_n', 'int', 2, 'Top N')],
+      default_grid: null,
+    },
+    {
+      id: 'pairs_trading',
+      display_name: 'Pairs Trading',
+      description: '',
+      input_contract: 'multi',
+      caveat: null,
+      held_weight: 'equal',
+      shorts: true,
+      params: [param('entry', 'float', 2, 'Entry z')],
       default_grid: null,
     },
     {
@@ -224,5 +235,74 @@ describe('AllocationPage — running', () => {
     await screen.findByLabelText('Moving average window')
     await userEvent.click(screen.getByRole('button', { name: 'Run backtest' }))
     expect(await screen.findByText(/exactly two symbols/)).toBeInTheDocument()
+  })
+})
+
+describe('AllocationPage — a strategy that shorts (decision 48)', () => {
+  const SHORTS = {
+    short_terms: { borrow_rate: 0.01, max_gross: 2, maintenance: 0.3, source: 'request' },
+    short_exposure: {
+      borrow_paid: 1234.4,
+      max_gross_exposure: 1.02,
+      max_net_exposure: 0.05,
+      time_short: 0.25,
+      margin_cuts: ['2020-03-17T00:00:00Z'],
+      ruined_at: null,
+    },
+  }
+
+  function mockPairs() {
+    return vi.spyOn(api, 'runPortfolioBacktest').mockImplementation(async (body) =>
+      (body.strategy_id === 'index_rebalancing'
+        ? response('index_rebalancing', 'Index Rebalancing', 0.46)
+        : {
+            ...response('pairs_trading', 'Pairs Trading', 0.3),
+            weights: {},
+            ...SHORTS,
+          }) as never,
+    )
+  }
+
+  it('asks for borrow and margin terms only for a strategy that shorts', async () => {
+    renderPage(<AllocationPage />)
+    await screen.findByLabelText('Moving average window')
+    expect(screen.queryByLabelText('Borrow (% a year)')).toBeNull()
+    await userEvent.selectOptions(screen.getByLabelText('Strategy'), 'pairs_trading')
+    expect(screen.getByLabelText('Borrow (% a year)')).toBeInTheDocument()
+    expect(screen.getByLabelText('Max gross (x equity)')).toBeInTheDocument()
+    expect(screen.getByLabelText('Maintenance (% of gross)')).toBeInTheDocument()
+  })
+
+  it('sends typed terms as fractions, leaves blanks to the server, and none to the benchmark', async () => {
+    const runs = mockPairs()
+    renderPage(<AllocationPage />)
+    await screen.findByLabelText('Moving average window')
+    await userEvent.selectOptions(screen.getByLabelText('Strategy'), 'pairs_trading')
+    await userEvent.type(screen.getByLabelText('Borrow (% a year)'), '1.5')
+    await userEvent.type(screen.getByLabelText('Maintenance (% of gross)'), '30')
+    await userEvent.click(screen.getByRole('button', { name: 'Run backtest' }))
+
+    await waitFor(() => expect(runs).toHaveBeenCalledTimes(2))
+    const pairs = runs.mock.calls.find((c) => c[0].strategy_id === 'pairs_trading')![0]
+    expect(pairs.borrow_rate).toBeCloseTo(0.015)
+    expect(pairs.maintenance).toBeCloseTo(0.3)
+    expect('max_gross' in pairs).toBe(false)
+    const bench = runs.mock.calls.find((c) => c[0].strategy_id === 'index_rebalancing')![0]
+    expect(bench.borrow_rate).toBeUndefined()
+    expect(bench.maintenance).toBeUndefined()
+  })
+
+  it('reports what the shorts did and the terms they were charged on', async () => {
+    mockPairs()
+    renderPage(<AllocationPage />)
+    await screen.findByLabelText('Moving average window')
+    await userEvent.selectOptions(screen.getByLabelText('Strategy'), 'pairs_trading')
+    await userEvent.click(screen.getByRole('button', { name: 'Run backtest' }))
+
+    expect(await screen.findByText('$1,234')).toBeInTheDocument()
+    expect(screen.getByText('25.00%')).toBeInTheDocument()
+    expect(screen.getByText('1.020x equity')).toBeInTheDocument()
+    expect(screen.getByText(/Borrow 1.00% a year, gross capped at 2x/)).toBeInTheDocument()
+    expect(screen.getByText('sized by the strategy')).toBeInTheDocument()
   })
 })

@@ -13,7 +13,7 @@ Phase 5 — decommissioning Streamlit
 """
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException
@@ -33,6 +33,8 @@ from api.risk_free import (
     risk_free_refusal,
 )
 from api.routers.backtest import _json_safe
+from config import settings
+from core.ledger import ShortTerms
 from core.rates import RateRepository
 from db.repositories.market_data import TimescaleMarketDataRepo
 
@@ -118,10 +120,58 @@ class PortfolioBacktestRequest(BaseModel):
     include_equity_curve: bool = Field(default=True)
     risk_free_rate: Optional[float] = Field(default=None, description=RISK_FREE_RATE_DESCRIPTION)
 
+    # Short terms (decision 48): only for a strategy that shorts (`shorts` in
+    # GET /strategies). Each falls back to config.settings (SHORT_*), which is
+    # unset until the broker's values are entered; a run left without one is
+    # 422. Never defaulted here: they are facts about a broker.
+    borrow_rate: Optional[float] = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="Annual borrow fee on the shorts' value (0.01 = 1%), by calendar day",
+    )
+    max_gross: Optional[float] = Field(
+        default=None,
+        gt=0,
+        le=10,
+        description="Cap on gross exposure (longs + shorts) as a multiple of equity",
+    )
+    maintenance: Optional[float] = Field(
+        default=None,
+        gt=0,
+        lt=1,
+        description=(
+            "Equity must stay at least this fraction of gross exposure; below it every "
+            "position is cut pro rata at the next open"
+        ),
+    )
+
 
 class PortfolioEquityPoint(BaseModel):
     time: datetime
     total: float
+
+
+class ShortTermsUsed(BaseModel):
+    borrow_rate: float
+    max_gross: float
+    maintenance: float
+    source: Literal["request", "settings", "mixed"] = Field(
+        description="Where the values came from: the request, config.settings, or both"
+    )
+
+
+class ShortExposure(BaseModel):
+    borrow_paid: float = Field(description="Total borrow charged over the run")
+    max_gross_exposure: float = Field(description="Highest (longs + shorts) / equity at a close")
+    max_net_exposure: float = Field(description="Highest |longs - shorts| / equity at a close")
+    time_short: float = Field(description="Share of bars with a short held")
+    margin_cuts: List[datetime] = Field(
+        default_factory=list, description="Opens at which positions were cut for maintenance"
+    )
+    ruined_at: Optional[datetime] = Field(
+        default=None, description="Close at which equity reached 0; the run stopped there"
+    )
 
 
 class PortfolioBacktestResponse(BaseModel):
@@ -132,7 +182,9 @@ class PortfolioBacktestResponse(BaseModel):
     end: datetime
     bars: int
     params: Dict[str, Any]
-    weights: Dict[str, float] = Field(description="Weights actually used")
+    weights: Dict[str, float] = Field(
+        description="Weights actually used; empty for a strategy that sizes its own legs"
+    )
     initial_capital: float
     transaction_cost: float
     seed: Optional[int]
@@ -148,6 +200,10 @@ class PortfolioBacktestResponse(BaseModel):
     )
     caveat: Optional[str] = None
     equity_curve: List[PortfolioEquityPoint] = Field(default_factory=list)
+    short_terms: Optional[ShortTermsUsed] = Field(
+        default=None, description="Set for a strategy that shorts: the terms the run used"
+    )
+    short_exposure: Optional[ShortExposure] = None
 
 
 # ---------------------------------------------------------------------------
@@ -184,6 +240,15 @@ def _build_signals(
             for column in signals.columns
         }
 
+    if shape == "target":
+        # Wide frame in, one target column per asset out (decision 48).
+        wide = frames_to_wide_close(price_data).dropna()
+        targets = model.generate_signals(wide)
+        return {
+            column: targets[[column]].rename(columns={column: "target"})
+            for column in targets.columns
+        }
+
     if shape == "wide_portfolio":
         # Wide frame in, one 'signal' column for the basket as a single unit.
         wide = frames_to_wide_close(price_data).dropna()
@@ -216,8 +281,9 @@ def _run_sync(
     request: PortfolioBacktestRequest,
     cash_accrual: pd.Series,
     lot_sizes: Dict[str, float],
+    short_terms: Optional[ShortTerms] = None,
 ) -> tuple:
-    """CPU-bound half: signals, backtest, metrics, risk."""
+    """CPU-bound half: signals, backtest, metrics, risk, short exposure."""
     from backtesting.portfolio_backtester import PortfolioBacktester
     from backtesting.risk_manager import PortfolioRiskManager
 
@@ -236,8 +302,13 @@ def _run_sync(
             max_portfolio_drawdown_pct=request.max_portfolio_drawdown_pct,
         ),
     )
-    portfolio, _holdings = backtester.run(
-        price_data, signals_data, weights, cash_accrual=cash_accrual, lot_sizes=lot_sizes
+    portfolio, trades = backtester.run(
+        price_data,
+        signals_data,
+        weights,
+        cash_accrual=cash_accrual,
+        lot_sizes=lot_sizes,
+        short_terms=short_terms,
     )
     metrics = backtester.get_performance_metrics()
 
@@ -249,7 +320,65 @@ def _run_sync(
 
             risk = RiskManager(portfolio_returns=returns).get_all_risk_metrics()
 
-    return portfolio, metrics, risk
+    exposure = None
+    if short_terms is not None and portfolio is not None and not portfolio.empty:
+        exposure = short_exposure(portfolio, trades, backtester.ruined_at)
+
+    return portfolio, metrics, risk, exposure
+
+
+def short_exposure(portfolio: pd.DataFrame, trades: pd.DataFrame, ruined_at) -> ShortExposure:
+    """What the shorts did over a target run, from the engine's frame and fills."""
+    live = portfolio[portfolio["total"] > 0]
+    gross = live["gross"] / live["total"]
+    net = (live["long_value"] - live["short_value"]).abs() / live["total"]
+    cuts = []
+    if not trades.empty and "reason" in trades:
+        cuts = sorted(
+            {
+                pd.Timestamp(t).to_pydatetime()
+                for t in trades.loc[trades["reason"] == "margin", "timestamp"]
+            }
+        )
+    return ShortExposure(
+        borrow_paid=float(portfolio["borrow_paid"].iloc[-1]),
+        max_gross_exposure=float(gross.max()) if len(gross) else 0.0,
+        max_net_exposure=float(net.max()) if len(net) else 0.0,
+        time_short=float((portfolio["short_value"] > 0).mean()),
+        margin_cuts=cuts,
+        ruined_at=None if ruined_at is None else pd.Timestamp(ruined_at).to_pydatetime(),
+    )
+
+
+def resolve_short_terms(request: PortfolioBacktestRequest) -> ShortTermsUsed:
+    """The request's terms, each falling back to config.settings; 422 for one left unset."""
+    names = ("borrow_rate", "max_gross", "maintenance")
+    fallback = {
+        "borrow_rate": settings.SHORT_BORROW_RATE,
+        "max_gross": settings.SHORT_MAX_GROSS,
+        "maintenance": settings.SHORT_MAINTENANCE,
+    }
+    values, sources = {}, set()
+    for name in names:
+        given = getattr(request, name)
+        values[name] = given if given is not None else fallback[name]
+        sources.add("request" if given is not None else "settings")
+    missing = [n for n in names if values[n] is None]
+    if missing:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"'{request.strategy_id}' shorts, and no {', '.join(missing)} is set. Pass "
+                "it in the request or set SHORT_BORROW_RATE, SHORT_MAX_GROSS and "
+                "SHORT_MAINTENANCE in config/settings.py to your broker's terms."
+            ),
+        )
+    try:
+        ShortTerms(**values)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    source = sources.pop() if len(sources) == 1 else "mixed"
+    return ShortTermsUsed(**values, source=source)
 
 
 # ---------------------------------------------------------------------------
@@ -299,6 +428,25 @@ async def run_portfolio_backtest(
             ),
         )
 
+    shorts = spec.signal_shape == "target"
+    given_terms = [
+        n for n in ("borrow_rate", "max_gross", "maintenance") if getattr(request, n) is not None
+    ]
+    if given_terms and not shorts:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"{', '.join(given_terms)} applies only to a strategy that shorts; "
+                f"'{spec.id}' does not."
+            ),
+        )
+    if shorts and request.weights is not None:
+        raise HTTPException(
+            status_code=422,
+            detail=f"'{spec.id}' sizes its own legs; `weights` do not apply.",
+        )
+    terms_used = resolve_short_terms(request) if shorts else None
+
     if spec.id == "pairs_trading" and len(request.symbols) != 2:
         raise HTTPException(
             status_code=422,
@@ -328,7 +476,7 @@ async def run_portfolio_backtest(
                 status_code=422,
                 detail=(
                     f"Weights must not be negative: {negative}. A negative weight is a short, "
-                    "and portfolio backtests do not account for shorts yet."
+                    "and only a strategy that shorts (`shorts` in GET /strategies) may hold one."
                 ),
             )
 
@@ -346,6 +494,14 @@ async def run_portfolio_backtest(
         if asset is None:
             raise HTTPException(status_code=404, detail=f"Unknown symbol: {symbol!r}")
         lot_sizes[symbol] = lot_size_or_422(asset)
+        if shorts and asset.asset_class not in settings.SHORTABLE_ASSET_CLASSES:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"'{spec.id}' shorts, and {symbol} is {asset.asset_class}: only "
+                    f"{', '.join(sorted(settings.SHORTABLE_ASSET_CLASSES))} can be shorted."
+                ),
+            )
         records = await repo.fetch_range(symbol=symbol, asset_class=None, start=start, end=end)
         frame = records_to_frame(records)
         if frame.empty:
@@ -356,7 +512,11 @@ async def run_portfolio_backtest(
         price_data[symbol] = frame
 
     try:
-        weights = request.weights or spec.default_weights(list(price_data), request.params)
+        weights = (
+            {}
+            if shorts
+            else request.weights or spec.default_weights(list(price_data), request.params)
+        )
     except (ValueError, TypeError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None
 
@@ -376,7 +536,7 @@ async def run_portfolio_backtest(
         raise HTTPException(status_code=422, detail=str(exc)) from None
 
     try:
-        portfolio, metrics, risk = await run_in_threadpool(
+        portfolio, metrics, risk, exposure = await run_in_threadpool(
             _run_sync,
             spec,
             model,
@@ -385,6 +545,13 @@ async def run_portfolio_backtest(
             request,
             pd.Series(risk_free.accrual, index=timeline),
             lot_sizes,
+            None
+            if terms_used is None
+            else ShortTerms(
+                borrow_rate=terms_used.borrow_rate,
+                max_gross=terms_used.max_gross,
+                maintenance=terms_used.maintenance,
+            ),
         )
     except (ValueError, KeyError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None
@@ -423,4 +590,6 @@ async def run_portfolio_backtest(
         risk_metrics={k: _json_safe(v) for k, v in (risk or {}).items()},
         caveat=spec.caveat,
         equity_curve=curve,
+        short_terms=terms_used,
+        short_exposure=exposure,
     )

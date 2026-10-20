@@ -185,21 +185,21 @@ def test_cointegrated_mean_reversion_contract():
 
 def test_pairs_trading_contract():
     """
-    NOTE: PairsTradingStrategy has a DIFFERENT output contract from the
-    single-asset strategies — it returns one position column per leg
-    (consumed by the portfolio backtester), not a 'signal' column.
-    This is an interface inconsistency worth unifying eventually; until
-    then, this test pins the actual behavior.
+    pairs_trading returns TARGETS (signal_shape "target", decision 48): one
+    column per leg, the position wanted as a fraction of equity, NaN for no
+    change. Legs are always opposite: half long, half short, or both flat.
     """
-    from alpha_models.pairs_trading import PairsTradingStrategy
+    from alpha_models.pairs_trading import LEG, PairsTradingStrategy
 
     wide = _make_wide_frame(2)
-    model = PairsTradingStrategy(window=20, threshold=1.5)
-    signals = model.generate_signals(price_data=wide)
-    assert list(signals.columns) == list(wide.columns), "one position column per leg"
-    assert signals.index.equals(wide.index)
-    vals = set(pd.unique(signals.values.ravel())) - {np.nan}
-    assert vals <= {-1, 0, 1, -1.0}, f"invalid position values: {vals}"
+    model = PairsTradingStrategy(formation=60, refit=10, max_pvalue=0.5)
+    targets = model.generate_signals(price_data=wide)
+    assert list(targets.columns) == list(wide.columns), "one target column per leg"
+    assert targets.index.equals(wide.index)
+    decided = targets.dropna(how="all")
+    assert decided.notna().all().all(), "a decision sets both legs"
+    assert (decided.iloc[:, 0] == -decided.iloc[:, 1]).all()
+    assert set(decided.iloc[:, 0]) <= {-LEG, 0.0, LEG}
 
 
 # ---------------------------------------------------------------------------
@@ -233,7 +233,10 @@ def _multi_wide_cases():
     from alpha_models.pairs_trading import PairsTradingStrategy
 
     return [
-        ("pairs_trading", lambda: PairsTradingStrategy(window=20, threshold=1.5)),
+        (
+            "pairs_trading",
+            lambda: PairsTradingStrategy(formation=60, refit=10, max_pvalue=0.5),
+        ),
         (
             "cointegrated_mean_reversion",
             lambda: CointegratedMeanReversionStrategy(
@@ -339,6 +342,8 @@ def test_no_look_ahead_multi_asset_calendar(strategy_id, factory):
     "strategy_id,factory", _multi_wide_cases(), ids=[c[0] for c in _multi_wide_cases()]
 )
 def test_wide_shapes_emit_only_directional_values(strategy_id, factory):
+    if strategy_id == "pairs_trading":
+        pytest.skip("target shape: fractions of equity, pinned in test_pairs_trading_contract")
     signals = factory().generate_signals(price_data=_make_wide_frame(2))
     values = set(pd.unique(signals.values.ravel())) - {np.nan}
     assert values <= {-1, 0, 1, -1.0}, f"{strategy_id} emitted {values - {-1, 0, 1, -1.0}}"
@@ -368,7 +373,7 @@ def test_every_registered_strategy_declares_a_wired_shape():
     does not implement would silently fall through to the per-symbol branch —
     the exact failure the id-dispatch version had.
     """
-    wired = {"per_symbol", "wide_per_asset", "wide_portfolio", "calendar_shared"}
+    wired = {"per_symbol", "wide_per_asset", "wide_portfolio", "calendar_shared", "target"}
     for spec in registry.all_strategies():
         assert spec.signal_shape in wired, f"{spec.id}: unwired shape"
         if spec.input_contract == "single":

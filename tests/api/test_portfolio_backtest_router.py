@@ -8,6 +8,9 @@ from fastapi.testclient import TestClient
 
 WINDOW = {"start": "2024-01-01", "end": "2024-12-31"}
 PAIR = ["AAPL", "BTC-USD"]
+#: Shorts are equities and ETFs only; AAPL and MSFT follow independent paths.
+EQUITY_PAIR = ["AAPL", "MSFT"]
+TERMS = {"borrow_rate": 0.01, "max_gross": 2.0, "maintenance": 0.3}
 
 
 def run(client: TestClient, **overrides):
@@ -118,13 +121,13 @@ def test_single_asset_strategy_is_rejected(client: TestClient):
 
 
 def test_pairs_trading_requires_exactly_two_symbols(client: TestClient):
-    response = run(client, strategy_id="pairs_trading", symbols=["AAPL", "BTC-USD", "EMPTY-USD"])
+    response = run(client, strategy_id="pairs_trading", symbols=["AAPL", "MSFT", "AAPL"], **TERMS)
     assert response.status_code == 422
     assert "exactly 2" in response.json()["detail"]
 
 
 def test_pairs_trading_runs_on_a_pair(client: TestClient):
-    body = run(client, strategy_id="pairs_trading", symbols=PAIR).json()
+    body = run(client, strategy_id="pairs_trading", symbols=EQUITY_PAIR, **TERMS).json()
     assert body["strategy_id"] == "pairs_trading"
     assert body["bars"] > 0
 
@@ -198,7 +201,9 @@ def test_start_after_end_is_422(client: TestClient):
 
 
 def test_unknown_param_name_is_rejected_not_ignored(client: TestClient):
-    response = run(client, strategy_id="pairs_trading", params={"windwo": 5})
+    response = run(
+        client, strategy_id="pairs_trading", symbols=EQUITY_PAIR, params={"windwo": 5}, **TERMS
+    )
     assert response.status_code == 422
     assert "Unknown parameter" in response.json()["detail"]
 
@@ -395,3 +400,91 @@ def test_a_basket_holds_a_fraction_of_a_coin(client: TestClient):
     small = run(client, initial_capital=20_000, risk_free_rate=0.0).json()["metrics"]
     large = run(client, initial_capital=2_000_000, risk_free_rate=0.0).json()["metrics"]
     assert small["Total Return"] > 0.8 * large["Total Return"] > 0
+
+
+# ---------------------------------------------------------------------------
+# Shorts (decision 48)
+# ---------------------------------------------------------------------------
+# pairs_trading is the strategy that shorts. These parameters make it trade
+# on the fixture pair within the year: a short formation, frequent refits and
+# a loose p-value, since AAPL and MSFT follow unrelated paths.
+TRADING = {"formation": 60, "refit": 5, "entry": 1.0, "max_pvalue": 0.5}
+
+
+def test_a_pairs_run_reports_its_shorts_and_the_terms_it_used(client: TestClient):
+    body = run(
+        client, strategy_id="pairs_trading", symbols=EQUITY_PAIR, params=TRADING, **TERMS
+    ).json()
+    assert body["short_terms"] == {**TERMS, "source": "request"}
+    exposure = body["short_exposure"]
+    assert exposure["time_short"] > 0
+    assert exposure["borrow_paid"] > 0
+    assert 0 < exposure["max_gross_exposure"] <= TERMS["max_gross"]
+    assert body["weights"] == {}
+
+
+def test_terms_fall_back_to_the_settings(client: TestClient, monkeypatch):
+    from config import settings
+
+    monkeypatch.setattr(settings, "SHORT_BORROW_RATE", 0.02)
+    monkeypatch.setattr(settings, "SHORT_MAX_GROSS", 1.5)
+    monkeypatch.setattr(settings, "SHORT_MAINTENANCE", 0.35)
+    body = run(client, strategy_id="pairs_trading", symbols=EQUITY_PAIR).json()
+    assert body["short_terms"] == {
+        "borrow_rate": 0.02,
+        "max_gross": 1.5,
+        "maintenance": 0.35,
+        "source": "settings",
+    }
+    mixed = run(client, strategy_id="pairs_trading", symbols=EQUITY_PAIR, borrow_rate=0.05).json()
+    assert mixed["short_terms"]["borrow_rate"] == 0.05
+    assert mixed["short_terms"]["source"] == "mixed"
+
+
+def test_a_short_run_without_terms_is_refused(client: TestClient):
+    response = run(client, strategy_id="pairs_trading", symbols=EQUITY_PAIR, borrow_rate=0.01)
+    assert response.status_code == 422
+    detail = response.json()["detail"]
+    assert "max_gross" in detail and "maintenance" in detail
+    assert "borrow_rate" not in detail.split("no ")[1].split(" is set")[0]
+
+
+def test_terms_that_cannot_hold_are_refused(client: TestClient):
+    response = run(
+        client,
+        strategy_id="pairs_trading",
+        symbols=EQUITY_PAIR,
+        **{**TERMS, "max_gross": 4.0},
+    )
+    assert response.status_code == 422
+    assert "maintenance" in response.json()["detail"]
+
+
+def test_crypto_cannot_be_shorted(client: TestClient):
+    response = run(client, strategy_id="pairs_trading", symbols=["AAPL", "BTC-USD"], **TERMS)
+    assert response.status_code == 422
+    assert "BTC-USD is crypto" in response.json()["detail"]
+
+
+def test_terms_on_a_strategy_that_does_not_short_are_refused(client: TestClient):
+    response = run(client, borrow_rate=0.01)
+    assert response.status_code == 422
+    assert "does not" in response.json()["detail"]
+
+
+def test_weights_on_a_strategy_that_sizes_its_legs_are_refused(client: TestClient):
+    response = run(
+        client,
+        strategy_id="pairs_trading",
+        symbols=EQUITY_PAIR,
+        weights={"AAPL": 0.5, "MSFT": 0.5},
+        **TERMS,
+    )
+    assert response.status_code == 422
+    assert "weights" in response.json()["detail"]
+
+
+def test_an_event_run_reports_no_short_terms(client: TestClient):
+    body = run(client).json()
+    assert body["short_terms"] is None
+    assert body["short_exposure"] is None

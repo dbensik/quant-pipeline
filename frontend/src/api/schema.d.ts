@@ -2299,6 +2299,21 @@ export interface components {
              * @description Annual risk-free rate the Sharpe ratio is in excess of. Omitted, it is the stored ^IRX bond-equivalent rate averaged over the window's sessions.
              */
             risk_free_rate?: number | null;
+            /**
+             * Borrow Rate
+             * @description Annual borrow fee on the shorts' value (0.01 = 1%), by calendar day
+             */
+            borrow_rate?: number | null;
+            /**
+             * Max Gross
+             * @description Cap on gross exposure (longs + shorts) as a multiple of equity
+             */
+            max_gross?: number | null;
+            /**
+             * Maintenance
+             * @description Equity must stay at least this fraction of gross exposure; below it every position is cut pro rata at the next open
+             */
+            maintenance?: number | null;
         };
         /** PortfolioBacktestResponse */
         PortfolioBacktestResponse: {
@@ -2326,7 +2341,7 @@ export interface components {
             };
             /**
              * Weights
-             * @description Weights actually used
+             * @description Weights actually used; empty for a strategy that sizes its own legs
              */
             weights: {
                 [key: string]: number;
@@ -2366,6 +2381,9 @@ export interface components {
             caveat?: string | null;
             /** Equity Curve */
             equity_curve?: components["schemas"]["PortfolioEquityPoint"][];
+            /** @description Set for a strategy that shorts: the terms the run used */
+            short_terms?: components["schemas"]["ShortTermsUsed"] | null;
+            short_exposure?: components["schemas"]["ShortExposure"] | null;
         };
         /** PortfolioEquityPoint */
         PortfolioEquityPoint: {
@@ -2812,6 +2830,54 @@ export interface components {
              * @description Symbols surviving this step
              */
             passed: number;
+        };
+        /** ShortExposure */
+        ShortExposure: {
+            /**
+             * Borrow Paid
+             * @description Total borrow charged over the run
+             */
+            borrow_paid: number;
+            /**
+             * Max Gross Exposure
+             * @description Highest (longs + shorts) / equity at a close
+             */
+            max_gross_exposure: number;
+            /**
+             * Max Net Exposure
+             * @description Highest |longs - shorts| / equity at a close
+             */
+            max_net_exposure: number;
+            /**
+             * Time Short
+             * @description Share of bars with a short held
+             */
+            time_short: number;
+            /**
+             * Margin Cuts
+             * @description Opens at which positions were cut for maintenance
+             */
+            margin_cuts?: string[];
+            /**
+             * Ruined At
+             * @description Close at which equity reached 0; the run stopped there
+             */
+            ruined_at?: string | null;
+        };
+        /** ShortTermsUsed */
+        ShortTermsUsed: {
+            /** Borrow Rate */
+            borrow_rate: number;
+            /** Max Gross */
+            max_gross: number;
+            /** Maintenance */
+            maintenance: number;
+            /**
+             * Source
+             * @description Where the values came from: the request, config.settings, or both
+             * @enum {string}
+             */
+            source: "request" | "settings" | "mixed";
         };
         /** SignalPoint */
         SignalPoint: {
@@ -3363,6 +3429,12 @@ export interface components {
              * @enum {string}
              */
             held_weight: "equal" | "per_top_n" | "full";
+            /**
+             * Shorts
+             * @description Holds short positions (decision 48). A portfolio backtest of it needs borrow_rate, max_gross and maintenance, from the request or the settings.
+             * @default false
+             */
+            shorts: boolean;
             /**
              * Default Grid
              * @description Parameter sweep used when a caller asks to optimize or compare without supplying a grid. Null means no default sweep — pass one explicitly.
