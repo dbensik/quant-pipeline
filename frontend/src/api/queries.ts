@@ -331,6 +331,52 @@ export function useClearShortTerms() {
   })
 }
 
+/** Attaching or detaching changes the state (its strategy) and what may be traded. */
+export function useAttachStrategy() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      name,
+      body,
+    }: {
+      name: string
+      body: import('./client').AttachStrategyRequest
+    }) => api.attachStrategy(name, body),
+    onSuccess: () => invalidatePortfolio(queryClient),
+  })
+}
+
+export function useDetachStrategy() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (name: string) => api.detachStrategy(name),
+    onSuccess: () => invalidatePortfolio(queryClient),
+  })
+}
+
+/**
+ * The dry run: what the attached strategy would trade next, and what it
+ * holds against what it wants. A query, not a mutation: it writes nothing.
+ * Keyed under 'portfolio' so every portfolio write refreshes it.
+ */
+export function useStrategyPreview(name: string | null, attached: boolean) {
+  return useQuery({
+    queryKey: ['portfolio', name ?? '', 'run-preview'] as const,
+    queryFn: () => api.runStrategy(name as string),
+    enabled: Boolean(name) && attached,
+    retry: retryUnlessNotFound,
+  })
+}
+
+/** Trade the pending sessions now: writes trades, so every portfolio query refreshes. */
+export function useRunStrategy() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (name: string) => api.runStrategy(name, true),
+    onSuccess: () => invalidatePortfolio(queryClient),
+  })
+}
+
 export function useDeletePortfolio() {
   const queryClient = useQueryClient()
   return useMutation({

@@ -40,12 +40,14 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 
 from config import settings as app_settings
+from core.paper_trader import binding_of
 from core.portfolio import (
     BUY,
     SELL,
     MarketHistory,
     PortfolioState,
     Trade,
+    cash_from,
     derive_state,
     short_terms_of,
     trade_day,
@@ -69,7 +71,9 @@ class MarketContext(NamedTuple):
     asset_classes: Dict[str, Optional[str]]
 
 
-async def _load_context(tickers: List[str], first_day: Optional[date]) -> MarketContext:
+async def _load_context(
+    tickers: List[str], first_day: Optional[date], start: Optional[date] = None
+) -> MarketContext:
     from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
     from sqlalchemy.pool import NullPool
 
@@ -85,7 +89,12 @@ async def _load_context(tickers: List[str], first_day: Optional[date]) -> Market
             history = None
             if first_day is not None:
                 history = await load_history(
-                    tickers, first_day, new_york_today(), market, TimescaleRateRepo(session)
+                    tickers,
+                    first_day,
+                    new_york_today(),
+                    market,
+                    TimescaleRateRepo(session),
+                    cash_from=start,
                 )
             prices, _ = await latest_prices(tickers, market)
             classes = await asset_classes(tickers, market)
@@ -147,9 +156,11 @@ class PortfolioStore:
         with self.engine.connect() as connection:
             return self._portfolio_row(connection, name).metadata
 
-    def _market_context(self, tickers: List[str], first_day: Optional[date]) -> MarketContext:
+    def _market_context(
+        self, tickers: List[str], first_day: Optional[date], start: Optional[date] = None
+    ) -> MarketContext:
         """Corporate actions, closes, ^IRX, latest prices and classes (module docstring)."""
-        return asyncio.run(_load_context(sorted(set(tickers)), first_day))
+        return asyncio.run(_load_context(sorted(set(tickers)), first_day, start))
 
     def state(self, name: str, prices: Optional[dict] = None) -> PortfolioState:
         """
@@ -157,15 +168,17 @@ class PortfolioStore:
         uses. With `prices` None, valued at the latest stored closes.
         """
         trades, initial_cash = self.load_trades(name)
+        metadata = self.metadata(name)
+        start = cash_from(metadata)
         tickers = [t.ticker for t in trades]
-        first = min((trade_day(t) for t in trades), default=None)
-        context = self._market_context(tickers, first)
+        first = min([trade_day(t) for t in trades] + ([start] if start else []), default=None)
+        context = self._market_context(tickers, first, start)
         return derive_state(
             trades,
             initial_cash,
             context.prices if prices is None else prices,
             history=context.history,
-            terms=short_terms_of(self.metadata(name)),
+            terms=short_terms_of(metadata),
         )
 
     # -- writes --------------------------------------------------------------
@@ -197,18 +210,28 @@ class PortfolioStore:
         if costs < 0:
             raise ValueError("Costs must not be negative.")
 
+        metadata = self.metadata(name)
+        binding = binding_of(metadata)
+        if binding is not None:
+            # Decision 50: an attached portfolio's record is its strategy's.
+            raise ValueError(
+                f"{name!r} is traded by '{binding.strategy}'; a manual trade would mix a "
+                "manual decision into its record. Detach the strategy first."
+            )
+
         when = when or datetime.now(timezone.utc)
         trade = Trade(symbol.upper(), action, quantity, price, when, costs=costs)
         trades, initial_cash = self.load_trades(name)
-        first = min(trade_day(t) for t in trades + [trade])
-        context = self._market_context([t.ticker for t in trades] + [trade.ticker], first)
+        start = cash_from(metadata)
+        first = min([trade_day(t) for t in trades + [trade]] + ([start] if start else []))
+        context = self._market_context([t.ticker for t in trades] + [trade.ticker], first, start)
         refusal = trade_refusal(
             trades,
             trade,
             initial_cash,
             context.prices,
             history=context.history,
-            terms=short_terms_of(self.metadata(name)),
+            terms=short_terms_of(metadata),
             asset_class=context.asset_classes.get(trade.ticker),
             shortable=app_settings.SHORTABLE_ASSET_CLASSES,
         )

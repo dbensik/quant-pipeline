@@ -67,6 +67,22 @@ class PortfolioRepository:
         """Remove one trade. False if the portfolio or trade does not exist."""
         ...
 
+    async def record_session(
+        self,
+        name: str,
+        trades: List[Trade],
+        metadata: Optional[dict],
+        *,
+        expected_last_session: str,
+    ) -> bool:
+        """
+        A paper-trader session (decision 50): its fills and the metadata
+        recording it, in ONE transaction, and only while the stored strategy's
+        `last_session` is still `expected_last_session`. False otherwise (another
+        run traded it first, or no such portfolio): nothing is written.
+        """
+        ...
+
 
 # ---------------------------------------------------------------------------
 # TimescaleDB implementation
@@ -195,6 +211,40 @@ class TimescalePortfolioRepo:
         )
         await self.session.commit()
         return bool(result.rowcount)
+
+    async def record_session(
+        self,
+        name: str,
+        trades: List[Trade],
+        metadata: Optional[dict],
+        *,
+        expected_last_session: str,
+    ) -> bool:
+        result = await self.session.execute(
+            select(PortfolioORM).where(PortfolioORM.name == name).with_for_update()
+        )
+        row = result.unique().scalars().first()
+        stored = ((row.metadata_ or {}).get("strategy") or {}) if row is not None else {}
+        if row is None or stored.get("last_session") != expected_last_session:
+            await self.session.rollback()
+            return False
+        for trade in trades:
+            self.session.add(
+                PortfolioTradeORM(
+                    portfolio_id=row.id,
+                    time=trade.ts,
+                    ticker=trade.ticker,
+                    action=trade.action,
+                    quantity=trade.quantity,
+                    price=trade.price,
+                    costs=trade.costs,
+                    broker=trade.broker,
+                    notes=trade.notes,
+                )
+            )
+        row.metadata_ = metadata
+        await self.session.commit()
+        return True
 
     async def _find(self, name: str) -> Optional[PortfolioORM]:
         result = await self.session.execute(select(PortfolioORM).where(PortfolioORM.name == name))

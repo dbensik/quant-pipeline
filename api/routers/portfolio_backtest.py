@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field
 
 from alpha_models import registry
 from api.dependencies import get_market_data_repo
-from api.frames import frames_to_wide_close, records_to_frame
+from api.frames import records_to_frame
 from api.lots import lot_size_or_422
 from api.risk_free import (
     RISK_FREE_RATE_DESCRIPTION,
@@ -36,6 +36,7 @@ from api.routers.backtest import _json_safe
 from config import settings
 from core.ledger import ShortTerms
 from core.rates import RateRepository
+from core.strategy_signals import build_signals
 from db.repositories.market_data import TimescaleMarketDataRepo
 
 router = APIRouter(prefix="/api/v1/backtest/portfolio", tags=["backtest"])
@@ -206,73 +207,6 @@ class PortfolioBacktestResponse(BaseModel):
     short_exposure: Optional[ShortExposure] = None
 
 
-# ---------------------------------------------------------------------------
-# Signal construction
-# ---------------------------------------------------------------------------
-
-
-def _build_signals(
-    spec: registry.StrategySpec,
-    model: Any,
-    price_data: Dict[str, pd.DataFrame],
-) -> Dict[str, pd.DataFrame]:
-    """
-    Multi-asset strategies do NOT share one output shape, so signals are
-    assembled per shape — ported from the Streamlit AnalysisController, which
-    dispatched on isinstance.
-
-    Dispatch is on `spec.signal_shape`, declared in the registry. It used to be
-    hardcoded sets of strategy ids right here, which meant a new multi-asset
-    strategy could not work without editing this router — and worse, failed
-    UNSAFELY: an unlisted id fell through to the per-symbol branch and was
-    handed each symbol's own frame in isolation, so a cross-asset strategy
-    would silently compare nothing and still return plausible numbers.
-    """
-    shape = spec.signal_shape
-
-    if shape == "wide_per_asset":
-        # Wide frame in, one position column per asset out. Split into the
-        # per-ticker dict the PortfolioBacktester consumes.
-        wide = frames_to_wide_close(price_data).dropna()
-        signals = model.generate_signals(wide)
-        return {
-            column: signals[[column]].rename(columns={column: "signal"})
-            for column in signals.columns
-        }
-
-    if shape == "target":
-        # Wide frame in, one target column per asset out (decision 48).
-        wide = frames_to_wide_close(price_data).dropna()
-        targets = model.generate_signals(wide)
-        return {
-            column: targets[[column]].rename(columns={column: "target"})
-            for column in targets.columns
-        }
-
-    if shape == "wide_portfolio":
-        # Wide frame in, one 'signal' column for the basket as a single unit.
-        wide = frames_to_wide_close(price_data).dropna()
-        return {"Portfolio": model.generate_signals(wide)}
-
-    if shape == "calendar_shared":
-        # Rebalance schedules depend only on the calendar, so any constituent's
-        # frame gives the dates; every symbol then shares them.
-        any_frame = next(iter(price_data.values()))
-        rebalance = model.generate_signals(any_frame)
-        return {symbol: rebalance for symbol in price_data}
-
-    # per_symbol: each symbol's own frame produces its own signal.
-    #
-    # UNREACHABLE from the route as it stands — this function has one caller and
-    # the route 422s anything whose input_contract is not "multi" before getting
-    # here, and test_every_registered_strategy_declares_a_wired_shape forbids a
-    # multi-asset spec from declaring per_symbol. It is kept as the safety net
-    # for a future misdeclaration, which is precisely the case that used to be
-    # silent: under id-dispatch an unlisted strategy landed here and was handed
-    # each symbol's frame in isolation.
-    return {symbol: model.generate_signals(frame) for symbol, frame in price_data.items()}
-
-
 def _run_sync(
     spec: registry.StrategySpec,
     model: Any,
@@ -287,7 +221,7 @@ def _run_sync(
     from backtesting.portfolio_backtester import PortfolioBacktester
     from backtesting.risk_manager import PortfolioRiskManager
 
-    signals_data = _build_signals(spec, model, price_data)
+    signals_data = build_signals(spec, model, price_data)
 
     backtester = PortfolioBacktester(
         initial_capital=request.initial_capital,

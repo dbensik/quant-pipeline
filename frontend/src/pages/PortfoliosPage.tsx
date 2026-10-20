@@ -13,6 +13,9 @@
  * splits, dividends, interest on free cash and borrow, and checks margin. A
  * portfolio shorts only once its short terms are set here.
  *
+ * Decision 50 (research/paper-trader-2026-10-20.md): a strategy attached to
+ * an empty portfolio trades it forward; manual trades are then refused.
+ *
  * Phase 5 — React pages for the ported routers
  */
 
@@ -33,6 +36,7 @@ import {
   useTrades,
 } from '@/api/queries'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { StrategyCard } from '@/components/portfolios/StrategyCard'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -505,106 +509,110 @@ export function PortfoliosPage() {
                 </CardContent>
               </Card>
 
+              <StrategyCard key={`strategy-${state.name}`} state={state} />
+
               <ShortTermsCard key={state.name} name={state.name} state={state} />
 
-              {/* -- record a trade ---------------------------------- */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Record a trade</CardTitle>
-                  <CardDescription>
-                    Selling more than you hold opens a short, which needs short terms.
-                    Its proceeds are collateral: buys are paid from free cash.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid gap-3 sm:grid-cols-5">
-                    <div className="space-y-1">
-                      <Label htmlFor="trade-ticker">Ticker</Label>
-                      <Input
-                        id="trade-ticker"
-                        value={form.ticker}
-                        onChange={(e) => setForm({ ...form, ticker: e.target.value })}
-                      />
+              {/* -- record a trade (not while a strategy trades it) -- */}
+              {state.strategy ? null : (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Record a trade</CardTitle>
+                    <CardDescription>
+                      Selling more than you hold opens a short, which needs short terms.
+                      Its proceeds are collateral: buys are paid from free cash.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid gap-3 sm:grid-cols-5">
+                      <div className="space-y-1">
+                        <Label htmlFor="trade-ticker">Ticker</Label>
+                        <Input
+                          id="trade-ticker"
+                          value={form.ticker}
+                          onChange={(e) => setForm({ ...form, ticker: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="trade-action">Action</Label>
+                        <select
+                          id="trade-action"
+                          className="h-9 w-full rounded-md border bg-transparent px-3 text-sm"
+                          value={form.action}
+                          onChange={(e) => setForm({ ...form, action: e.target.value })}
+                        >
+                          <option value="BUY">BUY</option>
+                          <option value="SELL">SELL</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="trade-qty">Quantity</Label>
+                        <Input
+                          id="trade-qty"
+                          inputMode="decimal"
+                          value={form.quantity}
+                          onChange={(e) =>
+                            setForm({ ...form, quantity: e.target.value })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="trade-price">Price</Label>
+                        <Input
+                          id="trade-price"
+                          inputMode="decimal"
+                          value={form.price}
+                          onChange={(e) => setForm({ ...form, price: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="trade-costs">Costs</Label>
+                        <Input
+                          id="trade-costs"
+                          inputMode="decimal"
+                          value={form.costs}
+                          onChange={(e) => setForm({ ...form, costs: e.target.value })}
+                        />
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="trade-action">Action</Label>
-                      <select
-                        id="trade-action"
-                        className="h-9 w-full rounded-md border bg-transparent px-3 text-sm"
-                        value={form.action}
-                        onChange={(e) => setForm({ ...form, action: e.target.value })}
-                      >
-                        <option value="BUY">BUY</option>
-                        <option value="SELL">SELL</option>
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="trade-qty">Quantity</Label>
-                      <Input
-                        id="trade-qty"
-                        inputMode="decimal"
-                        value={form.quantity}
-                        onChange={(e) =>
-                          setForm({ ...form, quantity: e.target.value })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="trade-price">Price</Label>
-                      <Input
-                        id="trade-price"
-                        inputMode="decimal"
-                        value={form.price}
-                        onChange={(e) => setForm({ ...form, price: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="trade-costs">Costs</Label>
-                      <Input
-                        id="trade-costs"
-                        inputMode="decimal"
-                        value={form.costs}
-                        onChange={(e) => setForm({ ...form, costs: e.target.value })}
-                      />
-                    </div>
-                  </div>
 
-                  {tradeError ? (
-                    <Alert variant="destructive">
-                      <AlertDescription>
-                        {tradeError.detail}
-                        {/* The API rejects overdrawing buys by default so paper
-                            trading cannot run on unlimited leverage, but the same
-                            endpoint records real trades that already happened. */}
-                        {overdraft ? (
-                          <div className="mt-2">
-                            <label className="flex items-center gap-2">
-                              <input
-                                type="checkbox"
-                                checked={allowOverdraft}
-                                onChange={(e) => setAllowOverdraft(e.target.checked)}
-                              />
-                              Record it anyway (this already happened elsewhere)
-                            </label>
-                          </div>
-                        ) : null}
-                      </AlertDescription>
-                    </Alert>
-                  ) : null}
+                    {tradeError ? (
+                      <Alert variant="destructive">
+                        <AlertDescription>
+                          {tradeError.detail}
+                          {/* The API rejects overdrawing buys by default so paper
+                              trading cannot run on unlimited leverage, but the same
+                              endpoint records real trades that already happened. */}
+                          {overdraft ? (
+                            <div className="mt-2">
+                              <label className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={allowOverdraft}
+                                  onChange={(e) => setAllowOverdraft(e.target.checked)}
+                                />
+                                Record it anyway (this already happened elsewhere)
+                              </label>
+                            </div>
+                          ) : null}
+                        </AlertDescription>
+                      </Alert>
+                    ) : null}
 
-                  <Button
-                    onClick={submitTrade}
-                    disabled={
-                      !form.ticker.trim() ||
-                      !form.quantity ||
-                      !form.price ||
-                      addTrade.isPending
-                    }
-                  >
-                    {addTrade.isPending ? 'Recording…' : 'Record trade'}
-                  </Button>
-                </CardContent>
-              </Card>
+                    <Button
+                      onClick={submitTrade}
+                      disabled={
+                        !form.ticker.trim() ||
+                        !form.quantity ||
+                        !form.price ||
+                        addTrade.isPending
+                      }
+                    >
+                      {addTrade.isPending ? 'Recording…' : 'Record trade'}
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* -- trade log --------------------------------------- */}
               <Card>
@@ -657,19 +665,21 @@ export function PortfoliosPage() {
                                 {money(t.costs ?? 0)}
                               </td>
                               <td className="py-2 text-right">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  aria-label={`Delete trade ${t.id}`}
-                                  onClick={() =>
-                                    deleteTrade.mutate({
-                                      name: selected,
-                                      tradeId: t.id,
-                                    })
-                                  }
-                                >
-                                  <Trash2 className="h-4 w-4 text-muted-foreground" />
-                                </Button>
+                                {state.strategy ? null : (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    aria-label={`Delete trade ${t.id}`}
+                                    onClick={() =>
+                                      deleteTrade.mutate({
+                                        name: selected,
+                                        tradeId: t.id,
+                                      })
+                                    }
+                                  >
+                                    <Trash2 className="h-4 w-4 text-muted-foreground" />
+                                  </Button>
+                                )}
                               </td>
                             </tr>
                           ))}

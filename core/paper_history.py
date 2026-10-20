@@ -30,13 +30,18 @@ async def load_history(
     as_of: date,
     market,
     rates,
+    *,
+    cash_from: Optional[date] = None,
 ) -> MarketHistory:
     """
     `market` is a MarketDataRepository with corporate_actions(); `rates` a
     RateRepository. Closes are read from a week before `first_day`, so the
-    first night of a short has a previous close.
+    first night of a short has a previous close. `cash_from` is the
+    portfolio's `metadata.cash_from` (MarketHistory.start).
     """
     tickers = sorted(set(tickers))
+    if cash_from is not None:
+        first_day = min(first_day, cash_from)
     start = datetime.combine(first_day - timedelta(days=7), time(), tzinfo=timezone.utc)
     end = datetime.combine(as_of, time(23, 59), tzinfo=timezone.utc)
     actions, closes = {}, {}
@@ -61,6 +66,7 @@ async def load_history(
         rates=[(o.obs_date, discount_to_bond_equivalent(o.value)) for o in observations],
         as_of=as_of,
         max_rate_age_days=settings.RISK_FREE_RATE_MAX_AGE_DAYS,
+        start=cash_from,
     )
 
 

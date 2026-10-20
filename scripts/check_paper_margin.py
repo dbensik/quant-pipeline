@@ -25,7 +25,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from core.paper_history import latest_prices, load_history, new_york_today  # noqa: E402
-from core.portfolio import derive_state, short_terms_of, trade_day  # noqa: E402
+from core.portfolio import cash_from, derive_state, short_terms_of, trade_day  # noqa: E402
 from db.repositories.market_data import TimescaleMarketDataRepo  # noqa: E402
 from db.repositories.portfolios import TimescalePortfolioRepo  # noqa: E402
 from db.repositories.rates import TimescaleRateRepo  # noqa: E402
@@ -45,8 +45,11 @@ async def run() -> int:
             if not portfolio.trades:
                 continue
             tickers = sorted({t.ticker for t in portfolio.trades})
-            first = min(trade_day(t) for t in portfolio.trades)
-            history = await load_history(tickers, first, new_york_today(), market, rates)
+            start = cash_from(portfolio.metadata)
+            first = min([trade_day(t) for t in portfolio.trades] + ([start] if start else []))
+            history = await load_history(
+                tickers, first, new_york_today(), market, rates, cash_from=start
+            )
             prices, _ = await latest_prices(tickers, market)
             state = derive_state(
                 portfolio.trades, portfolio.initial_cash, prices, history=history, terms=terms

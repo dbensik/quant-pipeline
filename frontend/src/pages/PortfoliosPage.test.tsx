@@ -370,3 +370,118 @@ describe('PortfoliosPage — flows, short terms and margin (decision 49)', () =>
     await waitFor(() => expect(get.mock.calls.length).toBeGreaterThan(calls))
   })
 })
+
+describe('PortfoliosPage — an attached strategy (decision 50)', () => {
+  const BINDING = {
+    strategy: 'asset_class_trend',
+    params: { window: 200, rebalance_frequency: 'ME' },
+    symbols: ['SPY', 'EFA'],
+    weights: { SPY: 0.5, EFA: 0.5 },
+    transaction_cost: 0.001,
+    attached_on: '2026-10-20',
+    signal_from: '2010-01-04',
+    last_session: '2026-10-20',
+  }
+  const EMPTY = { ...STATE, positions: [], trade_count: 0, strategy: null }
+  const ATTACHED = { ...STATE, strategy: BINDING }
+  const RUN = {
+    name: 'Growth',
+    strategy: 'asset_class_trend',
+    written: false,
+    newest_bar: '2026-10-21',
+    last_session: '2026-10-21',
+    sessions: [
+      {
+        session: '2026-10-21',
+        signal_day: '2026-10-20',
+        fills: [
+          {
+            ticker: 'SPY',
+            action: 'BUY',
+            quantity: 70,
+            price: 701.5,
+            costs: 50.1,
+            time: '2026-10-21T13:30:00Z',
+            notes: 'asset_class_trend: signal 1 on 2026-10-20',
+          },
+        ],
+        refused: [],
+      },
+    ],
+    held_sessions: [],
+    missing_bars: {},
+    holdings: [
+      { ticker: 'SPY', wanted: 'long', held: 0, drift: true },
+      { ticker: 'EFA', wanted: null, held: 0, drift: false },
+    ],
+    next_signals: {},
+    ruined_on: null,
+    flags: ['DRIFT Growth: SPY wanted long, held 0'],
+  }
+
+  beforeEach(() => {
+    vi.spyOn(api, 'listStrategies').mockResolvedValue({
+      strategies: [
+        {
+          id: 'asset_class_trend',
+          display_name: 'Asset class trend',
+          params: [{ name: 'window', label: 'Window', type: 'int', default: 200 }],
+        },
+      ],
+    } as never)
+  })
+
+  it('attaches a strategy to an empty portfolio with its typed params and cost', async () => {
+    vi.spyOn(api, 'getPortfolio').mockResolvedValue(EMPTY as never)
+    const attach = vi.spyOn(api, 'attachStrategy').mockResolvedValue(BINDING as never)
+    renderPage(<PortfoliosPage />)
+    const window = await screen.findByLabelText('Window')
+    await userEvent.clear(window)
+    await userEvent.type(window, '150')
+    await userEvent.clear(screen.getByLabelText('Symbols'))
+    await userEvent.type(screen.getByLabelText('Symbols'), 'spy, efa')
+    await userEvent.click(screen.getByRole('button', { name: 'Attach' }))
+    await waitFor(() => expect(attach).toHaveBeenCalled())
+    expect(attach.mock.calls[0]).toEqual([
+      'Growth',
+      {
+        strategy_id: 'asset_class_trend',
+        symbols: ['SPY', 'EFA'],
+        params: { window: 150 },
+        transaction_cost: 0.001,
+      },
+    ])
+  })
+
+  it('offers no attach on a portfolio with trades', async () => {
+    renderPage(<PortfoliosPage />)
+    expect(await screen.findByText('Record a trade')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Attach' })).toBeNull()
+  })
+
+  it('shows the dry run, the drift flag, and hides manual trading', async () => {
+    vi.spyOn(api, 'getPortfolio').mockResolvedValue(ATTACHED as never)
+    const run = vi.spyOn(api, 'runStrategy').mockResolvedValue(RUN as never)
+    renderPage(<PortfoliosPage />)
+    expect(await screen.findByText(/2026-10-21: BUY 70 SPY at 701.50/)).toBeInTheDocument()
+    expect(screen.getByText('DRIFT Growth: SPY wanted long, held 0')).toBeInTheDocument()
+    expect(screen.getByText('drift')).toBeInTheDocument()
+    expect(run.mock.calls[0]).toEqual(['Growth'])
+    expect(screen.queryByText('Record a trade')).toBeNull()
+    expect(screen.queryByRole('button', { name: /Delete trade/ })).toBeNull()
+  })
+
+  it('trading now writes and refreshes the derived state', async () => {
+    const get = vi.spyOn(api, 'getPortfolio').mockResolvedValue(ATTACHED as never)
+    const run = vi.spyOn(api, 'runStrategy').mockResolvedValue(RUN as never)
+    renderPage(<PortfoliosPage />)
+    const button = await screen.findByRole('button', { name: 'Trade now' })
+    await waitFor(() => expect(button).toBeEnabled())
+    const calls = get.mock.calls.length
+    await userEvent.click(button)
+    await waitFor(() => expect(run).toHaveBeenCalledWith('Growth', true))
+    // The state and the dry run are both re-read after the write.
+    await waitFor(() => expect(get.mock.calls.length).toBeGreaterThan(calls))
+    await waitFor(() => expect(run.mock.calls.filter((c) => c.length === 1).length).toBe(2))
+  })
+})

@@ -171,6 +171,12 @@ class MarketHistory:
     as_of     the New York date the state is for: interest and borrow
               accrue for every day before it
     max_rate_age_days   a day whose newest rate is older earns nothing
+    start     the first day cash earns interest, when that is before the
+              first trade (`metadata.cash_from`, set when a strategy is
+              attached: a backtest's cash earns from its first bar, and the
+              paper trader's must too, or the two disagree by the interest on
+              the cash a strategy held before its first entry). None: from
+              the first trade, as before.
     """
 
     actions: Mapping[str, Sequence[Action]]
@@ -178,6 +184,7 @@ class MarketHistory:
     rates: Sequence[Tuple[date, float]]
     as_of: date
     max_rate_age_days: int = 7
+    start: Optional[date] = None
 
 
 def _apply(trade: Trade, quantity: float, average_price: float) -> tuple[float, float, float]:
@@ -278,7 +285,7 @@ def derive_state(
             position.average_price = new_average
         position.realised_pnl += realised
 
-    if history is None or not ordered:
+    if history is None or (not ordered and history.start is None):
         for trade in ordered:
             cash += trade.cash_delta
             book(trade)
@@ -374,8 +381,9 @@ def _fold_with_history(
     }
     rate_days = [d for d, _ in history.rates]
 
-    day = min(by_day)
-    last = max(history.as_of, max(by_day))
+    firsts = [d for d in (min(by_day, default=None), history.start) if d is not None]
+    day = min(firsts)
+    last = max([history.as_of, *by_day])
     while day <= last:
         for ticker, position in running.items():
             if position.quantity == 0:
@@ -422,6 +430,17 @@ def _fold_with_history(
 
 #: Portfolio metadata key holding its short terms (decision 49).
 META_SHORT_TERMS = "short_terms"
+
+#: Portfolio metadata key: the New York date its cash earns interest from,
+#: when that is before its first trade (MarketHistory.start). Set when a
+#: strategy is attached and kept after it is detached, so detaching never
+#: rewrites the interest already earned.
+META_CASH_FROM = "cash_from"
+
+
+def cash_from(metadata: Optional[Mapping]) -> Optional[date]:
+    raw = (metadata or {}).get(META_CASH_FROM)
+    return None if not raw else date.fromisoformat(raw)
 
 
 def short_terms_of(metadata: Optional[Mapping]) -> Optional[ShortTerms]:

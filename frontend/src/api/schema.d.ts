@@ -434,6 +434,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/portfolios/{name}/strategy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Attach a strategy that trades this paper portfolio forward
+         * @description Forward only: the first session traded is the bar after today (New York),
+         *     decided on today's close. Only on a portfolio with no trades, so its
+         *     record is the strategy's alone; manual trades are then 409 until it is
+         *     detached. Parameters are fixed here.
+         */
+        put: operations["attach_strategy_api_v1_portfolios__name__strategy_put"];
+        post?: never;
+        /** Detach the strategy: its positions stay, and the portfolio becomes manual */
+        delete: operations["detach_strategy_api_v1_portfolios__name__strategy_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portfolios/{name}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Trade the attached strategy over the sessions not yet traded */
+        post: operations["run_attached_strategy_api_v1_portfolios__name__run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/signals/{symbol}": {
         parameters: {
             query?: never;
@@ -1193,6 +1234,32 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** AttachStrategyRequest */
+        AttachStrategyRequest: {
+            /**
+             * Strategy Id
+             * @description Registry id (GET /strategies)
+             */
+            strategy_id: string;
+            /**
+             * Symbols
+             * @description One for a single-asset strategy; two or more for a multi-asset one
+             */
+            symbols: string[];
+            /**
+             * Params
+             * @description Fixed at attach
+             */
+            params?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Transaction Cost
+             * @description Per-fill cost as a fraction of its value, beside $1 a fill (the backtests')
+             * @default 0.001
+             */
+            transaction_cost: number;
+        };
         /** BacktestRequest */
         BacktestRequest: {
             /**
@@ -1754,6 +1821,23 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** HoldingOut */
+        HoldingOut: {
+            /** Ticker */
+            ticker: string;
+            /**
+             * Wanted
+             * @description long, short or flat: what the signals since attach ask; null before any
+             */
+            wanted: string | null;
+            /** Held */
+            held: number;
+            /**
+             * Drift
+             * @description What is held is not what is wanted
+             */
+            drift: boolean;
+        };
         /** IngestRequest */
         IngestRequest: {
             /**
@@ -2223,6 +2307,130 @@ export interface components {
             /** Windows */
             windows: components["schemas"]["OptionsConeWindow"][];
         };
+        /** PaperFillOut */
+        PaperFillOut: {
+            /** Ticker */
+            ticker: string;
+            /** Action */
+            action: string;
+            /** Quantity */
+            quantity: number;
+            /**
+             * Price
+             * @description The session's raw open
+             */
+            price: number;
+            /** Costs */
+            costs: number;
+            /**
+             * Time
+             * Format: date-time
+             */
+            time: string;
+            /** Notes */
+            notes?: string | null;
+        };
+        /** PaperRunOut */
+        PaperRunOut: {
+            /** Name */
+            name: string;
+            /** Strategy */
+            strategy: string;
+            /**
+             * Written
+             * @description False for a dry run: nothing was stored
+             */
+            written: boolean;
+            /** Newest Bar */
+            newest_bar: string | null;
+            /** Last Session */
+            last_session: string;
+            /** Sessions */
+            sessions: components["schemas"]["PaperSessionOut"][];
+            /**
+             * Held Sessions
+             * @description Sessions waiting for a basket symbol's bar
+             */
+            held_sessions?: string[];
+            /** Missing Bars */
+            missing_bars?: {
+                [key: string]: string[];
+            };
+            /** Holdings */
+            holdings?: components["schemas"]["HoldingOut"][];
+            /**
+             * Next Signals
+             * @description The newest bar's signal or target where it asks for a trade at the next open
+             */
+            next_signals?: {
+                [key: string]: number;
+            };
+            /** Ruined On */
+            ruined_on?: string | null;
+            /** Flags */
+            flags?: string[];
+        };
+        /** PaperSessionOut */
+        PaperSessionOut: {
+            /**
+             * Session
+             * @description The bar whose open filled
+             */
+            session: string;
+            /**
+             * Signal Day
+             * @description The bar whose close decided it
+             */
+            signal_day: string;
+            /** Fills */
+            fills: components["schemas"]["PaperFillOut"][];
+            /**
+             * Refused
+             * @description Fills the trade check would not record
+             */
+            refused?: components["schemas"]["RefusedFillOut"][];
+        };
+        /**
+         * PaperStrategyOut
+         * @description A strategy attached to a paper portfolio (decision 50).
+         */
+        PaperStrategyOut: {
+            /** Strategy */
+            strategy: string;
+            /** Params */
+            params: {
+                [key: string]: unknown;
+            };
+            /** Symbols */
+            symbols: string[];
+            /**
+             * Weights
+             * @description Weight per symbol an entry buys; empty for a strategy that sizes its legs
+             */
+            weights: {
+                [key: string]: number;
+            };
+            /**
+             * Transaction Cost
+             * @description Per-fill cost as a fraction of its value
+             */
+            transaction_cost: number;
+            /**
+             * Attached On
+             * @description New York date; the first session is the next bar
+             */
+            attached_on: string;
+            /**
+             * Signal From
+             * @description First bar every signal frame starts at
+             */
+            signal_from: string;
+            /**
+             * Last Session
+             * @description Newest session traded (the attach date before any)
+             */
+            last_session: string;
+        };
         /** ParamSchema */
         ParamSchema: {
             /** Name */
@@ -2616,6 +2824,8 @@ export interface components {
              * @default false
              */
             below_maintenance: boolean;
+            /** @description The attached strategy that trades it (decision 50) */
+            strategy?: components["schemas"]["PaperStrategyOut"] | null;
         };
         /** PortfolioSummary */
         PortfolioSummary: {
@@ -2742,6 +2952,19 @@ export interface components {
              * @default 10
              */
             minimum_order_value: number;
+        };
+        /** RefusedFillOut */
+        RefusedFillOut: {
+            /** Ticker */
+            ticker: string;
+            /** Action */
+            action: string;
+            /** Quantity */
+            quantity: number;
+            /** Price */
+            price: number;
+            /** Reason */
+            reason: string;
         };
         /** ResultSummary */
         ResultSummary: {
@@ -5056,7 +5279,138 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description A short is open: it needs terms to be charged borrow */
+            /** @description A short is open, or a strategy that shorts is attached */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    attach_strategy_api_v1_portfolios__name__strategy_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttachStrategyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaperStrategyOut"];
+                };
+            };
+            /** @description No such portfolio, strategy or symbol */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The portfolio has trades, or a strategy is already attached */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A basket or parameters the strategy cannot trade */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    detach_strategy_api_v1_portfolios__name__strategy_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such portfolio, or none attached */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_attached_strategy_api_v1_portfolios__name__run_post: {
+        parameters: {
+            query?: {
+                /** @description Show what the run would write, and write nothing. The 06:00 job writes; pass false to trade now. */
+                dry_run?: boolean;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaperRunOut"];
+                };
+            };
+            /** @description No such portfolio */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No strategy attached, or another run traded it first */
             409: {
                 headers: {
                     [name: string]: unknown;

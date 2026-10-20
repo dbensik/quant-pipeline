@@ -326,6 +326,22 @@ class FakePortfolioRepo:
         found.trades = [t for t in found.trades if t.id != trade_id]
         return len(found.trades) != before
 
+    async def record_session(
+        self,
+        name: str,
+        trades: List[Trade],
+        metadata: Optional[dict],
+        *,
+        expected_last_session: str,
+    ) -> bool:
+        found = self._portfolios.get(name)
+        stored = ((found.metadata or {}).get("strategy") or {}) if found else {}
+        if found is None or stored.get("last_session") != expected_last_session:
+            return False
+        found.trades.extend(self._issue(t) for t in trades)
+        self._portfolios[name] = replace(found, metadata=metadata)
+        return True
+
 
 class FakeWatchlistRepo:
     """

@@ -1202,6 +1202,12 @@ def lot_size_for(asset_class: str) -> float:
         raise ValueError(f"No backtest lot size for asset class {asset_class!r}.") from None
 
 
+# --- Paper trader (decision 50, research/paper-trader-2026-10-20.md) ---
+# A basket symbol with no bar for a session holds the trader (sessions are
+# traded in order); this many held sessions are flagged by the 06:00 job.
+PAPER_TRADER_HELD_SESSIONS_FLAGGED = 3
+
+
 # --- Short positions (decision 48, research/short-engine-2026-10-19.md) ---
 # Facts about a broker the repo cannot verify, so unset (None) until Danny sets
 # them: a portfolio backtest whose strategy shorts is 422 unless each is set

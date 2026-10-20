@@ -4,7 +4,8 @@
 #
 # Daily data maintenance, for launchd. In this order: ingest new price bars,
 # the risk-free rate, SEC facts for recent filers, the read-only checks
-# (reassigned tickers, missing days, fresh returns, paper margin), the index snapshot, new
+# (reassigned tickers, missing days, fresh returns), the paper trader, the paper margin
+# check, the index snapshot, new
 # index members, the DCF line-concept check, option surfaces, then the backup.
 #
 # Ingest only fetches REGISTERED assets. This header used to say ingest ran
@@ -201,6 +202,26 @@ if [ "$MODE" != "--snapshot-only" ]; then
     else
         log "fresh-return check FAILED to run (exit $CHECK_EXIT)"
         fail fresh-return-check
+    fi
+fi
+
+# Paper portfolios with an attached strategy trade the sessions they have
+# not (decision 50, research/paper-trader-2026-10-20.md): fills at each
+# session's raw open, decided on the close before it. Before the margin check,
+# so it sees today's fills. A refused fill, drift, a held session or ruin is a
+# flag; nothing trades until a strategy is attached.
+if [ "$MODE" != "--snapshot-only" ]; then
+    log "--- paper trader ---"
+    "$VENV_PYTHON" scripts/run_paper_strategies.py >> "$LOG_FILE" 2>&1
+    CHECK_EXIT=$?
+    if [ "$CHECK_EXIT" -eq 0 ]; then
+        log "paper trader OK"
+    elif [ "$CHECK_EXIT" -eq 1 ]; then
+        log "paper trader FLAGGED a portfolio — see REFUSED/DRIFT/HELD/RUINED lines above"
+        flag paper-trader
+    else
+        log "paper trader FAILED to run (exit $CHECK_EXIT)"
+        fail paper-trader
     fi
 fi
 

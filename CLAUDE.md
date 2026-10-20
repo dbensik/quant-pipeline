@@ -72,6 +72,7 @@ scripts/check_fresh_returns.py              # returns readers see vs fresh Yahoo
 scripts/check_line_concepts.py              # DCF lines another concept reports differently, or a stale per-filer map; exit 1 = flagged
 scripts/precompute_surfaces.py --days 7     # option surfaces for the last week + missed capture days; 1 = missed, 2 = failed
 scripts/register_new_members.py --dry-run   # index joiners: what would be registered / flagged (decision 44)
+scripts/run_paper_strategies.py --dry-run   # attached strategies' next fills; without the flag it WRITES them (decision 50)
 scripts/check_paper_margin.py               # paper portfolios below maintenance; read-only, exit 1 = flagged (decision 49)
 scripts/load_fundamentals.py --recent       # SEC facts for registry filers of the last 7 days (--all: everyone, ~10 min)
 scripts/backup.py                           # LAST step: DB dump + option archive to QUANT_BACKUP_DIR, proven by a restore
@@ -329,6 +330,31 @@ need terms and an equity/ETF. Margin is FLAGGED (`check_paper_margin.py` in
 the 06:00 job), never forced. The gRPC path is not signed (its docstring had
 said so) and now records `costs`.
 
+**A strategy can trade a paper portfolio forward** (decision 50,
+2026-10-20, `research/paper-trader-2026-10-20.md`). `PUT
+/portfolios/{name}/strategy` attaches one to an EMPTY portfolio
+(`metadata.strategy`; params fixed; manual trades are then 409 on REST and
+gRPC). The 06:00 job (`scripts/run_paper_strategies.py`, before the margin
+check) trades each session not yet traded, in order: signals from
+`core/strategy_signals.build_signals` (moved out of the portfolio backtest
+router; 27 real runs identical) on adjusted frames CUT at the bar before the
+session, plus one placeholder row carrying only the session's DATE (a
+monthly rule cannot know the 31st closed a month without it, and then never
+trades); `core/paper_trader.plan_session` applies `PortfolioBacktester`'s
+event or target rules to the paper state at the RAW open, $1 + the stored
+`transaction_cost` a fill, no slippage draw, every fill through
+`trade_refusal`. Walked one session at a time it makes exactly the engine's
+fills (`tests/unit/test_paper_trader.py`, 6 strategies incl. pairs with
+shorts). Each session's fills and `last_session` are written in ONE
+transaction, only if `last_session` is unchanged, so a rerun writes nothing.
+Attaching sets `metadata.cash_from`, kept after detach: cash earns ^IRX from
+the attach date, as a backtest's from its first bar. Measured on 3 scratch
+portfolios attached 2026-07-01: the same fill dates and sides as the
+backtest, equity within $1-12 of it. Flags (exit 1): a refused fill, drift
+(held is not what the signals since attach want), 3 sessions held by a
+missing bar, ruin (detached). Crypto with stocks in one basket is 422 (no
+common session).
+
 **Served equities and ETFs have bars from 2010** (insert-only backfill
 2026-10-14, decision 26; ^IRX from 2009-12, without which a pre-2015
 backtest is 422). Yahoo serves placeholder bars before some listings (AMCR,
@@ -583,7 +609,8 @@ For the TimescaleDB layer, copy `.env.example` → `.env`; without it, `db/sessi
   reads only its own set: the 2026-10-16 reload changed no valuation.
 - `core/portfolio.py` — portfolio accounting; the trade log is the only stored
   state and cash/positions/P&L are derived from it (`db/models.py` has no
-  `cash` or `positions` column, deliberately)
+  `cash` or `positions` column, deliberately). `core/paper_trader.py` (pure)
+  and `core/paper_runner.py` (loads, writes) trade an attached strategy into it.
 
 ## Invariants
 

@@ -345,7 +345,7 @@ def store_with(trades, metadata, asset_class="equity", prices=None):
     store = PortfolioStore(engine=RecordingEngine())
     store.load_trades = lambda name: (list(trades), 100_000.0)
     store.metadata = lambda name: metadata
-    store._market_context = lambda tickers, first: MarketContext(
+    store._market_context = lambda tickers, first, start=None: MarketContext(
         None, prices or {"AAPL": 100.0}, {"AAPL": asset_class}
     )
     return store
@@ -371,3 +371,21 @@ def test_the_store_records_costs():
     store = store_with([], None)
     assert store.append_trade("P", "AAPL", "BUY", 1, 100.0, costs=1.25) == 7
     assert store.engine.params["costs"] == 1.25
+
+
+def test_the_store_refuses_a_manual_trade_on_a_portfolio_a_strategy_trades():
+    # Decision 50: as REST does (409 there).
+    binding = {
+        "strategy": "asset_class_trend",
+        "params": {},
+        "symbols": ["AAPL", "MSFT"],
+        "weights": {"AAPL": 0.5, "MSFT": 0.5},
+        "transaction_cost": 0.001,
+        "attached_on": "2026-10-20",
+        "signal_from": "2010-01-04",
+        "last_session": "2026-10-20",
+    }
+    store = store_with([], {"strategy": binding})
+    with pytest.raises(ValueError, match="traded by 'asset_class_trend'"):
+        store.append_trade("P", "AAPL", "BUY", 1, 100.0)
+    assert store.engine.params is None

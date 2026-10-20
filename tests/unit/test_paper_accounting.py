@@ -151,6 +151,22 @@ def test_interest_accrues_nightly_on_free_cash_only():
     assert state.borrow_paid == 0.0  # no terms
 
 
+def test_cash_earns_from_cash_from_when_that_is_before_the_first_trade():
+    # Decision 50: an attached strategy's cash earns from the attach date, as
+    # a backtest's does from its first bar, not from its first entry.
+    end = D0 + timedelta(days=10)
+    rates = daily_rates(D0, end)
+    h = MarketHistory(actions={}, closes={}, rates=rates, as_of=end, start=D0)
+    buy = [trade("X", "BUY", 1, 100.0, D0 + timedelta(days=4))]
+    state = derive_state(buy, 100_000.0, {"X": 100.0}, history=h)
+    expected = 100_000.0 * 1.0001**4
+    expected = (expected - 100.0) * 1.0001**6 - (100_000.0 - 100.0) + 0.0
+    assert state.interest == pytest.approx(expected, rel=1e-12)
+    # With no trade at all, the initial cash earns.
+    idle = derive_state([], 100_000.0, history=h)
+    assert idle.interest == pytest.approx(100_000.0 * (1.0001**10 - 1), rel=1e-12)
+
+
 def test_no_interest_where_the_rate_is_older_than_a_week():
     end = D0 + timedelta(days=20)
     h = history(end, rates=[(D0, RATE)])

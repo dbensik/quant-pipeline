@@ -186,3 +186,86 @@ in decision 49.
       as the days someone typed it in.
 
 **Approved: A, 2026-10-20.**
+
+## Built (A, 2026-10-20)
+
+- **`core/strategy_signals.build_signals`**: the signal builder, moved out
+  of the portfolio backtest router unchanged. 27 real portfolio backtests
+  (frames, fills, responses) are identical before and after.
+- **`core/paper_trader.py`** (pure): the binding, the pending sessions, and
+  `plan_session`, which applies `PortfolioBacktester`'s event or target
+  rules to the paper state at the raw open. `wanted_vs_held` reports drift.
+- **One finding changed the design: the session's DATE is visible.**
+  - Cut strictly at the signal day, a monthly rule never traded.
+    `rebalance_dates` drops the last period as possibly unfinished, so the
+    31st is only known to close a month once a bar dated in the next month
+    exists. The backtest, run on the whole history, always has that bar.
+  - The cut frame now ends with one placeholder row dated at the session,
+    carrying the signal day's own values: the exchange calendar's date,
+    none of the session's prices. A test checks it holds no session data.
+- **Interest from the attach date (`metadata.cash_from`).** Decision 49's
+  interest started at the first trade, so cash a strategy held before its
+  first entry earned nothing. That cost the pairs check $560 against its
+  backtest. Attaching now sets `cash_from`, which is kept after detach, and
+  every reader (REST, gRPC, the margin check, the trader) uses it. Manual
+  portfolios are unchanged.
+- **`core/paper_runner.py`** loads and writes. Each session's fills and its
+  `last_session` go in one transaction (`record_session`), only if
+  `last_session` is still what the run read. A concurrent run gets 409 and
+  writes nothing.
+- **REST:**
+  - `PUT` and `DELETE /portfolios/{name}/strategy`;
+  - `POST /portfolios/{name}/run` (`dry_run` by default);
+  - `strategy` in the state;
+  - a manual trade, or deleting a trade, on an attached portfolio is 409;
+  - removing short terms while a shorting strategy is attached is 409.
+- **gRPC:** `ExecuteTrade` on an attached portfolio is refused.
+- **What may be attached:**
+  - multi-asset strategies on 2-50 symbols, or a single-asset one on
+    exactly 1;
+  - not a basket mixing crypto with stocks or ETFs (no session has a bar for
+    every symbol);
+  - not `cointegrated_mean_reversion`, which needs weights the registry
+    cannot default;
+  - the risk manager is off (decision 32's defaults), and volatility
+    targeting is not offered.
+- **The 06:00 job:** `scripts/run_paper_strategies.py`, before the margin
+  check. Flag name `paper-trader`.
+- **The page:** a Strategy card that attaches (strategy, symbols, params,
+  cost) or shows the dry run (the next fills, wanted vs held, flags), with
+  "Trade now" and "Detach". The trade form and the delete buttons are
+  hidden while a strategy is attached.
+
+### Tests
+
+- **Parity:** walked forward one session at a time, the trader makes
+  exactly the backtest's fills (dates, sides, quantities, prices, costs)
+  for asset_class_trend, momentum_allocation, paired_switching,
+  basket_trading, ma_crossover on one symbol, and pairs_trading with
+  shorts. Its final equity also equals the engine's.
+- **Sessions, refusals and attach rules:** catch-up equals day by day;
+  missing bars hold the trader; margin cut; ruin; refusal; drift.
+- **Unit:** 19 tests. **API:** 17. **gRPC:** 1. **Page:** 4. **Accounting:** 1
+  (`cash_from`).
+- **21 mutants**, each caught by at least one test.
+
+### Real-data check
+
+Three scratch portfolios, attached as of 2026-07-01 by writing the binding
+directly, were traded by the runner against the database through
+2026-10-19 (76 sessions), compared with a portfolio backtest of the same
+signals from the same day, then deleted. A second run wrote nothing in each.
+
+| strategy | fills | same dates and sides | paper equity | backtest |
+|---|---|---|---|---|
+| asset_class_trend, weekly, 5 ETFs | 6 | yes | $98,563.50 | $98,554.83 |
+| momentum_allocation, weekly, 4 ETFs | 4 | yes | $99,065.58 | $99,064.36 |
+| pairs_trading GLD/SLV (shorted GLD) | 4 | yes | $101,499.36 | $101,487.70 |
+
+- **Quantities:** two VNQ fills were 203 shares against the backtest's 205.
+  The trader sizes on the raw open; the backtest sizes on an open lowered by
+  later dividends.
+- **Run time:** a run takes about 0.2 s a session (0.5 s for pairs), so one
+  morning's session costs well under a second.
+
+The two design changes (the session-date placeholder and `cash_from`) approved by Danny, 2026-10-20.

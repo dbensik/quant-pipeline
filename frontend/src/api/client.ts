@@ -95,6 +95,9 @@ export type PortfolioSummary = components['schemas']['PortfolioSummary']
 export type PortfolioStateOut = components['schemas']['PortfolioStateOut']
 export type PortfolioShortTerms = components['schemas']['PortfolioShortTerms']
 export type FlowOut = components['schemas']['FlowOut']
+export type PaperStrategyOut = components['schemas']['PaperStrategyOut']
+export type AttachStrategyRequest = components['schemas']['AttachStrategyRequest']
+export type PaperRunOut = components['schemas']['PaperRunOut']
 export type PositionOut = components['schemas']['PositionOut']
 export type TradeOut = components['schemas']['TradeOut']
 export type TradeIn = components['schemas']['TradeIn']
@@ -365,6 +368,28 @@ export const api = {
     return requestNoContent(`/api/v1/portfolios/${encodeURIComponent(name)}/short-terms`, {
       method: 'DELETE',
     })
+  },
+
+  /** A strategy that trades the portfolio forward from tomorrow's open (decision 50). */
+  attachStrategy(name: string, body: AttachStrategyRequest): Promise<PaperStrategyOut> {
+    return request(`/api/v1/portfolios/${encodeURIComponent(name)}/strategy`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    })
+  },
+
+  detachStrategy(name: string): Promise<void> {
+    return requestNoContent(`/api/v1/portfolios/${encodeURIComponent(name)}/strategy`, {
+      method: 'DELETE',
+    })
+  },
+
+  /** What the next run would write (dry run, the default) or, with write, trade it now. */
+  runStrategy(name: string, write = false): Promise<PaperRunOut> {
+    return request(
+      `/api/v1/portfolios/${encodeURIComponent(name)}/run${qs({ dry_run: !write })}`,
+      { method: 'POST' },
+    )
   },
 
   deletePortfolio(name: string): Promise<void> {
