@@ -1,7 +1,11 @@
+import math
+
 import numpy as np
 import pandas as pd
 
 from analysis.performance_analyzer import PerformanceAnalyzer, periods_per_year
+from core import ledger
+from core.ledger import ShortTerms
 from execution.simulated_handler import SimulatedExecutionHandler, to_lot
 
 from .events import OrderEvent
@@ -48,6 +52,8 @@ class PortfolioBacktester:
         self.results = None
         #: Per-bar cash interest of the last run, aligned to its results.
         self.cash_accrual = None
+        #: Bar at which a target run's equity reached 0 with shorts held, else None.
+        self.ruined_at = None
 
     def run(
         self,
@@ -57,6 +63,7 @@ class PortfolioBacktester:
         *,
         cash_accrual: pd.Series,
         lot_sizes: dict,
+        short_terms: ShortTerms | None = None,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
         Runs the portfolio backtest using an efficient event-driven loop.
@@ -83,6 +90,14 @@ class PortfolioBacktester:
         (research/fill-timing-2026-10-15.md): the allocation rules lost
         0.02-0.07 Sharpe 2011-2026; static rebalancing did not move. Holdings
         are still marked at the close. Every frame needs an Open column.
+
+        TARGET SIGNALS (decision 48, research/short-engine-2026-10-19.md): a
+        signal frame with a `target` column instead of `signal` gives the
+        position wanted, as a SIGNED FRACTION OF EQUITY (-0.5 = short half the
+        equity), NaN = keep the current quantity. Every frame must then have
+        one; `target_weights` is not read. See _run_targets. A negative
+        target needs `short_terms` (core/ledger.py), which no event-shaped run
+        takes: events keep the path below untouched.
         """
         missing_open = sorted(t for t, f in price_data.items() if "Open" not in f.columns)
         if missing_open:
@@ -93,6 +108,16 @@ class PortfolioBacktester:
         missing_lots = sorted(set(price_data) - set(lot_sizes))
         if missing_lots:
             raise ValueError(f"lot_sizes has no entry for {', '.join(missing_lots)}")
+        has_target = {key: "target" in frame.columns for key, frame in signals_data.items()}
+        target_mode = any(has_target.values())
+        if target_mode and not all(has_target.values()):
+            raise ValueError(
+                "Signal frames mix `target` and `signal` columns: "
+                f"targets for {sorted(k for k, v in has_target.items() if v)}, "
+                f"events for {sorted(k for k, v in has_target.items() if not v)}"
+            )
+        if short_terms is not None and not target_mode:
+            raise ValueError("short_terms applies to target signals only; events cannot short")
         # --- 1. ARCHITECTURAL REFACTOR: Create an event-driven loop ---
         # Get all unique timestamps from all signal sources. This is more efficient
         # than iterating over every calendar day.
@@ -120,6 +145,18 @@ class PortfolioBacktester:
             )
         accrual_values = accrual.to_numpy(dtype=float)
         self.cash_accrual = accrual_values
+
+        if target_mode:
+            portfolio, trade_log = self._run_targets(
+                price_data,
+                signals_data,
+                full_timeline,
+                accrual_values,
+                lot_sizes,
+                short_terms,
+            )
+            self.results = portfolio
+            return portfolio, pd.DataFrame(trade_log)
 
         # --- 2. Initialize Portfolio State ---
         all_tickers = list(price_data.keys())
@@ -339,6 +376,236 @@ class PortfolioBacktester:
         self.results = portfolio
 
         return portfolio, pd.DataFrame(trade_log)
+
+    def _run_targets(
+        self,
+        price_data: dict,
+        signals_data: dict,
+        timeline: list,
+        accrual_values: np.ndarray,
+        lot_sizes: dict,
+        short_terms: ShortTerms | None,
+    ) -> tuple[pd.DataFrame, list]:
+        """
+        The target-signal loop: long AND short positions, with the accounting
+        in core/ledger.py. A separate path, so event-shaped runs are untouched.
+
+        Each bar, in order:
+          1. Borrow on the shorts (value at the previous close, calendar
+             days) and interest on FREE cash (cash less the shorts'
+             collateral). With no short held, interest is exactly the event
+             path's `cash *= 1 + accrual`.
+          2. At this bar's open: a margin cut flagged at the previous close,
+             pro rata on every position (fills logged `reason="margin"`);
+             then the targets emitted up to the previous bar. All closing
+             fills (sells of longs, covers of shorts) before any opening one,
+             so a flip from long to short is two fills. A ticker with no
+             Open on this bar keeps its target pending.
+          3. Marked at the close; if equity is below
+             `maintenance` x gross, the next open cuts. Equity at or below 0
+             is ruin: positions are dropped, the total is 0 from there on,
+             and `self.ruined_at` names the bar.
+
+        Sizing: |target| x equity at the open / the open, floored to lots.
+        A closing fill takes the whole holding when the target is 0 or the
+        other side (no dust). A long is paid from free cash only (no margin
+        loan); a short, and a long when short terms are set, is bounded by
+        gross <= max_gross x equity. The risk manager judges OPENING orders
+        only, long or short, as if each were a buy: a cover is a buy, and a
+        drawdown halt that blocked covers would leave a short unrecoverable.
+        """
+        if self.enable_vol_targeting:
+            raise ValueError("Volatility targeting does not apply to target signals")
+        if "Portfolio" in signals_data:
+            raise ValueError("Target signals are per ticker; a 'Portfolio' frame has no ticker")
+        tickers = list(price_data.keys())
+        index = pd.DatetimeIndex(timeline)
+        n = len(index)
+        closes = {t: price_data[t]["Close"].reindex(index).ffill().to_numpy(float) for t in tickers}
+        # Opens are NOT carried forward: a ticker trades only on its own bars.
+        opens = {t: price_data[t]["Open"].reindex(index).to_numpy(float) for t in tickers}
+        targets = {
+            t: (
+                signals_data[t]["target"].reindex(index).to_numpy(float)
+                if t in signals_data
+                else np.full(n, np.nan)
+            )
+            for t in tickers
+        }
+        if short_terms is None:
+            negative = sorted(t for t in tickers if np.nanmin(targets[t], initial=0.0) < 0)
+            if negative:
+                raise ValueError(
+                    f"Negative targets for {negative} need short_terms (borrow, margin)"
+                )
+        days = np.concatenate([[0.0], np.diff(index.asi8) / 86_400e9])
+
+        cash = float(self.initial_capital)
+        pos = {t: 0.0 for t in tickers}
+        pending: dict = {}
+        cut = 0.0
+        borrow_paid = 0.0
+        self.ruined_at = None
+        cols = {
+            name: np.zeros(n)
+            for name in (
+                "cash",
+                "holdings_value",
+                "total",
+                "long_value",
+                "short_value",
+                "gross",
+                "borrow_paid",
+            )
+        }
+        pos_cols = {t: np.zeros(n) for t in tickers}
+        trade_log: list = []
+
+        def held_prices(i: int) -> dict:
+            return {t: closes[t][i] for t in tickers if pos[t] != 0}
+
+        def apply(fill, reason: str) -> None:
+            nonlocal cash
+            if fill.direction == "BUY":
+                cash -= fill.total_cost
+                pos[fill.symbol] += fill.quantity
+            else:
+                cash += fill.total_cost
+                pos[fill.symbol] -= fill.quantity
+            row = vars(fill).copy()
+            row["total_cost"] = fill.total_cost
+            row["reason"] = reason
+            trade_log.append(row)
+
+        def execute(ticker, quantity, direction, price, ts, reason):
+            order = OrderEvent(ts, ticker, "MKT", quantity, direction)
+            apply(self.execution_handler.execute_order(order, price), reason)
+
+        for i in range(n):
+            ts = timeline[i]
+            if self.ruined_at is not None:
+                continue
+            if i > 0:
+                prev = held_prices(i - 1)
+                shorts_held = any(q < 0 for q in pos.values())
+                if shorts_held:
+                    interest = ledger.free_cash(cash, pos, prev) * accrual_values[i]
+                    charge = ledger.borrow_charge(pos, prev, days[i], short_terms.borrow_rate)
+                    cash += interest - charge
+                    borrow_paid += charge
+                else:
+                    cash *= 1.0 + accrual_values[i]
+
+                for t in tickers:
+                    if not np.isnan(targets[t][i - 1]):
+                        pending[t] = targets[t][i - 1]
+
+                open_now = {t: opens[t][i] for t in tickers if opens[t][i] > 0}
+                if cut > 0:
+                    for t in tickers:
+                        if pos[t] == 0 or t not in open_now:
+                            continue
+                        lot = lot_sizes[t]
+                        quantity = min(abs(pos[t]), math.ceil(abs(pos[t]) * cut / lot) * lot)
+                        direction = "SELL" if pos[t] > 0 else "BUY"
+                        execute(t, quantity, direction, open_now[t], ts, "margin")
+                    cut = 0.0
+
+                mark = {t: open_now.get(t, closes[t][i - 1]) for t in tickers if pos[t] != 0}
+                equity_open = ledger.equity(cash, pos, mark)
+                wanted = {}
+                for t in list(pending):
+                    if t not in open_now:
+                        continue
+                    target = pending.pop(t)
+                    size = to_lot(abs(target) * max(equity_open, 0.0) / open_now[t], lot_sizes[t])
+                    wanted[t] = math.copysign(size, target) if size else 0.0
+
+                # Closing fills first: they free cash and gross for the openings.
+                for t, desired in wanted.items():
+                    current = pos[t]
+                    if current > 0 and desired < current:
+                        execute(t, current - max(desired, 0.0), "SELL", open_now[t], ts, "signal")
+                    elif current < 0 and desired > current:
+                        execute(t, -current - max(-desired, 0.0), "BUY", open_now[t], ts, "signal")
+
+                for t, desired in wanted.items():
+                    current = pos[t]
+                    lot = lot_sizes[t]
+                    if desired > max(current, 0.0):
+                        quantity = desired - max(current, 0.0)
+                        direction = "BUY"
+                    elif desired < min(current, 0.0):
+                        quantity = -desired + min(current, 0.0)
+                        direction = "SELL"
+                    else:
+                        continue
+                    price = open_now[t]
+                    mark = {u: open_now.get(u, closes[u][i - 1]) for u in tickers if pos[u] != 0}
+                    equity_now = ledger.equity(cash, pos, mark)
+                    if short_terms is not None:
+                        room = ledger.short_room(
+                            equity_now,
+                            ledger.gross_exposure(pos, mark),
+                            short_terms.max_gross,
+                            price,
+                            lot,
+                        )
+                        quantity = min(quantity, room)
+                    probe = OrderEvent(ts, t, "MKT", quantity, "BUY")
+                    state = pd.Series({"total": equity_now, f"{t}_price": price})
+                    approved = (
+                        self.risk_manager.assess_order(probe, state, lot_size=lot)
+                        if quantity > 0
+                        else None
+                    )
+                    if not approved:
+                        continue
+                    order = OrderEvent(ts, t, "MKT", approved.quantity, direction)
+                    fill = self.execution_handler.execute_order(order, price)
+                    if direction == "BUY":
+                        spendable = ledger.free_cash(cash, pos, mark)
+                        if fill.total_cost > spendable:
+                            affordable = self.execution_handler.affordable_quantity(
+                                spendable, fill.fill_price, lot
+                            )
+                            if affordable <= 0:
+                                continue
+                            fill = self.execution_handler.resize(fill, affordable)
+                    apply(fill, "signal")
+
+            close_prices = held_prices(i)
+            value = sum(q * p for q, p in ((pos[t], close_prices[t]) for t in close_prices))
+            total = cash + value
+            long_v = ledger.long_value(pos, close_prices)
+            short_v = ledger.short_value(pos, close_prices)
+            if short_v > 0 and total <= 0:
+                self.ruined_at = ts
+                for t in tickers:
+                    pos[t] = 0.0
+                cash, value, total, long_v, short_v = 0.0, 0.0, 0.0, 0.0, 0.0
+            elif short_terms is not None:
+                cut = ledger.margin_cut(total, long_v + short_v, short_terms.maintenance)
+            cols["cash"][i] = cash
+            cols["holdings_value"][i] = value
+            cols["total"][i] = total
+            cols["long_value"][i] = long_v
+            cols["short_value"][i] = short_v
+            cols["gross"][i] = long_v + short_v
+            cols["borrow_paid"][i] = borrow_paid
+            for t in tickers:
+                pos_cols[t][i] = pos[t]
+
+        portfolio = pd.DataFrame(cols, index=timeline)
+        for t in tickers:
+            portfolio[f"{t}_pos"] = pos_cols[t]
+        portfolio["returns"] = (
+            portfolio["total"].pct_change().fillna(0).replace([np.inf, -np.inf], 0)
+        )
+        fill_times = pd.DatetimeIndex([row["timestamp"] for row in trade_log])
+        fills = pd.Series(1, index=fill_times).groupby(level=0).sum()
+        portfolio["trades"] = fills.reindex(portfolio.index, fill_value=0).astype(int).to_numpy()
+        return portfolio, trade_log
 
     def get_performance_metrics(self) -> dict:
         """Calculates performance metrics by delegating to the PerformanceAnalyzer."""

@@ -213,3 +213,40 @@ advance, not tuned.
     - **C: engine only.** Build it with synthetic tests and no strategy or
       ETFs. About 8-10 h. The capability would ship with no consumer, and
       the first real use would find what synthetic tests missed.
+
+## Built
+
+### Step 1: the engine (2026-10-19, A approved)
+
+- **`core/ledger.py`**: `ShortTerms` (borrow rate, max gross, maintenance;
+  no defaults, refused if negative or if `maintenance` x `max_gross` >= 1,
+  where a position opened at the cap would be cut at once), and pure
+  functions for long, short and gross value, equity, free cash, borrow, room
+  under the cap, and the margin cut.
+- **`PortfolioBacktester._run_targets`**: a separate loop, entered only when
+  every signal frame has a `target` column. Decided here, as the doc left it
+  open: a target is a signed fraction of EQUITY at the open; `weights` are
+  not read. Not reachable from the API until step 2.
+  - Each bar: borrow and interest on free cash; then, at the open, a margin
+    cut flagged at the previous close; then the targets, closing fills
+    before opening ones.
+  - Opening orders, long or short, go through the risk manager as if buys;
+    covers and sales never do, so a drawdown halt cannot trap a short. Its
+    "off" setting, 1.0, still caps one opening at 100% of equity, so a
+    single target above 1 is cut to 1.
+  - Equity at or below 0 with a short held is ruin: `ruined_at`, total 0
+    from there on.
+- **Event-shaped runs are unchanged.** 28 real runs through the API, against
+  the real database, before and after:
+  - 6 baskets x the 5 allocation strategies that apply, `pairs_trading` on
+    the two pairs, one volatility-targeted and one with the risk caps on.
+  - Response JSON, engine frame (values and columns) and trade log (6,865
+    fills) are identical.
+- **Tests:** `tests/unit/test_short_engine.py`, 21. Each expectation is
+  worked by hand (borrow $997.26 on $100k over 364 days at 1%; a weekend
+  charges 3 days; a cover of 167 shares when a short at 100 reaches 160 at
+  30% maintenance). Sixteen mutants of the code, each removing one rule,
+  were run on a copy of the repo. Each was caught by at least one test.
+- **Real-data check:** SPY long 0.5 / TLT short 0.5, 2016-2025, never
+  rebalanced: 2 fills, $5,579 borrow, gross drifting to 1.62x equity, no
+  margin call, 0.02 s.
