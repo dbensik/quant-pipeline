@@ -1339,6 +1339,17 @@ export interface components {
              * @description Annual risk-free rate the Sharpe ratio is in excess of. Omitted, it is the stored ^IRX bond-equivalent rate averaged over the window's sessions.
              */
             risk_free_rate?: number | null;
+            /**
+             * Benchmark Symbol
+             * @description Symbol the benchmark report regresses the run on. Default: SPY, or the class's own for a run of one class listed in BENCHMARK_BY_ASSET_CLASS ({'crypto': 'BTC-USD'}).
+             */
+            benchmark_symbol?: string | null;
+            /**
+             * Include Benchmark Report
+             * @description Set false to skip the benchmark report (decision 53)
+             * @default true
+             */
+            include_benchmark_report: boolean;
         };
         /** BacktestResponse */
         BacktestResponse: {
@@ -1408,6 +1419,67 @@ export interface components {
             trades?: {
                 [key: string]: unknown;
             }[];
+            /** @description The run against its benchmark (decision 53) */
+            benchmark_report?: components["schemas"]["BenchmarkReportOut"] | null;
+            /**
+             * Benchmark Unavailable
+             * @description Why there is no benchmark report, when one was asked for
+             */
+            benchmark_unavailable?: string | null;
+        };
+        /** BenchmarkReportOut */
+        BenchmarkReportOut: {
+            /** Symbol */
+            symbol: string;
+            /**
+             * Start
+             * Format: date-time
+             */
+            start: string;
+            /**
+             * End
+             * Format: date-time
+             */
+            end: string;
+            /**
+             * Bars
+             * @description Daily returns in the regression
+             */
+            bars: number;
+            /** Periods Per Year */
+            periods_per_year: number;
+            /** Beta */
+            beta: number;
+            /**
+             * Alpha
+             * @description Annualized, in excess of cash
+             */
+            alpha: number;
+            /**
+             * Alpha T
+             * @description Newey-West t-statistic of alpha
+             */
+            alpha_t: number;
+            /**
+             * Alpha Low
+             * @description 95% interval, annualized
+             */
+            alpha_low: number;
+            /** Alpha High */
+            alpha_high: number;
+            /** R Squared */
+            r_squared: number;
+            /** Rolling Window */
+            rolling_window: number;
+            /** Rolling Sharpe */
+            rolling_sharpe?: components["schemas"]["RollingSharpePoint"][];
+            /** Regimes */
+            regimes?: components["schemas"]["RegimeOut"][];
+            /**
+             * Unranked Days
+             * @description Days with too little earlier benchmark history to be given a regime
+             */
+            unranked_days: number;
         };
         /** BenchmarkRow */
         BenchmarkRow: {
@@ -1457,9 +1529,15 @@ export interface components {
             strategies: components["schemas"]["StrategyEntry"][];
             /**
              * Benchmark Symbol
-             * @description Buy-and-hold on this symbol, normalised to initial_capital.
+             * @description Buy-and-hold on this symbol, normalised to initial_capital, and the benchmark each row's report is measured against. Symbol the benchmark report regresses the run on. Default: SPY, or the class's own for a run of one class listed in BENCHMARK_BY_ASSET_CLASS ({'crypto': 'BTC-USD'}).
              */
             benchmark_symbol?: string | null;
+            /**
+             * Include Benchmark Report
+             * @description Set false to skip each row's benchmark report (decision 53)
+             * @default true
+             */
+            include_benchmark_report: boolean;
             /**
              * Optimize
              * @description Tune each strategy over its grid before comparing, so the ranking does not just measure whose defaults suited the window.
@@ -1637,6 +1715,10 @@ export interface components {
             caveat?: string | null;
             /** Equity Curve */
             equity_curve?: components["schemas"]["ComparisonEquityPoint"][];
+            /** @description The row against its benchmark, over the span it is measured on */
+            benchmark_report?: components["schemas"]["BenchmarkReportOut"] | null;
+            /** Benchmark Unavailable */
+            benchmark_unavailable?: string | null;
         };
         /** CreatePortfolioRequest */
         CreatePortfolioRequest: {
@@ -2570,6 +2652,17 @@ export interface components {
              */
             include_equity_curve: boolean;
             /**
+             * Benchmark Symbol
+             * @description Symbol the benchmark report regresses the run on. Default: SPY, or the class's own for a run of one class listed in BENCHMARK_BY_ASSET_CLASS ({'crypto': 'BTC-USD'}).
+             */
+            benchmark_symbol?: string | null;
+            /**
+             * Include Benchmark Report
+             * @description Set false to skip the benchmark report (decision 53)
+             * @default true
+             */
+            include_benchmark_report: boolean;
+            /**
              * Risk Free Rate
              * @description Annual risk-free rate the Sharpe ratio is in excess of. Omitted, it is the stored ^IRX bond-equivalent rate averaged over the window's sessions.
              */
@@ -2659,6 +2752,13 @@ export interface components {
             /** @description Set for a strategy that shorts: the terms the run used */
             short_terms?: components["schemas"]["ShortTermsUsed"] | null;
             short_exposure?: components["schemas"]["ShortExposure"] | null;
+            /** @description The run against its benchmark (decision 53) */
+            benchmark_report?: components["schemas"]["BenchmarkReportOut"] | null;
+            /**
+             * Benchmark Unavailable
+             * @description Why there is no benchmark report, when one was asked for
+             */
+            benchmark_unavailable?: string | null;
         };
         /** PortfolioEquityPoint */
         PortfolioEquityPoint: {
@@ -2983,6 +3083,36 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** RegimeOut */
+        RegimeOut: {
+            /**
+             * Name
+             * @description low, middle or high third of the benchmark's volatility
+             */
+            name: string;
+            /** Days */
+            days: number;
+            /** Share */
+            share: number;
+            /**
+             * Strategy Return
+             * @description Mean excess return a bar, annualized
+             */
+            strategy_return: number | null;
+            /** Benchmark Return */
+            benchmark_return: number | null;
+            /** Strategy Sharpe */
+            strategy_sharpe: number | null;
+            /** Benchmark Sharpe */
+            benchmark_sharpe: number | null;
+            /**
+             * Strategy Sharpe Error
+             * @description Standard error of the Sharpe
+             */
+            strategy_sharpe_error: number | null;
+            /** Benchmark Sharpe Error */
+            benchmark_sharpe_error: number | null;
+        };
         /** RestatedOut */
         RestatedOut: {
             /**
@@ -3041,6 +3171,18 @@ export interface components {
             prob_ruin: number;
             /** Ruin Threshold */
             ruin_threshold: number;
+        };
+        /** RollingSharpePoint */
+        RollingSharpePoint: {
+            /**
+             * Time
+             * Format: date-time
+             */
+            time: string;
+            /** Strategy */
+            strategy: number | null;
+            /** Benchmark */
+            benchmark: number | null;
         };
         /** SaveResultRequest */
         SaveResultRequest: {

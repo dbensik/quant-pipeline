@@ -373,6 +373,27 @@ cash, positions, final equity and drawdown were identical on 27 real runs;
 Sharpe moved -0.001 to +0.009. Two caveats moved by 0.01 (momentum on Faber
 five 0.62, trend on seven 0.52).
 
+**Every backtest reports itself against a benchmark** (decision 53,
+2026-10-20, `research/benchmark-regime-report-2026-10-20.md`,
+`analysis/benchmark_report.py`, `api/benchmark.py`). `/backtest` (and its
+websocket), `/backtest/compare` (each row) and `/backtest/portfolio` return
+`benchmark_report`:
+- **Exposure:** beta and annualized alpha on daily returns in excess of the
+  run's own cash accrual, with a Newey-West t and 95% interval.
+- **Rolling Sharpe:** over 252 bars, by `window_metrics`' definition.
+- **Regimes:** Sharpe ± its standard error in thirds of the benchmark's
+  21-day volatility, as known the close before, ranked only against earlier
+  days.
+
+The benchmark is SPY, or BTC-USD for an all-crypto run (`BENCHMARK_*` in
+settings), or `benchmark_symbol`. Without the default's bars the report is
+null and `benchmark_unavailable` says why; a named one that is missing is
+404/422. Two series are read on their shared bars, so a crypto weekend
+compounds into SPY's Monday. At defaults against SPY (2011-2026), no
+allocation rule or single-asset strategy measured had an alpha told from
+zero; a regime third's Sharpe is about ±0.45. The report adds 0.2-0.4 s to a
+16-year request; `include_benchmark_report: false` skips it.
+
 **Served equities and ETFs have bars from 2010** (insert-only backfill
 2026-10-14, decision 26; ^IRX from 2009-12, without which a pre-2015
 backtest is 422). Yahoo serves placeholder bars before some listings (AMCR,

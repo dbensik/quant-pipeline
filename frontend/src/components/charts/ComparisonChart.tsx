@@ -27,8 +27,21 @@ const currency = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 0,
 })
 
-export function ComparisonChart({ series }: { series: Series[] }) {
+const plain = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 })
+
+/**
+ * `format` is the value axis: equity in dollars by default, or a plain number
+ * (the benchmark report's rolling Sharpe, decision 53).
+ */
+export function ComparisonChart({
+  series,
+  format = 'currency',
+}: {
+  series: Series[]
+  format?: 'currency' | 'number'
+}) {
   const rows = comparisonRows(series)
+  const formatter = format === 'currency' ? currency : plain
 
   if (rows.length === 0) {
     return (
@@ -50,12 +63,12 @@ export function ComparisonChart({ series }: { series: Series[] }) {
             className="text-xs"
           />
           <YAxis
-            tickFormatter={(value: number) => currency.format(value)}
+            tickFormatter={(value: number) => formatter.format(value)}
             width={80}
             className="text-xs"
           />
           <Tooltip
-            formatter={(value, name) => [currency.format(Number(value)), String(name)]}
+            formatter={(value, name) => [formatter.format(Number(value)), String(name)]}
             labelFormatter={(label) => String(label ?? '').slice(0, 10)}
           />
           <Legend />

@@ -13,7 +13,12 @@
  */
 
 import { API_BASE_URL } from './client'
-import type { BacktestInput, SimulationInput, SimulationResponse } from './client'
+import type {
+  BacktestInput,
+  BenchmarkReportOut,
+  SimulationInput,
+  SimulationResponse,
+} from './client'
 
 export interface WsAccepted {
   type: 'accepted'
@@ -48,6 +53,9 @@ export interface WsResult {
   risk_free_rate: number
   risk_free_source: string
   equity_curve?: Array<{ time: string; total: number }>
+  /** Decision 53: absent from a server older than it. */
+  benchmark_report?: BenchmarkReportOut | null
+  benchmark_unavailable?: string | null
 }
 
 export interface WsError {

@@ -1208,6 +1208,27 @@ def lot_size_for(asset_class: str) -> float:
 PAPER_TRADER_HELD_SESSIONS_FLAGGED = 3
 
 
+# --- Benchmark and regime report (decision 53, research/benchmark-regime-report-2026-10-20.md) ---
+#: The benchmark a backtest is regressed on unless the request names one: a
+#: run whose assets are all of one class listed here takes that class's,
+#: anything else (equities, ETFs, a basket mixing crypto with them) the default.
+BENCHMARK_DEFAULT = "SPY"
+BENCHMARK_BY_ASSET_CLASS = {"crypto": "BTC-USD"}
+#: Calendar days of benchmark bars read before a run's start, so its first
+#: days can be ranked (252 earlier volatility readings plus the window).
+BENCHMARK_HISTORY_DAYS = 730
+#: Bars in the trailing volatility a day's regime is ranked on.
+BENCHMARK_REGIME_WINDOW = 21
+#: Earlier readings a day is ranked against before it gets a regime.
+BENCHMARK_REGIME_MIN_HISTORY = 252
+#: Bars in the rolling Sharpe.
+BENCHMARK_ROLLING_SHARPE_WINDOW = 252
+#: Newey-West lags for alpha's standard error.
+BENCHMARK_NEWEY_WEST_LAGS = 5
+#: Fewer common bars than this and there is no regression.
+BENCHMARK_MIN_BARS = 30
+
+
 # --- Short positions (decision 48, research/short-engine-2026-10-19.md) ---
 # Facts about a broker the repo cannot verify, so unset (None) until Danny sets
 # them: a portfolio backtest whose strategy shorts is 422 unless each is set

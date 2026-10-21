@@ -21,6 +21,12 @@ from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from alpha_models import registry
+from api.benchmark import (
+    BENCHMARK_SYMBOL_DESCRIPTION,
+    BenchmarkReportOut,
+    load_benchmark,
+    report_or_reason,
+)
 from api.dependencies import get_market_data_repo
 from api.frames import records_to_frame
 from api.lots import lot_size_or_422
@@ -119,6 +125,10 @@ class PortfolioBacktestRequest(BaseModel):
         default=True, description="Compute VaR/CVaR on the resulting returns"
     )
     include_equity_curve: bool = Field(default=True)
+    benchmark_symbol: Optional[str] = Field(default=None, description=BENCHMARK_SYMBOL_DESCRIPTION)
+    include_benchmark_report: bool = Field(
+        default=True, description="Set false to skip the benchmark report (decision 53)"
+    )
     risk_free_rate: Optional[float] = Field(default=None, description=RISK_FREE_RATE_DESCRIPTION)
 
     # Short terms (decision 48): only for a strategy that shorts (`shorts` in
@@ -205,6 +215,12 @@ class PortfolioBacktestResponse(BaseModel):
         default=None, description="Set for a strategy that shorts: the terms the run used"
     )
     short_exposure: Optional[ShortExposure] = None
+    benchmark_report: Optional[BenchmarkReportOut] = Field(
+        default=None, description="The run against its benchmark (decision 53)"
+    )
+    benchmark_unavailable: Optional[str] = Field(
+        default=None, description="Why there is no benchmark report, when one was asked for"
+    )
 
 
 def _run_sync(
@@ -423,10 +439,12 @@ async def run_portfolio_backtest(
 
     price_data: Dict[str, pd.DataFrame] = {}
     lot_sizes: Dict[str, float] = {}
+    asset_classes: List[str] = []
     for symbol in request.symbols:
         asset = await repo.find_asset(symbol)
         if asset is None:
             raise HTTPException(status_code=404, detail=f"Unknown symbol: {symbol!r}")
+        asset_classes.append(asset.asset_class)
         lot_sizes[symbol] = lot_size_or_422(asset)
         if shorts and asset.asset_class not in settings.SHORTABLE_ASSET_CLASSES:
             raise HTTPException(
@@ -461,6 +479,12 @@ async def run_portfolio_backtest(
         risk_free = await resolve_risk_free(request.risk_free_rate, timeline, rates)
     except RiskFreeCoverageError as exc:
         raise HTTPException(status_code=422, detail=risk_free_refusal(exc)) from exc
+
+    benchmark, benchmark_reason = (
+        await load_benchmark(repo, request.benchmark_symbol, asset_classes, start, end)
+        if request.include_benchmark_report
+        else (None, None)
+    )
 
     try:
         model = spec.build(request.params)
@@ -502,6 +526,21 @@ async def run_portfolio_backtest(
             for idx, row in portfolio.iterrows()
         ]
 
+    report = None
+    if request.include_benchmark_report:
+        total = (
+            portfolio["total"]
+            if portfolio is not None and "total" in portfolio.columns
+            else pd.Series(dtype=float)
+        )
+        report, benchmark_reason = await run_in_threadpool(
+            report_or_reason,
+            benchmark,
+            benchmark_reason,
+            total,
+            pd.Series(risk_free.accrual, index=timeline).reindex(total.index),
+        )
+
     effective_params = {p.name: request.params.get(p.name, p.default) for p in spec.params}
 
     return PortfolioBacktestResponse(
@@ -526,4 +565,6 @@ async def run_portfolio_backtest(
         equity_curve=curve,
         short_terms=terms_used,
         short_exposure=exposure,
+        benchmark_report=report,
+        benchmark_unavailable=benchmark_reason,
     )

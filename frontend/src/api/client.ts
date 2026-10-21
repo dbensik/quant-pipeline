@@ -30,6 +30,8 @@ export type ParamSchema = components['schemas']['ParamSchema']
 export type BacktestRequest = components['schemas']['BacktestRequest']
 export type BacktestResponse = components['schemas']['BacktestResponse']
 export type EquityPoint = components['schemas']['EquityPoint']
+export type BenchmarkReportOut = components['schemas']['BenchmarkReportOut']
+export type RegimeOut = components['schemas']['RegimeOut']
 export type SimulationRequest = components['schemas']['SimulationRequest']
 export type SimulationResponse = components['schemas']['SimulationResponse']
 export type FanBand = components['schemas']['FanBand']
@@ -543,6 +545,9 @@ export const api = {
     borrow_rate?: number
     max_gross?: number
     maintenance?: number
+    /** Decision 53: the report's benchmark; omitted = SPY (BTC-USD for all crypto). */
+    benchmark_symbol?: string | null
+    include_benchmark_report?: boolean
   }): Promise<PortfolioBacktestResponse> {
     return request('/api/v1/backtest/portfolio', {
       method: 'POST',

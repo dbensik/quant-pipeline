@@ -10,8 +10,9 @@
 
 import { useMemo, useState } from 'react'
 
-import type { ApiError } from '@/api/client'
+import type { ApiError, ComparisonRow } from '@/api/client'
 import { useAssets, useCompare, useStrategies } from '@/api/queries'
+import { BenchmarkReport } from '@/components/backtest/BenchmarkReport'
 import { ComparisonChart } from '@/components/charts/ComparisonChart'
 import { DateRangePresets } from '@/components/layout/DateRangePresets'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -44,6 +45,43 @@ const METRICS = [
 const percent = (v: number | null | undefined) =>
   v == null ? '—' : `${(v * 100).toFixed(2)}%`
 const ratio = (v: number | null | undefined) => (v == null ? '—' : v.toFixed(3))
+
+/** One row's benchmark report, chosen from the ranked rows (decision 53). */
+function AgainstBenchmark({ rows }: { rows: ComparisonRow[] }) {
+  const [picked, setPicked] = useState('')
+  const row = rows.find((r) => r.strategy_id === picked) ?? rows[0]
+  if (!row || (!row.benchmark_report && !row.benchmark_unavailable)) return null
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Against the benchmark</CardTitle>
+        <CardDescription>
+          Beta and alpha above are each row&apos;s; the rolling Sharpe and the volatility split
+          are for the strategy chosen here.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <select
+          aria-label="Strategy for the benchmark report"
+          className="h-9 rounded-md border bg-transparent px-3 text-sm"
+          value={row.strategy_id}
+          onChange={(e) => setPicked(e.target.value)}
+        >
+          {rows.map((r) => (
+            <option key={r.strategy_id} value={r.strategy_id}>
+              {r.strategy_name}
+            </option>
+          ))}
+        </select>
+        <BenchmarkReport
+          report={row.benchmark_report}
+          unavailable={row.benchmark_unavailable}
+          strategyName={row.strategy_name}
+        />
+      </CardContent>
+    </Card>
+  )
+}
 
 export function ComparePage() {
   const { startDate, endDate } = useAppStore()
@@ -125,7 +163,7 @@ export function ComparePage() {
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="cmp-benchmark">Benchmark (optional)</Label>
+              <Label htmlFor="cmp-benchmark">Benchmark (optional; SPY by default)</Label>
               <Input
                 id="cmp-benchmark"
                 value={benchmark}
@@ -245,6 +283,8 @@ export function ComparePage() {
                       <th className="py-2 pr-4 text-right">Total return</th>
                       <th className="py-2 pr-4 text-right">Max DD</th>
                       <th className="py-2 pr-4 text-right">Trades</th>
+                      <th className="py-2 pr-4 text-right">Beta</th>
+                      <th className="py-2 pr-4 text-right">Alpha (t)</th>
                       <th className="py-2">Parameters</th>
                     </tr>
                   </thead>
@@ -275,6 +315,14 @@ export function ComparePage() {
                         <td className="py-2 pr-4 text-right tabular-nums">
                           {String(row.metrics['Trade Count'] ?? '—')}
                         </td>
+                        <td className="py-2 pr-4 text-right tabular-nums">
+                          {row.benchmark_report ? row.benchmark_report.beta.toFixed(2) : '—'}
+                        </td>
+                        <td className="py-2 pr-4 text-right tabular-nums">
+                          {row.benchmark_report
+                            ? `${percent(row.benchmark_report.alpha)} (${row.benchmark_report.alpha_t.toFixed(2)})`
+                            : '—'}
+                        </td>
                         <td className="py-2 text-xs text-muted-foreground">
                           {Object.entries(row.params)
                             .map(([k, v]) => `${k}=${v}`)
@@ -304,6 +352,8 @@ export function ComparePage() {
                           {percent(result.benchmark.metrics['Max Drawdown'] as number)}
                         </td>
                         <td className="py-2 pr-4" />
+                        <td className="py-2 pr-4" />
+                        <td className="py-2 pr-4" />
                         <td className="py-2" />
                       </tr>
                     ) : null}
@@ -321,6 +371,8 @@ export function ComparePage() {
               <ComparisonChart series={series} />
             </CardContent>
           </Card>
+
+          <AgainstBenchmark rows={result.results} />
         </div>
       ) : null}
     </div>

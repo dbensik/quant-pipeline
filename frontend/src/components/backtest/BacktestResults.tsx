@@ -9,6 +9,8 @@ import type { BacktestResult } from '@/api/backtestResult'
 import { EquityCurveChart } from '@/components/charts/EquityCurveChart'
 import { Badge } from '@/components/ui/badge'
 
+import { BenchmarkReport } from './BenchmarkReport'
+
 /**
  * Metrics arrive typed as `unknown` because the API declares them as a free
  * dict — PerformanceAnalyzer's keys are not part of the schema. Numbers are
@@ -156,6 +158,12 @@ export function BacktestResults({
           {result.riskFreeSource}), and Sharpe is measured against that cash account.
         </p>
       </div>
+
+      <BenchmarkReport
+        report={result.benchmarkReport}
+        unavailable={result.benchmarkUnavailable}
+        strategyName={result.strategyName}
+      />
 
       {Object.keys(result.params).length > 0 ? (
         <p className="text-xs text-muted-foreground">

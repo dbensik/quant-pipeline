@@ -12,7 +12,7 @@
  * Phase 4 — React frontend
  */
 
-import type { BacktestResponse } from './client'
+import type { BacktestResponse, BenchmarkReportOut } from './client'
 import type { WsResult } from './ws'
 
 export interface BacktestResult {
@@ -36,6 +36,9 @@ export interface BacktestResult {
   metrics: Record<string, unknown>
   caveat: string | null
   equityCurve: Array<{ time: string; total: number }>
+  /** The run against its benchmark (decision 53), or why there is none. */
+  benchmarkReport: BenchmarkReportOut | null
+  benchmarkUnavailable: string | null
   /** Which transport produced this, so the UI can say so. */
   via: 'rest' | 'websocket'
 }
@@ -58,6 +61,8 @@ export function fromRest(response: BacktestResponse): BacktestResult {
       time: point.time,
       total: point.total,
     })),
+    benchmarkReport: response.benchmark_report ?? null,
+    benchmarkUnavailable: response.benchmark_unavailable ?? null,
     via: 'rest',
   }
 }
@@ -77,6 +82,8 @@ export function fromSocket(message: WsResult): BacktestResult {
     metrics: message.metrics,
     caveat: message.caveat,
     equityCurve: message.equity_curve ?? [],
+    benchmarkReport: message.benchmark_report ?? null,
+    benchmarkUnavailable: message.benchmark_unavailable ?? null,
     via: 'websocket',
   }
 }

@@ -171,3 +171,84 @@ reader would take the stressed column at face value.
       zero". About 1 h.
 
 **Approved: A, 2026-10-20.**
+
+## Built (A, 2026-10-20)
+
+- **`analysis/benchmark_report.py`** (pure) holds the report and
+  `default_benchmark`. **`api/benchmark.py`** holds the response models
+  (`BenchmarkReportOut`, `RegimeOut`, `RollingSharpePoint`) and the loader.
+- **The endpoints:** `/backtest`, its websocket, `/backtest/compare` (a
+  report per row, over the span the row is measured on) and
+  `/backtest/portfolio`.
+  - Each takes `benchmark_symbol` and `include_benchmark_report` (default
+    true). Compare's existing `benchmark_symbol` is now also each row's
+    report benchmark.
+  - The responses carry `benchmark_report` and `benchmark_unavailable`.
+  - The report changes no metric: on 10 real runs the metrics were
+    identical with it on and off.
+- **Settings:** the `BENCHMARK_*` group in `config/settings.py`: default
+  SPY, BTC-USD for an all-crypto run, 730 days of history, a 21-bar regime
+  window, 252 earlier readings, a 252-bar rolling Sharpe, 5 Newey-West lags,
+  and at least 30 shared bars.
+- **Two choices made in the build:**
+  - **The rolling Sharpe is `window_metrics`' Sharpe** (the walk-forward
+    definition, the window's base bar a zero return) for each trailing 252
+    bars. A test checks it against `window_metrics` to 1e-9.
+  - **A regime needs 252 EARLIER readings.** The measurement above had
+    counted the missing readings of the first 21 days in each rank's
+    denominator, which ranked early days slightly low. The shipped ranking
+    gives these Sharpes for SPY by third: 0.23 / 1.56 / 0.71 (measured: 0.17 /
+    1.71 / 0.64). No conclusion moves, because every difference is still
+    inside the ±0.45.
+- **The pages:**
+  - Dashboard (REST and websocket): a report section under the results.
+    Its buy-and-hold comparison run asks for no report.
+  - Compare: Beta and Alpha (t) columns for every row, and an "Against the
+    benchmark" card for a chosen row.
+  - Allocation: the same card for the rule, plus the equal-weighted
+    basket's exposure line.
+  - `ComparisonChart` takes `format="number"` for the Sharpe axis.
+
+### Tests
+
+- **Unit, 10:**
+  - SPY against itself, and 0.3 × SPY plus cash;
+  - alpha's annualization and its Newey-West t, and that t differs from
+    plain OLS;
+  - the thirds partition the ranked days;
+  - a day's regime does not depend on its own or later prices;
+  - ranking starts after 252 earlier readings;
+  - the rolling Sharpe equals `window_metrics`;
+  - a crypto weekend compounds into SPY's Monday;
+  - too few shared bars is refused;
+  - the default benchmark follows the asset classes.
+- **API, 9:** every endpoint, the websocket equal to REST, a default
+  benchmark that is missing, a named one that is unknown or empty, and
+  leaving the report out.
+- **Page, 11:** the wording and rows, the component, Compare (the columns and
+  choosing a row) and Allocation.
+- **16 mutants (12 Python, 4 page), each caught.** The unmutated copy passes
+  under the same commands.
+
+### Real data, at defaults from 2011-01-03 to 2026-10-14
+
+Each run started in 2011, not warmed up in 2010 as in the table above, so
+trend and momentum read a little differently.
+
+| run | beta | alpha a year | t |
+|---|---|---|---|
+| faber5 equal weight | 0.59 | -2.1% | -1.59 |
+| faber5 trend | 0.25 | +0.7% | 0.50 |
+| faber5 momentum | 0.53 | +0.9% | 0.41 |
+| SPY/TLT switching | 0.51 | -1.4% | -0.41 |
+| 60/40 SPY/AGG | 0.60 | +0.0% | 0.09 |
+| SPY rsi / trend_following / ma_crossover | 0.62 / 0.38 / 0.57 | +0.3 / -1.7 / -0.3% | 0.15 / -0.77 / -0.13 |
+| BTC-USD trend_following, against BTC-USD | 0.51 | +30% | 3.08 |
+| BTC-USD trend_following, against SPY | 0.19 | +60% | 4.02 |
+
+- **The equity and ETF rules have no alpha told from zero.**
+- **BTC trend following does, against BTC (t 3.1).** This agrees with
+  decision 35: it sidestepped the 2018 and 2022 crashes. But it is one coin,
+  examined after decision 35 had already picked it out, and its 2014-2026
+  history holds only two such crashes. It is a lead, not a finding.
+- **Cost:** the report adds 0.2-0.4 s to a 16-year request.

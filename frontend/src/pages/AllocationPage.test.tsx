@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, api } from '@/api/client'
 import { renderPage } from '@/test/renderPage'
 import { PRESETS, parseSymbols } from '@/lib/allocation'
+import { REPORT } from '@/components/backtest/benchmarkReportFixture'
 import { AllocationPage } from './AllocationPage'
 
 const chartProps = vi.fn()
@@ -217,6 +218,28 @@ describe('AllocationPage — running', () => {
       'Asset Class Trend Following',
       'Same basket, equal weight, rebalanced monthly',
     ])
+  })
+
+  it('reports the rule against SPY, with the basket beside it', async () => {
+    vi.spyOn(api, 'runPortfolioBacktest').mockImplementation(async (body) =>
+      (body.strategy_id === 'index_rebalancing'
+        ? {
+            ...response('index_rebalancing', 'Index Rebalancing', 0.46),
+            benchmark_report: { ...REPORT, beta: 0.593, alpha: -0.0197, alpha_t: -1.46 },
+          }
+        : {
+            ...response(body.strategy_id, 'Asset Class Trend Following', 0.45),
+            benchmark_report: REPORT,
+          }) as never,
+    )
+    renderPage(<AllocationPage />)
+    await screen.findByLabelText('Moving average window')
+    await userEvent.click(screen.getByRole('button', { name: 'Run backtest' }))
+
+    expect(await screen.findByText(/^Beta 0\.30 to SPY/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/The same basket equal-weighted: Beta 0\.59 to SPY\. Alpha -2\.0% a year/),
+    ).toBeInTheDocument()
   })
 
   it('cannot run on fewer than two symbols', async () => {

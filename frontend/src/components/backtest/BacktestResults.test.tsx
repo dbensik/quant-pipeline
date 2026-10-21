@@ -50,6 +50,8 @@ const RESULT: BacktestResult = {
     { time: '2024-01-01T00:00:00Z', total: 250_000 },
     { time: '2024-01-02T00:00:00Z', total: 260_000 },
   ],
+  benchmarkReport: null,
+  benchmarkUnavailable: null,
   via: 'websocket',
 }
 

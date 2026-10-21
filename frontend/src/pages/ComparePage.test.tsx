@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ApiError, api } from '@/api/client'
 import { renderPage } from '@/test/renderPage'
+import { REPORT } from '@/components/backtest/benchmarkReportFixture'
 import { ComparePage } from './ComparePage'
 
 const chartProps = vi.fn()
@@ -155,7 +156,7 @@ describe('ComparePage — setup', () => {
 
     renderPage(<ComparePage />)
     await userEvent.type(
-      await screen.findByLabelText('Benchmark (optional)'),
+      await screen.findByLabelText(/^Benchmark \(optional/),
       'msft',
     )
     await userEvent.click(screen.getByRole('button', { name: /^Compare/ }))
@@ -276,6 +277,30 @@ describe('ComparePage — results', () => {
       'Moving Average Crossover',
       'Benchmark (MSFT)',
     ])
+  })
+
+  it("shows each row's beta and alpha, and the chosen row's report", async () => {
+    const second = {
+      ...RESULT.results[0],
+      strategy_id: 'rsi',
+      strategy_name: 'RSI',
+      benchmark_report: { ...REPORT, beta: 0.62, alpha: 0.0028, alpha_t: 0.13 },
+    }
+    vi.spyOn(api, 'compareStrategies').mockResolvedValue({
+      ...RESULT,
+      results: [{ ...RESULT.results[0], benchmark_report: REPORT }, second],
+    } as never)
+    renderPage(<ComparePage />)
+    await userEvent.click(await screen.findByRole('button', { name: /^Compare/ }))
+
+    expect(await screen.findByText('0.30')).toBeInTheDocument()
+    expect(screen.getByText('0.28% (0.13)')).toBeInTheDocument()
+    expect(screen.getByText(/^Beta 0\.30 to SPY/)).toBeInTheDocument()
+    await userEvent.selectOptions(
+      screen.getByLabelText('Strategy for the benchmark report'),
+      'rsi',
+    )
+    expect(screen.getByText(/^Beta 0\.62 to SPY/)).toBeInTheDocument()
   })
 
   it('surfaces an API rejection', async () => {

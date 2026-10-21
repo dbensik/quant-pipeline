@@ -16,6 +16,12 @@ from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from alpha_models import registry
+from api.benchmark import (
+    BENCHMARK_SYMBOL_DESCRIPTION,
+    BenchmarkReportOut,
+    load_benchmark,
+    report_or_reason,
+)
 from api.dependencies import get_market_data_repo
 from api.frames import records_to_frame
 from api.lots import lot_size_or_422
@@ -67,6 +73,10 @@ class BacktestRequest(BaseModel):
     )
     include_trades: bool = Field(default=True)
     risk_free_rate: Optional[float] = Field(default=None, description=RISK_FREE_RATE_DESCRIPTION)
+    benchmark_symbol: Optional[str] = Field(default=None, description=BENCHMARK_SYMBOL_DESCRIPTION)
+    include_benchmark_report: bool = Field(
+        default=True, description="Set false to skip the benchmark report (decision 53)"
+    )
 
 
 class EquityPoint(BaseModel):
@@ -102,6 +112,12 @@ class BacktestResponse(BaseModel):
     )
     equity_curve: List[EquityPoint] = Field(default_factory=list)
     trades: List[Dict[str, Any]] = Field(default_factory=list)
+    benchmark_report: Optional[BenchmarkReportOut] = Field(
+        default=None, description="The run against its benchmark (decision 53)"
+    )
+    benchmark_unavailable: Optional[str] = Field(
+        default=None, description="Why there is no benchmark report, when one was asked for"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -231,6 +247,12 @@ async def run_backtest(
     except RiskFreeCoverageError as exc:
         raise HTTPException(status_code=422, detail=risk_free_refusal(exc)) from exc
 
+    benchmark, benchmark_reason = (
+        await load_benchmark(repo, request.benchmark_symbol, [asset.asset_class], start, end)
+        if request.include_benchmark_report
+        else (None, None)
+    )
+
     try:
         results, metrics, trades = await run_in_threadpool(
             _run_backtest_sync,
@@ -269,6 +291,18 @@ async def run_backtest(
             for record in trades.to_dict(orient="records")
         ]
 
+    report, benchmark_reason = (
+        await run_in_threadpool(
+            report_or_reason,
+            benchmark,
+            benchmark_reason,
+            results["total"],
+            pd.Series(risk_free.accrual, index=results.index),
+        )
+        if request.include_benchmark_report
+        else (None, None)
+    )
+
     effective_params = {p.name: request.params.get(p.name, p.default) for p in spec.params}
 
     return BacktestResponse(
@@ -287,4 +321,6 @@ async def run_backtest(
         caveat=spec.caveat,
         equity_curve=equity,
         trades=trade_records,
+        benchmark_report=report,
+        benchmark_unavailable=benchmark_reason,
     )

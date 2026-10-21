@@ -22,7 +22,8 @@ PROTOCOL
         {"type": "accepted", "symbol": ..., "strategy_id": ...}
         {"type": "progress", "stage": "fetching"|"running"|"summarising",
          "pct": 0-100, "detail": "..."}
-        {"type": "result",  "metrics": {...}, "bars": N, ...}
+        {"type": "result",  "metrics": {...}, "bars": N, ...,
+         "benchmark_report": {...} or null, "benchmark_unavailable": "..." or null}
         {"type": "error",   "detail": "...", "code": 404|422|500}
 
     The socket closes after "result" or "error". One backtest per connection —
@@ -36,11 +37,13 @@ import logging
 from datetime import timezone
 from typing import Any, Dict, Optional
 
+import pandas as pd
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.concurrency import run_in_threadpool
 from pydantic import ValidationError
 
 from alpha_models import registry
+from api.benchmark import load_benchmark, report_or_reason
 from api.frames import frames_to_wide_close, records_to_frame
 from api.lots import lot_size_or_422
 from api.risk_free import RiskFreeCoverageError, resolve_risk_free, risk_free_refusal
@@ -226,6 +229,16 @@ async def backtest_ws(websocket: WebSocket) -> None:
                 await _send_error(websocket, risk_free_refusal(exc), 422)
                 return
 
+            benchmark, benchmark_reason = None, None
+            if request.include_benchmark_report:
+                try:
+                    benchmark, benchmark_reason = await load_benchmark(
+                        repo, request.benchmark_symbol, [asset.asset_class], start, end
+                    )
+                except HTTPException as exc:
+                    await _send_error(websocket, str(exc.detail), exc.status_code)
+                    return
+
         await websocket.send_json(
             {
                 "type": "progress",
@@ -287,6 +300,16 @@ async def backtest_ws(websocket: WebSocket) -> None:
                 {"time": idx.isoformat(), "total": float(row["total"])}
                 for idx, row in results.iterrows()
             ]
+        if request.include_benchmark_report:
+            report, benchmark_reason = await run_in_threadpool(
+                report_or_reason,
+                benchmark,
+                benchmark_reason,
+                results["total"],
+                pd.Series(risk_free.accrual, index=results.index),
+            )
+            payload["benchmark_report"] = None if report is None else report.model_dump(mode="json")
+            payload["benchmark_unavailable"] = benchmark_reason
 
         await websocket.send_json(payload)
 

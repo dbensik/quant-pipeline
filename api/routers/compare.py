@@ -46,6 +46,12 @@ from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from alpha_models import registry
+from api.benchmark import (
+    BENCHMARK_SYMBOL_DESCRIPTION,
+    BenchmarkReportOut,
+    load_benchmark,
+    report_or_reason,
+)
 from api.dependencies import get_market_data_repo
 from api.frames import records_to_frame
 from api.lots import lot_size_or_422
@@ -118,7 +124,13 @@ class CompareRequest(BaseModel):
     strategies: List[StrategyEntry] = Field(min_length=1)
     benchmark_symbol: Optional[str] = Field(
         default=None,
-        description="Buy-and-hold on this symbol, normalised to initial_capital.",
+        description=(
+            "Buy-and-hold on this symbol, normalised to initial_capital, and the "
+            "benchmark each row's report is measured against. " + BENCHMARK_SYMBOL_DESCRIPTION
+        ),
+    )
+    include_benchmark_report: bool = Field(
+        default=True, description="Set false to skip each row's benchmark report (decision 53)"
     )
     optimize: bool = Field(
         default=False,
@@ -168,6 +180,10 @@ class ComparisonRow(BaseModel):
     metrics: Dict[str, Any]
     caveat: Optional[str] = None
     equity_curve: List[ComparisonEquityPoint] = Field(default_factory=list)
+    benchmark_report: Optional[BenchmarkReportOut] = Field(
+        default=None, description="The row against its benchmark, over the span it is measured on"
+    )
+    benchmark_unavailable: Optional[str] = None
 
 
 class BenchmarkRow(BaseModel):
@@ -561,6 +577,17 @@ async def compare_strategies(
         _compare_sync, frame, request, risk_free.accrual, lot_size, span_base
     )
 
+    if request.include_benchmark_report:
+        loaded, reason = await load_benchmark(
+            repo, request.benchmark_symbol, [asset.asset_class], start, end
+        )
+        accrual = pd.Series(np.asarray(risk_free.accrual, dtype=float), index=frame.index)
+        for row in rows:
+            curve = row["frame"]["total"]
+            row["benchmark_report"], row["benchmark_unavailable"] = await run_in_threadpool(
+                report_or_reason, loaded, reason, curve, accrual.reindex(curve.index)
+            )
+
     if not rows:
         reasons = "; ".join(f"{s['strategy_id']}: {s['reason']}" for s in skipped)
         raise HTTPException(
@@ -609,6 +636,8 @@ async def compare_strategies(
                 metrics=row["metrics"],
                 caveat=row["caveat"],
                 equity_curve=(_curve(row["frame"]) if request.include_equity_curves else []),
+                benchmark_report=row.get("benchmark_report"),
+                benchmark_unavailable=row.get("benchmark_unavailable"),
             )
             for row in ranked
         ],

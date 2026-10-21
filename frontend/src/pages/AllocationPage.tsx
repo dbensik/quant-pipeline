@@ -17,6 +17,8 @@ import { useState } from 'react'
 
 import type { ApiError, PortfolioBacktestResponse, StrategySchema } from '@/api/client'
 import { usePortfolioBacktest, useStrategies } from '@/api/queries'
+import { BenchmarkReport } from '@/components/backtest/BenchmarkReport'
+import { exposureLine } from '@/components/backtest/benchmarkReportRows'
 import { ComparisonChart } from '@/components/charts/ComparisonChart'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -340,6 +342,27 @@ export function AllocationPage() {
               />
             </CardContent>
           </Card>
+
+          {result.strategy.benchmark_report || result.strategy.benchmark_unavailable ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Against the benchmark</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <BenchmarkReport
+                  report={result.strategy.benchmark_report}
+                  unavailable={result.strategy.benchmark_unavailable}
+                  strategyName={result.strategy.strategy_name}
+                />
+                {result.benchmark.benchmark_report ? (
+                  <p className="text-sm text-muted-foreground">
+                    The same basket equal-weighted:{' '}
+                    {exposureLine(result.benchmark.benchmark_report)}
+                  </p>
+                ) : null}
+              </CardContent>
+            </Card>
+          ) : null}
         </div>
       ) : null}
     </div>

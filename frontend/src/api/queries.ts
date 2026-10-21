@@ -185,6 +185,8 @@ export function useBuyAndHoldBenchmark(
         start: run!.start,
         end: run!.end,
         include_trades: false,
+        // Only its metrics and curve are drawn, beside the strategy's.
+        include_benchmark_report: false,
       }),
     enabled: Boolean(run) && run?.strategyId !== 'buy_and_hold',
     staleTime: 5 * 60_000,
