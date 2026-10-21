@@ -120,6 +120,8 @@ export type OptionPriceRequest = components['schemas']['OptionPriceRequest']
 export type OptionPriceResponse = components['schemas']['OptionPriceResponse']
 export type OptionModelQuote = components['schemas']['OptionModelQuote']
 export type OptionPricerInfo = components['schemas']['OptionPricerInfo']
+export type OptionsQuotesResponse = components['schemas']['OptionsQuotesResponse']
+export type OptionsQuote = components['schemas']['OptionsQuote']
 
 export type ValuationRequest = components['schemas']['ValuationRequest']
 export type ValuationResponse = components['schemas']['ValuationResponse']
@@ -624,6 +626,13 @@ export const api = {
   /** A cold ticker-day prices the whole chain server-side: 10-35 s. */
   getOptionsSurface(ticker: string, day?: string | null): Promise<OptionsSurfaceResponse> {
     return request(`/api/v1/options/surface${qs({ ticker, day: day ?? undefined })}`)
+  },
+
+  /** One expiry's captured bid and ask, both rights (decision 54's payoff page). */
+  getOptionQuotes(ticker: string, day?: string | null, expiry?: string | null): Promise<OptionsQuotesResponse> {
+    return request(
+      `/api/v1/options/quotes${qs({ ticker, day: day ?? undefined, expiry: expiry ?? undefined })}`,
+    )
   },
 
   getOptionPricers(): Promise<OptionPricerInfo[]> {

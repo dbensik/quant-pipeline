@@ -22,6 +22,7 @@ import {
   Sigma,
   SlidersHorizontal,
   Star,
+  TrendingUp,
 } from 'lucide-react'
 
 import { AllocationPage } from '@/pages/AllocationPage'
@@ -30,6 +31,7 @@ import { DataPage } from '@/pages/DataPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { OptimizePage } from '@/pages/OptimizePage'
 import { OptionsPage } from '@/pages/OptionsPage'
+import { PayoffPage } from '@/pages/PayoffPage'
 import { ValuationPage } from '@/pages/ValuationPage'
 import { ScreenersPage } from '@/pages/ScreenersPage'
 import { StatisticsPage } from '@/pages/StatisticsPage'
@@ -96,6 +98,13 @@ export const routes: RouteDef[] = [
     icon: ChartCandlestick,
     element: OptionsPage,
     blurb: 'Implied-volatility smiles and term structure from the archived option chains, and a pricer.',
+  },
+  {
+    path: '/payoffs',
+    label: 'Payoffs',
+    icon: TrendingUp,
+    element: PayoffPage,
+    blurb: 'Multi-leg option positions and their profit at expiry, priced from the archived quotes.',
   },
   {
     path: '/valuation',

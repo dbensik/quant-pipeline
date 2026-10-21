@@ -7,6 +7,8 @@ research/option-pricing-plan-2026-10-08.md.
     GET  /api/v1/options/archive        captures on disk: tickers, days, rows
     GET  /api/v1/options/surface        one ticker-day's surface (cached) + the
                                         realised-vol cone (fresh, see below)
+    GET  /api/v1/options/quotes         one expiry's raw bid/ask, both rights
+                                        (the payoff page's premiums, decision 54)
     POST /api/v1/options/price          every pricer side by side on one input
     GET  /api/v1/options/pricers        the pricer catalogue
     GET  /api/v1/options/realised-vol   realised vol and the cone for a symbol
@@ -27,6 +29,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
 import numpy as np
+import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
@@ -229,6 +232,26 @@ class OptionPricerInfo(BaseModel):
     styles: List[str]
 
 
+class OptionsQuote(BaseModel):
+    strike: float
+    call_bid: Optional[float]
+    call_ask: Optional[float]
+    put_bid: Optional[float]
+    put_ask: Optional[float]
+
+
+class OptionsQuotesResponse(BaseModel):
+    ticker: str
+    day: date
+    captured_at: datetime
+    expiries: List[str] = Field(description="Every expiry in the capture")
+    expiry: str
+    spot: Optional[float] = Field(
+        description="The spot the capture read beside this expiry's quotes (median)"
+    )
+    quotes: List[OptionsQuote] = Field(description="By strike, as served")
+
+
 class OptionsRealisedVolResponse(BaseModel):
     symbol: str
     as_of: date
@@ -334,14 +357,7 @@ async def surface(
     code: str = Depends(get_pricing_fingerprint),
 ) -> OptionsSurfaceResponse:
     ticker = ticker.upper()
-    if day is None:
-        days = [c.day for c in archive.captures() if c.ticker == ticker and not c.partial]
-        if not days:
-            raise HTTPException(status_code=404, detail=f"No complete captures for {ticker}")
-        day = max(days)
-    capture = archive.find(ticker, day)
-    if capture is None:
-        raise HTTPException(status_code=404, detail=f"No complete capture for {ticker} on {day}")
+    capture = latest_capture(archive, ticker, day)
 
     try:
         inputs = await surface_inputs(capture, rates, dividends, code)
@@ -359,6 +375,77 @@ async def surface(
         cone=cone,
         cone_reason=cone_reason,
     )
+
+
+def latest_capture(archive: ChainArchive, ticker: str, day: Optional[date]):
+    if day is None:
+        days = [c.day for c in archive.captures() if c.ticker == ticker and not c.partial]
+        if not days:
+            raise HTTPException(status_code=404, detail=f"No complete captures for {ticker}")
+        day = max(days)
+    capture = archive.find(ticker, day)
+    if capture is None:
+        raise HTTPException(status_code=404, detail=f"No complete capture for {ticker} on {day}")
+    return capture
+
+
+def _quote(v: Any) -> Optional[float]:
+    v = float(v)
+    return None if not np.isfinite(v) else v
+
+
+def quotes_of(chain: pd.DataFrame, expiry: Optional[str], target_days: int) -> Dict[str, Any]:
+    """One expiry's bid and ask per strike, both rights; expiry defaults to the one nearest a month."""
+    expiries = sorted(str(e) for e in chain["expiry"].unique())
+    day = date.fromisoformat(str(chain["trade_date"].iloc[0]))
+    if expiry is None:
+        expiry = min(expiries, key=lambda e: abs((date.fromisoformat(e) - day).days - target_days))
+    if expiry not in expiries:
+        raise HTTPException(status_code=404, detail=f"No expiry {expiry} in this capture")
+    rows = chain[chain["expiry"].astype(str) == expiry]
+    by_strike: Dict[float, Dict[str, Optional[float]]] = {}
+    for strike, right, bid, ask in rows[["strike", "right", "bid", "ask"]].itertuples(index=False):
+        side = "call" if right == "C" else "put"
+        q = by_strike.setdefault(float(strike), {})
+        q[f"{side}_bid"], q[f"{side}_ask"] = _quote(bid), _quote(ask)
+    quotes = [
+        OptionsQuote(
+            strike=k,
+            **{f: q.get(f) for f in ("call_bid", "call_ask", "put_bid", "put_ask")},
+        )
+        for k, q in sorted(by_strike.items())
+    ]
+    spot = rows["spot"].dropna()
+    return {
+        "captured_at": pd.Timestamp(chain["captured_at_utc"].min()).to_pydatetime(),
+        "expiries": expiries,
+        "expiry": expiry,
+        "spot": float(spot.median()) if len(spot) else None,
+        "quotes": quotes,
+    }
+
+
+@router.get(
+    "/quotes",
+    response_model=OptionsQuotesResponse,
+    summary="One expiry's bid and ask from a capture, both rights",
+    responses={404: {"description": "No complete capture, or no such expiry in it"}},
+)
+async def quotes(
+    ticker: str = Query(min_length=1, max_length=12),
+    day: Optional[date] = Query(
+        default=None, description="Capture date; default the latest complete one"
+    ),
+    expiry: Optional[str] = Query(
+        default=None, description="YYYY-MM-DD; default the expiry nearest a month out"
+    ),
+    archive: ChainArchive = Depends(get_chain_archive),
+) -> OptionsQuotesResponse:
+    ticker = ticker.upper()
+    capture = latest_capture(archive, ticker, day)
+    chain = await run_in_threadpool(pd.read_parquet, capture.path)
+    body = quotes_of(chain, expiry, settings.OPTION_QUOTES_TARGET_DAYS)
+    return OptionsQuotesResponse(ticker=ticker, day=capture.day, **body)
 
 
 @router.get("/pricers", response_model=List[OptionPricerInfo], summary="The option pricers")

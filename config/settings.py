@@ -1355,6 +1355,9 @@ OPTION_CAPTURE_MIN_ROWS = 20
 #: data/ is gitignored. This directory is the asset — see the as-built for the
 #: fact that it currently has exactly one copy.
 OPTION_CHAIN_ARCHIVE_DIR = ROOT_DIR / "data" / "option_chains"
+#: The payoff page's default expiry (decision 54): the one nearest this many
+#: calendar days after the capture, as the pricer's default.
+OPTION_QUOTES_TARGET_DAYS = 30
 
 #: Priced surfaces, one JSON file per ticker-day (tier 2 phase 3). data/ is
 #: gitignored; every file is derivable from the archive and can be deleted.

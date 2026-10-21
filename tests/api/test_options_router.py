@@ -208,3 +208,47 @@ def test_realised_vol(options_client):
         options_client.get("/api/v1/options/realised-vol", params={"symbol": "NOPE"}).status_code
         == 404
     )
+
+
+# -- /quotes: the payoff page's premiums (decision 54) -------------------------
+
+
+def test_quotes_default_to_the_expiry_nearest_a_month(options_client):
+    body = options_client.get("/api/v1/options/quotes", params={"ticker": "spy"}).json()
+    assert body["ticker"] == "SPY" and body["day"] == "2026-10-07"
+    assert body["expiries"] == ["2026-10-16", "2026-11-20"]
+    # 9 days against 44: 44 is nearer 30.
+    assert body["expiry"] == "2026-11-20"
+    assert body["spot"] == 777.22
+
+
+def test_quotes_are_the_captured_bid_and_ask_for_both_rights(options_client):
+    body = options_client.get(
+        "/api/v1/options/quotes", params={"ticker": "SPY", "expiry": "2026-11-20"}
+    ).json()
+    by_strike = {q["strike"]: q for q in body["quotes"]}
+    assert by_strike[770.0] == {
+        "strike": 770.0,
+        "call_bid": 21.03,
+        "call_ask": 21.13,
+        "put_bid": 10.13,
+        "put_ask": 10.15,
+    }
+    # A strike quoted for calls only has no put quote, not a zero one.
+    assert by_strike[792.0]["put_bid"] is None and by_strike[792.0]["call_ask"] > 0
+    strikes = [q["strike"] for q in body["quotes"]]
+    assert strikes == sorted(strikes) and len(strikes) == len(set(strikes)) == 50
+
+
+def test_quotes_errors(options_client, tmp_path):
+    get = options_client.get
+    assert get("/api/v1/options/quotes", params={"ticker": "QQQ"}).status_code == 404
+    r = get("/api/v1/options/quotes", params={"ticker": "SPY", "expiry": "2026-12-18"})
+    assert r.status_code == 404 and "2026-12-18" in r.json()["detail"]
+    # A partial capture is not served, as for the surface: a later partial
+    # day leaves the default on the last complete one.
+    chains = tmp_path / "chains" / "SPY"
+    shutil.copy(chains / "2026-10-07.parquet", chains / "2026-10-08.partial.parquet")
+    assert get("/api/v1/options/quotes", params={"ticker": "SPY"}).json()["day"] == "2026-10-07"
+    (chains / "2026-10-07.parquet").rename(chains / "2026-10-07.partial.parquet")
+    assert get("/api/v1/options/quotes", params={"ticker": "SPY"}).status_code == 404

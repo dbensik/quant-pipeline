@@ -54,6 +54,8 @@ export const queryKeys = {
   optionsArchive: () => ['options-archive'] as const,
   optionsSurface: (ticker: string, day: string | null) => ['options-surface', ticker, { day }] as const,
   optionPricers: () => ['option-pricers'] as const,
+  optionQuotes: (ticker: string, day: string | null, expiry: string | null) =>
+    ['option-quotes', ticker, { day, expiry }] as const,
   valuationCoverage: () => ['valuation-coverage'] as const,
   valuation: (body: Record<string, unknown>) => ['valuation', body] as const,
   valuationHistory: (symbol: string, since: string | null) => ['valuation-history', symbol, { since }] as const,
@@ -707,6 +709,17 @@ export function useOptionsSurface(ticker: string | null, day: string | null) {
     queryFn: () => api.getOptionsSurface(ticker as string, day),
     enabled: Boolean(ticker),
     staleTime: 60 * 60_000,
+    retry: retryOptions,
+  })
+}
+
+/** A capture never changes once complete, so its quotes never go stale. */
+export function useOptionQuotes(ticker: string | null, day: string | null, expiry: string | null) {
+  return useQuery({
+    queryKey: queryKeys.optionQuotes(ticker ?? '', day, expiry),
+    queryFn: () => api.getOptionQuotes(ticker as string, day, expiry),
+    enabled: Boolean(ticker),
+    staleTime: Infinity,
     retry: retryOptions,
   })
 }

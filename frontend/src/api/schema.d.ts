@@ -568,6 +568,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/options/quotes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One expiry's bid and ask from a capture, both rights */
+        get: operations["quotes_api_v1_options_quotes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/options/pricers": {
         parameters: {
             query?: never;
@@ -2263,6 +2280,51 @@ export interface components {
             dividends_before_expiry: number;
             /** Dividend Date Uncertain */
             dividend_date_uncertain: boolean;
+        };
+        /** OptionsQuote */
+        OptionsQuote: {
+            /** Strike */
+            strike: number;
+            /** Call Bid */
+            call_bid: number | null;
+            /** Call Ask */
+            call_ask: number | null;
+            /** Put Bid */
+            put_bid: number | null;
+            /** Put Ask */
+            put_ask: number | null;
+        };
+        /** OptionsQuotesResponse */
+        OptionsQuotesResponse: {
+            /** Ticker */
+            ticker: string;
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /**
+             * Captured At
+             * Format: date-time
+             */
+            captured_at: string;
+            /**
+             * Expiries
+             * @description Every expiry in the capture
+             */
+            expiries: string[];
+            /** Expiry */
+            expiry: string;
+            /**
+             * Spot
+             * @description The spot the capture read beside this expiry's quotes (median)
+             */
+            spot: number | null;
+            /**
+             * Quotes
+             * @description By strike, as served
+             */
+            quotes: components["schemas"]["OptionsQuote"][];
         };
         /** OptionsRate */
         OptionsRate: {
@@ -5869,6 +5931,48 @@ export interface operations {
             };
             /** @description No risk-free rate stored on or before that day */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    quotes_api_v1_options_quotes_get: {
+        parameters: {
+            query: {
+                ticker: string;
+                /** @description Capture date; default the latest complete one */
+                day?: string | null;
+                /** @description YYYY-MM-DD; default the expiry nearest a month out */
+                expiry?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OptionsQuotesResponse"];
+                };
+            };
+            /** @description No complete capture, or no such expiry in it */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -394,6 +394,17 @@ allocation rule or single-asset strategy measured had an alpha told from
 zero; a regime third's Sharpe is about ±0.45. The report adds 0.2-0.4 s to a
 16-year request; `include_benchmark_report: false` skips it.
 
+**Option payoffs at expiry** (decision 54, 2026-10-20,
+`research/option-payoff-2026-10-20.md`). The Payoffs page (`/payoffs`) builds
+multi-leg positions from 17 templates. Its arithmetic is in
+`frontend/src/components/options/payoff.ts`: breakevens and extremes are
+solved exactly at S = 0, the strikes and the slope beyond them, never read
+off a sampled curve. Premiums come from one archived capture through `GET
+/options/quotes` (raw bid and ask, both rights). A buy pays the ask and a
+sale receives the bid, unless mid is chosen. Premiums can also be typed.
+Calendars are left out on purpose: the far leg at the near expiry needs a
+pricer and a volatility, and they belong to the Greeks task.
+
 **Served equities and ETFs have bars from 2010** (insert-only backfill
 2026-10-14, decision 26; ^IRX from 2009-12, without which a pre-2015
 backtest is 422). Yahoo serves placeholder bars before some listings (AMCR,
