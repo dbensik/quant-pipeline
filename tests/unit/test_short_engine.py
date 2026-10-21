@@ -14,9 +14,9 @@ import pytest
 
 from backtesting.events import FillEvent
 from backtesting.portfolio_backtester import PortfolioBacktester
-from backtesting.risk_manager import PortfolioRiskManager
 from core.ledger import ShortTerms, margin_cut
 from execution.simulated_handler import SimulatedExecutionHandler
+from portfolio.risk_manager import PortfolioRiskManager
 
 CAPITAL = 100_000.0
 TERMS = ShortTerms(borrow_rate=0.01, max_gross=2.0, maintenance=0.3)

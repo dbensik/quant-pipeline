@@ -118,7 +118,7 @@ async def track(
     strategy, core.rates.RiskFreeCoverageError for a window ^IRX misses.
     """
     from backtesting.portfolio_backtester import PortfolioBacktester
-    from backtesting.risk_manager import PortfolioRiskManager
+    from portfolio.risk_manager import PortfolioRiskManager
 
     portfolio = await portfolios.get_portfolio(name)
     if portfolio is None:

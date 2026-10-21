@@ -36,7 +36,6 @@ import numpy as np
 import pandas as pd
 
 from backtesting.events import OrderEvent
-from backtesting.risk_manager import PortfolioRiskManager
 from core import ledger
 from core.ledger import ShortTerms
 from core.portfolio import (
@@ -49,6 +48,7 @@ from core.portfolio import (
     trade_refusal,
 )
 from execution.simulated_handler import SimulatedExecutionHandler, to_lot
+from portfolio.risk_manager import PortfolioRiskManager
 
 #: Portfolio metadata key holding the attached strategy.
 META_STRATEGY = "strategy"

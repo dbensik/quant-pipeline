@@ -15,8 +15,8 @@ import pandas as pd
 
 from backtesting.events import FillEvent
 from backtesting.portfolio_backtester import PortfolioBacktester
-from backtesting.risk_manager import PortfolioRiskManager
 from execution.simulated_handler import SimulatedExecutionHandler
+from portfolio.risk_manager import PortfolioRiskManager
 
 CAPITAL = 100_000.0
 

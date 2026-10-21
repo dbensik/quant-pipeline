@@ -14,9 +14,9 @@ import pytest
 from alpha_models import registry
 from backtesting.backtester import Backtester
 from backtesting.portfolio_backtester import PortfolioBacktester
-from backtesting.risk_manager import PortfolioRiskManager
 from config.settings import lot_size_for
 from execution.simulated_handler import SimulatedExecutionHandler, to_lot
+from portfolio.risk_manager import PortfolioRiskManager
 
 SATOSHI = 1e-8
 

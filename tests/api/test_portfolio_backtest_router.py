@@ -257,7 +257,7 @@ def test_risk_limits_reach_the_risk_manager(monkeypatch, client: TestClient):
     echo would pass even if the values were dropped on the way through, which
     is exactly the bug worth guarding.
     """
-    import backtesting.risk_manager as rm
+    import portfolio.risk_manager as rm
 
     captured = {}
     original = rm.PortfolioRiskManager

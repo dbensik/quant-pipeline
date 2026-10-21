@@ -235,7 +235,7 @@ def _run_sync(
 ) -> tuple:
     """CPU-bound half: signals, backtest, metrics, risk, short exposure."""
     from backtesting.portfolio_backtester import PortfolioBacktester
-    from backtesting.risk_manager import PortfolioRiskManager
+    from portfolio.risk_manager import PortfolioRiskManager
 
     signals_data = build_signals(spec, model, price_data)
 

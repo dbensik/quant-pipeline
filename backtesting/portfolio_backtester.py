@@ -7,9 +7,9 @@ from analysis.performance_analyzer import PerformanceAnalyzer, periods_per_year
 from core import ledger
 from core.ledger import ShortTerms
 from execution.simulated_handler import SimulatedExecutionHandler, to_lot
+from portfolio.risk_manager import PortfolioRiskManager
 
 from .events import OrderEvent
-from .risk_manager import PortfolioRiskManager
 
 
 class PortfolioBacktester:

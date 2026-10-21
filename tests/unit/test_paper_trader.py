@@ -20,7 +20,6 @@ import pytest
 
 from alpha_models import registry
 from backtesting.portfolio_backtester import PortfolioBacktester
-from backtesting.risk_manager import PortfolioRiskManager
 from core.ledger import ShortTerms
 from core.paper_trader import (
     StrategyBinding,
@@ -34,6 +33,7 @@ from core.paper_trader import (
 from core.portfolio import MarketHistory, Trade, derive_state, trade_day
 from core.strategy_signals import build_signals
 from execution.simulated_handler import SimulatedExecutionHandler
+from portfolio.risk_manager import PortfolioRiskManager
 
 CAPITAL = 100_000.0
 COST = 0.001

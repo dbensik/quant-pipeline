@@ -16,8 +16,8 @@ from alpha_models.base_model import BaseAlphaModel
 from backtesting.backtester import Backtester
 from backtesting.events import FillEvent
 from backtesting.portfolio_backtester import PortfolioBacktester
-from backtesting.risk_manager import PortfolioRiskManager
 from execution.simulated_handler import SimulatedExecutionHandler
+from portfolio.risk_manager import PortfolioRiskManager
 
 CAPITAL = 100_000.0
 

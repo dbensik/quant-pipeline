@@ -18,8 +18,8 @@ from alpha_models.mean_reversion import MeanReversionStrategy
 from alpha_models.rsi_strategy import RSIStrategy
 from backtesting.backtester import Backtester
 from backtesting.portfolio_backtester import PortfolioBacktester
-from backtesting.risk_manager import PortfolioRiskManager
 from execution.simulated_handler import SimulatedExecutionHandler
+from portfolio.risk_manager import PortfolioRiskManager
 
 EVENTS = [0, 1, 0, 0, 0, -1, 0, 1, 0, -1]
 
