@@ -19,6 +19,32 @@ python -m cli.run_pipeline     # ingest bars into TimescaleDB (same path as the 
 `api`/`gateway` means the GraphQL gateway, not the REST API — a naming wart
 that predates FastAPI. Use `rest` for FastAPI.
 
+### The running stack belongs to launchd (since 2026-10-20)
+
+`./run_pipeline.sh all` runs as the launchd job **`com.bensik.app.quant`**,
+started and stopped from the launcher page at http://127.0.0.1:8700. The job
+holds 5174, 8001, 8002 and 50051, so a hand start of `all`, `rest`,
+`dashboard`, `api` or `grpc` fails the port check above. That's correct; don't
+work around it.
+
+```bash
+launchctl kickstart -k gui/$(id -u)/com.bensik.app.quant   # restart (or the page's Stop, then Start)
+launchctl kill SIGTERM gui/$(id -u)/com.bensik.app.quant    # stop, e.g. to run one service by hand for debugging
+tail -f ~/Library/Logs/bensik/com.bensik.app.quant.log      # the job's output, verify_all.py included
+```
+
+- **After a code change:** Vite and `strawberry dev` reload on their own;
+  uvicorn runs without `--reload`, so a change under `api/` needs the restart.
+- **A failed `verify_all.py` stops the whole stack** (`set -e` in `all`). The
+  page then reads Stopped and the log says which check failed.
+- **Not affected:** `python -m cli.run_pipeline`, `verify`, tests and the
+  scheduled jobs below. They bind no ports.
+- **Node is pinned** to nvm v24.14.0 in the job's PATH. If the nvm default
+  changes, edit `NODE_BIN` in `~/bin/bensik/launcher/install.sh` and re-run it.
+- **TimescaleDB is not started by the job.** Docker must already be up; the
+  page shows 15432 as a dependency.
+- As-built: `Vault1/Mac & Systems/App Launcher - launchd Agents.md`.
+
 ## Ports
 
 **This project deliberately avoids the framework defaults.** uvicorn wants
