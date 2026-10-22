@@ -92,6 +92,7 @@ export function sviFixture(overrides: Partial<OptionSVIResponse> = {}): OptionSV
       {
         near: '2026-10-30', far: '2027-01-15', verdict: 'fit_only',
         shared: { low: -0.026, high: 0.019 }, fit: [{ low: 0.01, high: 0.019 }], quotes: [],
+        mid_crossing: [{ low: -0.02, high: -0.01 }],
       },
     ],
     butterfly_summary: { none: 1, both: 1, fit_only: 0, quotes_only: 0 },

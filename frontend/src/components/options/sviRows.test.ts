@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { sviFixture } from '@/test/optionsFixture'
-import { fitCurves, parameterCaution, rangesText, verdictLabel, verdictMeaning } from './sviRows'
+import { creditsText, fitCurves, parameterCaution, rangesText, verdictLabel, verdictMeaning } from './sviRows'
 
 describe('fitCurves', () => {
   it('clips each fitted curve to the range of the points the chart shows', () => {
@@ -41,6 +41,18 @@ describe('rangesText', () => {
   it('writes ranges in ln(K/F) with a true minus sign, a point once, or a dash', () => {
     expect(rangesText([])).toBe('—')
     expect(rangesText([{ low: -0.123, high: -0.05 }, { low: 0.3, high: 0.3 }])).toBe('−0.123 to −0.050; 0.300')
+  })
+})
+
+describe('creditsText', () => {
+  it('names each strike and right with the near bid above the far ask, or a dash', () => {
+    expect(creditsText([])).toBe('—')
+    expect(
+      creditsText([
+        { strike: 375, right: 'call', near_bid: 0.11, far_ask: 0.07, credit: 0.04 },
+        { strike: 380, right: 'call', near_bid: 0.2, far_ask: 0.05, credit: 0.15 },
+      ]),
+    ).toBe('375 call: bid 0.11 > ask 0.07; 380 call: bid 0.20 > ask 0.05')
   })
 })
 

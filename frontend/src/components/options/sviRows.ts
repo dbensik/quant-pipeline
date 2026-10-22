@@ -8,7 +8,7 @@
  * The page never fits: every curve and number comes from GET /options/svi.
  */
 
-import type { OptionSVIFit, OptionSVIRange } from '@/api/client'
+import type { OptionSVICalendarCredit, OptionSVIFit, OptionSVIRange } from '@/api/client'
 
 export type Verdict = OptionSVIFit['butterfly']['verdict']
 
@@ -53,7 +53,7 @@ export function verdictMeaning(verdict: Verdict, check: 'butterfly' | 'calendar'
   const what =
     check === 'butterfly'
       ? 'a butterfly arbitrage (negative density)'
-      : 'a calendar arbitrage (total variance falling with time)'
+      : "a calendar arbitrage (in the fit, total variance falling with time; in the quotes, a farther option offered below a nearer one's bid at the same strike)"
   switch (verdict) {
     case 'none':
       return `Neither the fit nor the quotes show ${what}.`
@@ -71,6 +71,17 @@ export function rangesText(ranges: OptionSVIRange[]): string {
   if (ranges.length === 0) return '—'
   const f = (v: number) => v.toFixed(3).replace('-', '−')
   return ranges.map((r) => (r.low === r.high ? f(r.low) : `${f(r.low)} to ${f(r.high)}`)).join('; ')
+}
+
+/**
+ * "375 call: bid 0.11 > ask 0.07; …" — each strike where the farther option is
+ * offered below the nearer one's bid, or a dash.
+ */
+export function creditsText(credits: OptionSVICalendarCredit[]): string {
+  if (credits.length === 0) return '—'
+  return credits
+    .map((c) => `${c.strike} ${c.right}: bid ${c.near_bid.toFixed(2)} > ask ${c.far_ask.toFixed(2)}`)
+    .join('; ')
 }
 
 /** Why a fit's parameters should not be read one by one, or null when they can be. */

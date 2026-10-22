@@ -944,6 +944,12 @@ export interface paths {
          * News for the market, a portfolio, a watchlist, or given tickers
          * @description Sources are mutually exclusive and resolved in order: explicit `symbols`,
          *     then `portfolio`, then `watchlist`, then market proxies.
+         *
+         *     Yahoo's search matches text, so a ticker's stories are kept only when
+         *     Yahoo tags them with it or another of its share classes (the registry's
+         *     equities on the same CIK: GOOGL's stories are tagged GOOG). Measured on
+         *     34 tickers 2026-10-22: 8 stories dropped were about something else (FOX
+         *     had Fox Factory and Terry Fox), 4 named the ticker but were untagged.
          */
         get: operations["get_news_api_v1_research_news_get"];
         put?: never;
@@ -2464,9 +2470,33 @@ export interface components {
             fit: components["schemas"]["OptionSVIRange"][];
             /**
              * Quotes
-             * @description The same on the quotes, interpolated in ln(K/F)
+             * @description Strikes where the far option's ask is below the near one's bid, same right: a calendar bought for a credit. Model-free for American options
              */
-            quotes: components["schemas"]["OptionSVIRange"][];
+            quotes: components["schemas"]["OptionSVICalendarCredit"][];
+            /**
+             * Mid Crossing
+             * @description Where quoted MID total variance, interpolated in ln(K/F), falls with time. Not in the verdict: mostly the bid-ask spread, not an arbitrage
+             */
+            mid_crossing: components["schemas"]["OptionSVIRange"][];
+        };
+        /** OptionSVICalendarCredit */
+        OptionSVICalendarCredit: {
+            /** Strike */
+            strike: number;
+            /**
+             * Right
+             * @enum {string}
+             */
+            right: "call" | "put";
+            /** Near Bid */
+            near_bid: number;
+            /** Far Ask */
+            far_ask: number;
+            /**
+             * Credit
+             * @description near_bid - far_ask, per share
+             */
+            credit: number;
         };
         /** OptionSVICurvePoint */
         OptionSVICurvePoint: {

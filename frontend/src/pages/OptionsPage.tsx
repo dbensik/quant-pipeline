@@ -31,6 +31,7 @@ import {
   vendorGap,
 } from '@/components/options/smileRows'
 import {
+  creditsText,
   fitCurves,
   parameterCaution,
   rangesText,
@@ -274,7 +275,15 @@ function SVIPanel({ svi }: { svi: OptionSVIResponse }) {
                 <th className="py-1 pr-3">Near → far</th>
                 <th className="py-1 pr-3">Calendar</th>
                 <th className="py-1 pr-3">Fit crosses (ln K/F)</th>
-                <th className="py-1">Quotes cross (ln K/F)</th>
+                <th className="py-1 pr-3" title="Same strike and right: buy the far, sell the near, for a credit">
+                  Quotes: far ask below near bid
+                </th>
+                <th
+                  className="py-1"
+                  title="Mid total variance falling with time. Not an arbitrage and not in the verdict: on 1,863 pairs 692 crossed at mid, 25 at bid and ask"
+                >
+                  Mids cross (ln K/F)
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -284,10 +293,11 @@ function SVIPanel({ svi }: { svi: OptionSVIResponse }) {
                     {row.near} → {row.far}
                   </td>
                   <td className="py-1 pr-3 whitespace-nowrap" title={verdictMeaning(row.verdict, 'calendar')}>
-                    {row.shared ? verdictLabel(row.verdict) : 'no shared range'}
+                    {row.shared || row.quotes.length ? verdictLabel(row.verdict) : 'no shared range'}
                   </td>
                   <td className="py-1 pr-3 text-xs">{rangesText(row.fit)}</td>
-                  <td className="py-1 text-xs">{rangesText(row.quotes)}</td>
+                  <td className="py-1 pr-3 text-xs">{creditsText(row.quotes)}</td>
+                  <td className="py-1 text-xs text-muted-foreground">{rangesText(row.mid_crossing)}</td>
                 </tr>
               ))}
             </tbody>

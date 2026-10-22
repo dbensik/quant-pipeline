@@ -142,3 +142,18 @@ def test_reports_are_cached_by_surface_key():
     other = {**payload, "key": "k2"}
     assert cache.get_or_build(other) is not first
     assert cache.get_or_build(payload) is not first  # evicted at size 1
+
+
+def test_a_calendar_credit_is_reported_by_strike_and_counted_as_the_quotes():
+    k = np.linspace(-0.2, 0.2, 12)
+    near = _points(0.08, k, TRUE.iv(k, 0.08), np.full(12, 0.01))
+    far = _points(0.16, k, TRUE.iv(k, 0.08), np.full(12, 0.01))
+    far[5] = {**far[5], "bid": 0.40, "ask": 0.50}  # offered below the near bid (about 1)
+    body = build_report(surface([("2026-11-20", 0.08, near), ("2026-12-18", 0.16, far)]))
+    [row] = body["calendar"]
+    [credit] = row["quotes"]
+    assert credit["strike"] == pytest.approx(near[5]["strike"])
+    assert credit["right"] == ("call" if near[5]["is_call"] else "put")
+    assert credit["far_ask"] == 0.50
+    assert credit["credit"] == pytest.approx(near[5]["bid"] - 0.50)
+    assert row["verdict"] == "quotes_only" and row["mid_crossing"] == []

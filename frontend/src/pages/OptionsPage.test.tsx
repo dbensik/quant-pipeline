@@ -201,6 +201,9 @@ describe('OptionsPage', () => {
     const calendar = screen.getByTestId('svi-calendar')
     expect(within(calendar).getByText('fit only')).toHaveAttribute('title', expect.stringMatching(/not the market's/))
     expect(within(calendar).getByText('0.010 to 0.019')).toBeInTheDocument()
+    // The mid crossing is shown apart, never as the quotes' verdict.
+    expect(within(calendar).getByText('−0.020 to −0.010')).toHaveClass('text-muted-foreground')
+    expect(within(calendar).getByText('Mids cross (ln K/F)')).toHaveAttribute('title', expect.stringMatching(/Not an arbitrage/))
     expect(screen.getByTestId('svi-parameters')).toHaveTextContent('ρTilt.')
   })
 

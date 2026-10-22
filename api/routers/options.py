@@ -387,6 +387,14 @@ class OptionSVISkipped(BaseModel):
     reason: str
 
 
+class OptionSVICalendarCredit(BaseModel):
+    strike: float
+    right: Literal["call", "put"]
+    near_bid: float
+    far_ask: float
+    credit: float = Field(description="near_bid - far_ask, per share")
+
+
 class OptionSVICalendar(BaseModel):
     near: str
     far: str
@@ -395,8 +403,17 @@ class OptionSVICalendar(BaseModel):
     fit: List[OptionSVIRange] = Field(
         description="Where the far fit's total variance is below the near one's"
     )
-    quotes: List[OptionSVIRange] = Field(
-        description="The same on the quotes, interpolated in ln(K/F)"
+    quotes: List[OptionSVICalendarCredit] = Field(
+        description=(
+            "Strikes where the far option's ask is below the near one's bid, same right: "
+            "a calendar bought for a credit. Model-free for American options"
+        )
+    )
+    mid_crossing: List[OptionSVIRange] = Field(
+        description=(
+            "Where quoted MID total variance, interpolated in ln(K/F), falls with time. "
+            "Not in the verdict: mostly the bid-ask spread, not an arbitrage"
+        )
     )
 
 

@@ -68,7 +68,7 @@ def build_report(surface: Dict[str, Any]) -> Dict[str, Any]:
     rate = float(surface["rate"]["continuous"])
     fits: List[Dict[str, Any]] = []
     skipped: List[Dict[str, str]] = []
-    fitted: List[tuple] = []  # (expiry, params, k, iv, T) in T order, for the calendar check
+    fitted: List[tuple] = []  # (expiry, params, k, iv, T, points) in T order, for the calendar
 
     for e in sorted(surface["expiries"], key=lambda e: e["T"]):
         expiry, T = e["expiry"], float(e["T"])
@@ -141,11 +141,13 @@ def build_report(surface: Dict[str, Any]) -> Dict[str, Any]:
                 },
             }
         )
-        fitted.append((expiry, params, k, iv, T))
+        fitted.append((expiry, params, k, iv, T, points))
 
     calendar = []
-    for (near, p1, k1, iv1, t1), (far, p2, k2, iv2, t2) in zip(fitted, fitted[1:], strict=False):
-        c = A.calendar(p1, k1, iv1, t1, p2, k2, iv2, t2)
+    for (near, p1, k1, iv1, t1, pts1), (far, p2, k2, iv2, t2, pts2) in zip(
+        fitted, fitted[1:], strict=False
+    ):
+        c = A.calendar(p1, k1, iv1, t1, p2, k2, iv2, t2, A.quoted_calendars(pts1, pts2))
         calendar.append(
             {
                 "near": near,
@@ -153,7 +155,17 @@ def build_report(surface: Dict[str, Any]) -> Dict[str, Any]:
                 "verdict": c.verdict,
                 "shared": _interval(c.shared) if c.shared else None,
                 "fit": [_interval(i) for i in c.fit],
-                "quotes": [_interval(i) for i in c.quotes],
+                "quotes": [
+                    {
+                        "strike": q.strike,
+                        "right": "call" if q.is_call else "put",
+                        "near_bid": q.near_bid,
+                        "far_ask": q.far_ask,
+                        "credit": q.credit,
+                    }
+                    for q in c.quotes
+                ],
+                "mid_crossing": [_interval(i) for i in c.mid_crossing],
             }
         )
 

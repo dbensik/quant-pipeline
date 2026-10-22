@@ -4,11 +4,9 @@ pricing/arbitrage.py
 Butterfly and calendar no-arbitrage checks for SVI fits, each beside the same
 check on the quotes (decision 56, research/svi-surface-2026-10-20.md).
 
-Measured with this module on 1,794 adjacent pairs of 144 surfaces, the fit
-and the quotes agree on a calendar crossing in 311 pairs, the fit alone
-crosses in 113 and the quotes alone in 360 (research/svi-surface-2026-10-20.md,
-"Built"). A flag that only described the fit would mislead, so every check
-answers twice: does the FIT show it, and do the QUOTES show it.
+A flag that only described the fit would mislead, so every check answers
+twice: does the FIT show it, and do the QUOTES show it. The quotes' side is
+always a trade at bid and ask, never a comparison of mids.
 
 BUTTERFLY, one expiry
     fit     g(k) < 0 (pricing/svi.py) on the quoted range plus
@@ -22,8 +20,16 @@ BUTTERFLY, one expiry
 CALENDAR, two adjacent expiries
     fit     total variance w falls from the nearer expiry to the farther
             one somewhere on their SHARED quoted range of k = ln(K/F).
-    quotes  the same, comparing each expiry's quoted total variance,
-            linearly interpolated in k.
+    quotes  at a strike both expiries quote on one right, the farther
+            option's ASK is below the nearer one's BID: buy far, sell near,
+            for a credit. A longer American option is worth at least a
+            shorter one at the same strike, dividends or not, so this is
+            model-free (2026-10-22, research/svi-surface-2026-10-20.md,
+            "Calendar at executable prices").
+    mid     the old quote side, kept beside it as `mid_crossing` and never
+            in the verdict: quoted MID total variance, interpolated in k,
+            falling with time. On 1,863 pairs it flagged 692; 25 survive at
+            bid and ask. It is mostly the spread, not an arbitrage.
 
 Ranges come back as [low, high] in k on the evaluation grid.
 """
@@ -83,10 +89,25 @@ class Butterfly:
 
 
 @dataclass(frozen=True)
+class CalendarCredit:
+    """One strike where the farther option is offered below the nearer one's bid."""
+
+    strike: float
+    is_call: bool
+    near_bid: float
+    far_ask: float
+
+    @property
+    def credit(self) -> float:
+        return self.near_bid - self.far_ask
+
+
+@dataclass(frozen=True)
 class Calendar:
     shared: Optional[Interval]
     fit: List[Interval]
-    quotes: List[Interval]
+    quotes: List[CalendarCredit]
+    mid_crossing: List[Interval]
 
     @property
     def verdict(self) -> Verdict:
@@ -162,6 +183,28 @@ def butterfly(
     )
 
 
+def quoted_calendars(near: Sequence[dict], far: Sequence[dict]) -> List[CalendarCredit]:
+    """
+    Strikes quoted on the same right in both expiries where the farther ask
+    is below the nearer bid. Each point needs strike, is_call, bid and ask.
+    """
+    by_key = {}
+    for p in near:
+        if np.isfinite(p["bid"]):
+            by_key.setdefault((float(p["strike"]), bool(p["is_call"])), p)
+    out: List[CalendarCredit] = []
+    seen = set()
+    for p in far:
+        key = (float(p["strike"]), bool(p["is_call"]))
+        q = by_key.get(key)
+        if q is None or key in seen or not np.isfinite(p["ask"]):
+            continue
+        seen.add(key)
+        if p["ask"] < q["bid"] - _PRICE_TOL:
+            out.append(CalendarCredit(key[0], key[1], float(q["bid"]), float(p["ask"])))
+    return sorted(out, key=lambda c: (c.strike, c.is_call))
+
+
 def calendar(
     near: SVIParams,
     near_k: Sequence[float],
@@ -171,14 +214,18 @@ def calendar(
     far_k: Sequence[float],
     far_iv: Sequence[float],
     far_T: float,
+    quotes: List[CalendarCredit],
     points: int = SVI_CHECK_POINTS,
 ) -> Calendar:
-    """Total variance falling from `near` to `far` on their shared quoted range."""
+    """
+    The fit's total variance falling from `near` to `far` on their shared
+    quoted range, beside `quotes` (quoted_calendars) and the mid crossing.
+    """
     nk, niv = _sorted(near_k, near_iv)
     fk, fiv = _sorted(far_k, far_iv)
     lo, hi = max(nk[0], fk[0]), min(nk[-1], fk[-1])
     if not lo < hi:
-        return Calendar(shared=None, fit=[], quotes=[])
+        return Calendar(shared=None, fit=[], quotes=quotes, mid_crossing=[])
     grid = np.linspace(lo, hi, points)
     fit_mask = far.w(grid) < near.w(grid) - _VARIANCE_TOL
     quoted_near = np.interp(grid, nk, niv * niv * near_T)
@@ -186,5 +233,6 @@ def calendar(
     return Calendar(
         shared=(float(lo), float(hi)),
         fit=intervals(grid, fit_mask),
-        quotes=intervals(grid, quoted_far < quoted_near - _VARIANCE_TOL),
+        quotes=quotes,
+        mid_crossing=intervals(grid, quoted_far < quoted_near - _VARIANCE_TOL),
     )

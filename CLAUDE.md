@@ -457,7 +457,10 @@ and 2+ days to run, from the cached surface, kept in process by its key and
 out of its fingerprint. Every butterfly and calendar flag says whose it is,
 the fit's or the quotes', since they differ more often than they agree. The
 quotes' butterfly is model-free: 3 strikes of one right bought below 0 at
-bid/ask. 57% of fits put the bottom m past the quotes, where b, rho and m
+bid/ask; so is their calendar (2026-10-22): the far ask below the near bid
+at one strike and right. A longer American option is worth at least a
+shorter one. The old mid-vol crossing is shown apart as `mid_crossing`,
+never in the verdict: 692 of 1,863 pairs crossed at mid, 25 at bid/ask. 57% of fits put the bottom m past the quotes, where b, rho and m
 trade off; `bottom_quoted` says when the parameters can be read.
 
 **Served equities and ETFs have bars from 2010** (insert-only backfill
@@ -635,7 +638,7 @@ Protocol (`db/repositories/market_data.py` documents this as its purpose).
 Integration tests are deselected by default and skip if the DB is down.
 
 ```bash
-cd frontend && npm test        # 431 tests — also needs NO API/Docker
+cd frontend && npm test        # 432 tests — also needs NO API/Docker
 ```
 
 When adding tests: assert on the *output*, not on values the response merely

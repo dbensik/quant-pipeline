@@ -187,7 +187,7 @@ built. This costs nothing.
 1. If you want to read the parameters, the fit could constrain m to the
    quoted range. That fit was not measured.
 2. Option B (arbitrage-free fits) is still unbuilt.
-3. The quote side of the calendar could be tested at executable prices,
+3. BUILT 2026-10-22 (below): the quote side of the calendar is tested at executable prices,
    as the butterfly's is, instead of at interpolated mids.
 
 ## Tests
@@ -202,3 +202,69 @@ built. This costs nothing.
 - **Endpoint:** on the SPY fixture, one fit per expiry with 8 or more
   points; a missing capture is 404.
 - **Mutants:** every test is checked against a mutant.
+
+## Calendar at executable prices (measured and built 2026-10-22, open pick 3)
+
+Question: of the quote-side calendar flags, which survive the bid-ask
+spread? Measured on every cached surface: 150 captures, 6 tickers,
+2026-09-15 to 2026-10-20, 1,863 adjacent pairs (more than the 1,794 above;
+the archive has grown). Today's quote side flags 692 of them: total variance
+from interpolated MID vols, falling from the nearer expiry to the farther.
+
+Two executable versions, run on the same pairs:
+
+- **Same strike, same right (model-free).** Flag a pair when the farther
+  expiry's ASK is below the nearer one's BID at a strike both quote. A
+  longer American option is worth at least a shorter one at the same
+  strike, dividends or not, so this is a trade: buy far, sell near, for a
+  credit. It needs no forward, like the quote-side butterfly.
+- **Spread-aware variance.** Total variance at the farther expiry's ask vol
+  below the nearer one's bid vol, at the same k. Each vol bound is mid IV
+  plus or minus half the spread over vega, the linearisation
+  `within_spread_share` already uses. It still depends on the forward.
+
+| quote side | pairs flagged | of today's 692 |
+|---|---|---|
+| mid total variance (today) | 692 | 692 |
+| spread-aware variance | 44 | 44 |
+| same strike, far ask < near bid | 25 | 24 |
+
+**About 94-96% of today's quote-side calendar flags are the spread.** SPY
+2026-10-20 has 9 mid flags and 0 under either executable test.
+
+The 25 same-strike flags are 3 cases:
+- **IWM 2026-12-31 against 2027-01-15, 23 captures.** Calls at 375 and 380
+  are bid 0.11 and 0.20 on the quarterly 12-31, every capture from
+  2026-09-17. A bid unchanged across two weeks on a far-OTM quarterly reads
+  as stale, not as a credit anyone could take. This is not checked against
+  a trade print.
+- **QQQ 09-24 against 09-25** (capture 09-21): the 746 and 749 calls,
+  credits of $0.20 and $0.05.
+- **TQQQ 09-23 against 09-25** (capture 09-21): the 79 call, $0.01.
+
+If the quote side became the same-strike test, the 1,863 pairs would read
+none 1,423, fit only 415, both 23, quotes only 2, against 1,053 / 118 / 320
+/ 372 today. Almost every calendar flag would then belong to the fit.
+
+**Recommendation, for Danny:** make the same-strike executable test the
+calendar's quote side, the same rule as the butterfly's. Keep the mid
+crossing beside it, renamed so it does not read as an arbitrage.
+
+### Built (2026-10-22, on Danny's "go on 2")
+
+- `pricing/arbitrage.quoted_calendars`: strikes both expiries quote on the
+  same right where the far ask is below the near bid. That is the
+  calendar's quote side and its verdict.
+- The mid crossing is kept as `mid_crossing` and is never in the verdict.
+  On the Options page it is a greyed "Mids cross" column, titled as not an
+  arbitrage.
+- `GET /options/svi` carries each credit as strike, right, near bid, far
+  ask and credit, so the page names the trade instead of a range in k.
+- Re-run with the built code on the same 1,863 pairs: none 1,423, fit only
+  415, both 23, quotes only 2, mid crossings 692. That is exactly the table
+  above. SPY 2026-10-20 reads none 8, fit only 7.
+- **Tests:** 7 calendar tests in `test_svi.py` and 1 report test. These
+  mutants were run on a copy, and each was caught:
+  - treating ask = bid as a credit;
+  - ignoring the right;
+  - letting the mid crossing into the verdict.

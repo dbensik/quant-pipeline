@@ -177,44 +177,75 @@ def test_a_triple_across_puts_and_calls_is_not_tested():
 # ---------------------------------------------------------------------------
 
 
-def _iv(p, k, T):
-    return p.iv(np.asarray(k), T)
+def _pt(strike, is_call, bid, ask):
+    return {"strike": strike, "is_call": is_call, "bid": bid, "ask": ask}
+
+
+def test_a_far_option_offered_below_the_near_bid_is_a_credit():
+    near = [_pt(100, True, 2.00, 2.10), _pt(105, True, 1.00, 1.05), _pt(95, False, 1.50, 1.60)]
+    far = [_pt(100, True, 1.90, 1.95), _pt(105, True, 1.20, 1.25), _pt(95, False, 1.70, 1.80)]
+    [c] = A.quoted_calendars(near, far)
+    assert (c.strike, c.is_call, c.near_bid, c.far_ask) == (100.0, True, 2.00, 1.95)
+    assert c.credit == pytest.approx(0.05)
+
+
+def test_a_far_ask_equal_to_the_near_bid_is_no_credit():
+    near, far = [_pt(100, True, 2.00, 2.10)], [_pt(100, True, 1.90, 2.00)]
+    assert A.quoted_calendars(near, far) == []
+
+
+def test_a_calendar_needs_the_same_strike_and_right():
+    # Far ask far below the near bid, but on the other right or another strike.
+    near = [_pt(100, True, 2.00, 2.10)]
+    assert A.quoted_calendars(near, [_pt(100, False, 0.5, 0.6)]) == []
+    assert A.quoted_calendars(near, [_pt(101, True, 0.5, 0.6)]) == []
+
+
+def test_a_mid_crossing_inside_the_spread_is_not_a_quote_flag():
+    """
+    Measured 2026-10-22: 692 of 1,863 pairs crossed at mid, 25 at bid and ask.
+    Near mid 2.00 (bid 1.90), far mid 1.98 (ask 2.06): the mids fall with
+    time, but the far option costs more than the near one pays.
+    """
+    near_T, far_T = 0.10, 0.12
+    k = np.linspace(-0.1, 0.1, 9)
+    near_iv = np.full(9, 0.20)
+    far_iv = np.full(9, 0.20) * np.sqrt(near_T / far_T) * 0.99  # far w just under near w
+    quotes = A.quoted_calendars([_pt(100, True, 1.90, 2.10)], [_pt(100, True, 1.90, 2.06)])
+    c = A.calendar(CLEAN, k, near_iv, near_T, CLEAN, k, far_iv, far_T, quotes, points=101)
+    assert c.mid_crossing == [pytest.approx((-0.1, 0.1))]
+    assert c.quotes == []
+    assert c.verdict == "none"  # CLEAN against itself never crosses; the mid one is not counted
 
 
 def test_crossing_fits_are_flagged_on_their_shared_range_beside_the_quotes():
-    near_T, far_T = 0.1, 0.2
     near = SVIParams(0.004, 0.03, -0.4, 0.0, 0.1)
     # The far fit lies above the near one for k < 0 and below it for k > 0.
-    far = SVIParams(0.004 + 0.0, 0.03, -0.9, 0.0, 0.1)
+    far = SVIParams(0.004, 0.03, -0.9, 0.0, 0.1)
     nk = np.linspace(-0.3, 0.2, 11)
     fk = np.linspace(-0.2, 0.3, 11)
-    # Quotes: far total variance above near everywhere.
-    near_iv = np.full(11, 0.20)
-    far_iv = np.full(11, 0.20)
-    c = A.calendar(near, nk, near_iv, near_T, far, fk, far_iv, far_T, points=501)
+    flat = np.full(11, 0.20)
+    c = A.calendar(near, nk, flat, 0.1, far, fk, flat, 0.2, [], points=501)
     assert c.shared == pytest.approx((-0.2, 0.2))
     [(lo, hi)] = c.fit
     assert lo == pytest.approx(0.0, abs=1e-3) and hi == pytest.approx(0.2)
     assert c.quotes == [] and c.verdict == "fit_only"
 
 
-def test_quotes_crossing_where_the_fits_do_not_is_quotes_only():
+def test_a_credit_where_the_fits_do_not_cross_is_quotes_only():
     near = SVIParams(0.004, 0.03, -0.4, 0.0, 0.1)
     far = SVIParams(0.010, 0.03, -0.4, 0.0, 0.1)  # above everywhere
     k = np.linspace(-0.2, 0.2, 9)
-    near_iv = np.full(9, 0.30)
-    far_iv = np.where(k > 0.05, 0.20, 0.30)  # far total variance falls only at k > 0.05
-    c = A.calendar(near, k, near_iv, 0.1, far, k, far_iv, 0.2, points=401)
-    assert c.fit == []
-    [(lo, hi)] = c.quotes
-    assert 0.0 < lo < 0.1 and hi == pytest.approx(0.2)
+    credit = A.quoted_calendars([_pt(100, True, 2.0, 2.1)], [_pt(100, True, 1.8, 1.9)])
+    c = A.calendar(near, k, np.full(9, 0.3), 0.1, far, k, np.full(9, 0.3), 0.2, credit)
+    assert c.fit == [] and len(c.quotes) == 1
     assert c.verdict == "quotes_only"
 
 
 def test_expiries_with_no_shared_range_are_not_compared():
     k1, k2 = np.linspace(-0.3, -0.1, 5), np.linspace(0.0, 0.2, 5)
-    c = A.calendar(CLEAN, k1, np.full(5, 0.2), 0.1, CLEAN, k2, np.full(5, 0.2), 0.2)
-    assert c.shared is None and c.fit == [] and c.quotes == [] and c.verdict == "none"
+    c = A.calendar(CLEAN, k1, np.full(5, 0.2), 0.1, CLEAN, k2, np.full(5, 0.2), 0.2, [])
+    assert c.shared is None and c.fit == [] and c.mid_crossing == [] and c.verdict == "none"
 
 
 @pytest.mark.parametrize(
