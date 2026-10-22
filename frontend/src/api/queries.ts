@@ -55,6 +55,7 @@ export const queryKeys = {
   optionsArchive: () => ['options-archive'] as const,
   optionsSurface: (ticker: string, day: string | null) => ['options-surface', ticker, { day }] as const,
   optionPricers: () => ['option-pricers'] as const,
+  optionSVI: (ticker: string, day: string | null) => ['option-svi', ticker, { day }] as const,
   optionQuotes: (ticker: string, day: string | null, expiry: string | null) =>
     ['option-quotes', ticker, { day, expiry }] as const,
   positionCurve: (body: Record<string, unknown>) => ['position-curve', body] as const,
@@ -709,6 +710,17 @@ export function useOptionsSurface(ticker: string | null, day: string | null) {
   return useQuery({
     queryKey: queryKeys.optionsSurface(ticker ?? '', day),
     queryFn: () => api.getOptionsSurface(ticker as string, day),
+    enabled: Boolean(ticker),
+    staleTime: 60 * 60_000,
+    retry: retryOptions,
+  })
+}
+
+/** Fitted from the surface, so it goes stale with it. */
+export function useOptionSVI(ticker: string | null, day: string | null) {
+  return useQuery({
+    queryKey: queryKeys.optionSVI(ticker ?? '', day),
+    queryFn: () => api.getOptionSVI(ticker as string, day),
     enabled: Boolean(ticker),
     staleTime: 60 * 60_000,
     retry: retryOptions,

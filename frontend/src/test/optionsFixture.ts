@@ -4,7 +4,7 @@
  * ATM vol (null), a cone, and smile points carrying Yahoo's IV beside ours.
  */
 
-import type { OptionsSurfaceResponse } from '@/api/client'
+import type { OptionsSurfaceResponse, OptionSVIFit, OptionSVIResponse } from '@/api/client'
 
 const point = (strike: number, isCall: boolean, k: number, iv: number, vendor: number | null) => ({
   strike, is_call: isCall, log_moneyness: k, forward_delta: isCall ? 0.3 : -0.3, iv, vendor_iv: vendor,
@@ -49,4 +49,55 @@ export function surfaceFixture(overrides: Partial<OptionsSurfaceResponse> = {}):
     cone_reason: null,
     ...overrides,
   } as OptionsSurfaceResponse
+}
+
+const curve = (lo: number, hi: number, n = 9) =>
+  Array.from({ length: n }, (_, i) => {
+    const k = lo + ((hi - lo) * i) / (n - 1)
+    return { log_moneyness: k, iv: 0.12 + 0.3 * k * k }
+  })
+
+const fit = (expiry: string, T: number, extra: Partial<OptionSVIFit> = {}): OptionSVIFit =>
+  ({
+    expiry, T, days: T * 365, points: 9,
+    params: { a: 0.0012, b: 0.0431, rho: -0.4512, m: 0.0123, sigma: 0.0811 },
+    rmse_vol_pts: 0.31, within_spread_share: 0.45, atm_iv: 0.121, min_iv: 0.11,
+    left_wing_slope: -0.0625, right_wing_slope: 0.0237, bottom_quoted: true, wings_within_lee: true,
+    k_range: { low: -0.053, high: 0.05 }, curve: curve(-0.15, 0.15),
+    butterfly: { verdict: 'none', checked: { low: -0.153, high: 0.15 }, fit: [], min_g: 0.4, quotes: [] },
+    ...extra,
+  }) as OptionSVIFit
+
+/** SVI for surfaceFixture(): 2026-12-18 is skipped (2 points). */
+export function sviFixture(overrides: Partial<OptionSVIResponse> = {}): OptionSVIResponse {
+  return {
+    ticker: 'SPY',
+    day: '2026-10-08',
+    captured_at: '2026-10-08T19:45:00Z',
+    parameters: { a: 'Level.', b: 'Wings.', rho: 'Tilt.', m: 'Shift.', sigma: 'Rounding.' },
+    min_points: 4,
+    min_days: 2,
+    butterfly_margin: 0.1,
+    fits: [
+      fit('2026-10-30', 0.06, {
+        butterfly: {
+          verdict: 'both', checked: { low: -0.153, high: 0.15 },
+          fit: [{ low: -0.12, high: -0.08 }], min_g: -0.02, quotes: [{ low: -0.053, high: 0.025 }],
+        },
+      }),
+      fit('2027-01-15', 0.27, { bottom_quoted: false, params: { a: -0.2, b: 5.3, rho: 0.97, m: 0.93, sigma: 0.21 } }),
+    ],
+    skipped: [{ expiry: '2026-12-18', reason: '2 smile points, fewer than 4' }],
+    calendar: [
+      {
+        near: '2026-10-30', far: '2027-01-15', verdict: 'fit_only',
+        shared: { low: -0.026, high: 0.019 }, fit: [{ low: 0.01, high: 0.019 }], quotes: [],
+      },
+    ],
+    butterfly_summary: { none: 1, both: 1, fit_only: 0, quotes_only: 0 },
+    calendar_summary: { none: 0, both: 0, fit_only: 1, quotes_only: 0 },
+    fit_seconds: 1.2,
+    surface_cache_hit: true,
+    ...overrides,
+  } as OptionSVIResponse
 }

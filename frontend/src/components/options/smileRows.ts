@@ -26,6 +26,8 @@ export interface SmileSeries {
   expiry: string
   days: number
   points: SmilePoint[]
+  /** The SVI fit over the same points' range, when fits are shown (decision 56). */
+  fit?: { x: number; iv: number }[]
 }
 
 /** About `n` expiries spread evenly across the term, always first and last. */

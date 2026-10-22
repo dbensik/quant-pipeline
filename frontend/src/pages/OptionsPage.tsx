@@ -3,8 +3,9 @@
  *
  * The implied-volatility surface for one archived ticker-day: what was used
  * to build it (rate, dividends, quality), the smile per expiry, the ATM term
- * structure over the realised-vol cone, and a pricer that runs every model
- * side by side.
+ * structure over the realised-vol cone, an SVI fit per expiry with the
+ * butterfly and calendar checks on the fit and the quotes (decision 56), and
+ * a pricer that runs every model side by side.
  *
  * Ticker, day and expiry choices are this page's own controls, so they live
  * in component state (as the Simulate panel's do), not in Zustand.
@@ -15,8 +16,8 @@
 import { useMemo, useState } from 'react'
 
 import { ApiError } from '@/api/client'
-import type { OptionsExpiry, OptionsSurfaceResponse } from '@/api/client'
-import { useOptionsArchive, useOptionsSurface, usePriceOption } from '@/api/queries'
+import type { OptionsExpiry, OptionsSurfaceResponse, OptionSVIResponse } from '@/api/client'
+import { useOptionsArchive, useOptionsSurface, useOptionSVI, usePriceOption } from '@/api/queries'
 import { SmileChart } from '@/components/charts/SmileChart'
 import { TermStructureChart } from '@/components/charts/TermStructureChart'
 import { buildConeRows, buildTermRows } from '@/components/options/coneRows'
@@ -29,6 +30,13 @@ import {
   expiryFlags,
   vendorGap,
 } from '@/components/options/smileRows'
+import {
+  fitCurves,
+  parameterCaution,
+  rangesText,
+  verdictLabel,
+  verdictMeaning,
+} from '@/components/options/sviRows'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -91,15 +99,23 @@ function SurfaceSummary({ surface }: { surface: OptionsSurfaceResponse }) {
   )
 }
 
-function SmilePanel({ surface }: { surface: OptionsSurfaceResponse }) {
+function SmilePanel({ surface, svi }: { surface: OptionsSurfaceResponse; svi?: OptionSVIResponse }) {
   const sorted = useMemo(() => [...surface.expiries].sort((a, b) => a.T - b.T), [surface])
   // Reset per surface by the parent's `key`, not by an effect.
   const [selected, setSelected] = useState<string[]>(() => defaultExpiries(sorted))
   const [wings, setWings] = useState(false)
-  const series = useMemo(
-    () => buildSmileSeries(surface.smiles, surface.expiries, selected, wings ? 0 : DEFAULT_MIN_ABS_DELTA),
-    [surface, selected, wings],
-  )
+  const [showFits, setShowFits] = useState(true)
+  const series = useMemo(() => {
+    const base = buildSmileSeries(surface.smiles, surface.expiries, selected, wings ? 0 : DEFAULT_MIN_ABS_DELTA)
+    if (!svi || !showFits) return base
+    const shown = Object.fromEntries(
+      base
+        .filter((s) => s.points.length > 0)
+        .map((s) => [s.expiry, { lo: s.points[0].x, hi: s.points[s.points.length - 1].x }]),
+    )
+    const curves = fitCurves(svi.fits, shown)
+    return base.map((s) => (curves[s.expiry] ? { ...s, fit: curves[s.expiry] } : s))
+  }, [surface, selected, wings, svi, showFits])
   const gap = useMemo(() => vendorGap(selected.flatMap((e) => surface.smiles[e] ?? [])), [surface, selected])
 
   const toggle = (expiry: string) =>
@@ -135,13 +151,163 @@ function SmilePanel({ surface }: { surface: OptionsSurfaceResponse }) {
           })}
         </div>
         <SmileChart series={series} />
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
           <span>* near a projected ex-date, or forward did not converge.</span>
+          {svi ? (
+            <label className="flex items-center gap-1.5">
+              <input type="checkbox" checked={showFits} onChange={(e) => setShowFits(e.target.checked)} />
+              Show SVI fits (dashed)
+            </label>
+          ) : null}
           <label className="flex items-center gap-1.5">
             <input type="checkbox" checked={wings} onChange={(e) => setWings(e.target.checked)} />
             Show far wings (under {DEFAULT_MIN_ABS_DELTA * 100}-delta)
           </label>
         </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function SVIPanel({ svi }: { svi: OptionSVIResponse }) {
+  const b = svi.butterfly_summary
+  const c = svi.calendar_summary
+  const caution = svi.fits.filter((f) => parameterCaution(f) !== null).length
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>SVI fits and arbitrage</CardTitle>
+        <CardDescription>
+          Raw SVI per expiry, w(k) = a + b(ρ(k − m) + √((k − m)² + σ²)), fitted to our implied vols as total
+          variance w = IV²T. Expiries with at least {svi.min_points} points and {svi.min_days} days to run.
+          Arbitrage is reported, not repaired, and every flag says whose it is: the fit's, the quotes', or
+          both.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4 text-sm">
+        <div className="grid gap-2 sm:grid-cols-2" data-testid="svi-summary">
+          <div>
+            <span className="text-muted-foreground">Butterfly: </span>
+            {b.both} both · {b.fit_only} fit only · {b.quotes_only} quotes only · {b.none} none
+          </div>
+          <div>
+            <span className="text-muted-foreground">Calendar: </span>
+            {c.both} both · {c.fit_only} fit only · {c.quotes_only} quotes only · {c.none} none
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm" data-testid="svi-fits">
+            <thead className="text-left text-xs text-muted-foreground">
+              <tr>
+                <th className="py-1 pr-3">Expiry</th>
+                <th className="py-1 pr-3 text-right">Points</th>
+                <th className="py-1 pr-3 text-right">a</th>
+                <th className="py-1 pr-3 text-right">b</th>
+                <th className="py-1 pr-3 text-right">ρ</th>
+                <th className="py-1 pr-3 text-right">m</th>
+                <th className="py-1 pr-3 text-right">σ</th>
+                <th className="py-1 pr-3 text-right" title="Root-mean-square miss of our IV">
+                  Error (vol pts)
+                </th>
+                <th className="py-1 pr-3 text-right" title="Share of quotes the fit passes within half their spread">
+                  In spread
+                </th>
+                <th className="py-1 pr-3">Butterfly</th>
+                <th className="py-1">Where (ln K/F)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {svi.fits.map((f) => {
+                const note = parameterCaution(f)
+                const where = [
+                  f.butterfly.fit.length ? `fit ${rangesText(f.butterfly.fit)}` : null,
+                  f.butterfly.quotes.length ? `quotes ${rangesText(f.butterfly.quotes)}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')
+                return (
+                  <tr key={f.expiry} className="border-t">
+                    <td className="py-1 pr-3 whitespace-nowrap">
+                      {f.expiry} <span className="text-muted-foreground">({Math.round(f.days)}d)</span>
+                    </td>
+                    <td className="py-1 pr-3 text-right">{f.points}</td>
+                    {(['a', 'b', 'rho', 'm', 'sigma'] as const).map((name) => (
+                      <td
+                        key={name}
+                        className={`py-1 pr-3 text-right tabular-nums ${note ? 'text-muted-foreground' : ''}`}
+                        title={note ?? undefined}
+                      >
+                        {f.params[name].toFixed(4)}
+                        {note && name === 'a' ? ' †' : ''}
+                      </td>
+                    ))}
+                    <td className="py-1 pr-3 text-right tabular-nums">{f.rmse_vol_pts.toFixed(2)}</td>
+                    <td className="py-1 pr-3 text-right tabular-nums">{pct(f.within_spread_share, 0)}</td>
+                    <td className="py-1 pr-3 whitespace-nowrap" title={verdictMeaning(f.butterfly.verdict, 'butterfly')}>
+                      {verdictLabel(f.butterfly.verdict)}
+                    </td>
+                    <td className="py-1 text-xs text-muted-foreground">{where || '—'}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+        {caution > 0 ? (
+          <p className="text-xs text-muted-foreground">
+            † {caution} of {svi.fits.length} fits: the smile's bottom m lies past the quotes or a wing rises faster
+            than Lee's bound allows. The curve still fits; its parameters are not a reading of the market one by
+            one (hover for which).
+          </p>
+        ) : null}
+        {svi.skipped.length > 0 ? (
+          <p className="text-xs text-muted-foreground">
+            Not fitted: {svi.skipped.map((s) => `${s.expiry} (${s.reason})`).join('; ')}.
+          </p>
+        ) : null}
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm" data-testid="svi-calendar">
+            <thead className="text-left text-xs text-muted-foreground">
+              <tr>
+                <th className="py-1 pr-3">Near → far</th>
+                <th className="py-1 pr-3">Calendar</th>
+                <th className="py-1 pr-3">Fit crosses (ln K/F)</th>
+                <th className="py-1">Quotes cross (ln K/F)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {svi.calendar.map((row) => (
+                <tr key={`${row.near}-${row.far}`} className="border-t">
+                  <td className="py-1 pr-3 whitespace-nowrap">
+                    {row.near} → {row.far}
+                  </td>
+                  <td className="py-1 pr-3 whitespace-nowrap" title={verdictMeaning(row.verdict, 'calendar')}>
+                    {row.shared ? verdictLabel(row.verdict) : 'no shared range'}
+                  </td>
+                  <td className="py-1 pr-3 text-xs">{rangesText(row.fit)}</td>
+                  <td className="py-1 text-xs">{rangesText(row.quotes)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <dl className="grid gap-x-4 gap-y-1 text-xs sm:grid-cols-[auto_1fr]" data-testid="svi-parameters">
+          {Object.entries(svi.parameters).map(([name, meaning]) => (
+            <div key={name} className="contents">
+              <dt className="font-medium">{name === 'rho' ? 'ρ' : name === 'sigma' ? 'σ' : name}</dt>
+              <dd className="text-muted-foreground">{meaning}</dd>
+            </div>
+          ))}
+        </dl>
+        <p className="text-xs text-muted-foreground">
+          Butterfly: the fit's density is checked {svi.butterfly_margin} past the quotes either side; the quotes
+          are checked as three adjacent strikes of one right bought for less than nothing at bid and ask.
+          Calendar: total variance on the range of ln(K/F) both expiries quote.
+          {svi.fit_seconds > 0 ? ` Fitted in ${svi.fit_seconds.toFixed(1)} s.` : ''}
+        </p>
       </CardContent>
     </Card>
   )
@@ -370,6 +536,8 @@ export function OptionsPage() {
   const day = dayChoice !== null && days.includes(dayChoice) ? dayChoice : (days[0] ?? null)
 
   const surface = useOptionsSurface(ticker, day)
+  // Waits for the surface: the fit reads it, and a cold one is priced once.
+  const svi = useOptionSVI(surface.data ? ticker : null, day)
 
   return (
     <div className="space-y-4">
@@ -441,7 +609,25 @@ export function OptionsPage() {
       {surface.data ? (
         <>
           <SurfaceSummary surface={surface.data} />
-          <SmilePanel key={`smile-${surface.data.ticker}-${surface.data.day}`} surface={surface.data} />
+          <SmilePanel
+            key={`smile-${surface.data.ticker}-${surface.data.day}`}
+            surface={surface.data}
+            svi={svi.data}
+          />
+          {svi.data ? <SVIPanel svi={svi.data} /> : null}
+          {svi.isLoading ? (
+            <Card>
+              <CardContent className="pt-4 text-sm text-muted-foreground" data-testid="svi-loading">
+                Fitting SVI to each expiry…
+              </CardContent>
+            </Card>
+          ) : null}
+          {svi.error ? (
+            <Alert variant="destructive">
+              <AlertTitle>No SVI fits for {ticker} on {day}</AlertTitle>
+              <AlertDescription>{errorText(svi.error)}</AlertDescription>
+            </Alert>
+          ) : null}
           <TermPanel surface={surface.data} />
           <PricerPanel key={`pricer-${surface.data.ticker}-${surface.data.day}`} surface={surface.data} />
         </>

@@ -449,6 +449,17 @@ needs the capture's surface: 10-35 s the first time on a capture older than
 the 7 the job precomputes. American legs are priced European: cents out of
 the money, $2-3 a share on SPY puts 5-10% in the money.
 
+**An SVI fit per expiry, with the arbitrage reported, not repaired**
+(decision 56, 2026-10-22, `research/svi-surface-2026-10-20.md`,
+`pricing/svi.py`, `pricing/arbitrage.py`, `core/svi_report.py`, `GET
+/options/svi`). Raw SVI is fitted to our vols on every expiry with 8+ points
+and 2+ days to run, from the cached surface, kept in process by its key and
+out of its fingerprint. Every butterfly and calendar flag says whose it is,
+the fit's or the quotes', since they differ more often than they agree. The
+quotes' butterfly is model-free: 3 strikes of one right bought below 0 at
+bid/ask. 57% of fits put the bottom m past the quotes, where b, rho and m
+trade off; `bottom_quoted` says when the parameters can be read.
+
 **Served equities and ETFs have bars from 2010** (insert-only backfill
 2026-10-14, decision 26; ^IRX from 2009-12, without which a pre-2015
 backtest is 422). Yahoo serves placeholder bars before some listings (AMCR,
@@ -661,7 +672,7 @@ For the TimescaleDB layer, copy `.env.example` → `.env`; without it, `db/sessi
 - `backtesting/backtester.py` — Simulates strategy on historical data; produces equity curves and KPIs. Per-bar state goes into numpy arrays, not pandas cell writes (2026-10-07: 291 ms → 5 ms a run, bit-identical). A change to the loop must stay bit-identical on real runs — the equity frame, trade log and metrics are the regression test (with a zero `cash_accrual`; 15 real runs checked when interest on cash went in, 2026-10-12). A REFACTOR must; a deliberate change of meaning is measured before and after instead (the 2026-10-14 signal fix changed every event-coded run).
 - `simulation/` — Monte Carlo kernels; read `simulation/CLAUDE.md` before changing them.
 - `pricing/` — option pricing; read `pricing/CLAUDE.md` before changing it (no recorded spot; discrete dividends).
-- `core/options_surface.py` + `api/routers/options.py` — `/api/v1/options` archive|surface|price|pricers|realised-vol. A surface costs 10–35 s, so it is cached in `data/surfaces/<TICKER>/<day>.json` (gitignored, derivable, safe to delete). The key hashes the capture bytes, the rate observation, the dividend schedule and a fingerprint DERIVED from the pricing source and settings — never hand-bump a version. The realised-vol cone is NOT cached (bars are not in the key). A surface for today's capture uses yesterday's rate and is recomputed tomorrow: correct. `scripts/precompute_surfaces.py` fills the cache (108 captures ~37 min cold); the 06:00 job runs it with `--days 7` (~2-3 min a night, a pricing change recomputes a week, not the archive), which also names MISSED CAPTURE days: 2026-10-09 was lost for every ticker (a Yahoo dtype crash) and nobody knew for four days. Known losses: `OPTION_CAPTURE_DAYS_LOST`.
+- `core/options_surface.py` + `api/routers/options.py` — `/api/v1/options` archive|surface|svi|price|pricers|realised-vol. A surface costs 10–35 s, so it is cached in `data/surfaces/<TICKER>/<day>.json` (gitignored, derivable, safe to delete). The key hashes the capture bytes, the rate observation, the dividend schedule and a fingerprint DERIVED from the pricing source and settings — never hand-bump a version. The realised-vol cone is NOT cached (bars are not in the key). A surface for today's capture uses yesterday's rate and is recomputed tomorrow: correct. `scripts/precompute_surfaces.py` fills the cache (108 captures ~37 min cold); the 06:00 job runs it with `--days 7` (~2-3 min a night, a pricing change recomputes a week, not the archive), which also names MISSED CAPTURE days: 2026-10-09 was lost for every ticker (a Yahoo dtype crash) and nobody knew for four days. Known losses: `OPTION_CAPTURE_DAYS_LOST`.
 - `core/sec.py` + `core/fundamentals.py` + `modeling/` + `api/routers/valuation.py` — the DCF; read `modeling/CLAUDE.md` before changing any of them. Missing is never zero: a missing input refuses, it is never defaulted.
 - `api/routers/` — the REST/WS surface: ohlcv, assets, strategies, backtest,
   compare, optimize, simulate, options, valuation, screeners, statistics, portfolios,

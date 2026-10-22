@@ -122,6 +122,10 @@ export type OptionModelQuote = components['schemas']['OptionModelQuote']
 export type OptionPricerInfo = components['schemas']['OptionPricerInfo']
 export type OptionsQuotesResponse = components['schemas']['OptionsQuotesResponse']
 export type OptionsQuote = components['schemas']['OptionsQuote']
+export type OptionSVIResponse = components['schemas']['OptionSVIResponse']
+export type OptionSVIFit = components['schemas']['OptionSVIFit']
+export type OptionSVICalendar = components['schemas']['OptionSVICalendar']
+export type OptionSVIRange = components['schemas']['OptionSVIRange']
 export type OptionPositionCurveRequest = components['schemas']['OptionPositionCurveRequest']
 export type OptionPositionCurveResponse = components['schemas']['OptionPositionCurveResponse']
 export type OptionPositionLeg = components['schemas']['OptionPositionLeg']
@@ -637,6 +641,11 @@ export const api = {
     return request(
       `/api/v1/options/quotes${qs({ ticker, day: day ?? undefined, expiry: expiry ?? undefined })}`,
     )
+  },
+
+  /** SVI fits and arbitrage checks (decision 56); reads the surface, so a cold one costs 10-35 s. */
+  getOptionSVI(ticker: string, day?: string | null): Promise<OptionSVIResponse> {
+    return request(`/api/v1/options/svi${qs({ ticker, day: day ?? undefined })}`)
   },
 
   /** Profit and Greeks before expiry (decision 55); a cold surface costs 10-35 s. */

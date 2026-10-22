@@ -15,6 +15,8 @@ from api.main import app
 from api.routers import options as R
 from core.options_surface import ChainArchive, SurfaceCache
 from core.rates import RateObservation
+from core.svi_report import ReportCache
+from pricing.svi import SVIParams
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "spy_chain_2026-10-07_slice.parquet"
 
@@ -59,12 +61,14 @@ def options_client(client, tmp_path):
     (tmp_path / "chains" / "SPY").mkdir(parents=True)
     shutil.copy(FIXTURE, tmp_path / "chains" / "SPY" / "2026-10-07.parquet")
     cache = SurfaceCache(tmp_path / "surfaces")
+    reports = ReportCache()
     divs = FakeDividends()
     app.dependency_overrides[R.get_chain_archive] = lambda: ChainArchive(tmp_path / "chains")
     app.dependency_overrides[R.get_surface_cache] = lambda: cache
     app.dependency_overrides[R.get_rate_repo] = lambda: FakeRates([OBS])
     app.dependency_overrides[R.get_dividend_repo] = lambda: divs
     app.dependency_overrides[R.get_pricing_fingerprint] = lambda: "test-code"
+    app.dependency_overrides[R.get_svi_cache] = lambda: reports
     client.divs = divs
     client.cache_dir = tmp_path / "surfaces"
     return client
@@ -418,3 +422,57 @@ def test_position_curve_leaves_out_expiries_it_cannot_price():
         },
     }
     assert list(R.expiries_of(surface)) == [date(2026, 11, 20)]
+
+
+# ---------------------------------------------------------------------------
+# /svi (decision 56)
+# ---------------------------------------------------------------------------
+
+
+def test_svi_fits_every_expiry_with_enough_points_from_the_surface(options_client):
+    surface = options_client.get(
+        "/api/v1/options/surface", params={"ticker": "SPY", "day": "2026-10-07"}
+    ).json()
+    r = options_client.get("/api/v1/options/svi", params={"ticker": "spy", "day": "2026-10-07"})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["surface_cache_hit"] is True  # read the cached surface, re-priced nothing
+    eligible = [
+        e["expiry"]
+        for e in surface["expiries"]
+        if len(surface["smiles"].get(e["expiry"], [])) >= body["min_points"]
+        and e["T"] * 365 >= body["min_days"]
+    ]
+    assert eligible and [f["expiry"] for f in body["fits"]] == eligible
+    assert {s["expiry"] for s in body["skipped"]} == {
+        e["expiry"] for e in surface["expiries"]
+    } - set(eligible)
+    for fit in body["fits"]:
+        points = surface["smiles"][fit["expiry"]]
+        assert fit["points"] == len(points)
+        # The error is against the surface's own vols, recomputed here.
+        p = SVIParams(**fit["params"])
+        k = [q["log_moneyness"] for q in points]
+        iv = [q["iv"] for q in points]
+        rmse = float(((p.iv(k, fit["T"]) - iv) ** 2).mean() ** 0.5) * 100
+        assert fit["rmse_vol_pts"] == pytest.approx(rmse)
+        assert fit["rmse_vol_pts"] < 3
+        assert len(fit["curve"]) == 101
+        assert fit["butterfly"]["verdict"] in {"none", "both", "fit_only", "quotes_only"}
+    assert len(body["calendar"]) == len(body["fits"]) - 1
+    assert set(body["parameters"]) == {"a", "b", "rho", "m", "sigma"}
+    tally = body["butterfly_summary"]
+    assert sum(tally.values()) == len(body["fits"])
+
+
+def test_svi_errors(options_client):
+    assert (
+        options_client.get(
+            "/api/v1/options/svi", params={"ticker": "SPY", "day": "2026-10-06"}
+        ).status_code
+        == 404
+    )
+    assert options_client.get("/api/v1/options/svi", params={"ticker": "QQQ"}).status_code == 404
+    app.dependency_overrides[R.get_rate_repo] = lambda: FakeRates([])
+    r = options_client.get("/api/v1/options/svi", params={"ticker": "SPY"})
+    assert r.status_code == 409

@@ -568,6 +568,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/options/svi": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * An SVI fit per expiry, with butterfly and calendar arbitrage on the fit and the quotes
+         * @description Reads the surface (cached, or computed once as /surface would) and re-prices nothing.
+         */
+        get: operations["svi_fits_api_v1_options_svi_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/options/quotes": {
         parameters: {
             query?: never;
@@ -2394,6 +2414,184 @@ export interface components {
             description: string;
             /** Styles */
             styles: string[];
+        };
+        /** OptionSVIButterfly */
+        OptionSVIButterfly: {
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "none" | "both" | "fit_only" | "quotes_only";
+            /** @description The quoted range plus the margin either side */
+            checked: components["schemas"]["OptionSVIRange"];
+            /**
+             * Fit
+             * @description Where the fit's density g(k) is negative
+             */
+            fit: components["schemas"]["OptionSVIRange"][];
+            /** Min G */
+            min_g: number;
+            /**
+             * Quotes
+             * @description Adjacent strikes of one right whose butterfly costs less than nothing at bid/ask
+             */
+            quotes: components["schemas"]["OptionSVIRange"][];
+        };
+        /** OptionSVICalendar */
+        OptionSVICalendar: {
+            /** Near */
+            near: string;
+            /** Far */
+            far: string;
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "none" | "both" | "fit_only" | "quotes_only";
+            /** @description Quoted ln(K/F) range both expiries cover */
+            shared: components["schemas"]["OptionSVIRange"] | null;
+            /**
+             * Fit
+             * @description Where the far fit's total variance is below the near one's
+             */
+            fit: components["schemas"]["OptionSVIRange"][];
+            /**
+             * Quotes
+             * @description The same on the quotes, interpolated in ln(K/F)
+             */
+            quotes: components["schemas"]["OptionSVIRange"][];
+        };
+        /** OptionSVICurvePoint */
+        OptionSVICurvePoint: {
+            /** Log Moneyness */
+            log_moneyness: number;
+            /** Iv */
+            iv: number;
+        };
+        /** OptionSVIFit */
+        OptionSVIFit: {
+            /** Expiry */
+            expiry: string;
+            /** T */
+            T: number;
+            /** Days */
+            days: number;
+            /** Points */
+            points: number;
+            params: components["schemas"]["OptionSVIParams"];
+            /**
+             * Rmse Vol Pts
+             * @description Root-mean-square miss of our IV, in vol points
+             */
+            rmse_vol_pts: number;
+            /**
+             * Within Spread Share
+             * @description Share of quotes the fit passes within half their bid-ask spread, in vol
+             */
+            within_spread_share: number | null;
+            /** Atm Iv */
+            atm_iv: number;
+            /** Min Iv */
+            min_iv: number;
+            /** Left Wing Slope */
+            left_wing_slope: number;
+            /** Right Wing Slope */
+            right_wing_slope: number;
+            /**
+             * Bottom Quoted
+             * @description The smile's bottom m lies among the quotes; only then read the parameters one by one
+             */
+            bottom_quoted: boolean;
+            /**
+             * Wings Within Lee
+             * @description Both wing slopes of total variance are 2 or less
+             */
+            wings_within_lee: boolean;
+            k_range: components["schemas"]["OptionSVIRange"];
+            /** Curve */
+            curve: components["schemas"]["OptionSVICurvePoint"][];
+            butterfly: components["schemas"]["OptionSVIButterfly"];
+        };
+        /** OptionSVIParams */
+        OptionSVIParams: {
+            /** A */
+            a: number;
+            /** B */
+            b: number;
+            /** Rho */
+            rho: number;
+            /** M */
+            m: number;
+            /** Sigma */
+            sigma: number;
+        };
+        /** OptionSVIRange */
+        OptionSVIRange: {
+            /**
+             * Low
+             * @description ln(strike / forward)
+             */
+            low: number;
+            /** High */
+            high: number;
+        };
+        /** OptionSVIResponse */
+        OptionSVIResponse: {
+            /** Ticker */
+            ticker: string;
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /**
+             * Captured At
+             * Format: date-time
+             */
+            captured_at: string;
+            /**
+             * Parameters
+             * @description What each SVI parameter means
+             */
+            parameters: {
+                [key: string]: string;
+            };
+            /** Min Points */
+            min_points: number;
+            /** Min Days */
+            min_days: number;
+            /** Butterfly Margin */
+            butterfly_margin: number;
+            /** Fits */
+            fits: components["schemas"]["OptionSVIFit"][];
+            /** Skipped */
+            skipped: components["schemas"]["OptionSVISkipped"][];
+            /** Calendar */
+            calendar: components["schemas"]["OptionSVICalendar"][];
+            butterfly_summary: components["schemas"]["OptionSVITally"];
+            calendar_summary: components["schemas"]["OptionSVITally"];
+            /** Fit Seconds */
+            fit_seconds: number;
+            /** Surface Cache Hit */
+            surface_cache_hit: boolean;
+        };
+        /** OptionSVISkipped */
+        OptionSVISkipped: {
+            /** Expiry */
+            expiry: string;
+            /** Reason */
+            reason: string;
+        };
+        /** OptionSVITally */
+        OptionSVITally: {
+            /** None */
+            none: number;
+            /** Both */
+            both: number;
+            /** Fit Only */
+            fit_only: number;
+            /** Quotes Only */
+            quotes_only: number;
         };
         /** OptionsArchiveResponse */
         OptionsArchiveResponse: {
@@ -6115,6 +6313,53 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OptionsSurfaceResponse"];
+                };
+            };
+            /** @description No complete capture for that ticker-day */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No risk-free rate stored on or before that day */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    svi_fits_api_v1_options_svi_get: {
+        parameters: {
+            query: {
+                ticker: string;
+                /** @description Capture date; default the latest complete one */
+                day?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OptionSVIResponse"];
                 };
             };
             /** @description No complete capture for that ticker-day */

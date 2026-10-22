@@ -10,14 +10,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ApiError, api } from '@/api/client'
 import { renderPage } from '@/test/renderPage'
-import { surfaceFixture } from '@/test/optionsFixture'
+import { surfaceFixture, sviFixture } from '@/test/optionsFixture'
 import { OptionsPage } from './OptionsPage'
 
 vi.mock('@/components/charts/SmileChart', () => ({
-  SmileChart: ({ series }: { series: Array<{ expiry: string; points: Array<Record<string, unknown>> }> }) => (
+  SmileChart: ({
+    series,
+  }: {
+    series: Array<{ expiry: string; points: Array<Record<string, unknown>>; fit?: Array<{ x: number }> }>
+  }) => (
     <div
       data-testid="smile-chart"
       data-expiries={series.map((s) => s.expiry).join(',')}
+      data-fits={series.map((s) => `${s.expiry}:${s.fit ? s.fit.map((p) => p.x.toFixed(4)).join('|') : '-'}`).join(',')}
       data-keys={[...new Set(series.flatMap((s) => s.points.flatMap((p) => Object.keys(p))))].sort().join(',')}
     />
   ),
@@ -50,6 +55,8 @@ const ARCHIVE = {
 
 beforeEach(() => {
   vi.spyOn(api, 'getOptionsArchive').mockResolvedValue(ARCHIVE as never)
+  // Unless a test says otherwise, the fits never arrive.
+  vi.spyOn(api, 'getOptionSVI').mockReturnValue(new Promise(() => {}))
 })
 afterEach(() => vi.restoreAllMocks())
 
@@ -146,5 +153,62 @@ describe('OptionsPage', () => {
     const table = await screen.findByTestId('quotes')
     expect(within(table).getByText('9.1234')).toBeInTheDocument()
     expect(within(table).getByText('0.3100')).toBeInTheDocument()
+  })
+
+  it('asks for the SVI fits only once the surface is in, for the same ticker-day', async () => {
+    let resolve: (v: unknown) => void = () => {}
+    vi.spyOn(api, 'getOptionsSurface').mockReturnValue(new Promise((r) => (resolve = r)) as never)
+    const svi = vi.spyOn(api, 'getOptionSVI').mockResolvedValue(sviFixture())
+    renderPage(<OptionsPage />)
+    await screen.findByTestId('surface-loading')
+    expect(svi).not.toHaveBeenCalled()
+    resolve(surfaceFixture())
+    await waitFor(() => expect(svi).toHaveBeenCalledWith('SPY', '2026-10-08'))
+  })
+
+  it('draws each fitted expiry’s SVI curve over its smile, clipped to the points shown', async () => {
+    vi.spyOn(api, 'getOptionsSurface').mockResolvedValue(surfaceFixture())
+    vi.spyOn(api, 'getOptionSVI').mockResolvedValue(sviFixture())
+    renderPage(<OptionsPage />)
+    await screen.findByTestId('svi-fits')
+    const fits = screen.getByTestId('smile-chart').dataset.fits ?? ''
+    // 2026-10-30's points run from -0.053 to 0.05; its curve is clipped to them.
+    // 2026-12-18 was not fitted; 2027-01-15's points run from -0.032 to 0.019.
+    expect(fits).toBe(
+      ['2026-10-30:-0.0375|0.0000|0.0375', '2026-12-18:-', '2027-01-15:0.0000'].join(','),
+    )
+    await userEvent.click(screen.getByRole('checkbox', { name: /Show SVI fits/ }))
+    expect(screen.getByTestId('smile-chart').dataset.fits).toBe('2026-10-30:-,2026-12-18:-,2027-01-15:-')
+  })
+
+  it('tables each fit and says whose arbitrage each flag is', async () => {
+    vi.spyOn(api, 'getOptionsSurface').mockResolvedValue(surfaceFixture())
+    vi.spyOn(api, 'getOptionSVI').mockResolvedValue(sviFixture())
+    renderPage(<OptionsPage />)
+    const table = await screen.findByTestId('svi-fits')
+    const rows = within(table).getAllByRole('row')
+    expect(rows).toHaveLength(3)
+    expect(rows[1]).toHaveTextContent('2026-10-30')
+    expect(rows[1]).toHaveTextContent('-0.4512')
+    expect(rows[1]).toHaveTextContent('fit and quotes')
+    expect(rows[1]).toHaveTextContent('fit −0.120 to −0.080 · quotes −0.053 to 0.025')
+    // Bottom past the quotes: parameters marked, the note says why.
+    expect(rows[2]).toHaveTextContent('†')
+    expect(rows[1]).not.toHaveTextContent('†')
+    expect(screen.getByText(/1 of 2 fits: the smile's bottom m lies past the quotes/)).toBeInTheDocument()
+    expect(screen.getByText(/Not fitted: 2026-12-18 \(2 smile points, fewer than 4\)/)).toBeInTheDocument()
+    expect(screen.getByTestId('svi-summary')).toHaveTextContent('Butterfly: 1 both · 0 fit only · 0 quotes only · 1 none')
+    const calendar = screen.getByTestId('svi-calendar')
+    expect(within(calendar).getByText('fit only')).toHaveAttribute('title', expect.stringMatching(/not the market's/))
+    expect(within(calendar).getByText('0.010 to 0.019')).toBeInTheDocument()
+    expect(screen.getByTestId('svi-parameters')).toHaveTextContent('ρTilt.')
+  })
+
+  it('shows the fit error without hiding the surface', async () => {
+    vi.spyOn(api, 'getOptionsSurface').mockResolvedValue(surfaceFixture())
+    vi.spyOn(api, 'getOptionSVI').mockRejectedValue(new ApiError(409, 'No ^IRX observation'))
+    renderPage(<OptionsPage />)
+    expect(await screen.findByText(/No SVI fits for SPY on 2026-10-08/)).toBeInTheDocument()
+    expect(screen.getByTestId('smile-chart').dataset.fits).toBe('2026-10-30:-,2026-12-18:-,2027-01-15:-')
   })
 })

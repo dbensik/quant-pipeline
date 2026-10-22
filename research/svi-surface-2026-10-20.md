@@ -115,6 +115,81 @@ built. This costs nothing.
 
 **Approved: A, 2026-10-21.**
 
+## Built (A), 2026-10-22
+
+- **Code:** `pricing/svi.py` (fit, w', w'', g), `pricing/arbitrage.py`
+  (checks), `core/svi_report.py` (one surface's report, kept in process
+  by the surface's key), `GET /api/v1/options/svi`, and an SVI card plus
+  dashed fits over the smile on the Options page. Settings are `SVI_*` in
+  `config/settings.py`. None of it is in the surface's fingerprint, so no
+  cached surface was recomputed.
+- **The fit:** least squares on total variance from 3 starts. The bottom of
+  the smile, a + b σ √(1 − ρ²), is a parameter bounded at 0, so total
+  variance is never negative. The fit quality reproduces the measurement
+  above: on the 1,033 October slices the median error is 0.49 vol points
+  and the 90th percentile 1.19. SPY's median is 0.28 and TQQQ's 1.06. A
+  fit takes 0.08 s, and a surface 0.5-2.6 s; the request then costs about
+  1-2 s.
+- **Re-measured with the built code** on the same 1,938 slices, 1,794 pairs:
+
+  | | none | both | fit only | quotes only |
+  |---|---|---|---|---|
+  | butterfly | 1,406 | 63 | 141 | 328 |
+  | calendar | 1,010 | 311 | 113 | 360 |
+
+  **Fit butterflies:** 204 of 1,938 slices, against 227 measured above;
+  the starting points differ.
+
+  **Calendar, fit side:** 424 crossings, against 421 above.
+
+  **Calendar, quote side:** 671 crossings, against 371 above. So the
+  bolded finding above (the fit adds 251 crossings, hides 201) becomes 113
+  and 360 with the built code. The conclusion, that every flag must say
+  whose it is, holds more strongly. The scratch
+  scripts behind 371 are gone, and no variant tried reproduces it:
+  - interpolating at 401 points gives 632;
+  - the union of both expiries' strikes gives 715;
+  - the near expiry's strikes alone give 380.
+
+  The quote side is interpolated mid total variance, as approved. Linear
+  interpolation between sparse wing quotes crosses easily, so the quote
+  side is the noisier of the two.
+- **Quote side of the butterfly: a DEVIATION from A as approved, for
+  Danny to confirm or reverse.** The approved text checks the quotes with
+  the market's interpolated total variance. Built instead: three adjacent
+  strikes of one right, bought for less than nothing at bid and ask. This
+  is model-free and needs no forward. The approved method and one other
+  were tried and rejected:
+  - At mid vols, the approved method, 1,917 of 1,938 slices failed.
+  - Mixing puts and calls across the money, by parity on our forward, gave
+    credits up to $1.53 on SPY 2026-10-19. The largest was on 2026-12-18,
+    the expiry whose forward sits off raw parity.
+
+  The 391 slices with quote-side butterflies are mostly SPY, QQQ and IWM:
+  one-cent credits on $1 strikes.
+- **Found: 1,106 of 1,938 fits (57%) put the smile's bottom m past the
+  quotes.** An equity smile often falls across its whole quoted range. When
+  it does, b, ρ and m trade off against each other to draw the same curve;
+  SPY 2026-12-18 fits ρ 0.97 and b 5.3. The fit is still good, but the
+  parameters are not a reading of the market. Each fit therefore carries
+  `bottom_quoted`, and the page greys out and marks (†) any parameters it
+  should not be read from. 470 fits also have a wing steeper than Lee's
+  bound of 2 beyond the quotes (`wings_within_lee`).
+- **Tests:**
+  - backend: `tests/unit/test_svi.py`, `tests/unit/test_svi_report.py`,
+    and `/svi` in `tests/api/test_options_router.py`;
+  - frontend: `sviRows.test.ts` and `OptionsPage.test.tsx`;
+  - mutants, run on a copy: 14 backend and 4 frontend, all killed. Two
+    backend mutants survived at first; the share-within-spread test and
+    the best-start test were then tightened.
+
+**Open, not built:**
+1. If you want to read the parameters, the fit could constrain m to the
+   quoted range. That fit was not measured.
+2. Option B (arbitrage-free fits) is still unbuilt.
+3. The quote side of the calendar could be tested at executable prices,
+   as the butterfly's is, instead of at interpolated mids.
+
 ## Tests
 
 - **Recovery:** a smile generated from known SVI parameters is fitted back

@@ -2,6 +2,7 @@
  * components/charts/SmileChart.tsx
  * Implied vol against log-moneyness, one line per selected expiry. Our IV
  * only — see components/options/smileRows.ts for why Yahoo's is not plotted.
+ * A series' SVI fit, when present, is a dashed line in its colour.
  *
  * Presentational only.
  */
@@ -62,6 +63,22 @@ export function SmileChart({ series }: { series: SmileSeries[] }) {
             isAnimationActive={false}
           />
         ))}
+        {series.map((s, i) =>
+          s.fit && s.fit.length > 0 ? (
+            <Line
+              key={`${s.expiry}-svi`}
+              data={s.fit}
+              dataKey="iv"
+              name={`${s.expiry} SVI`}
+              stroke={COLORS[i % COLORS.length]}
+              strokeDasharray="5 3"
+              dot={false}
+              strokeWidth={1.5}
+              legendType="none"
+              isAnimationActive={false}
+            />
+          ) : null,
+        )}
       </LineChart>
     </ResponsiveContainer>
   )

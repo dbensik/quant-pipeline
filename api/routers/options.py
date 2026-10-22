@@ -12,6 +12,9 @@ research/option-pricing-plan-2026-10-08.md.
     POST /api/v1/options/position-curve a multi-leg position before expiry:
                                         profit and Greeks on a spot grid, each
                                         leg at its own smile vol (decision 55)
+    GET  /api/v1/options/svi            an SVI fit per expiry and the butterfly
+                                        and calendar checks, fit beside quotes
+                                        (decision 56)
     POST /api/v1/options/price          every pricer side by side on one input
     GET  /api/v1/options/pricers        the pricer catalogue
     GET  /api/v1/options/realised-vol   realised vol and the cone for a symbol
@@ -52,6 +55,7 @@ from core.options_surface import (
     surface_inputs,
 )
 from core.rates import RateRepository
+from core.svi_report import ReportCache
 from db.repositories.dividends import TimescaleDividendRepo
 from db.repositories.rates import TimescaleRateRepo
 from pricing import position as P
@@ -91,6 +95,11 @@ async def get_dividend_repo(session: AsyncSession = Depends(get_db)) -> Dividend
 
 def get_pricing_fingerprint() -> str:
     return pricing_fingerprint()
+
+
+@lru_cache(maxsize=1)
+def get_svi_cache() -> ReportCache:
+    return ReportCache()
 
 
 # ---------------------------------------------------------------------------
@@ -319,6 +328,102 @@ class OptionPositionCurveResponse(BaseModel):
     points: List[OptionPositionPoint]
 
 
+ArbitrageVerdict = Literal["none", "both", "fit_only", "quotes_only"]
+
+
+class OptionSVIRange(BaseModel):
+    low: float = Field(description="ln(strike / forward)")
+    high: float
+
+
+class OptionSVIParams(BaseModel):
+    a: float
+    b: float
+    rho: float
+    m: float
+    sigma: float
+
+
+class OptionSVICurvePoint(BaseModel):
+    log_moneyness: float
+    iv: float
+
+
+class OptionSVIButterfly(BaseModel):
+    verdict: ArbitrageVerdict
+    checked: OptionSVIRange = Field(description="The quoted range plus the margin either side")
+    fit: List[OptionSVIRange] = Field(description="Where the fit's density g(k) is negative")
+    min_g: float
+    quotes: List[OptionSVIRange] = Field(
+        description="Adjacent strikes of one right whose butterfly costs less than nothing at bid/ask"
+    )
+
+
+class OptionSVIFit(BaseModel):
+    expiry: str
+    T: float
+    days: float
+    points: int
+    params: OptionSVIParams
+    rmse_vol_pts: float = Field(description="Root-mean-square miss of our IV, in vol points")
+    within_spread_share: Optional[float] = Field(
+        description="Share of quotes the fit passes within half their bid-ask spread, in vol"
+    )
+    atm_iv: float
+    min_iv: float
+    left_wing_slope: float
+    right_wing_slope: float
+    bottom_quoted: bool = Field(
+        description="The smile's bottom m lies among the quotes; only then read the parameters one by one"
+    )
+    wings_within_lee: bool = Field(description="Both wing slopes of total variance are 2 or less")
+    k_range: OptionSVIRange
+    curve: List[OptionSVICurvePoint]
+    butterfly: OptionSVIButterfly
+
+
+class OptionSVISkipped(BaseModel):
+    expiry: str
+    reason: str
+
+
+class OptionSVICalendar(BaseModel):
+    near: str
+    far: str
+    verdict: ArbitrageVerdict
+    shared: Optional[OptionSVIRange] = Field(description="Quoted ln(K/F) range both expiries cover")
+    fit: List[OptionSVIRange] = Field(
+        description="Where the far fit's total variance is below the near one's"
+    )
+    quotes: List[OptionSVIRange] = Field(
+        description="The same on the quotes, interpolated in ln(K/F)"
+    )
+
+
+class OptionSVITally(BaseModel):
+    none: int
+    both: int
+    fit_only: int
+    quotes_only: int
+
+
+class OptionSVIResponse(BaseModel):
+    ticker: str
+    day: date
+    captured_at: datetime
+    parameters: Dict[str, str] = Field(description="What each SVI parameter means")
+    min_points: int
+    min_days: float
+    butterfly_margin: float
+    fits: List[OptionSVIFit]
+    skipped: List[OptionSVISkipped]
+    calendar: List[OptionSVICalendar]
+    butterfly_summary: OptionSVITally
+    calendar_summary: OptionSVITally
+    fit_seconds: float
+    surface_cache_hit: bool
+
+
 class OptionsRealisedVolResponse(BaseModel):
     symbol: str
     as_of: date
@@ -442,6 +547,39 @@ async def surface(
         cone=cone,
         cone_reason=cone_reason,
     )
+
+
+@router.get(
+    "/svi",
+    response_model=OptionSVIResponse,
+    summary="An SVI fit per expiry, with butterfly and calendar arbitrage on the fit and the quotes",
+    responses={
+        404: {"description": "No complete capture for that ticker-day"},
+        409: {"description": "No risk-free rate stored on or before that day"},
+    },
+)
+async def svi_fits(
+    ticker: str = Query(min_length=1, max_length=12),
+    day: Optional[date] = Query(
+        default=None, description="Capture date; default the latest complete one"
+    ),
+    archive: ChainArchive = Depends(get_chain_archive),
+    cache: SurfaceCache = Depends(get_surface_cache),
+    rates: RateRepository = Depends(get_rate_repo),
+    dividends: DividendHistory = Depends(get_dividend_repo),
+    code: str = Depends(get_pricing_fingerprint),
+    reports: ReportCache = Depends(get_svi_cache),
+) -> OptionSVIResponse:
+    """Reads the surface (cached, or computed once as /surface would) and re-prices nothing."""
+    ticker = ticker.upper()
+    capture = latest_capture(archive, ticker, day)
+    try:
+        inputs = await surface_inputs(capture, rates, dividends, code)
+    except NoRateError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
+    payload, hit = await cache.get_or_compute(inputs, compute_for(inputs), run_in_threadpool)
+    report = await run_in_threadpool(reports.get_or_build, payload)
+    return OptionSVIResponse(**report, surface_cache_hit=hit)
 
 
 def latest_capture(archive: ChainArchive, ticker: str, day: Optional[date]):

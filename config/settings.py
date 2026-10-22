@@ -1286,6 +1286,23 @@ OPTIONS_DIVIDEND_DATE_UNCERTAIN_DAYS = 5
 #: A last trade older than this many days before the capture is flagged stale.
 OPTIONS_STALE_TRADE_DAYS = 5
 
+# --- SVI fits and arbitrage checks (pricing/svi.py, decision 56) ---
+# research/svi-surface-2026-10-20.md. None of these is in the surface's
+# fingerprint: an SVI change never recomputes a cached surface.
+#: An expiry is fitted only with this many smile points (five parameters)...
+SVI_MIN_POINTS = 8
+#: ...and at least this many calendar days to run.
+SVI_MIN_DAYS = 2
+#: Starting points per fit. One was never worse on the 81 latest slices;
+#: three keep a margin at ~0.1 s a slice.
+SVI_STARTS = 3
+#: The butterfly check runs this far in log-moneyness past the quoted range.
+SVI_BUTTERFLY_MARGIN = 0.1
+#: Points on which g(k) and the calendar check are evaluated.
+SVI_CHECK_POINTS = 801
+#: Points of each fitted curve the API returns for the chart.
+SVI_CURVE_POINTS = 101
+
 # --- Monte Carlo simulation (api/routers/simulate.py) ---
 # Plan: research/monte-carlo-plan-2026-10-07.md. The kernels in simulation/
 # take every parameter explicitly; these are the router's defaults and caps.
