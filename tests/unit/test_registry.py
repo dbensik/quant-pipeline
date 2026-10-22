@@ -60,6 +60,24 @@ def test_param_defaults_match_declared_types():
             assert isinstance(p.default, expected), f"{spec.id}.{p.name}"
 
 
+def test_every_single_asset_strategy_with_params_has_a_default_grid():
+    """The Optimize page starts from it (2026-10-21): typed, in bounds, and buildable."""
+    for spec in registry.single_asset_strategies():
+        if not spec.params:
+            assert spec.default_grid is None, spec.id
+            continue
+        assert spec.default_grid, f"{spec.id} has no default grid"
+        params = {p.name: p for p in spec.params}
+        for name, values in spec.default_grid.items():
+            p = params[name]
+            assert values, f"{spec.id}.{name}"
+            for v in values:
+                assert isinstance(v, {"int": int, "float": (int, float)}[p.type]), (spec.id, name)
+                assert p.minimum is None or v >= p.minimum, (spec.id, name, v)
+                assert p.maximum is None or v <= p.maximum, (spec.id, name, v)
+                registry.build(spec.id, {name: v})
+
+
 def test_unknown_param_is_rejected_not_ignored():
     """A typo'd parameter must fail loudly rather than silently using defaults."""
     with pytest.raises(ValueError, match="Unknown parameter"):

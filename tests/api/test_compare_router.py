@@ -174,7 +174,9 @@ def test_an_explicit_grid_overrides_the_default(client: TestClient):
 
 def test_a_strategy_without_a_grid_runs_on_its_params(client: TestClient):
     """`optimize` must not fail a strategy the registry has no sweep for."""
-    body = compare(client, **TUNE, strategies=[{"strategy_id": "trend_following"}]).json()
+    # Buy and hold: since 2026-10-21 every single-asset strategy WITH
+    # parameters has a default grid.
+    body = compare(client, **TUNE, strategies=[{"strategy_id": "buy_and_hold"}]).json()
     assert body["results"][0]["tuned"] is False
     assert body["results"][0]["metrics"]
 
@@ -223,7 +225,7 @@ def test_with_tuning_every_row_and_the_benchmark_share_one_span(client: TestClie
     body = compare(
         client,
         **TUNE,
-        strategies=[{"strategy_id": "ma_crossover"}, {"strategy_id": "trend_following"}],
+        strategies=[{"strategy_id": "ma_crossover"}, {"strategy_id": "buy_and_hold"}],
         benchmark_symbol="MSFT",
         initial_capital=50_000,
     ).json()
@@ -232,7 +234,7 @@ def test_with_tuning_every_row_and_the_benchmark_share_one_span(client: TestClie
         assert curve[0]["time"].startswith("2024-12-31")
         assert curve[0]["total"] == 50_000
         assert curve[-1]["time"].startswith("2025-02-03")
-    untuned = next(r for r in body["results"] if r["strategy_id"] == "trend_following")
+    untuned = next(r for r in body["results"] if r["strategy_id"] == "buy_and_hold")
     assert untuned["tuned"] is False
     assert untuned["metrics"]["Final Value"] == curves[1][-1]["total"]
     assert body["benchmark"]["metrics"]["Final Value"] == curves[-1][-1]["total"]

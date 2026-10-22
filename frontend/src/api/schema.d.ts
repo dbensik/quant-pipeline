@@ -1491,9 +1491,9 @@ export interface components {
             alpha: number;
             /**
              * Alpha T
-             * @description Newey-West t-statistic of alpha
+             * @description Newey-West t-statistic of alpha; null when the run's excess return never varies (it held nothing)
              */
-            alpha_t: number;
+            alpha_t: number | null;
             /**
              * Alpha Low
              * @description 95% interval, annualized
@@ -1501,8 +1501,11 @@ export interface components {
             alpha_low: number;
             /** Alpha High */
             alpha_high: number;
-            /** R Squared */
-            r_squared: number;
+            /**
+             * R Squared
+             * @description Null when alpha_t is
+             */
+            r_squared: number | null;
             /** Rolling Window */
             rolling_window: number;
             /** Rolling Sharpe */

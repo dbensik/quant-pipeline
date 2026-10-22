@@ -5,12 +5,15 @@ regimes of a run against its benchmark. Each test was checked failing
 against a mutant of the code it covers.
 """
 
+import json
+
 import numpy as np
 import pandas as pd
 import pytest
 import statsmodels.api as sm
 
 from analysis.benchmark_report import REGIMES, benchmark_report, default_benchmark, regimes_of
+from api.benchmark import to_out
 from backtesting.parameter_optimizer import window_metrics
 from config import settings
 
@@ -69,6 +72,20 @@ def test_alpha_is_annualized_and_its_t_is_newey_west():
     assert report.alpha == pytest.approx(fit.params.iloc[0] * 252)
     assert report.alpha_t == pytest.approx(fit.tvalues.iloc[0])
     assert report.alpha_t != pytest.approx(sm.OLS(y, sm.add_constant(x)).fit().tvalues.iloc[0])
+
+
+def test_a_run_that_held_nothing_has_no_t_and_its_report_is_strict_json():
+    # Its excess return is 0 every day, so alpha's t and R² are 0/0. As NaN
+    # they reached the backtest websocket's JSON, which a browser cannot
+    # parse: the page said only "WebSocket closed before the backtest finished".
+    close = market()
+    accrual = cash_accrual(close.index)
+    run = ((1 + accrual).cumprod() * 1e5).iloc[300:]
+    report = benchmark_report(run, accrual.loc[run.index], close, "X")
+    assert report.beta == pytest.approx(0.0, abs=1e-12)
+    assert report.alpha == pytest.approx(0.0, abs=1e-12)
+    assert report.alpha_t is None and report.r_squared is None
+    json.dumps(to_out(report).model_dump(mode="json"), allow_nan=False)
 
 
 def test_regimes_partition_the_ranked_days_once():

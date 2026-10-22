@@ -101,6 +101,9 @@ function runOverSocket<TMessage extends { type: string }, TResult extends TMessa
   return new Promise((resolve, reject) => {
     const socket = new WebSocket(url)
     let settled = false
+    // A frame JSON.parse refused (a NaN in the result did this): kept so an
+    // early close can say what actually happened.
+    let unreadable: string | null = null
 
     socket.onopen = () => socket.send(JSON.stringify(request))
 
@@ -109,6 +112,7 @@ function runOverSocket<TMessage extends { type: string }, TResult extends TMessa
       try {
         message = JSON.parse(event.data) as TMessage
       } catch {
+        unreadable = String(event.data).slice(0, 80)
         return // ignore anything unparseable rather than killing the run
       }
       onMessage(message)
@@ -136,7 +140,13 @@ function runOverSocket<TMessage extends { type: string }, TResult extends TMessa
       // rather than leaving the promise pending forever.
       if (!settled) {
         settled = true
-        reject(new Error(`WebSocket closed before the ${what} finished.`))
+        reject(
+          new Error(
+            unreadable === null
+              ? `WebSocket closed before the ${what} finished.`
+              : `The server sent a message the browser could not read (${unreadable}…), then closed before the ${what} finished.`,
+          ),
+        )
       }
     }
   })

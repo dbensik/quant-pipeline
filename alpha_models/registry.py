@@ -127,8 +127,10 @@ class StrategySpec:
     # which also re-hardcoded the short<long constraint that
     # MovingAverageCrossoverStrategy already enforces.
     #
-    # None means "no default sweep"; pass a grid explicitly. Deliberately not
-    # invented for strategies where a sensible range is a guess.
+    # None means "no default sweep"; pass a grid explicitly. Every single-asset
+    # strategy with parameters has one since 2026-10-21 (Danny's word): the
+    # Optimize page needs a starting sweep. Ranges bracket each default; they
+    # are a place to start, not a claim about where the optimum lies.
     default_grid: Optional[Dict[str, List[Any]]] = None
 
     # How a multi-asset run weights each symbol when the caller passes no
@@ -324,6 +326,7 @@ _SPECS: List[StrategySpec] = [
         params=[
             ParamSpec("window", "int", 50, "Lookback window", "Bars used to measure trend", 2, 500),
         ],
+        default_grid={"window": [20, 50, 100, 200]},
         caveat=measured(
             "better Sharpe than buy and hold on 6% of names (7% in 2010-2019, 20% in "
             "2020-2026), 9.4 pp a year less return."
@@ -353,6 +356,11 @@ _SPECS: List[StrategySpec] = [
                 "sell_threshold", "int", 70, "Sell above", "RSI level considered overbought", 1, 99
             ),
         ],
+        default_grid={
+            "window": [7, 14, 21],
+            "buy_threshold": [20, 30],
+            "sell_threshold": [70, 80],
+        },
         caveat=measured(
             "better Sharpe than buy and hold on 26% of names (23% in 2010-2019, 49% in "
             "2020-2026), 5.3 pp a year less return, with a shallower drawdown on 97%. Which "
@@ -375,6 +383,7 @@ _SPECS: List[StrategySpec] = [
                 "multiplier", "float", 2.0, "ATR multiplier", "Breakout distance in ATRs", 0.1, 10.0
             ),
         ],
+        default_grid={"window": [10, 20, 40], "multiplier": [1.5, 2.0, 3.0]},
         caveat=measured(
             "better Sharpe than buy and hold on 7% of names (8% in 2010-2019, 20% in "
             "2020-2026), 10.8 pp a year less return. Its drawdown (-37% against -53%) is "
@@ -411,6 +420,7 @@ _SPECS: List[StrategySpec] = [
                 "threshold", "float", 0.0, "Threshold", "Minimum response to act on", -1.0, 1.0
             ),
         ],
+        default_grid={"tau": [3, 5, 10], "training_window": [100, 250]},
         caveat=measured(
             "loses to buy and hold on every name (96% in 2020-2026), 17.7 pp a year less "
             "return, with a deeper drawdown (-76% against -53%)."
@@ -447,6 +457,9 @@ _SPECS: List[StrategySpec] = [
             ),
             ParamSpec("retrain_every", "int", 63, "Retrain every", "Bars between refits", 1, 1000),
         ],
+        # Small on purpose: one run refits a forest every `retrain_every` bars
+        # (~3 s for 16 years), and walk-forward re-runs the grid each year.
+        default_grid={"lookback_window": [5, 10], "retrain_every": [21, 63]},
         caveat=(
             "Flat for the first `train_window` bars while it gathers training data. "
             "Until 2026-10-14 it trained on the full history (look-ahead). "

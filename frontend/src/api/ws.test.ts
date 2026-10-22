@@ -187,4 +187,15 @@ describe('runBacktestOverSocket', () => {
     socket().emit(RESULT)
     await expect(promise).resolves.toMatchObject({ type: 'result' })
   })
+
+  it('names an unreadable frame when the socket then closes without a result', async () => {
+    // A NaN in the result is not JSON: the result was dropped and the run
+    // reported only that the socket closed.
+    const socket = install()
+    const promise = runBacktestOverSocket(REQUEST, () => {})
+    socket().open()
+    socket().emitRaw('{"type":"result","alpha_t":NaN}')
+    socket().close()
+    await expect(promise).rejects.toThrow(/could not read \(\{"type":"result","alpha_t":NaN\}…\)/)
+  })
 })

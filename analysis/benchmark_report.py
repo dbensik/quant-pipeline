@@ -61,10 +61,12 @@ class BenchmarkReport:
     periods_per_year: int
     beta: float
     alpha: float
-    alpha_t: float
+    #: None when the excess return never varies (a run that held nothing):
+    #: 0/0, which JSON cannot carry and a browser cannot parse.
+    alpha_t: Optional[float]
     alpha_low: float
     alpha_high: float
-    r_squared: float
+    r_squared: Optional[float]
     rolling_window: int
     #: (time, strategy Sharpe, benchmark Sharpe) for each full trailing window.
     rolling_sharpe: List[Tuple[pd.Timestamp, Optional[float], Optional[float]]] = field(
@@ -104,6 +106,14 @@ def regimes_of(close: pd.Series) -> pd.Series:
             out.append(None)
         bisect.insort(earlier, value)
     return pd.Series(out, index=close.index, dtype=object)
+
+
+#: A daily excess return no larger than this on every day is a run that held nothing.
+HELD_NOTHING_TOLERANCE = 1e-12
+
+
+def _finite(value: float) -> Optional[float]:
+    return float(value) if np.isfinite(value) else None
 
 
 def _window_sharpe(values: np.ndarray, cash: np.ndarray, days: int, annualize: float):
@@ -163,6 +173,9 @@ def benchmark_report(
         cov_type="HAC", cov_kwds={"maxlags": settings.BENCHMARK_NEWEY_WEST_LAGS}
     )
     low, high = model.conf_int().loc["const"]
+    # A run that held nothing earns cash to rounding (1e-17 a day): its t and
+    # R² are 0/0, or noise that reads as a real statistic.
+    held = bool(np.any(np.abs(strategy.to_numpy()) > HELD_NOTHING_TOLERANCE))
     report = BenchmarkReport(
         symbol=symbol,
         start=shared[0],
@@ -171,10 +184,10 @@ def benchmark_report(
         periods_per_year=ppy,
         beta=float(model.params["benchmark"]),
         alpha=float(model.params["const"] * ppy),
-        alpha_t=float(model.tvalues["const"]),
+        alpha_t=_finite(model.tvalues["const"]) if held else None,
         alpha_low=float(low * ppy),
         alpha_high=float(high * ppy),
-        r_squared=float(model.rsquared),
+        r_squared=_finite(model.rsquared) if held else None,
         rolling_window=settings.BENCHMARK_ROLLING_SHARPE_WINDOW,
     )
 

@@ -34,7 +34,7 @@ export function BenchmarkReport({
       <p className="text-sm">{exposureLine(report)}</p>
       <p className="text-xs text-muted-foreground">
         Daily returns above cash, {report.start.slice(0, 10)} to {report.end.slice(0, 10)} (
-        {report.bars} days); R² {report.r_squared.toFixed(2)}. Beta is how much of the
+        {report.bars} days); R² {report.r_squared?.toFixed(2) ?? '—'}. Beta is how much of the
         benchmark&apos;s move the run carried; alpha is what it earned beyond that.
       </p>
       {report.rolling_sharpe?.length ? (

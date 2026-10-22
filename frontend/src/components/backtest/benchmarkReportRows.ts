@@ -14,6 +14,12 @@ const T_95 = 1.96
 const pct = (v: number) => `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)}%`
 
 export function exposureLine(report: BenchmarkReportOut): string {
+  if (report.alpha_t == null) {
+    return (
+      `Beta ${report.beta.toFixed(2)} to ${report.symbol}. No alpha to test: the run's return ` +
+      'never moved against cash, so it held nothing in this window.'
+    )
+  }
   const verdict =
     Math.abs(report.alpha_t) >= T_95
       ? 'distinguishable from zero at 95%'

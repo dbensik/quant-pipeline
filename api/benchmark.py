@@ -58,10 +58,13 @@ class BenchmarkReportOut(BaseModel):
     periods_per_year: int
     beta: float
     alpha: float = Field(description="Annualized, in excess of cash")
-    alpha_t: float = Field(description="Newey-West t-statistic of alpha")
+    alpha_t: Optional[float] = Field(
+        description="Newey-West t-statistic of alpha; null when the run's excess return never"
+        " varies (it held nothing)"
+    )
     alpha_low: float = Field(description="95% interval, annualized")
     alpha_high: float
-    r_squared: float
+    r_squared: Optional[float] = Field(description="Null when alpha_t is")
     rolling_window: int
     rolling_sharpe: List[RollingSharpePoint] = Field(default_factory=list)
     regimes: List[RegimeOut] = Field(default_factory=list)

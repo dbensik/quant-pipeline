@@ -320,7 +320,7 @@ export function ComparePage() {
                         </td>
                         <td className="py-2 pr-4 text-right tabular-nums">
                           {row.benchmark_report
-                            ? `${percent(row.benchmark_report.alpha)} (${row.benchmark_report.alpha_t.toFixed(2)})`
+                            ? `${percent(row.benchmark_report.alpha)} (${row.benchmark_report.alpha_t?.toFixed(2) ?? '—'})`
                             : '—'}
                         </td>
                         <td className="py-2 text-xs text-muted-foreground">

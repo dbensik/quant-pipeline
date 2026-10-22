@@ -16,6 +16,13 @@ describe('exposureLine', () => {
       /: distinguishable from zero at 95%\.$/,
     )
   })
+
+  it('a run that held nothing has no t, and says so', () => {
+    expect(exposureLine({ ...REPORT, beta: 0, alpha: 0, alpha_t: null, r_squared: null })).toBe(
+      'Beta 0.00 to SPY. No alpha to test: the run\'s return never moved against cash, so it ' +
+        'held nothing in this window.',
+    )
+  })
 })
 
 describe('regimeRows', () => {

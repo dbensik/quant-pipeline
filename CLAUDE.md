@@ -624,7 +624,7 @@ Protocol (`db/repositories/market_data.py` documents this as its purpose).
 Integration tests are deselected by default and skip if the DB is down.
 
 ```bash
-cd frontend && npm test        # 414 tests — also needs NO API/Docker
+cd frontend && npm test        # 416 tests — also needs NO API/Docker
 ```
 
 When adding tests: assert on the *output*, not on values the response merely
