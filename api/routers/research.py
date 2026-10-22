@@ -123,6 +123,14 @@ class NewsFeed(BaseModel):
             "silently trimmed, so a long watchlist does not look fully covered."
         ),
     )
+    unrelated_dropped: Dict[str, int] = Field(
+        default_factory=dict,
+        description=(
+            "Per ticker, stories the search returned that Yahoo does not tag with "
+            "that ticker or another share class of it, left out. Reported, not "
+            "silently trimmed: a story that names a ticker untagged is lost too."
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -235,10 +243,17 @@ async def get_news(
     upstream: YFinanceGateway = Depends(get_upstream),
     portfolios: TimescalePortfolioRepo = Depends(get_portfolio_repo),
     watchlists: TimescaleWatchlistRepo = Depends(get_watchlist_repo),
+    data: svc.ValuationData = Depends(get_valuation_data),
 ) -> NewsFeed:
     """
     Sources are mutually exclusive and resolved in order: explicit `symbols`,
     then `portfolio`, then `watchlist`, then market proxies.
+
+    Yahoo's search matches text, so a ticker's stories are kept only when
+    Yahoo tags them with it or another of its share classes (the registry's
+    equities on the same CIK: GOOGL's stories are tagged GOOG). Measured on
+    34 tickers 2026-10-22: 8 stories dropped were about something else (FOX
+    had Fox Factory and Terry Fox), 4 named the ticker but were untagged.
     """
     resolved, source = await _resolve_symbols(symbols, portfolio, watchlist, portfolios, watchlists)
 
@@ -250,8 +265,10 @@ async def get_news(
         # not an error and not the market feed.
         return NewsFeed(symbols=[], source=source, items=[], truncated_symbols=[])
 
+    classes = await data.share_classes(covered)
+    aliases = {s.upper(): classes.get(s.upper(), []) for s in covered}
     try:
-        items = await run_in_threadpool(upstream.fetch_news, covered)
+        items, dropped = await run_in_threadpool(upstream.fetch_related_news, covered, aliases)
     except UpstreamError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from None
 
@@ -260,4 +277,5 @@ async def get_news(
         source=source,
         items=[NewsItem(**item) for item in items[:limit]],
         truncated_symbols=truncated,
+        unrelated_dropped=dropped,
     )

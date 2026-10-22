@@ -635,7 +635,7 @@ Protocol (`db/repositories/market_data.py` documents this as its purpose).
 Integration tests are deselected by default and skip if the DB is down.
 
 ```bash
-cd frontend && npm test        # 429 tests — also needs NO API/Docker
+cd frontend && npm test        # 431 tests — also needs NO API/Docker
 ```
 
 When adding tests: assert on the *output*, not on values the response merely
@@ -680,6 +680,9 @@ For the TimescaleDB layer, copy `.env.example` → `.env`; without it, `db/sessi
   from Yahoo's SEARCH (`api/upstream.py`, decision 57): `Ticker.news` posts
   to an endpoint that 404s and yfinance returns [] silently. A response
   without a `news` field is a failure, and an empty answer is never cached.
+  A story is kept only when Yahoo tags it with its ticker or another share
+  class (same own CIK: GOOG/GOOGL, FOX/FOXA, NWS/NWSA); the rest are counted
+  in `unrelated_dropped`, never silently trimmed.
 - `api/routers/portfolio_backtest.py` + `frontend/src/pages/AllocationPage.tsx`
   — multi-asset allocation rules over a basket, beside the same basket
   equal-weighted (decision 32, 2026-10-15). With no `weights`, each strategy's

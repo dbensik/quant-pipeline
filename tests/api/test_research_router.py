@@ -216,6 +216,56 @@ def test_news_items_carry_the_tickers_yahoo_tags(client: TestClient):
     assert shared["related_tickers"] == ["AAPL", "MSFT"]
 
 
+class ShareClasses:
+    """The registry's answer for GOOG/GOOGL; every other symbol is unregistered."""
+
+    async def equity(self, symbol):
+        return None
+
+    async def share_classes(self, symbols):
+        known = {"GOOGL": ["GOOG"], "GOOG": ["GOOGL"]}
+        return {s: known[s] for s in symbols if s in known}
+
+
+@pytest.fixture
+def classes_client(client: TestClient):
+    from api.main import app
+    from api.routers.valuation import get_valuation_data
+
+    app.dependency_overrides[get_valuation_data] = lambda: ShareClasses()
+    return client
+
+
+def test_a_story_tagged_with_another_share_class_is_kept(classes_client: TestClient):
+    body = classes_client.get(f"{BASE}/news", params={"symbols": ["GOOGL"]}).json()
+    assert [i["title"] for i in body["items"]] == ["Alphabet earnings"]
+    assert body["unrelated_dropped"] == {}
+
+
+def test_without_its_share_class_the_story_is_dropped(client: TestClient):
+    """The same request with no registry answer: GOOG is not GOOGL."""
+    body = client.get(f"{BASE}/news", params={"symbols": ["GOOGL"]}).json()
+    assert body["items"] == []
+    assert body["unrelated_dropped"] == {"GOOGL": 1}
+
+
+def test_a_story_not_tagged_with_its_ticker_is_dropped_and_counted(client: TestClient):
+    """Measured 2026-10-22: FOX's search returned Fox Factory and Terry Fox."""
+    body = client.get(f"{BASE}/news", params={"symbols": ["FOX"]}).json()
+    assert [i["title"] for i in body["items"]] == ["Fox recasts its legal team"]
+    assert body["unrelated_dropped"] == {"FOX": 1}
+
+
+def test_relevance_is_judged_per_symbol_before_de_duplication(client: TestClient):
+    """
+    Found under IBM (untagged) and ORCL (tagged): kept. Filtering the merged
+    list would judge it only as IBM's, the first symbol it was found under.
+    """
+    body = client.get(f"{BASE}/news", params={"symbols": ["IBM", "ORCL"]}).json()
+    assert "Cloud price war" in [i["title"] for i in body["items"]]
+    assert body["unrelated_dropped"] == {"IBM": 1}
+
+
 def test_one_broken_symbol_does_not_blank_the_feed(client: TestClient):
     """A single delisted ticker in a watchlist must not empty the whole feed."""
     body = client.get(f"{BASE}/news", params={"symbols": ["AAPL", "BROKEN"]}).json()

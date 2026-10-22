@@ -150,8 +150,9 @@ def normalise_news_item(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "publisher": raw.get("publisher"),
         "published_at": _parse_time(raw.get("providerPublishTime")),
         # Search matches text, so a story need not be about the symbol it was
-        # found under (GOOGL's are tagged GOOG). Carried, never filtered on;
-        # the page does not show it yet.
+        # found under: FOX's included Fox Factory and Terry Fox. The router
+        # keeps a story only when these tags name the symbol or another of
+        # its share classes (GOOGL's are tagged GOOG).
         "related_tickers": [str(t) for t in raw.get("relatedTickers") or []],
     }
 
@@ -324,8 +325,24 @@ class YFinanceGateway:
 
     # -- news ------------------------------------------------------------
     def fetch_news(self, symbols: List[str]) -> List[Dict[str, Any]]:
+        """Every story for several tickers, unfiltered: `fetch_related_news` with no aliases."""
+        return self.fetch_related_news(symbols)[0]
+
+    def fetch_related_news(
+        self, symbols: List[str], aliases: Optional[Dict[str, List[str]]] = None
+    ) -> Tuple[List[Dict[str, Any]], Dict[str, int]]:
         """
-        News for several tickers, newest first, de-duplicated.
+        News for several tickers, newest first, de-duplicated, and how many
+        stories each ticker lost to the relevance rule.
+
+        RELEVANCE (2026-10-22, research/news-source-2026-10-22.md). With
+        `aliases` (symbol -> its other share classes), a story found under a
+        symbol is kept only when Yahoo tags it with that symbol or one of its
+        aliases. A symbol absent from `aliases` keeps everything. The rule
+        runs per symbol BEFORE de-duplication, so a story found under two
+        symbols survives if it is tagged with either; filtering the merged
+        list would test it only against whichever symbol came first. The
+        cache stays unfiltered.
 
         A ticker that fails contributes nothing rather than failing the batch:
         one delisted symbol in a watchlist should not blank the whole feed.
@@ -338,7 +355,7 @@ class YFinanceGateway:
         """
         wanted = [s.upper() for s in symbols if s and s.strip()]
         if not wanted:
-            return []
+            return [], {}
 
         pending = [s for s in wanted if self.news_cache.get(s) is None]
         failures = 0
@@ -366,8 +383,13 @@ class YFinanceGateway:
                 raise UpstreamError("Could not fetch news for any of: " + ", ".join(pending))
 
         merged: Dict[str, Dict[str, Any]] = {}
+        dropped: Dict[str, int] = {}
         for symbol in wanted:
+            names = None if aliases is None or symbol not in aliases else {symbol, *aliases[symbol]}
             for item in self.news_cache.get(symbol) or []:
+                if names is not None and names.isdisjoint(item.get("related_tickers") or []):
+                    dropped[symbol] = dropped.get(symbol, 0) + 1
+                    continue
                 # De-duplicate on URL, falling back to id. The Streamlit widget
                 # keyed on `link`, which yfinance 1.x does not emit, so every
                 # item collapsed onto the single key None.
@@ -375,11 +397,12 @@ class YFinanceGateway:
                 if key and key not in merged:
                     merged[key] = {**item, "symbol": symbol}
 
-        return sorted(
+        items = sorted(
             merged.values(),
             key=lambda i: i.get("published_at") or datetime.min.replace(tzinfo=timezone.utc),
             reverse=True,
         )
+        return items, dropped
 
 
 _gateway = YFinanceGateway()

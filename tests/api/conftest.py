@@ -435,6 +435,57 @@ class StubSearch:
                 "relatedTickers": ["AAPL", "MSFT"],
             },
         ],
+        # Yahoo tags GOOGL's stories GOOG: kept only through the share class.
+        "GOOGL": [
+            {
+                "uuid": "g1",
+                "title": "Alphabet earnings",
+                "providerPublishTime": 1786291200,
+                "publisher": "Reuters",
+                "link": "https://example.com/g1",
+                "relatedTickers": ["GOOG", "MSFT"],
+            },
+        ],
+        # Search matches text: one Fox Corp story, one about Fox Factory.
+        "FOX": [
+            {
+                "uuid": "f1",
+                "title": "Fox recasts its legal team",
+                "providerPublishTime": 1786291200,
+                "publisher": "Reuters",
+                "link": "https://example.com/f1",
+                "relatedTickers": ["FOX"],
+            },
+            {
+                "uuid": "f2",
+                "title": "Fox Factory cuts its outlook",
+                "providerPublishTime": 1786291200,
+                "publisher": "Zacks",
+                "link": "https://example.com/f2",
+                "relatedTickers": ["FOXF"],
+            },
+        ],
+        # Found under both; tagged only ORCL. Kept, whichever symbol is first.
+        "IBM": [
+            {
+                "uuid": "cloud",
+                "title": "Cloud price war",
+                "providerPublishTime": 1786291200,
+                "publisher": "Reuters",
+                "link": "https://example.com/cloud",
+                "relatedTickers": ["ORCL"],
+            },
+        ],
+        "ORCL": [
+            {
+                "uuid": "cloud",
+                "title": "Cloud price war",
+                "providerPublishTime": 1786291200,
+                "publisher": "Reuters",
+                "link": "https://example.com/cloud",
+                "relatedTickers": ["ORCL"],
+            },
+        ],
         "MSFT": [
             {
                 "uuid": "shared",
@@ -710,6 +761,9 @@ class NoFilings:
 
     async def equity(self, symbol):
         return None
+
+    async def share_classes(self, symbols):
+        return {}
 
 
 @pytest.fixture

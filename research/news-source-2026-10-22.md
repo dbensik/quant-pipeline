@@ -67,13 +67,61 @@ BTC-USD) gave 37 stories in 1.2 s, the newest 13 minutes old. The Mag 7 gave
 
 ## Not built (picks for Danny)
 
-1. **Relevance.** Search matches text, so a story need not be about its
-   symbol. A strict filter on `relatedTickers` would blank GOOGL, whose
-   stories are all tagged GOOG. Choices: leave it (today), filter on the tag,
-   or filter with a share-class alias (GOOGL to GOOG, BRK-B to BRK-A).
+1. **Relevance.** Built the same day; see "Relevance filter" below.
 2. **Crypto.** For a `-USD` pair that returns nothing, query the base symbol
    and keep only the stories tagged with the pair. That is about 10 lines and
    would give ETH and XRP full feeds, but SOL, LTC and DOT would still get
    none.
 3. **Decision 57 B and C** as proposed on 2026-10-21. B is a daily
    insert-only headline archive with FinBERT scores. C is social feeds.
+
+## Relevance filter (built 2026-10-22, pick 1 above)
+
+Search matches text, so a story need not be about the symbol it was found
+under. Rule: a story found under a ticker is kept only when Yahoo's
+`relatedTickers` name that ticker or another share class of it. Share
+classes come from the registry: equities carrying the same OWN CIK
+(predecessor CIKs name an earlier filer, not a second class). Today that is
+exactly GOOG/GOOGL, FOX/FOXA and NWS/NWSA; BRK-A is not registered.
+
+The rule runs per ticker BEFORE de-duplication. A story found under two
+tickers survives if either tags it; filtering the merged list would judge it
+only as the first ticker's. The cache stays unfiltered. Every drop is counted
+in `unrelated_dropped` and shown on the Research page.
+
+### Measured, 34 tickers, 10 stories asked each
+
+| ticker | stories | dropped | what was dropped |
+|---|---|---|---|
+| FOX | 9 | 6 | Fox Factory (4), Fox Tungsten, Terry Fox Foundation: all wrong |
+| PARA | 10 | 1 | a para-rowing partnership: wrong |
+| CAT | 10 | 1 | "The Cat in the Hat" on Roblox: wrong |
+| BRK-B | 9 | 1 | "...Owning BRK-B Directly", no tags: **about the name** |
+| SKYD | 10 | 2 | "SKYD Surges...", "...SKYD, IBM In Focus": **about the name** |
+| BTC-USD | 10 | 1 | "BTC USD Touched $83,000...", tagged SOL-USD: **about the name** |
+| GOOGL, GOOG, FOXA, NWS, NWSA | 10/10/9/10/10 | 0 | kept through the share class |
+
+The other 22 (SPY, QQQ, AAPL, MSFT, NVDA, AMZN, META, TSLA, JPM, XOM, KO, MO,
+F, T, A, O, TQQQ, GLD, AGG, UNH, V, LLY) lost nothing. Without the alias,
+GOOGL would have kept 1 of 10, FOXA 6 of 9 and NWSA 2 of 10, though every
+one of those stories was tagged with the sibling class.
+
+In total: 8 wrong stories removed and 4 relevant ones lost, of about 330.
+The live run through the registry and Yahoo after the build matched the
+table exactly. The market feed (SPY, QQQ, DIA, BTC-USD) then gave 37
+stories after de-duplication, with BTC-USD's 1 counted as left out.
+
+### Not built: a title match (a pick for Danny)
+
+All 4 lost stories name the ticker in the title. Keeping an untagged story
+whose title contains the ticker as a whole word would recover them, at a
+cost:
+
+- Case-sensitive, it re-admits the all-caps "...PARA ROWING PARTNERSHIP..."
+  headline. Case-insensitive, it would also re-admit "The Cat in the Hat".
+- "BTC USD" is not "BTC-USD", so crypto needs the base symbol, which is pick
+  2's territory (the crypto fallback).
+- One-letter and word tickers (A, O, T, F, CAT, FOX) are where a text match
+  is weakest, and they are exactly the names the tag rule protects.
+
+The relevance cut is a model choice, so it is left at the tag rule.

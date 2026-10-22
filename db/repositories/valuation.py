@@ -48,6 +48,32 @@ class TimescaleValuationRepo:
             meta.get("sector"),
         )
 
+    async def share_classes(self, symbols: Iterable[str]) -> Dict[str, List[str]]:
+        """
+        Each of `symbols` that is a registered equity -> the other registered
+        equities with the same own CIK (predecessor CIKs are not read: they
+        name an earlier filer, not a second class). Measured 2026-10-22: the
+        registry's only shared CIKs are GOOG/GOOGL, FOX/FOXA and NWS/NWSA.
+        """
+        wanted = {s.upper() for s in symbols}
+        rows = (
+            await self.session.execute(
+                select(AssetORM.symbol, AssetORM.metadata_).where(AssetORM.asset_class == "equity")
+            )
+        ).all()
+        by_cik: Dict[int, List[str]] = {}
+        own: Dict[str, Optional[int]] = {}
+        for symbol, meta in rows:
+            cik = (meta or {}).get("cik")
+            own[symbol] = int(cik) if cik is not None else None
+            if cik is not None:
+                by_cik.setdefault(int(cik), []).append(symbol)
+        return {
+            s: sorted(o for o in by_cik.get(own[s], []) if o != s) if own[s] is not None else []
+            for s in wanted
+            if s in own
+        }
+
     async def facts(self, ciks: Iterable[int], concepts: Iterable[str]) -> List[Fact]:
         concepts = list(concepts)
         out: List[Fact] = []

@@ -430,6 +430,17 @@ export function ResearchPage() {
                     </AlertDescription>
                   </Alert>
                 ) : null}
+                {/* Search matches text, so stories Yahoo does not tag with the
+                    ticker (or another share class of it) are left out: FOX's
+                    included Fox Factory. Counted, so the cut is visible. */}
+                {Object.keys(news.data.unrelated_dropped ?? {}).length > 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Left out as not tagged with the ticker:{' '}
+                    {Object.entries(news.data.unrelated_dropped ?? {})
+                      .map(([symbol, n]) => `${symbol} ${n}`)
+                      .join(', ')}
+                  </p>
+                ) : null}
                 <NewsList items={news.data.items} />
               </>
             ) : null}

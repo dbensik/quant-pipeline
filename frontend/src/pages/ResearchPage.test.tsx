@@ -236,6 +236,24 @@ describe('ResearchPage — news', () => {
     expect(screen.getByText(/T11, T12/)).toBeInTheDocument()
   })
 
+  it('counts the stories left out as not tagged with their ticker', async () => {
+    vi.spyOn(api, 'getNews').mockResolvedValue({
+      ...NEWS,
+      unrelated_dropped: { FOX: 6, CAT: 1 },
+    } as never)
+    renderPage(<ResearchPage />)
+
+    expect(
+      await screen.findByText(/Left out as not tagged with the ticker: FOX 6, CAT 1/),
+    ).toBeInTheDocument()
+  })
+
+  it('says nothing about left-out stories when none were', async () => {
+    renderPage(<ResearchPage />)
+    expect(await screen.findByText('Markets rally on rate hopes')).toBeInTheDocument()
+    expect(screen.queryByText(/Left out as not tagged/)).not.toBeInTheDocument()
+  })
+
   it('says so when there are no stories rather than rendering blank', async () => {
     vi.spyOn(api, 'getNews').mockResolvedValue({
       ...NEWS,

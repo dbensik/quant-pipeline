@@ -2085,6 +2085,13 @@ export interface components {
              * @description Tickers dropped by the per-request cap. Reported rather than silently trimmed, so a long watchlist does not look fully covered.
              */
             truncated_symbols?: string[];
+            /**
+             * Unrelated Dropped
+             * @description Per ticker, stories the search returned that Yahoo does not tag with that ticker or another share class of it, left out. Reported, not silently trimmed: a story that names a ticker untagged is lost too.
+             */
+            unrelated_dropped?: {
+                [key: string]: number;
+            };
         };
         /** NewsItem */
         NewsItem: {
