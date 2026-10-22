@@ -6,7 +6,8 @@
 # the risk-free rate, SEC facts for recent filers, the read-only checks
 # (reassigned tickers, missing days, fresh returns), the paper trader, the paper margin
 # check, the index snapshot, new
-# index members, the DCF line-concept check, option surfaces, then the backup.
+# index members, the DCF line-concept check, option surfaces, the headline
+# archive, then the backup.
 #
 # Ingest only fetches REGISTERED assets. This header used to say ingest ran
 # first "so that any name which joined an index today already has bars"; it
@@ -317,6 +318,27 @@ if [ "$MODE" != "--snapshot-only" ]; then
     fi
 fi
 
+# Headlines for every equity, ETF and coin, insert-only (decision 57 B,
+# research/news-archive-2026-10-22.md). Yahoo's search serves only the newest
+# 50 a ticker, so a story not stored is gone. The hourly job
+# (com.dbensik.quant-pipeline.news-hourly) keeps up with the busy names in
+# between. Before the backup, so the archive is in the proven dump. Some
+# symbols failing after retries is a flag; every search failing is a failure.
+if [ "$MODE" != "--snapshot-only" ]; then
+    log "--- headline archive ---"
+    "$VENV_PYTHON" scripts/archive_news.py >> "$LOG_FILE" 2>&1
+    CHECK_EXIT=$?
+    if [ "$CHECK_EXIT" -eq 0 ]; then
+        log "headline archive OK"
+    elif [ "$CHECK_EXIT" -eq 1 ]; then
+        log "headline archive OK; FLAGGED symbols whose search failed — see FETCH FAILED lines above"
+        flag news-archive
+    else
+        log "headline archive FAILED (exit $CHECK_EXIT)"
+        fail news-archive
+    fi
+fi
+
 # LAST, so the backup holds today's snapshot and bars. The database and the
 # option-chain archive to QUANT_BACKUP_DIR (Google Drive), each dump proven by
 # restoring it into a scratch database first. Until 2026-10-12 nothing was
@@ -358,7 +380,7 @@ if [ -n "$FAILED_STEPS" ] && [ ! -t 1 ]; then
 fi
 
 if [ -n "$FLAGS" ] && [ ! -t 1 ]; then
-    osascript -e 'display notification "A check flagged stored data - see SUSPECT, MISSING, MISMATCH, CONCEPT, STALE or MISSED CAPTURE in logs/daily_maintenance.log. Nothing was changed." with title "quant-pipeline daily maintenance"' >/dev/null 2>&1 || true
+    osascript -e 'display notification "A check flagged stored data - see SUSPECT, MISSING, MISMATCH, CONCEPT, STALE, MISSED CAPTURE or FETCH FAILED in logs/daily_maintenance.log. Nothing was changed." with title "quant-pipeline daily maintenance"' >/dev/null 2>&1 || true
 fi
 
 # Keep the log from growing without bound; 30 days is plenty to notice a

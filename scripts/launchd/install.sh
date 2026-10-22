@@ -4,6 +4,7 @@
 #
 #   scripts/launchd/install.sh                                            # daily maintenance (default)
 #   scripts/launchd/install.sh com.dbensik.quant-pipeline.option-capture  # option chain capture
+#   scripts/launchd/install.sh com.dbensik.quant-pipeline.news-hourly     # hourly headlines
 #
 # For daily maintenance it also removes the old crontab entry.
 #

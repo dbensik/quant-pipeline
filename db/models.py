@@ -502,3 +502,62 @@ class InsiderTransactionORM(Base):
     fetched_at = Column(DateTime(timezone=True), nullable=False)
 
     __table_args__ = (UniqueConstraint("accn", "row_no", name="uq_insider_transaction"),)
+
+
+class NewsStoryORM(Base):
+    """
+    One Yahoo story, as its search served it (decision 57 B, migration 0012).
+    Insert-only: the first sighting is kept, so `related_tickers` are the
+    tags Yahoo gave it then. Stored unfiltered; relevance is a read rule.
+    """
+
+    __tablename__ = "news_stories"
+
+    story_id = Column(String, primary_key=True)
+    title = Column(Text, nullable=False)
+    publisher = Column(String, nullable=True)
+    url = Column(Text, nullable=True)
+    story_type = Column(String, nullable=True)
+    published_at = Column(DateTime(timezone=True), nullable=True)
+    related_tickers = Column(JSONB, nullable=False)
+    first_seen_at = Column(DateTime(timezone=True), nullable=False)
+
+
+class NewsStorySymbolORM(Base):
+    """A story found under one symbol's search, first seen when. Insert-only."""
+
+    __tablename__ = "news_story_symbols"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    story_id = Column(String, ForeignKey("news_stories.story_id"), nullable=False)
+    symbol = Column(String, nullable=False)
+    search_term = Column(String, nullable=False)
+    first_seen_at = Column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("story_id", "symbol", name="uq_news_story_symbol"),
+        Index("ix_news_story_symbols_symbol", "symbol"),
+    )
+
+
+class NewsFetchORM(Base):
+    """
+    One symbol's search in one run: the archive's coverage log. A failed
+    fetch is a row too (`error`), so a gap is visible, never just absent.
+    """
+
+    __tablename__ = "news_fetches"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    symbol = Column(String, nullable=False)
+    search_term = Column(String, nullable=False)
+    fetched_at = Column(DateTime(timezone=True), nullable=False)
+    returned = Column(Integer, nullable=False)
+    new_stories = Column(Integer, nullable=False)
+    oldest_published_at = Column(DateTime(timezone=True), nullable=True)
+    newest_published_at = Column(DateTime(timezone=True), nullable=True)
+    empty_attempts = Column(Integer, nullable=False)
+    window_truncated = Column(Boolean, nullable=True)
+    error = Column(Text, nullable=True)
+
+    __table_args__ = (Index("ix_news_fetches_symbol", "symbol", "fetched_at"),)

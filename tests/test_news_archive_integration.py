@@ -1,0 +1,137 @@
+"""
+core.news_archive.store_fetch against the real database: insert-only, first
+sighting kept, and the coverage log.
+
+    poetry run pytest -m integration tests/test_news_archive_integration.py
+"""
+
+from datetime import datetime, timedelta, timezone
+
+import pytest
+import pytest_asyncio
+from sqlalchemy import text
+
+from core.news_archive import Fetch, LastFetch, store_fetch
+from db.session import get_session
+
+pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]
+
+SYMBOLS = ("ZZNEWS1", "ZZNEWS2")  # not registry symbols
+T0 = datetime(2026, 10, 22, 12, 0, tzinfo=timezone.utc)
+
+
+def item(uuid, title, hours_ago, tags):
+    return {
+        "uuid": uuid,
+        "title": title,
+        "publisher": "Wire",
+        "link": f"https://x/{uuid}",
+        "providerPublishTime": (T0 - timedelta(hours=hours_ago)).timestamp(),
+        "type": "STORY",
+        "relatedTickers": tags,
+    }
+
+
+async def clean(session):
+    await session.execute(
+        text("delete from news_story_symbols where symbol in ('ZZNEWS1', 'ZZNEWS2')")
+    )
+    await session.execute(text("delete from news_stories where story_id like 'zz-%'"))
+    await session.execute(text("delete from news_fetches where symbol in ('ZZNEWS1', 'ZZNEWS2')"))
+    await session.commit()
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def session():
+    try:
+        async with get_session() as s:
+            await s.execute(text("select 1 from news_stories limit 1"))
+            await clean(s)
+            yield s
+            await clean(s)
+    except OSError:
+        pytest.skip("TimescaleDB is not running")
+
+
+async def test_a_fetch_is_stored_insert_only_and_logged(session):
+    first = Fetch(
+        "ZZNEWS1",
+        "ZZNEWS1",
+        [item("zz-1", "Old title", 3, ["ZZNEWS1"]), item("zz-2", "Other", 1, ["FOXF"])],
+        fetched_at=T0,
+    )
+    stored = await store_fetch(session, first, None)
+    assert (stored.returned, stored.new_stories, stored.window_truncated) == (2, 2, None)
+
+    # Seen again, retitled and retagged, under a second symbol and twice in one page.
+    again = Fetch(
+        "ZZNEWS2",
+        "ZZNEWS2",
+        [item("zz-1", "New title", 3, ["ZZNEWS2"]), item("zz-1", "New title", 3, ["ZZNEWS2"])],
+        fetched_at=T0 + timedelta(hours=1),
+    )
+    stored = await store_fetch(session, again, None)
+    assert stored.new_stories == 1
+
+    story = (
+        await session.execute(
+            text(
+                "select title, related_tickers, first_seen_at from news_stories where story_id = 'zz-1'"
+            )
+        )
+    ).one()
+    assert story == ("Old title", ["ZZNEWS1"], T0)  # the first sighting, as served
+    sightings = (
+        await session.execute(
+            text(
+                "select symbol, first_seen_at from news_story_symbols where story_id = 'zz-1' order by symbol"
+            )
+        )
+    ).all()
+    assert sightings == [("ZZNEWS1", T0), ("ZZNEWS2", T0 + timedelta(hours=1))]
+
+    # The unrelated story is stored too: relevance is a read rule.
+    assert (
+        await session.execute(text("select count(*) from news_stories where story_id = 'zz-2'"))
+    ).scalar() == 1
+
+    # A repeat of the first fetch adds nothing but a log row.
+    stored = await store_fetch(session, first, LastFetch(T0, 2, T0 - timedelta(hours=3)))
+    assert stored.new_stories == 0
+    logged = (
+        await session.execute(
+            text("select count(*), sum(new_stories) from news_fetches where symbol = 'ZZNEWS1'")
+        )
+    ).one()
+    assert logged == (2, 2)
+
+
+async def test_a_failed_fetch_is_a_log_row_and_stores_nothing(session):
+    failed = Fetch(
+        "ZZNEWS1", "ZZNEWS1", [], error="Yahoo's search returned no news field", fetched_at=T0
+    )
+    stored = await store_fetch(
+        session, failed, LastFetch(T0 - timedelta(hours=1), 50, T0 - timedelta(hours=9))
+    )
+    assert (stored.error, stored.window_truncated) == (
+        "Yahoo's search returned no news field",
+        None,
+    )
+    row = (
+        await session.execute(
+            text("select returned, error from news_fetches where symbol = 'ZZNEWS1'")
+        )
+    ).one()
+    assert row == (0, "Yahoo's search returned no news field")
+
+
+async def test_a_full_page_newer_than_the_last_fetch_is_logged_truncated(session):
+    page = [item(f"zz-p{i}", f"Story {i}", 0.5 + i / 100, ["ZZNEWS1"]) for i in range(50)]
+    previous = LastFetch(T0 - timedelta(hours=2), 50, T0 - timedelta(hours=4))
+    stored = await store_fetch(session, Fetch("ZZNEWS1", "ZZNEWS1", page, fetched_at=T0), previous)
+    assert stored.window_truncated is True
+    assert (
+        await session.execute(
+            text("select window_truncated from news_fetches where symbol = 'ZZNEWS1'")
+        )
+    ).scalar() is True

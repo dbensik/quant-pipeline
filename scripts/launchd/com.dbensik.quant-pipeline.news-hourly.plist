@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Hourly headline archive: `scripts/archive_news.py --due` (decision 57 B,
+  research/news-archive-2026-10-22.md).
+
+  WHY HOURLY. Yahoo's search serves the newest 50 stories a ticker. The 06:00
+  job stores every symbol's 50; for the busiest names they cover hours, not a
+  day (NVDA 1.8 h, META 3.2 h, MSFT 7.6 h on 2026-10-22). This pass refetches
+  only symbols whose last page would be outrun before the next pass, so it
+  is ~15-20 searches, not 695.
+
+  Every hour, every day: news does not keep market hours. launchd coalesces
+  missed fires, so a Mac asleep overnight runs ONCE on wake; stories missed
+  meanwhile are counted (news_fetches.window_truncated), not hidden.
+
+  INSTALL:    scripts/launchd/install.sh com.dbensik.quant-pipeline.news-hourly
+  UNINSTALL:  launchctl bootout gui/$(id -u)/com.dbensik.quant-pipeline.news-hourly
+              rm ~/Library/LaunchAgents/com.dbensik.quant-pipeline.news-hourly.plist
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.dbensik.quant-pipeline.news-hourly</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/dannybensik/PycharmProjects/quant-pipeline/scripts/cron/news_hourly.sh</string>
+    </array>
+
+    <key>StartInterval</key>
+    <integer>3600</integer>
+
+    <!-- false: a login or reinstall should not add a run; the next hour comes soon. -->
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/dannybensik/PycharmProjects/quant-pipeline/logs/news_hourly.launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/dannybensik/PycharmProjects/quant-pipeline/logs/news_hourly.launchd.err.log</string>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/dannybensik/PycharmProjects/quant-pipeline</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+</dict>
+</plist>

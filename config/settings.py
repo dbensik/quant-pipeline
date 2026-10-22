@@ -1412,3 +1412,19 @@ PIPELINE_SCRIPT_PATH = ROOT_DIR / "cli" / "run_pipeline.py"
 # --- Caching Configuration ---
 CACHE_DIR = ROOT_DIR / ".cache"
 CACHE_EXPIRY_HOURS = 24  # Default cache expiry
+
+# --- Headline archive (decision 57 B, research/news-archive-2026-10-22.md) ---
+#: Stories asked per search. 50 is Yahoo's ceiling, and asking for more is
+#: worse than capped: AMCR returned 50 at 50 and NOTHING at 100 or 300.
+NEWS_ARCHIVE_PER_SYMBOL = 50
+#: A search returning at least this many is a full page: older stories
+#: exist that it did not return. Yahoo often returns 49 of 50 (AAPL, NVDA).
+NEWS_ARCHIVE_FULL_PAGE = 45
+#: An empty answer is retried this many times, a pause apart: 42 of 51
+#: empties on 2026-10-22 had stories a minute later.
+NEWS_ARCHIVE_EMPTY_RETRIES = 2
+NEWS_ARCHIVE_RETRY_PAUSE_SECONDS = 60
+NEWS_ARCHIVE_WORKERS = 5
+#: The hourly pass's cadence. A symbol is refetched when its last page would
+#: be outrun before the NEXT pass: NVDA's 50 stories spanned 1.8 hours.
+NEWS_ARCHIVE_HOURLY_INTERVAL_HOURS = 1.0
