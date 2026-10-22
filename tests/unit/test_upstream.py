@@ -1,8 +1,8 @@
 """
 api/upstream.py — TTL caching and yfinance normalisation.
 
-No network. The gateway's only network seam is `_ticker`, which is
-substituted below, so the real caching, de-duplication, ordering and
+No network. The gateway's network seams are `_ticker` and `_search`, which
+are substituted below, so the real caching, de-duplication, ordering and
 normalisation code runs while the suite stays offline.
 
 Phase 5 — decommissioning Streamlit
@@ -120,6 +120,12 @@ def test_legacy_flat_layout_still_works():
     assert item["published_at"].tzinfo is not None
 
 
+def test_related_tickers_are_read_from_the_search_layout():
+    item = normalise_news_item({**FLAT_ITEM, "relatedTickers": ["GOOG", "MSFT"]})
+    assert item["related_tickers"] == ["GOOG", "MSFT"]
+    assert normalise_news_item(FLAT_ITEM)["related_tickers"] == []
+
+
 def test_click_through_url_is_used_when_canonical_is_absent():
     raw = {"content": {"title": "T", "clickThroughUrl": {"url": "https://x/y"}}}
     assert normalise_news_item(raw)["url"] == "https://x/y"
@@ -172,12 +178,25 @@ def test_profile_falls_back_to_the_requested_symbol():
 
 
 class StubTicker:
-    def __init__(self, symbol, calls, fail=False, news=None, info=None):
+    """Both yfinance.Ticker and yfinance.Search: `response` is the search seam."""
+
+    def __init__(self, symbol, calls, fail=False, news=None, info=None, gone=False):
         self.symbol = symbol
         calls.append(symbol)
         self._fail = fail
         self._news = news
         self._info = info
+        self._gone = gone
+
+    @property
+    def response(self):
+        if self._fail:
+            raise RuntimeError("upstream down")
+        if self._gone:
+            # What yfinance returned for the dead /xhr/ncp endpoint: the 404
+            # body, parsed, with no exception.
+            return {"message": "Not Found"}
+        return {"quotes": [], "news": self.news}
 
     @property
     def news(self):
@@ -211,6 +230,8 @@ def gateway(**kwargs) -> tuple:
     class Stubbed(YFinanceGateway):
         def _ticker(self, symbol):
             return StubTicker(symbol, calls, **kwargs)
+
+        _search = _ticker
 
     return Stubbed(clock=FakeClock()), calls
 
@@ -299,6 +320,8 @@ def test_one_failing_ticker_does_not_blank_the_feed():
         def _ticker(self, symbol):
             return StubTicker(symbol, calls, fail=(symbol == "BAD"))
 
+        _search = _ticker
+
     gw = Stubbed(clock=FakeClock())
     assert len(gw.fetch_news(["AAPL", "BAD"])) == 1
 
@@ -308,6 +331,34 @@ def test_all_tickers_failing_raises():
     gw, _ = gateway(fail=True)
     with pytest.raises(UpstreamError):
         gw.fetch_news(["AAPL", "MSFT"])
+
+
+def test_a_response_without_a_news_field_is_a_failure_not_no_news():
+    """
+    Decision 57. The dead endpoint's 404 body parsed to a dict with no news
+    in it, yfinance returned [], and every feed was cached as "no news".
+    """
+    gw, _ = gateway(gone=True)
+    with pytest.raises(UpstreamError):
+        gw.fetch_news(["AAPL", "MSFT"])
+
+
+def test_an_empty_answer_is_not_cached():
+    """
+    Measured 2026-10-22: QQQ returned no stories, then ten a minute later.
+    A cached empty would have served "no news" for the whole TTL.
+    """
+    answers = [[], [NESTED_ITEM]]
+    calls: list = []
+
+    class Stubbed(YFinanceGateway):
+        def _search(self, symbol):
+            return StubTicker(symbol, calls, news=answers.pop(0))
+
+    gw = Stubbed(clock=FakeClock())
+    assert gw.fetch_news(["QQQ"]) == []
+    assert [i["title"] for i in gw.fetch_news(["QQQ"])] == ["Apple announces something"]
+    assert calls == ["QQQ", "QQQ"]
 
 
 def test_items_without_a_title_are_dropped():

@@ -18,6 +18,14 @@ FAILURE. An upstream problem raises UpstreamError, which routers turn into a
 503 naming the symbol. Never a 500 (this is not our bug) and never a silent
 empty list (indistinguishable from "no news", which is a real answer).
 
+NEWS COMES FROM YAHOO'S SEARCH, not `Ticker.news` (decision 57, 2026-10-22,
+`research/news-source-2026-10-22.md`). In yfinance 1.2.0 `Ticker.news` POSTs
+to /xhr/ncp, which has answered 404 since some time before 2026-10-21;
+yfinance parses the 404 body and returns [] without a word, so every feed
+read "no news" and was cached that way. A search response always carries a
+`news` key, even when it is empty; one without it is a failure, never an
+empty answer.
+
 The gateway is injected as a FastAPI dependency so tests can substitute a stub.
 `pytest tests/` must need no Docker AND no network; a router suite that made
 live Yahoo calls would be flaky and slow exactly when it matters.
@@ -37,6 +45,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 logger = logging.getLogger(__name__)
 
 NEWS_TTL_SECONDS = 600
+NEWS_PER_SYMBOL = 10
 PROFILE_TTL_SECONDS = 3600
 MAX_PARALLEL_FETCHES = 5
 
@@ -129,9 +138,10 @@ def normalise_news_item(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             "url": _first_url(content.get("canonicalUrl"), content.get("clickThroughUrl")),
             "publisher": provider.get("displayName") if isinstance(provider, dict) else None,
             "published_at": _parse_time(published),
+            "related_tickers": [],
         }
 
-    # Legacy flat layout.
+    # Legacy flat layout, which Yahoo's search still returns.
     return {
         "id": str(raw.get("uuid") or raw.get("id") or ""),
         "title": raw.get("title"),
@@ -139,6 +149,10 @@ def normalise_news_item(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "url": raw.get("link"),
         "publisher": raw.get("publisher"),
         "published_at": _parse_time(raw.get("providerPublishTime")),
+        # Search matches text, so a story need not be about the symbol it was
+        # found under (GOOGL's are tagged GOOG). Carried, never filtered on;
+        # the page does not show it yet.
+        "related_tickers": [str(t) for t in raw.get("relatedTickers") or []],
     }
 
 
@@ -238,6 +252,18 @@ class YFinanceGateway:
 
         return yf.Ticker(symbol)
 
+    def _search(self, symbol: str):
+        import yfinance as yf
+
+        return yf.Search(symbol, news_count=NEWS_PER_SYMBOL, max_results=1)
+
+    def _news_for(self, symbol: str) -> List[Dict[str, Any]]:
+        """One symbol's raw stories; raises when the response is not a search answer."""
+        response = self._search(symbol).response
+        if not isinstance(response, dict) or "news" not in response:
+            raise UpstreamError(f"Yahoo's search returned no news field for {symbol!r}.")
+        return response["news"] or []
+
     # -- profile ---------------------------------------------------------
     def fetch_profile(self, symbol: str) -> Dict[str, Any]:
         symbol = symbol.upper()
@@ -305,6 +331,10 @@ class YFinanceGateway:
         one delisted symbol in a watchlist should not blank the whole feed.
         UpstreamError is raised only when EVERY ticker failed, which is the
         case that actually means the provider is unreachable.
+
+        An empty answer is returned but NOT cached: measured 2026-10-22, QQQ
+        came back with no stories and then ten a minute later, and a cached
+        empty would have shown "no news" for ten minutes.
         """
         wanted = [s.upper() for s in symbols if s and s.strip()]
         if not wanted:
@@ -317,7 +347,7 @@ class YFinanceGateway:
 
             def fetch_one(symbol: str):
                 try:
-                    return symbol, self._ticker(symbol).news or []
+                    return symbol, self._news_for(symbol)
                 except Exception as exc:  # noqa: BLE001
                     logger.warning("News fetch failed for %s: %s", symbol, exc)
                     return symbol, None
@@ -328,7 +358,9 @@ class YFinanceGateway:
                         failures += 1
                         continue
                     items = [normalise_news_item(item) for item in raw]
-                    self.news_cache.set(symbol, [i for i in items if i and i.get("title")])
+                    items = [i for i in items if i and i.get("title")]
+                    if items:
+                        self.news_cache.set(symbol, items)
 
             if failures == len(pending):
                 raise UpstreamError("Could not fetch news for any of: " + ", ".join(pending))

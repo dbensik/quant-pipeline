@@ -665,7 +665,10 @@ For the TimescaleDB layer, copy `.env.example` → `.env`; without it, `db/sessi
 - `core/sec.py` + `core/fundamentals.py` + `modeling/` + `api/routers/valuation.py` — the DCF; read `modeling/CLAUDE.md` before changing any of them. Missing is never zero: a missing input refuses, it is never defaulted.
 - `api/routers/` — the REST/WS surface: ohlcv, assets, strategies, backtest,
   compare, optimize, simulate, options, valuation, screeners, statistics, portfolios,
-  watchlists, research, ingest, results, signals, ws
+  watchlists, research, ingest, results, signals, ws. `research`'s news comes
+  from Yahoo's SEARCH (`api/upstream.py`, decision 57): `Ticker.news` posts
+  to an endpoint that 404s and yfinance returns [] silently. A response
+  without a `news` field is a failure, and an empty answer is never cached.
 - `api/routers/portfolio_backtest.py` + `frontend/src/pages/AllocationPage.tsx`
   — multi-asset allocation rules over a basket, beside the same basket
   equal-weighted (decision 32, 2026-10-15). With no `weights`, each strategy's

@@ -103,6 +103,13 @@ class NewsItem(BaseModel):
     publisher: Optional[str] = None
     summary: Optional[str] = None
     published_at: Optional[datetime] = None
+    related_tickers: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Tickers Yahoo tags the story with. News is found by search, so a "
+            "story need not name the symbol it was found under."
+        ),
+    )
 
 
 class NewsFeed(BaseModel):

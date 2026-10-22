@@ -2,7 +2,7 @@
 /api/v1/research — profile, financials, news.
 
 The only router that reaches the network. Its gateway is stubbed at the
-`_ticker` seam (see StubGateway in conftest.py), so the caching,
+`_ticker` and `_search` seams (see StubGateway in conftest.py), so the caching,
 de-duplication, ordering and normalisation code all runs for real while these
 tests stay offline — `pytest tests/` needs no Docker AND no network.
 
@@ -87,7 +87,9 @@ def test_news_items_carry_a_real_title_and_url(client: TestClient):
     """
     THE regression. yfinance 1.2.0 nests items under `content`, but the
     Streamlit widget read the flat keys — every story rendered as
-    "[None](None)" from "Unknown", dated 1970-01-01.
+    "[None](None)" from "Unknown", dated 1970-01-01. Yahoo's search, the
+    source since decision 57, returns the flat layout again; both layouts are
+    pinned in tests/unit/test_upstream.py.
     """
     items = client.get(f"{BASE}/news", params={"symbols": ["AAPL"]}).json()["items"]
     assert items
@@ -196,6 +198,22 @@ def test_total_upstream_failure_is_503_not_an_empty_feed(client: TestClient):
     """
     response = client.get(f"{BASE}/news", params={"symbols": ["BROKEN"]})
     assert response.status_code == 503
+
+
+def test_a_response_with_no_news_field_is_503_not_an_empty_feed(client: TestClient):
+    """
+    Decision 57. yfinance parsed the dead endpoint's 404 body and returned []
+    without raising, so every feed read "no news" for weeks. A search answer
+    always has a `news` field, even when empty; one without it is a failure.
+    """
+    response = client.get(f"{BASE}/news", params={"symbols": ["GONE"]})
+    assert response.status_code == 503
+
+
+def test_news_items_carry_the_tickers_yahoo_tags(client: TestClient):
+    items = client.get(f"{BASE}/news", params={"symbols": ["AAPL"]}).json()["items"]
+    shared = next(i for i in items if i["title"] == "Tech selloff")
+    assert shared["related_tickers"] == ["AAPL", "MSFT"]
 
 
 def test_one_broken_symbol_does_not_blank_the_feed(client: TestClient):

@@ -2082,6 +2082,11 @@ export interface components {
             summary?: string | null;
             /** Published At */
             published_at?: string | null;
+            /**
+             * Related Tickers
+             * @description Tickers Yahoo tags the story with. News is found by search, so a story need not name the symbol it was found under.
+             */
+            related_tickers?: string[];
         };
         /**
          * OHLCVBar

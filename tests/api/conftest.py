@@ -406,43 +406,43 @@ class FakeWatchlistRepo:
         return sorted(k for k, v in self._lists.items() if upper in v.symbols)
 
 
-class StubTicker:
-    """Stands in for yfinance.Ticker. No network."""
+class StubSearch:
+    """
+    Stands in for yfinance.Search, where news comes from (decision 57). No
+    network. Stories are in the flat layout Yahoo's search returns.
+
+    GONE answers like the dead /xhr/ncp endpoint did: a parsed body with no
+    `news` field, which yfinance hands back without raising.
+    """
 
     NEWS = {
         "AAPL": [
             {
-                "id": "n1",
-                "content": {
-                    "id": "n1",
-                    "title": "Apple ships something",
-                    "summary": "Summary one.",
-                    "pubDate": "2026-08-09T16:00:00Z",
-                    "provider": {"displayName": "Reuters"},
-                    "canonicalUrl": {"url": "https://example.com/a1"},
-                },
+                "uuid": "n1",
+                "title": "Apple ships something",
+                "summary": "Summary one.",
+                "providerPublishTime": 1786291200,  # 2026-08-09T16:00:00Z
+                "publisher": "Reuters",
+                "link": "https://example.com/a1",
+                "relatedTickers": ["AAPL"],
             },
             {
-                "id": "shared",
-                "content": {
-                    "id": "shared",
-                    "title": "Tech selloff",
-                    "pubDate": "2026-08-08T10:00:00Z",
-                    "provider": {"displayName": "Bloomberg"},
-                    "canonicalUrl": {"url": "https://example.com/shared"},
-                },
+                "uuid": "shared",
+                "title": "Tech selloff",
+                "providerPublishTime": 1786183200,  # 2026-08-08T10:00:00Z
+                "publisher": "Bloomberg",
+                "link": "https://example.com/shared",
+                "relatedTickers": ["AAPL", "MSFT"],
             },
         ],
         "MSFT": [
             {
-                "id": "shared",
-                "content": {
-                    "id": "shared",
-                    "title": "Tech selloff",
-                    "pubDate": "2026-08-08T10:00:00Z",
-                    "provider": {"displayName": "Bloomberg"},
-                    "canonicalUrl": {"url": "https://example.com/shared"},
-                },
+                "uuid": "shared",
+                "title": "Tech selloff",
+                "providerPublishTime": 1786183200,
+                "publisher": "Bloomberg",
+                "link": "https://example.com/shared",
+                "relatedTickers": ["AAPL", "MSFT"],
             },
         ],
     }
@@ -451,10 +451,19 @@ class StubTicker:
         self.symbol = symbol
 
     @property
-    def news(self):
+    def response(self):
         if self.symbol == "BROKEN":
             raise RuntimeError("upstream down")
-        return self.NEWS.get(self.symbol, [])
+        if self.symbol == "GONE":
+            return {"message": "Not Found"}
+        return {"quotes": [], "news": self.NEWS.get(self.symbol, [])}
+
+
+class StubTicker:
+    """Stands in for yfinance.Ticker. No network."""
+
+    def __init__(self, symbol: str) -> None:
+        self.symbol = symbol
 
     @property
     def info(self):
@@ -496,6 +505,9 @@ class StubGateway(YFinanceGateway):
 
     def _ticker(self, symbol: str) -> StubTicker:
         return StubTicker(symbol)
+
+    def _search(self, symbol: str) -> StubSearch:
+        return StubSearch(symbol)
 
 
 class StubFetcher:
