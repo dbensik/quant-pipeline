@@ -12,7 +12,7 @@ import { useHealth } from '@/api/queries'
 import { API_BASE_URL } from '@/api/client'
 import { DataFreshnessBadge } from '@/components/layout/DataFreshnessBadge'
 import { Badge } from '@/components/ui/badge'
-import { routes } from '@/routes'
+import { routeGroups, routes } from '@/routes'
 import { cn } from '@/lib/utils'
 
 function ApiStatus() {
@@ -35,30 +35,52 @@ function ApiStatus() {
   )
 }
 
+// Sections wrap onto a second line as whole units rather than scrolling
+// sideways: fourteen pages do not fit one row at max-w-7xl. Every section has
+// a left divider; the row is shifted left under a clip so the divider of
+// whichever section opens a line is hidden.
 function Navigation() {
   return (
     <nav className="border-b bg-muted/30">
-      <div className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-6">
-        {routes.map(({ path, label, icon: Icon }) => (
-          <NavLink
-            key={path}
-            to={path}
-            // `end` only on the index route, or every path would match it and
-            // "Chart & Backtest" would render active on every page.
-            end={path === '/'}
-            className={({ isActive }) =>
-              cn(
-                'flex shrink-0 items-center gap-2 border-b-2 px-3 py-2.5 text-sm transition-colors',
-                isActive
-                  ? 'border-primary font-medium text-foreground'
-                  : 'border-transparent text-muted-foreground hover:text-foreground',
-              )
-            }
-          >
-            <Icon className="h-4 w-4" />
-            {label}
-          </NavLink>
-        ))}
+      <div className="mx-auto max-w-7xl px-6">
+        <div className="overflow-hidden">
+          <div className="-ml-3 flex flex-wrap">
+            {routeGroups.map((group) => (
+              <div
+                key={group}
+                role="group"
+                aria-label={group}
+                className="flex items-center border-l pl-3 pr-3"
+              >
+                <span className="pr-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
+                  {group}
+                </span>
+                {routes
+                  .filter((r) => r.group === group)
+                  .map(({ path, label, icon: Icon }) => (
+                    <NavLink
+                      key={path}
+                      to={path}
+                      // `end` only on the index route, or every path would match it and
+                      // "Chart & Backtest" would render active on every page.
+                      end={path === '/'}
+                      className={({ isActive }) =>
+                        cn(
+                          'flex shrink-0 items-center gap-1.5 border-b-2 px-2.5 py-2.5 text-sm transition-colors',
+                          isActive
+                            ? 'border-primary font-medium text-foreground'
+                            : 'border-transparent text-muted-foreground hover:text-foreground',
+                        )
+                      }
+                    >
+                      <Icon className="h-4 w-4" />
+                      {label}
+                    </NavLink>
+                  ))}
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </nav>
   )

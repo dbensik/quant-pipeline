@@ -40,8 +40,18 @@ import { ResearchPage } from '@/pages/ResearchPage'
 import { ResultsPage } from '@/pages/ResultsPage'
 import { WatchlistsPage } from '@/pages/WatchlistsPage'
 
+/**
+ * The navigation's sections, in the order work flows through them: get the
+ * data, find and study names, test strategies on them, then options, then
+ * trade and keep what was learned. `routes` is listed in the same order.
+ */
+export const routeGroups = ['Data', 'Research', 'Strategies', 'Options', 'Track'] as const
+
+export type RouteGroup = (typeof routeGroups)[number]
+
 export interface RouteDef {
   path: string
+  group: RouteGroup
   label: string
   icon: ComponentType<{ className?: string }>
   element: ComponentType
@@ -51,7 +61,56 @@ export interface RouteDef {
 
 export const routes: RouteDef[] = [
   {
+    path: '/data',
+    group: 'Data',
+    label: 'Data',
+    icon: Database,
+    element: DataPage,
+    blurb: 'Ingest price bars, register tickers, browse index constituents.',
+  },
+  {
+    path: '/watchlists',
+    group: 'Data',
+    label: 'Watchlists',
+    icon: Star,
+    element: WatchlistsPage,
+    blurb: 'Named lists of tickers.',
+  },
+  {
+    path: '/screeners',
+    group: 'Research',
+    label: 'Screeners',
+    icon: Filter,
+    element: ScreenersPage,
+    blurb: 'Filter the universe by momentum, volatility or fundamentals.',
+  },
+  {
+    path: '/research',
+    group: 'Research',
+    label: 'Research',
+    icon: Newspaper,
+    element: ResearchPage,
+    blurb: 'Company profile, financial statements and news.',
+  },
+  {
+    path: '/valuation',
+    group: 'Research',
+    label: 'Valuation',
+    icon: Calculator,
+    element: ValuationPage,
+    blurb: 'Discounted cash flow from SEC filings, as of any date, with every input and its source.',
+  },
+  {
+    path: '/statistics',
+    group: 'Research',
+    label: 'Statistics',
+    icon: Sigma,
+    element: StatisticsPage,
+    blurb: 'Stationarity, cointegration, alpha/beta and PCA.',
+  },
+  {
     path: '/',
+    group: 'Strategies',
     label: 'Chart & Backtest',
     icon: LineChart,
     element: DashboardPage,
@@ -59,41 +118,31 @@ export const routes: RouteDef[] = [
   },
   {
     path: '/compare',
+    group: 'Strategies',
     label: 'Compare',
     icon: BarChart3,
     element: ComparePage,
     blurb: 'Run several strategies on one symbol and rank them.',
   },
   {
-    path: '/allocation',
-    label: 'Allocation',
-    icon: PieChart,
-    element: AllocationPage,
-    blurb: 'A multi-asset allocation rule over a basket, beside the same basket equal-weighted.',
-  },
-  {
     path: '/optimize',
+    group: 'Strategies',
     label: 'Optimize',
     icon: SlidersHorizontal,
     element: OptimizePage,
     blurb: 'Grid-search strategy parameters, or Monte Carlo portfolio weights.',
   },
   {
-    path: '/screeners',
-    label: 'Screeners',
-    icon: Filter,
-    element: ScreenersPage,
-    blurb: 'Filter the universe by momentum, volatility or fundamentals.',
-  },
-  {
-    path: '/statistics',
-    label: 'Statistics',
-    icon: Sigma,
-    element: StatisticsPage,
-    blurb: 'Stationarity, cointegration, alpha/beta and PCA.',
+    path: '/allocation',
+    group: 'Strategies',
+    label: 'Allocation',
+    icon: PieChart,
+    element: AllocationPage,
+    blurb: 'A multi-asset allocation rule over a basket, beside the same basket equal-weighted.',
   },
   {
     path: '/options',
+    group: 'Options',
     label: 'Options',
     icon: ChartCandlestick,
     element: OptionsPage,
@@ -101,48 +150,23 @@ export const routes: RouteDef[] = [
   },
   {
     path: '/payoffs',
+    group: 'Options',
     label: 'Payoffs',
     icon: TrendingUp,
     element: PayoffPage,
     blurb: 'Multi-leg option positions and their profit at expiry, priced from the archived quotes.',
   },
   {
-    path: '/valuation',
-    label: 'Valuation',
-    icon: Calculator,
-    element: ValuationPage,
-    blurb: 'Discounted cash flow from SEC filings, as of any date, with every input and its source.',
-  },
-  {
     path: '/portfolios',
+    group: 'Track',
     label: 'Portfolios',
     icon: Briefcase,
     element: PortfoliosPage,
     blurb: 'Trade log, derived positions and P&L, rebalancing previews.',
   },
   {
-    path: '/research',
-    label: 'Research',
-    icon: Newspaper,
-    element: ResearchPage,
-    blurb: 'Company profile, financial statements and news.',
-  },
-  {
-    path: '/watchlists',
-    label: 'Watchlists',
-    icon: Star,
-    element: WatchlistsPage,
-    blurb: 'Named lists of tickers.',
-  },
-  {
-    path: '/data',
-    label: 'Data',
-    icon: Database,
-    element: DataPage,
-    blurb: 'Ingest price bars, register tickers, browse index constituents.',
-  },
-  {
     path: '/results',
+    group: 'Track',
     label: 'Results',
     icon: Save,
     element: ResultsPage,
