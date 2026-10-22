@@ -1358,6 +1358,11 @@ OPTION_CHAIN_ARCHIVE_DIR = ROOT_DIR / "data" / "option_chains"
 #: The payoff page's default expiry (decision 54): the one nearest this many
 #: calendar days after the capture, as the pricer's default.
 OPTION_QUOTES_TARGET_DAYS = 30
+#: The curve before expiry (decision 55): spots on the grid between the
+#: request's low and high, before the strikes and the reference spot are added.
+OPTION_POSITION_CURVE_POINTS = 121
+#: Most legs one position-curve request may carry.
+OPTION_POSITION_MAX_LEGS = 12
 
 #: Priced surfaces, one JSON file per ticker-day (tier 2 phase 3). data/ is
 #: gitignored; every file is derivable from the archive and can be deleted.

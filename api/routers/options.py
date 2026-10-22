@@ -9,6 +9,9 @@ research/option-pricing-plan-2026-10-08.md.
                                         realised-vol cone (fresh, see below)
     GET  /api/v1/options/quotes         one expiry's raw bid/ask, both rights
                                         (the payoff page's premiums, decision 54)
+    POST /api/v1/options/position-curve a multi-leg position before expiry:
+                                        profit and Greeks on a spot grid, each
+                                        leg at its own smile vol (decision 55)
     POST /api/v1/options/price          every pricer side by side on one input
     GET  /api/v1/options/pricers        the pricer catalogue
     GET  /api/v1/options/realised-vol   realised vol and the cone for a symbol
@@ -45,13 +48,16 @@ from core.options_surface import (
     compute_for,
     json_safe,
     pricing_fingerprint,
+    projected_dividends,
     surface_inputs,
 )
 from core.rates import RateRepository
 from db.repositories.dividends import TimescaleDividendRepo
 from db.repositories.rates import TimescaleRateRepo
+from pricing import position as P
 from pricing import registry as pricers
 from pricing import volatility as V
+from pricing.dividends import near_ex_date
 
 router = APIRouter(prefix="/api/v1/options", tags=["options"])
 
@@ -250,6 +256,67 @@ class OptionsQuotesResponse(BaseModel):
         description="The spot the capture read beside this expiry's quotes (median)"
     )
     quotes: List[OptionsQuote] = Field(description="By strike, as served")
+    dividend_date_uncertain: List[str] = Field(
+        description="Expiries within OPTIONS_DIVIDEND_DATE_UNCERTAIN_DAYS of a projected"
+        " ex-date: the surface's forward there may sit on the wrong side of the dividend"
+    )
+
+
+class OptionPositionLeg(BaseModel):
+    kind: Literal["call", "put", "stock"]
+    side: Literal[1, -1] = Field(description="+1 bought, -1 sold")
+    quantity: float = Field(gt=0, description="Contracts, or shares for stock")
+    strike: Optional[float] = Field(default=None, gt=0, description="Options only")
+    expiry: Optional[date] = Field(default=None, description="Options only")
+    premium: float = Field(ge=0, description="Per share; the stock leg's entry price")
+
+
+class OptionPositionCurveRequest(BaseModel):
+    ticker: str = Field(min_length=1, max_length=12)
+    day: Optional[date] = Field(default=None, description="Capture; default the latest")
+    legs: List[OptionPositionLeg] = Field(min_length=1)
+    as_of: Optional[date] = Field(
+        default=None, description="Date on the curve; default the capture day"
+    )
+    vol_rule: P.VolRule = "sticky_strike"
+    spot: Optional[float] = Field(
+        default=None, gt=0, description="Reference spot S0; default the capture's (median)"
+    )
+    low: Optional[float] = Field(default=None, gt=0)
+    high: Optional[float] = Field(default=None, gt=0)
+
+
+class OptionPositionLegQuote(BaseModel):
+    T_remaining: float = Field(description="Years left on the curve's date")
+    forward: Optional[float] = Field(description="Model forward at the reference spot")
+    carry: Optional[float] = Field(description="q reproducing the parity forward")
+    iv: Optional[float] = Field(description="The leg's vol at the reference spot")
+    vol_source: Optional[Literal["interpolated", "extrapolated"]]
+    model_price: float = Field(description="Per share at the reference spot on the date")
+
+
+class OptionPositionPoint(BaseModel):
+    spot: float
+    value: float
+    profit: float
+    delta: float = Field(description="$ per $1 of the underlying")
+    gamma: float = Field(description="Delta's change per $1")
+    vega: float = Field(description="$ per vol point, every leg shifted together")
+    theta: float = Field(description="$ per calendar day passing")
+    rho: float = Field(description="$ per percentage point of the rate")
+
+
+class OptionPositionCurveResponse(BaseModel):
+    ticker: str
+    day: date
+    as_of: date
+    last_expiry: Optional[date]
+    vol_rule: str
+    spot: float
+    rate: float = Field(description="The capture's continuous rate")
+    cache_hit: bool = Field(description="False: the surface was computed for this request")
+    legs: List[OptionPositionLegQuote]
+    points: List[OptionPositionPoint]
 
 
 class OptionsRealisedVolResponse(BaseModel):
@@ -440,12 +507,157 @@ async def quotes(
         default=None, description="YYYY-MM-DD; default the expiry nearest a month out"
     ),
     archive: ChainArchive = Depends(get_chain_archive),
+    dividends: DividendHistory = Depends(get_dividend_repo),
 ) -> OptionsQuotesResponse:
     ticker = ticker.upper()
     capture = latest_capture(archive, ticker, day)
     chain = await run_in_threadpool(pd.read_parquet, capture.path)
     body = quotes_of(chain, expiry, settings.OPTION_QUOTES_TARGET_DAYS)
-    return OptionsQuotesResponse(ticker=ticker, day=capture.day, **body)
+    # The surface's own rule (pricing/chains.py), so the page flags what it prices.
+    schedule = projected_dividends(
+        await dividends.dividend_history(ticker, capture.day), capture.day
+    )
+    uncertain = [
+        e
+        for e in body["expiries"]
+        if near_ex_date(
+            schedule, date.fromisoformat(e), settings.OPTIONS_DIVIDEND_DATE_UNCERTAIN_DAYS
+        )
+    ]
+    return OptionsQuotesResponse(
+        ticker=ticker, day=capture.day, dividend_date_uncertain=uncertain, **body
+    )
+
+
+def expiries_of(surface: Dict[str, Any]) -> Dict[date, P.Expiry]:
+    """Every expiry of a surface with a usable smile."""
+    out = {}
+    for e in surface["expiries"]:
+        points = surface["smiles"].get(e["expiry"]) or []
+        if len(points) < 2 or not e["T"] or e["T"] <= 0:
+            continue
+        expiry = date.fromisoformat(e["expiry"])
+        try:
+            smile = P.Smile([p["log_moneyness"] for p in points], [p["iv"] for p in points])
+        except ValueError:
+            continue
+        out[expiry] = P.Expiry(expiry, float(e["T"]), float(e["forward"]), smile)
+    return out
+
+
+def spot_grid(spot0: float, low: float, high: float, strikes: List[float], n: int) -> np.ndarray:
+    extra = [x for x in [spot0, *strikes] if low < x < high]
+    return np.unique(np.concatenate([np.linspace(low, high, n), extra]))
+
+
+@router.post(
+    "/position-curve",
+    response_model=OptionPositionCurveResponse,
+    summary="A multi-leg position before expiry: profit and Greeks on a spot grid",
+    responses={
+        404: {"description": "No complete capture for that ticker-day"},
+        409: {"description": "No risk-free rate stored on or before that day"},
+        422: {"description": "A leg without a strike or a smile, or a date out of range"},
+    },
+)
+async def position_curve(
+    request: OptionPositionCurveRequest,
+    archive: ChainArchive = Depends(get_chain_archive),
+    cache: SurfaceCache = Depends(get_surface_cache),
+    rates: RateRepository = Depends(get_rate_repo),
+    dividends: DividendHistory = Depends(get_dividend_repo),
+    code: str = Depends(get_pricing_fingerprint),
+) -> OptionPositionCurveResponse:
+    ticker = request.ticker.upper()
+    if len(request.legs) > settings.OPTION_POSITION_MAX_LEGS:
+        raise HTTPException(
+            status_code=422, detail=f"At most {settings.OPTION_POSITION_MAX_LEGS} legs"
+        )
+    for i, leg in enumerate(request.legs):
+        if leg.kind != "stock" and (leg.strike is None or leg.expiry is None):
+            raise HTTPException(status_code=422, detail=f"Leg {i + 1} needs a strike and an expiry")
+    capture = latest_capture(archive, ticker, request.day)
+    try:
+        inputs = await surface_inputs(capture, rates, dividends, code)
+    except NoRateError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
+    surface, hit = await cache.get_or_compute(inputs, compute_for(inputs), run_in_threadpool)
+
+    expiries = expiries_of(surface)
+    legs = [
+        P.Leg(leg.kind, leg.side, leg.quantity, leg.premium, leg.strike, leg.expiry)
+        for leg in request.legs
+    ]
+    for i, leg in enumerate(legs):
+        if leg.kind != "stock" and leg.expiry not in expiries:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Leg {i + 1}: no smile for expiry {leg.expiry} in this capture",
+            )
+    option_expiries = [leg.expiry for leg in legs if leg.kind != "stock"]
+    last = max(option_expiries) if option_expiries else None
+    as_of = request.as_of or capture.day
+    if as_of < capture.day or (last is not None and as_of > last):
+        raise HTTPException(
+            status_code=422,
+            detail=f"as_of must be between the capture ({capture.day}) and the last expiry ({last})",
+        )
+
+    if request.spot is not None:
+        spot0 = request.spot
+    else:
+        chain = await run_in_threadpool(pd.read_parquet, capture.path, columns=["spot"])
+        spot0 = float(chain["spot"].dropna().median())
+    low = request.low or spot0 * 0.75
+    high = request.high or spot0 * 1.25
+    if not low < high:
+        raise HTTPException(status_code=422, detail="low must be below high")
+    rate = float(surface["rate"]["continuous"])
+    strikes = [leg.strike for leg in legs if leg.kind != "stock"]
+    spots = spot_grid(spot0, low, high, strikes, settings.OPTION_POSITION_CURVE_POINTS)
+
+    def run():
+        curve = P.position_curve(
+            legs, expiries, spots, spot0, rate, capture.day, as_of, request.vol_rule
+        )
+        quotes = P.leg_quotes(legs, expiries, spot0, rate, capture.day, as_of, request.vol_rule)
+        prices = [
+            P.position_curve(
+                [P.Leg(leg.kind, 1, 1, 0.0, leg.strike, leg.expiry)],
+                expiries,
+                [spot0],
+                spot0,
+                rate,
+                capture.day,
+                as_of,
+                request.vol_rule,
+            )["value"][0]
+            / P.MULTIPLIER[leg.kind]
+            for leg in legs
+        ]
+        return curve, quotes, prices
+
+    curve, quotes, prices = await run_in_threadpool(run)
+    return OptionPositionCurveResponse(
+        ticker=ticker,
+        day=capture.day,
+        as_of=as_of,
+        last_expiry=last,
+        vol_rule=request.vol_rule,
+        spot=spot0,
+        rate=rate,
+        cache_hit=hit,
+        legs=[
+            OptionPositionLegQuote(**q.__dict__, model_price=float(p))
+            for q, p in zip(quotes, prices, strict=True)
+        ],
+        points=[
+            OptionPositionPoint(
+                spot=float(s), **{f: float(curve[f][i]) for f in ("value", "profit") + P.GREEKS}
+            )
+            for i, s in enumerate(spots)
+        ],
+    )
 
 
 @router.get("/pricers", response_model=List[OptionPricerInfo], summary="The option pricers")

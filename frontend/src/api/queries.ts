@@ -14,10 +14,11 @@
  * Phase 4 — React frontend
  */
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api, ApiError } from './client'
 import type { BacktestInput,
+  OptionPositionCurveRequest,
   OptionPriceRequest,
   ValuationRequest,
   SimulationInput } from './client'
@@ -56,6 +57,7 @@ export const queryKeys = {
   optionPricers: () => ['option-pricers'] as const,
   optionQuotes: (ticker: string, day: string | null, expiry: string | null) =>
     ['option-quotes', ticker, { day, expiry }] as const,
+  positionCurve: (body: Record<string, unknown>) => ['position-curve', body] as const,
   valuationCoverage: () => ['valuation-coverage'] as const,
   valuation: (body: Record<string, unknown>) => ['valuation', body] as const,
   valuationHistory: (symbol: string, since: string | null) => ['valuation-history', symbol, { since }] as const,
@@ -720,6 +722,35 @@ export function useOptionQuotes(ticker: string | null, day: string | null, expir
     queryFn: () => api.getOptionQuotes(ticker as string, day, expiry),
     enabled: Boolean(ticker),
     staleTime: Infinity,
+    retry: retryOptions,
+  })
+}
+
+/** The same quotes for several expiries at once: a calendar's legs (decision 55). */
+export function useOptionQuotesFor(ticker: string | null, day: string | null, expiries: string[]) {
+  return useQueries({
+    queries: expiries.map((expiry) => ({
+      queryKey: queryKeys.optionQuotes(ticker ?? '', day, expiry),
+      queryFn: () => api.getOptionQuotes(ticker as string, day, expiry),
+      enabled: Boolean(ticker),
+      staleTime: Infinity,
+      retry: retryOptions,
+    })),
+  })
+}
+
+/**
+ * A curve is a POST with no side effects, so it is a query keyed by its
+ * request. The previous curve stays drawn while the next date's is fetched,
+ * so dragging the slider does not blank the chart.
+ */
+export function usePositionCurve(body: OptionPositionCurveRequest | null) {
+  return useQuery({
+    queryKey: queryKeys.positionCurve((body ?? {}) as Record<string, unknown>),
+    queryFn: () => api.getPositionCurve(body as OptionPositionCurveRequest),
+    enabled: Boolean(body),
+    staleTime: 60 * 60_000,
+    placeholderData: keepPreviousData,
     retry: retryOptions,
   })
 }

@@ -585,6 +585,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/options/position-curve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** A multi-leg position before expiry: profit and Greeks on a spot grid */
+        post: operations["position_curve_api_v1_options_position_curve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/options/pricers": {
         parameters: {
             query?: never;
@@ -2141,6 +2158,171 @@ export interface components {
             /** Early Exercise Premium */
             early_exercise_premium?: number | null;
         };
+        /** OptionPositionCurveRequest */
+        OptionPositionCurveRequest: {
+            /** Ticker */
+            ticker: string;
+            /**
+             * Day
+             * @description Capture; default the latest
+             */
+            day?: string | null;
+            /** Legs */
+            legs: components["schemas"]["OptionPositionLeg"][];
+            /**
+             * As Of
+             * @description Date on the curve; default the capture day
+             */
+            as_of?: string | null;
+            /**
+             * Vol Rule
+             * @default sticky_strike
+             * @enum {string}
+             */
+            vol_rule: "sticky_strike" | "sticky_moneyness";
+            /**
+             * Spot
+             * @description Reference spot S0; default the capture's (median)
+             */
+            spot?: number | null;
+            /** Low */
+            low?: number | null;
+            /** High */
+            high?: number | null;
+        };
+        /** OptionPositionCurveResponse */
+        OptionPositionCurveResponse: {
+            /** Ticker */
+            ticker: string;
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /**
+             * As Of
+             * Format: date
+             */
+            as_of: string;
+            /** Last Expiry */
+            last_expiry: string | null;
+            /** Vol Rule */
+            vol_rule: string;
+            /** Spot */
+            spot: number;
+            /**
+             * Rate
+             * @description The capture's continuous rate
+             */
+            rate: number;
+            /**
+             * Cache Hit
+             * @description False: the surface was computed for this request
+             */
+            cache_hit: boolean;
+            /** Legs */
+            legs: components["schemas"]["OptionPositionLegQuote"][];
+            /** Points */
+            points: components["schemas"]["OptionPositionPoint"][];
+        };
+        /** OptionPositionLeg */
+        OptionPositionLeg: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "call" | "put" | "stock";
+            /**
+             * Side
+             * @description +1 bought, -1 sold
+             * @enum {integer}
+             */
+            side: 1 | -1;
+            /**
+             * Quantity
+             * @description Contracts, or shares for stock
+             */
+            quantity: number;
+            /**
+             * Strike
+             * @description Options only
+             */
+            strike?: number | null;
+            /**
+             * Expiry
+             * @description Options only
+             */
+            expiry?: string | null;
+            /**
+             * Premium
+             * @description Per share; the stock leg's entry price
+             */
+            premium: number;
+        };
+        /** OptionPositionLegQuote */
+        OptionPositionLegQuote: {
+            /**
+             * T Remaining
+             * @description Years left on the curve's date
+             */
+            T_remaining: number;
+            /**
+             * Forward
+             * @description Model forward at the reference spot
+             */
+            forward: number | null;
+            /**
+             * Carry
+             * @description q reproducing the parity forward
+             */
+            carry: number | null;
+            /**
+             * Iv
+             * @description The leg's vol at the reference spot
+             */
+            iv: number | null;
+            /** Vol Source */
+            vol_source: ("interpolated" | "extrapolated") | null;
+            /**
+             * Model Price
+             * @description Per share at the reference spot on the date
+             */
+            model_price: number;
+        };
+        /** OptionPositionPoint */
+        OptionPositionPoint: {
+            /** Spot */
+            spot: number;
+            /** Value */
+            value: number;
+            /** Profit */
+            profit: number;
+            /**
+             * Delta
+             * @description $ per $1 of the underlying
+             */
+            delta: number;
+            /**
+             * Gamma
+             * @description Delta's change per $1
+             */
+            gamma: number;
+            /**
+             * Vega
+             * @description $ per vol point, every leg shifted together
+             */
+            vega: number;
+            /**
+             * Theta
+             * @description $ per calendar day passing
+             */
+            theta: number;
+            /**
+             * Rho
+             * @description $ per percentage point of the rate
+             */
+            rho: number;
+        };
         /** OptionPriceRequest */
         OptionPriceRequest: {
             /** Spot */
@@ -2325,6 +2507,11 @@ export interface components {
              * @description By strike, as served
              */
             quotes: components["schemas"]["OptionsQuote"][];
+            /**
+             * Dividend Date Uncertain
+             * @description Expiries within OPTIONS_DIVIDEND_DATE_UNCERTAIN_DAYS of a projected ex-date: the surface's forward there may sit on the wrong side of the dividend
+             */
+            dividend_date_uncertain: string[];
         };
         /** OptionsRate */
         OptionsRate: {
@@ -5986,6 +6173,51 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+        };
+    };
+    position_curve_api_v1_options_position_curve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OptionPositionCurveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OptionPositionCurveResponse"];
+                };
+            };
+            /** @description No complete capture for that ticker-day */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No risk-free rate stored on or before that day */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A leg without a strike or a smile, or a date out of range */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

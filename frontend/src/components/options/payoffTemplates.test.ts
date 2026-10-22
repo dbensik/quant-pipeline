@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest'
 import type { OptionsQuote } from '@/api/client'
 
 import { analyse } from './payoff'
-import { legsOf, nearestStrike, quotedPremium, strikeSpacing, TEMPLATES } from './payoffTemplates'
+import { farExpiry, legsOf, nearestStrike, quotedPremium, strikeSpacing, TEMPLATES } from './payoffTemplates'
 
 const QUOTES: OptionsQuote[] = [
   { strike: 745, call_bid: 25.1, call_ask: 25.5, put_bid: 2.0, put_ask: 2.1 },
@@ -67,7 +67,48 @@ describe('templates', () => {
       expect(Number.isFinite(priced(id).maxGain), id).toBe(true)
       expect(Number.isFinite(priced(id).maxLoss), id).toBe(true)
     }
-    expect(TEMPLATES.map((t) => t.id)).not.toContain('calendar')
+  })
+})
+
+describe('calendars', () => {
+  it('sell the page expiry and buy the far one at the same strike', () => {
+    for (const [id, kind] of [
+      ['call_calendar', 'call'],
+      ['put_calendar', 'put'],
+    ] as const) {
+      const legs = legsOf(template(id), 768, STRIKES, '2026-12-18')
+      expect(legs).toEqual([
+        { kind, side: -1, quantity: 1, strike: 770, expiry: null },
+        { kind, side: 1, quantity: 1, strike: 770, expiry: '2026-12-18' },
+      ])
+    }
+  })
+
+  it('leave every other template on the page expiry', () => {
+    for (const t of TEMPLATES.filter((x) => !x.id.endsWith('calendar'))) {
+      expect(legsOf(t, 100, [], '2026-12-18').every((l) => l.expiry === null), t.id).toBe(true)
+    }
+  })
+})
+
+describe('farExpiry', () => {
+  const LISTED = ['2026-11-20', '2026-10-26', '2026-12-18', '2026-11-13', '2027-01-15']
+
+  it('takes the first expiry four weeks past the near one', () => {
+    expect(farExpiry(LISTED, '2026-10-26')).toBe('2026-12-18') // 11-13 and 11-20 are too near
+    expect(farExpiry(LISTED, '2026-10-23')).toBe('2026-11-20') // exactly 28 days
+    expect(farExpiry(LISTED, '2026-11-20')).toBe('2026-12-18')
+  })
+
+  it('falls back to the last later expiry, or none', () => {
+    expect(farExpiry(LISTED, '2026-12-25')).toBe('2027-01-15') // 21 days
+    expect(farExpiry(LISTED, '2027-01-15')).toBeNull()
+  })
+
+  it('passes over an expiry near a projected ex-date while another will do', () => {
+    expect(farExpiry(LISTED, '2026-10-26', ['2026-12-18'])).toBe('2027-01-15')
+    expect(farExpiry(LISTED, '2026-11-20', ['2026-12-18', '2027-01-15'])).toBe('2026-12-18')
+    expect(farExpiry(LISTED, '2026-10-23', ['2026-11-20'])).toBe('2026-12-18')
   })
 })
 

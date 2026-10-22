@@ -74,8 +74,10 @@ the last 7 days).
 - **Sticky strike (the default):** each leg keeps the volatility of its
   own strike as spot moves.
 - **Sticky moneyness (the switch):** each leg reads the smile at its new
-  log-moneyness, K over the moved forward. As spot falls, a put's
-  volatility rises along the skew.
+  log-moneyness, K over the moved forward. As spot falls, a fixed strike's
+  K/F rises, so on a downward skew its volatility FALLS. (Corrected
+  2026-10-21: this line had said a falling put's volatility rises, which
+  is backwards; a long put's delta is less negative under this rule.)
 - **Why the switch matters:** it is the lesson the vault task names, "but
   I was delta-neutral". The same position shows a different delta under
   the two rules, and the page draws both.
@@ -136,8 +138,12 @@ lands.
 ## Caveats the page will state
 
 - **American options as European:** the legs are American, priced here as
-  European at volatilities with the early-exercise premium removed. On the
-  32-day SPY smile that premium is at most $0.25 a share, on deep puts.
+  European at volatilities with the early-exercise premium removed. Out of
+  the money that premium is cents. In the money it is not: on the 32-day
+  SPY smile of 2026-10-19 it is $0.22 a share at the money, $1.98 for a put
+  5% in the money and $2.99 at 10% (AAPL $0.47 at 10%, TQQQ $0.04).
+  (Corrected 2026-10-21: this line had said at most $0.25, which holds out
+  of the money only.)
 - **Older captures are slow the first time:** the Payoffs page offers all
   25 capture days, but surfaces are cached for the last 7 only. On an
   older day, the first curve before expiry waits 10-35 s while its surface

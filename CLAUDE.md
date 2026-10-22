@@ -422,14 +422,32 @@ zero; a regime third's Sharpe is about ±0.45. The report adds 0.2-0.4 s to a
 
 **Option payoffs at expiry** (decision 54, 2026-10-20,
 `research/option-payoff-2026-10-20.md`). The Payoffs page (`/payoffs`) builds
-multi-leg positions from 17 templates. Its arithmetic is in
+multi-leg positions from templates. Its arithmetic is in
 `frontend/src/components/options/payoff.ts`: breakevens and extremes are
 solved exactly at S = 0, the strikes and the slope beyond them, never read
 off a sampled curve. Premiums come from one archived capture through `GET
 /options/quotes` (raw bid and ask, both rights). A buy pays the ask and a
 sale receives the bid, unless mid is chosen. Premiums can also be typed.
-Calendars are left out on purpose: the far leg at the near expiry needs a
-pricer and a volatility, and they belong to the Greeks task.
+
+**The curve before expiry and its Greeks** (decision 55, 2026-10-21,
+`research/option-greeks-2026-10-20.md`, `pricing/position.py`, `POST
+/options/position-curve`). Each leg is priced by `pricing.black_scholes` at
+its OWN expiry's smile vol (linear in ln K/F0, flat past the last quote, and
+the page says so), with the carry that reproduces the surface's parity
+forward; an expired leg pays intrinsic. Sticky strike (default) or sticky
+moneyness; the Greek chart draws the other rule dashed. The page never
+prices: the API returns profit and the five Greeks on a grid, the slider
+runs from the capture to the last expiry, and the 2 calendar templates (19
+now) give a leg its own expiry. A calendar's far leg passes over an
+expiry within 5 days of a projected ex-date (`dividend_date_uncertain` on
+`/options/quotes`, the surface's own rule; decision 55 B): there the
+surface's forward can sit on the wrong side of the dividend, and on SPY
+2026-12-18 the model put the 770 call $0.94 under its mid. The page notes any
+leg on such an expiry. On the last expiry the API's profit equals
+`payoff.ts` exactly (57 structures, SPY/AAPL/TQQQ, checked 2026-10-21). It
+needs the capture's surface: 10-35 s the first time on a capture older than
+the 7 the job precomputes. American legs are priced European: cents out of
+the money, $2-3 a share on SPY puts 5-10% in the money.
 
 **Served equities and ETFs have bars from 2010** (insert-only backfill
 2026-10-14, decision 26; ^IRX from 2009-12, without which a pre-2015
@@ -606,7 +624,7 @@ Protocol (`db/repositories/market_data.py` documents this as its purpose).
 Integration tests are deselected by default and skip if the DB is down.
 
 ```bash
-cd frontend && npm test        # 256 tests — also needs NO API/Docker
+cd frontend && npm test        # 414 tests — also needs NO API/Docker
 ```
 
 When adding tests: assert on the *output*, not on values the response merely

@@ -5,8 +5,9 @@
  * premium each leg would have cost in a capture: a buy pays the ask and a
  * sale receives the bid, unless mid is chosen.
  *
- * Calendars are not here: their legs expire on different dates, so at the
- * near expiry the far leg is still an option with a price, not a payoff.
+ * Calendars (decision 55) sell the page's expiry and buy a later one at the
+ * same strike. At the near expiry the far leg is still an option with a
+ * price, so their profit comes from the curve before expiry, not payoff.ts.
  */
 
 import type { OptionsQuote } from '@/api/client'
@@ -21,6 +22,8 @@ interface TemplateLeg {
   side: Side
   quantity: number
   at: number
+  /** Expires on the far expiry, not the page's. */
+  far?: boolean
 }
 
 export interface Template {
@@ -69,6 +72,16 @@ export const TEMPLATES: Template[] = [
     label: 'Iron condor',
     legs: [leg(1, 'put', -2), leg(-1, 'put', -1), leg(-1, 'call', 1), leg(1, 'call', 2)],
   },
+  {
+    id: 'call_calendar',
+    label: 'Call calendar',
+    legs: [leg(-1, 'call'), { ...leg(1, 'call'), far: true }],
+  },
+  {
+    id: 'put_calendar',
+    label: 'Put calendar',
+    legs: [leg(-1, 'put'), { ...leg(1, 'put'), far: true }],
+  },
   { id: 'covered_call', label: 'Covered call', legs: [stock(1), leg(-1, 'call', 1)] },
   { id: 'collar', label: 'Collar', legs: [stock(1), leg(1, 'put', -1), leg(-1, 'call', 1)] },
 ]
@@ -95,10 +108,39 @@ export interface DraftLeg {
   side: Side
   quantity: number
   strike: number
+  /** Null: the page's expiry. */
+  expiry: string | null
 }
 
-export function legsOf(template: Template, reference: number, strikes: number[]): DraftLeg[] {
+/** A calendar's far leg: one month past the near expiry. */
+export const FAR_EXPIRY_DAYS = 28
+
+const DAY_MS = 86_400_000
+
+/**
+ * The first listed expiry at least FAR_EXPIRY_DAYS after `near`, else the
+ * last one after it; null when nothing is listed after it. Expiries in
+ * `avoid` (a projected ex-date near expiry: the surface may price their calls
+ * on the wrong side of the dividend) are passed over while another will do.
+ */
+export function farExpiry(expiries: string[], near: string, avoid: string[] = []): string | null {
+  const t = Date.parse(near)
+  const pick = (listed: string[]) => {
+    const later = [...listed].sort().filter((x) => Date.parse(x) > t)
+    return later.find((x) => Date.parse(x) - t >= FAR_EXPIRY_DAYS * DAY_MS) ?? later.at(-1) ?? null
+  }
+  return pick(expiries.filter((x) => !avoid.includes(x))) ?? pick(expiries)
+}
+
+/** A far leg takes `far` (null when there is none: typed premiums, or no later expiry). */
+export function legsOf(
+  template: Template,
+  reference: number,
+  strikes: number[],
+  far: string | null = null,
+): DraftLeg[] {
   return template.legs.map((l) => ({
+    expiry: l.far ? far : null,
     kind: l.kind,
     side: l.side,
     quantity: l.quantity,

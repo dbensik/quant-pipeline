@@ -122,6 +122,10 @@ export type OptionModelQuote = components['schemas']['OptionModelQuote']
 export type OptionPricerInfo = components['schemas']['OptionPricerInfo']
 export type OptionsQuotesResponse = components['schemas']['OptionsQuotesResponse']
 export type OptionsQuote = components['schemas']['OptionsQuote']
+export type OptionPositionCurveRequest = components['schemas']['OptionPositionCurveRequest']
+export type OptionPositionCurveResponse = components['schemas']['OptionPositionCurveResponse']
+export type OptionPositionLeg = components['schemas']['OptionPositionLeg']
+export type OptionPositionPoint = components['schemas']['OptionPositionPoint']
 
 export type ValuationRequest = components['schemas']['ValuationRequest']
 export type ValuationResponse = components['schemas']['ValuationResponse']
@@ -633,6 +637,11 @@ export const api = {
     return request(
       `/api/v1/options/quotes${qs({ ticker, day: day ?? undefined, expiry: expiry ?? undefined })}`,
     )
+  },
+
+  /** Profit and Greeks before expiry (decision 55); a cold surface costs 10-35 s. */
+  getPositionCurve(body: OptionPositionCurveRequest): Promise<OptionPositionCurveResponse> {
+    return request('/api/v1/options/position-curve', { method: 'POST', body: JSON.stringify(body) })
   },
 
   getOptionPricers(): Promise<OptionPricerInfo[]> {

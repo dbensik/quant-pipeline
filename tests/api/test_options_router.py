@@ -240,6 +240,28 @@ def test_quotes_are_the_captured_bid_and_ask_for_both_rights(options_client):
     assert strikes == sorted(strikes) and len(strikes) == len(set(strikes)) == 50
 
 
+def test_quotes_flag_expiries_near_a_projected_ex_date(options_client):
+    get = options_client.get
+    # The fixture history projects the next ex-date to 2026-12-18 (median gap
+    # 91 days after 09-18): neither captured expiry is within 5 days of it.
+    assert (
+        get("/api/v1/options/quotes", params={"ticker": "SPY"}).json()["dividend_date_uncertain"]
+        == []
+    )
+    assert options_client.divs.calls[-1] == ("SPY", date(2026, 10, 7))
+
+    class NearNovember(FakeDividends):
+        async def dividend_history(self, symbol, on_or_before):
+            # Gaps of 91 days, the last 08-19: projected 11-18, 2 days before 11-20.
+            return [(date(2026, 2, 18), 1.0), (date(2026, 5, 20), 1.0), (date(2026, 8, 19), 1.0)]
+
+    app.dependency_overrides[R.get_dividend_repo] = lambda: NearNovember()
+    body = get("/api/v1/options/quotes", params={"ticker": "SPY", "expiry": "2026-10-16"}).json()
+    assert body["dividend_date_uncertain"] == ["2026-11-20"]
+    # Every expiry is flagged, not only the one served.
+    assert body["expiry"] == "2026-10-16"
+
+
 def test_quotes_errors(options_client, tmp_path):
     get = options_client.get
     assert get("/api/v1/options/quotes", params={"ticker": "QQQ"}).status_code == 404
@@ -252,3 +274,147 @@ def test_quotes_errors(options_client, tmp_path):
     assert get("/api/v1/options/quotes", params={"ticker": "SPY"}).json()["day"] == "2026-10-07"
     (chains / "2026-10-07.parquet").rename(chains / "2026-10-07.partial.parquet")
     assert get("/api/v1/options/quotes", params={"ticker": "SPY"}).status_code == 404
+
+
+# -- /position-curve: the curve before expiry (decision 55) ---------------------
+
+STRADDLE = [
+    {
+        "kind": "call",
+        "side": 1,
+        "quantity": 1,
+        "strike": 770,
+        "expiry": "2026-11-20",
+        "premium": 21.13,
+    },
+    {
+        "kind": "put",
+        "side": 1,
+        "quantity": 1,
+        "strike": 770,
+        "expiry": "2026-11-20",
+        "premium": 10.15,
+    },
+]
+
+
+def curve_of(client, **body):
+    return client.post("/api/v1/options/position-curve", json={"ticker": "SPY", **body})
+
+
+def test_position_curve_starts_at_the_capture_and_hits_the_cache(options_client):
+    r = curve_of(options_client, legs=STRADDLE)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert (body["day"], body["as_of"], body["last_expiry"]) == ("2026-10-07",) * 2 + (
+        "2026-11-20",
+    )
+    assert (
+        body["cache_hit"] is False and curve_of(options_client, legs=STRADDLE).json()["cache_hit"]
+    )
+    assert body["spot"] == 777.24 and body["rate"] > 0
+    spots = [p["spot"] for p in body["points"]]
+    assert spots == sorted(spots) and 777.24 in spots and 770.0 in spots
+    assert spots[0] == pytest.approx(777.24 * 0.75) and spots[-1] == pytest.approx(777.24 * 1.25)
+    for q in body["legs"]:
+        assert q["vol_source"] == "interpolated" and 0.05 < q["iv"] < 0.5
+        assert q["T_remaining"] == pytest.approx(44 / 365, abs=1 / 365)
+    # At the capture's spot a straddle bought at the ask is worth its mids
+    # less the spread and the put's early-exercise premium: a small loss.
+    at = next(p for p in body["points"] if p["spot"] == 777.24)
+    paid = 100 * (21.13 + 10.15)
+    model = 100 * sum(q["model_price"] for q in body["legs"])
+    assert at["value"] == pytest.approx(model) and at["profit"] == pytest.approx(model - paid)
+    assert -60 < at["profit"] < 0
+    assert at["gamma"] > 0 and at["vega"] > 0 and at["theta"] < 0
+
+
+def test_position_curve_on_the_last_expiry_is_the_payoff(options_client):
+    for rule in ("sticky_strike", "sticky_moneyness"):
+        body = curve_of(
+            options_client, legs=STRADDLE, as_of="2026-11-20", vol_rule=rule, low=700, high=850
+        ).json()
+        for p in body["points"]:
+            assert p["profit"] == pytest.approx(100 * (abs(p["spot"] - 770) - 31.28), abs=1e-9)
+            assert p["vega"] == 0 and p["theta"] == 0
+
+
+def test_position_curve_rules_agree_at_the_reference_spot_only(options_client):
+    a, b = (
+        curve_of(options_client, legs=STRADDLE, vol_rule=rule, low=745, high=810).json()
+        for rule in ("sticky_strike", "sticky_moneyness")
+    )
+    assert [q["iv"] for q in a["legs"]] == pytest.approx([q["iv"] for q in b["legs"]])
+    pa = {p["spot"]: p for p in a["points"]}
+    pb = {p["spot"]: p for p in b["points"]}
+    assert pa[777.24]["value"] == pytest.approx(pb[777.24]["value"])
+    # Below the spot, moneyness reads the straddle's strike further up the
+    # smile, where the vol is lower (the fixture's quotes reach about 10% out;
+    # past them both rules are flat, and agree).
+    assert pa[745]["value"] - pb[745]["value"] > 20
+
+
+def test_position_curve_calendar_at_the_near_expiry(options_client):
+    legs = [
+        {
+            "kind": "call",
+            "side": -1,
+            "quantity": 1,
+            "strike": 780,
+            "expiry": "2026-10-16",
+            "premium": 5,
+        },
+        {
+            "kind": "call",
+            "side": 1,
+            "quantity": 1,
+            "strike": 780,
+            "expiry": "2026-11-20",
+            "premium": 15,
+        },
+        {"kind": "stock", "side": 1, "quantity": 10, "premium": 777.24},
+    ]
+    body = curve_of(options_client, legs=legs, as_of="2026-10-16").json()
+    near, far, stock = body["legs"]
+    assert near["T_remaining"] == 0 and far["T_remaining"] > 0
+    assert near["model_price"] == pytest.approx(0.0)  # 780 call, spot 777.24
+    assert stock == {
+        "T_remaining": 0,
+        "forward": None,
+        "carry": None,
+        "iv": None,
+        "vol_source": None,
+        "model_price": 777.24,
+    }
+    # The far leg is still alive, so the curve is no payoff: it bends smoothly.
+    assert all(p["vega"] > 0 for p in body["points"])
+
+
+def test_position_curve_errors(options_client):
+    assert curve_of(options_client, legs=STRADDLE, day="2026-10-06").status_code == 404
+    no_strike = [{**STRADDLE[0], "strike": None}]
+    assert curve_of(options_client, legs=no_strike).status_code == 422
+    r = curve_of(options_client, legs=[{**STRADDLE[0], "expiry": "2026-12-18"}])
+    assert r.status_code == 422 and "2026-12-18" in r.json()["detail"]
+    for as_of in ("2026-10-06", "2026-11-21"):
+        assert curve_of(options_client, legs=STRADDLE, as_of=as_of).status_code == 422
+    assert curve_of(options_client, legs=STRADDLE * 7).status_code == 422
+    assert curve_of(options_client, legs=STRADDLE, low=800, high=700).status_code == 422
+    assert curve_of(options_client, legs=[]).status_code == 422
+
+
+def test_position_curve_leaves_out_expiries_it_cannot_price():
+    point = {"log_moneyness": 0.0, "iv": 0.2}
+    surface = {
+        "expiries": [
+            {"expiry": "2026-10-07", "T": 0.0, "forward": 777.0},
+            {"expiry": "2026-10-09", "T": 0.005, "forward": 777.0},
+            {"expiry": "2026-11-20", "T": 0.12, "forward": 779.0},
+        ],
+        "smiles": {
+            "2026-10-07": [point, {"log_moneyness": 0.1, "iv": 0.2}],
+            "2026-10-09": [point],
+            "2026-11-20": [point, {"log_moneyness": 0.1, "iv": 0.18}],
+        },
+    }
+    assert list(R.expiries_of(surface)) == [date(2026, 11, 20)]

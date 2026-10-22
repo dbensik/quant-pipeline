@@ -1,9 +1,12 @@
 /**
  * components/charts/PayoffChart.tsx
  * Profit at expiry against the underlying price (decision 54), with the
- * reference price and each breakeven marked.
+ * reference price and each breakeven marked, and the curve before expiry
+ * over it (decision 55).
  *
- * Presentational only: the curve is built in components/options/payoff.ts.
+ * Presentational only: profit at expiry is built in
+ * components/options/payoff.ts, the curve before expiry by the API. Each line
+ * carries its own data, since the two are drawn on different grids.
  */
 
 import {
@@ -30,14 +33,19 @@ export function PayoffChart({
   points,
   reference,
   breakevens,
+  before,
+  beforeLabel = 'Before expiry',
 }: {
+  /** Profit at expiry; empty when the legs expire on different dates. */
   points: PayoffPoint[]
   reference: number
   breakevens: number[]
+  before?: PayoffPoint[]
+  beforeLabel?: string
 }) {
   return (
     <ResponsiveContainer width="100%" height={340}>
-      <LineChart data={points} margin={{ top: 24, right: 16, bottom: 16, left: 8 }}>
+      <LineChart margin={{ top: 24, right: 16, bottom: 16, left: 8 }}>
         <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
         <XAxis
           type="number"
@@ -46,7 +54,7 @@ export function PayoffChart({
           tickFormatter={(v: number) => v.toFixed(0)}
           tick={{ fontSize: 12 }}
           label={{
-            value: 'Price at expiry',
+            value: points.length ? 'Price at expiry' : 'Price',
             position: 'insideBottomRight',
             fontSize: 11,
             offset: -8,
@@ -71,7 +79,19 @@ export function PayoffChart({
           formatter={(value) => dollars.format(Number(value))}
           labelFormatter={(x) => `At ${price(Number(x))}`}
         />
+        {before?.length ? (
+          <Line
+            data={before}
+            dataKey="profit"
+            name={beforeLabel}
+            stroke="#7c3aed"
+            dot={false}
+            strokeWidth={2}
+            isAnimationActive={false}
+          />
+        ) : null}
         <Line
+          data={points}
           dataKey="profit"
           name="Profit at expiry"
           stroke="#16a34a"
