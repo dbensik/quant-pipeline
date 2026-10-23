@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from config.settings import (
+    CRYPTO_PROVIDER_SYMBOLS,
     NEWS_ARCHIVE_FULL_PAGE,
     NEWS_ARCHIVE_PER_SYMBOL,
     NEWS_SEARCH_TERMS,
@@ -23,6 +24,7 @@ from core.news_archive import (
     fetch_all,
     is_full,
     own_tagged,
+    own_tickers,
     search_term,
     search_terms,
     story_rows,
@@ -200,6 +202,30 @@ def test_a_story_is_stored_with_its_tags_as_served_unfiltered():
 def test_own_tagged_counts_the_symbol_s_own_tag_only():
     page = [item("a", tags=("KEY",)), item("b", tags=("KEYS", "K")), item("c", tags=())]
     assert own_tagged("KEY", page) == 1
+
+
+def test_a_mapped_coin_s_provider_ticker_is_its_own_tag():
+    # 2026-10-22: 'Uniswap' stories tagged UNI7083-USD, 3 of 10 without UNI-USD.
+    assert CRYPTO_PROVIDER_SYMBOLS["UNI-USD"] == "UNI7083-USD"
+    page = [
+        item("a", tags=("UNI7083-USD",)),
+        item("b", tags=("UNI7083-USD", "UNI-USD")),  # one story, counted once
+        item("c", tags=("ETH-USD",)),
+    ]
+    assert own_tickers("UNI-USD") == {"UNI-USD", "UNI7083-USD"}
+    assert own_tagged("UNI-USD", page) == 2
+    assert own_tickers("ETH-USD") == {"ETH-USD"}  # unmapped: the symbol alone
+
+
+def test_a_full_page_of_provider_tagged_stories_is_due_hourly():
+    # Hyperliquid's page: 49 stories, nearly all tagged HYPE32196-USD alone.
+    # Counted by the symbol, it was "mostly others" and never refetched.
+    provider = CRYPTO_PROVIDER_SYMBOLS["HYPE-USD"]
+    page = [item(str(i), tags=(provider,)) for i in range(49)]
+    own = own_tagged("HYPE-USD", page)
+    assert own == 49
+    last = LastFetch(T0 - HOUR, 49, T0 - 2 * HOUR, own)
+    assert due(last, T0, HOUR) is True
 
 
 def test_a_story_without_an_id_or_title_is_skipped():

@@ -34,6 +34,7 @@ from api.routers.valuation import get_valuation_data
 from api.upstream import UpstreamError, YFinanceGateway, get_upstream
 from core import research_financials
 from core import valuation_service as svc
+from core.news_archive import own_tickers, search_terms
 from core.portfolio import derive_state
 from db.repositories.portfolios import TimescalePortfolioRepo
 from db.repositories.watchlists import TimescaleWatchlistRepo
@@ -126,9 +127,10 @@ class NewsFeed(BaseModel):
     unrelated_dropped: Dict[str, int] = Field(
         default_factory=dict,
         description=(
-            "Per ticker, stories the search returned that Yahoo does not tag with "
-            "that ticker or another share class of it, left out. Reported, not "
-            "silently trimmed: a story that names a ticker untagged is lost too."
+            "Per ticker, stories its searches returned that Yahoo does not tag with "
+            "that ticker, another share class of it or a coin's provider ticker, "
+            "left out. Reported, not silently trimmed: a story that names a ticker "
+            "untagged is lost too."
         ),
     )
 
@@ -253,7 +255,16 @@ async def get_news(
     Yahoo tags them with it or another of its share classes (the registry's
     equities on the same CIK: GOOGL's stories are tagged GOOG). Measured on
     34 tickers 2026-10-22: 8 stories dropped were about something else (FOX
-    had Fox Factory and Terry Fox), 4 named the ticker but were untagged.
+    had Fox Factory and Terry Fox), 4 named the ticker but were untagged. A
+    title match would recover those at about two wrong stories for each
+    right one, so it is not used (research/news-fallbacks-2026-10-22.md).
+
+    A registered symbol is searched by itself AND the archive's terms
+    (core.news_archive.search_terms): a coin by its base symbol and verified
+    name, since its pair answered for 1 of 20 large coins; a word ticker by
+    its NEWS_SEARCH_TERMS entry (KEY: 0 of 10 stories tagged KEY, KEYCORP 10
+    of 10). A coin's provider ticker counts as its own tag: Yahoo tags
+    Uniswap's stories UNI7083-USD.
     """
     resolved, source = await _resolve_symbols(symbols, portfolio, watchlist, portfolios, watchlists)
 
@@ -266,9 +277,18 @@ async def get_news(
         return NewsFeed(symbols=[], source=source, items=[], truncated_symbols=[])
 
     classes = await data.share_classes(covered)
-    aliases = {s.upper(): classes.get(s.upper(), []) for s in covered}
+    identities = await data.news_identities(covered)
+    aliases, terms = {}, {}
+    for symbol in (s.upper() for s in covered):
+        aliases[symbol] = sorted(set(classes.get(symbol, [])) | (own_tickers(symbol) - {symbol}))
+        terms[symbol] = [symbol]
+        if symbol in identities:
+            asset_class, name = identities[symbol]
+            terms[symbol] += [t for t in search_terms(symbol, asset_class, name) if t != symbol]
     try:
-        items, dropped = await run_in_threadpool(upstream.fetch_related_news, covered, aliases)
+        items, dropped = await run_in_threadpool(
+            upstream.fetch_related_news, covered, aliases, terms
+        )
     except UpstreamError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from None
 

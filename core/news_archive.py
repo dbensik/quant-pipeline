@@ -32,9 +32,10 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
 
 from config.settings import (
+    CRYPTO_PROVIDER_SYMBOLS,
     NEWS_ARCHIVE_EMPTY_RETRIES,
     NEWS_ARCHIVE_FULL_PAGE,
     NEWS_ARCHIVE_OWN_SHARE,
@@ -70,10 +71,31 @@ def search_terms(symbol: str, asset_class: str, verified_name: Optional[str] = N
     return terms
 
 
+def own_tickers(symbol: str) -> Set[str]:
+    """
+    The tags that make a story the symbol's own: the symbol, and for a coin
+    fetched under another Yahoo ticker (CRYPTO_PROVIDER_SYMBOLS) that ticker
+    too. Measured 2026-10-22: all 10 'Uniswap' stories were tagged
+    UNI7083-USD and 3 of them not UNI-USD; 142 archived stories on 22 mapped
+    coins carried only the provider ticker
+    (research/news-fallbacks-2026-10-22.md).
+    """
+    provider = CRYPTO_PROVIDER_SYMBOLS.get(symbol)
+    return {symbol, provider} if provider else {symbol}
+
+
 def own_tagged(symbol: str, items: Iterable[Any]) -> int:
-    """How many stories Yahoo tagged with the symbol itself."""
+    """
+    How many stories Yahoo tagged with the symbol's own tickers (own_tickers).
+    Counting the symbol alone had judged Hyperliquid's page (49 stories, 34 of
+    the 40 stored tagged HYPE32196-USD) mostly someone else's, so the hourly
+    pass never refetched it and its losses were never recorded.
+    """
+    own = own_tickers(symbol)
     return sum(
-        1 for raw in items if isinstance(raw, dict) and symbol in (raw.get("relatedTickers") or [])
+        1
+        for raw in items
+        if isinstance(raw, dict) and not own.isdisjoint(raw.get("relatedTickers") or [])
     )
 
 

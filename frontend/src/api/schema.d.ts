@@ -949,7 +949,16 @@ export interface paths {
          *     Yahoo tags them with it or another of its share classes (the registry's
          *     equities on the same CIK: GOOGL's stories are tagged GOOG). Measured on
          *     34 tickers 2026-10-22: 8 stories dropped were about something else (FOX
-         *     had Fox Factory and Terry Fox), 4 named the ticker but were untagged.
+         *     had Fox Factory and Terry Fox), 4 named the ticker but were untagged. A
+         *     title match would recover those at about two wrong stories for each
+         *     right one, so it is not used (research/news-fallbacks-2026-10-22.md).
+         *
+         *     A registered symbol is searched by itself AND the archive's terms
+         *     (core.news_archive.search_terms): a coin by its base symbol and verified
+         *     name, since its pair answered for 1 of 20 large coins; a word ticker by
+         *     its NEWS_SEARCH_TERMS entry (KEY: 0 of 10 stories tagged KEY, KEYCORP 10
+         *     of 10). A coin's provider ticker counts as its own tag: Yahoo tags
+         *     Uniswap's stories UNI7083-USD.
          */
         get: operations["get_news_api_v1_research_news_get"];
         put?: never;
@@ -2093,7 +2102,7 @@ export interface components {
             truncated_symbols?: string[];
             /**
              * Unrelated Dropped
-             * @description Per ticker, stories the search returned that Yahoo does not tag with that ticker or another share class of it, left out. Reported, not silently trimmed: a story that names a ticker untagged is lost too.
+             * @description Per ticker, stories its searches returned that Yahoo does not tag with that ticker, another share class of it or a coin's provider ticker, left out. Reported, not silently trimmed: a story that names a ticker untagged is lost too.
              */
             unrelated_dropped?: {
                 [key: string]: number;

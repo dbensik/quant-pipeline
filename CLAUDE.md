@@ -708,8 +708,14 @@ For the TimescaleDB layer, copy `.env.example` → `.env`; without it, `db/sessi
   to an endpoint that 404s and yfinance returns [] silently. A response
   without a `news` field is a failure, and an empty answer is never cached.
   A story is kept only when Yahoo tags it with its ticker or another share
-  class (same own CIK: GOOG/GOOGL, FOX/FOXA, NWS/NWSA); the rest are counted
-  in `unrelated_dropped`, never silently trimmed.
+  class (same own CIK: GOOG/GOOGL, FOX/FOXA, NWS/NWSA) or, for a coin, its
+  `CRYPTO_PROVIDER_SYMBOLS` ticker; the rest are counted in
+  `unrelated_dropped`, never silently trimmed. A registered symbol is also
+  searched by the archive's terms (since 2026-10-22,
+  `research/news-fallbacks-2026-10-22.md`): a coin by base symbol and
+  verified name (its pair answered for 1 of 20), a word ticker by its
+  `NEWS_SEARCH_TERMS` entry. A title match was measured and NOT adopted
+  (2 wrong stories for each right one).
 - `api/routers/portfolio_backtest.py` + `frontend/src/pages/AllocationPage.tsx`
   — multi-asset allocation rules over a basket, beside the same basket
   equal-weighted (decision 32, 2026-10-15). With no `weights`, each strategy's

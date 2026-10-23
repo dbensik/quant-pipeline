@@ -74,6 +74,29 @@ class TimescaleValuationRepo:
             if s in own
         }
 
+    async def news_identities(self, symbols: Iterable[str]) -> Dict[str, Tuple[str, Optional[str]]]:
+        """
+        Each of `symbols` registered as an equity, ETF or coin -> (asset
+        class, metadata.verified_name): what the Research page needs to
+        search it by the archive's terms (core.news_archive.search_terms).
+        """
+        wanted = sorted({s.upper() for s in symbols})
+        if not wanted:
+            return {}
+        rows = (
+            await self.session.execute(
+                select(
+                    AssetORM.symbol,
+                    AssetORM.asset_class,
+                    AssetORM.metadata_["verified_name"].astext,
+                ).where(
+                    AssetORM.symbol.in_(wanted),
+                    AssetORM.asset_class.in_(["equity", "etf", "crypto"]),
+                )
+            )
+        ).all()
+        return {symbol: (asset_class, name) for symbol, asset_class, name in rows}
+
     async def facts(self, ciks: Iterable[int], concepts: Iterable[str]) -> List[Fact]:
         concepts = list(concepts)
         out: List[Fact] = []

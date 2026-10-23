@@ -252,25 +252,39 @@ class YFinanceGateway:
         return self.fetch_related_news(symbols)[0]
 
     def fetch_related_news(
-        self, symbols: List[str], aliases: Optional[Dict[str, List[str]]] = None
+        self,
+        symbols: List[str],
+        aliases: Optional[Dict[str, List[str]]] = None,
+        terms: Optional[Dict[str, List[str]]] = None,
     ) -> Tuple[List[Dict[str, Any]], Dict[str, int]]:
         """
         News for several tickers, newest first, de-duplicated, and how many
         stories each ticker lost to the relevance rule.
 
+        TERMS (2026-10-22, research/news-fallbacks-2026-10-22.md). With
+        `terms` (symbol -> what to search), a symbol's stories are every
+        story its terms return: a coin by its pair, base symbol and name
+        (the pair alone answered for 1 of 20 large coins), a word ticker by
+        its ticker and its NEWS_SEARCH_TERMS entry. A symbol absent from
+        `terms` is searched by itself. Each term is cached on its own.
+
         RELEVANCE (2026-10-22, research/news-source-2026-10-22.md). With
-        `aliases` (symbol -> its other share classes), a story found under a
-        symbol is kept only when Yahoo tags it with that symbol or one of its
-        aliases. A symbol absent from `aliases` keeps everything. The rule
-        runs per symbol BEFORE de-duplication, so a story found under two
-        symbols survives if it is tagged with either; filtering the merged
-        list would test it only against whichever symbol came first. The
-        cache stays unfiltered.
+        `aliases` (symbol -> its other tickers: share classes, a coin's
+        provider ticker), a story found under a symbol is kept only when
+        Yahoo tags it with that symbol or one of its aliases. A symbol absent
+        from `aliases` keeps everything. The rule runs per symbol BEFORE
+        de-duplication across symbols, so a story found under two symbols
+        survives if it is tagged with either; filtering the merged list would
+        test it only against whichever symbol came first. A story two of one
+        symbol's terms found is judged, and counted, once. The cache stays
+        unfiltered.
 
         A ticker that fails contributes nothing rather than failing the batch:
-        one delisted symbol in a watchlist should not blank the whole feed.
-        UpstreamError is raised only when EVERY ticker failed, which is the
-        case that actually means the provider is unreachable.
+        one delisted symbol in a watchlist should not blank the whole feed. A
+        symbol fails only when EVERY one of its terms failed, and
+        UpstreamError is raised only when every symbol failed, which is the
+        case that actually means the provider is unreachable. A term answered
+        from the cache has not failed.
 
         An empty answer is returned but NOT cached: measured 2026-10-22, QQQ
         came back with no stories and then ten a minute later, and a cached
@@ -279,46 +293,55 @@ class YFinanceGateway:
         wanted = [s.upper() for s in symbols if s and s.strip()]
         if not wanted:
             return [], {}
+        searched = {s: list(dict.fromkeys((terms or {}).get(s) or [s])) for s in wanted}
 
-        pending = [s for s in wanted if self.news_cache.get(s) is None]
-        failures = 0
+        pending = list(
+            dict.fromkeys(t for s in wanted for t in searched[s] if self.news_cache.get(t) is None)
+        )
+        failed: set = set()
 
         if pending:
 
-            def fetch_one(symbol: str):
+            def fetch_one(term: str):
                 try:
-                    return symbol, self._news_for(symbol)
+                    return term, self._news_for(term)
                 except Exception as exc:  # noqa: BLE001
-                    logger.warning("News fetch failed for %s: %s", symbol, exc)
-                    return symbol, None
+                    logger.warning("News fetch failed for %s: %s", term, exc)
+                    return term, None
 
             with ThreadPoolExecutor(max_workers=MAX_PARALLEL_FETCHES) as pool:
-                for symbol, raw in pool.map(fetch_one, pending):
+                for term, raw in pool.map(fetch_one, pending):
                     if raw is None:
-                        failures += 1
+                        failed.add(term)
                         continue
                     items = [normalise_news_item(item) for item in raw]
                     items = [i for i in items if i and i.get("title")]
                     if items:
-                        self.news_cache.set(symbol, items)
+                        self.news_cache.set(term, items)
 
-            if failures == len(pending):
-                raise UpstreamError("Could not fetch news for any of: " + ", ".join(pending))
+            dead = [s for s in wanted if all(t in failed for t in searched[s])]
+            if len(dead) == len(wanted):
+                raise UpstreamError("Could not fetch news for any of: " + ", ".join(wanted))
 
         merged: Dict[str, Dict[str, Any]] = {}
         dropped: Dict[str, int] = {}
         for symbol in wanted:
             names = None if aliases is None or symbol not in aliases else {symbol, *aliases[symbol]}
-            for item in self.news_cache.get(symbol) or []:
-                if names is not None and names.isdisjoint(item.get("related_tickers") or []):
-                    dropped[symbol] = dropped.get(symbol, 0) + 1
-                    continue
-                # De-duplicate on URL, falling back to id. The Streamlit widget
-                # keyed on `link`, which yfinance 1.x does not emit, so every
-                # item collapsed onto the single key None.
-                key = item.get("url") or item.get("id") or item.get("title")
-                if key and key not in merged:
-                    merged[key] = {**item, "symbol": symbol}
+            seen: set = set()
+            for term in searched[symbol]:
+                for item in self.news_cache.get(term) or []:
+                    # De-duplicate on URL, falling back to id. The Streamlit
+                    # widget keyed on `link`, which yfinance 1.x does not
+                    # emit, so every item collapsed onto the single key None.
+                    key = item.get("url") or item.get("id") or item.get("title")
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    if names is not None and names.isdisjoint(item.get("related_tickers") or []):
+                        dropped[symbol] = dropped.get(symbol, 0) + 1
+                        continue
+                    if key and key not in merged:
+                        merged[key] = {**item, "symbol": symbol}
 
         items = sorted(
             merged.values(),

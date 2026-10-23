@@ -765,6 +765,9 @@ class NoFilings:
     async def share_classes(self, symbols):
         return {}
 
+    async def news_identities(self, symbols):
+        return {}
+
 
 @pytest.fixture
 def client(

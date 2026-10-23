@@ -226,6 +226,9 @@ class ShareClasses:
         known = {"GOOGL": ["GOOG"], "GOOG": ["GOOGL"]}
         return {s: known[s] for s in symbols if s in known}
 
+    async def news_identities(self, symbols):
+        return {}
+
 
 @pytest.fixture
 def classes_client(client: TestClient):
@@ -276,6 +279,133 @@ def test_a_symbol_with_no_stories_is_an_empty_feed_not_an_error(client: TestClie
     body = client.get(f"{BASE}/news", params={"symbols": ["QUIET"]})
     assert body.status_code == 200
     assert body.json()["items"] == []
+
+
+# ---------------------------------------------------------------------------
+# Search terms: coins and word tickers (2026-10-22,
+# research/news-fallbacks-2026-10-22.md)
+# ---------------------------------------------------------------------------
+
+
+def story(uuid, tags, title=None):
+    return {
+        "uuid": uuid,
+        "title": title or f"Story {uuid}",
+        "providerPublishTime": 1786291200,
+        "publisher": "Reuters",
+        "link": f"https://example.com/{uuid}",
+        "relatedTickers": list(tags),
+    }
+
+
+class TermsSearch:
+    """Yahoo as measured: a coin's pair answers nothing, its base and name do."""
+
+    NEWS = {
+        "ETH-USD": [],
+        "ETH": [story("e1", ["ETH-USD"]), story("e2", ["SOL-USD"])],
+        # e1 and e2 again: found by two of ETH-USD's terms, judged once each.
+        "Ethereum": [
+            story("e1", ["ETH-USD"]),
+            story("e2", ["SOL-USD"]),
+            story("e3", ["ETH-USD", "BTC-USD"]),
+        ],
+        "UNI-USD": [],
+        "UNI": [],
+        # Tagged with the provider ticker alone, as 3 of 10 were.
+        "Uniswap": [story("u1", ["UNI7083-USD"])],
+        "KEY": [story("k1", ["KEYS"]), story("k2", ["K"])],
+        "KEYCORP": [story("k3", ["KEY"])],
+        "XYZ-USD": [],
+        "XYZ": [],
+    }
+
+    def __init__(self, term, calls):
+        self.term = term
+        calls.append(term)
+
+    @property
+    def response(self):
+        if self.term in ("BROKEN", "Brokencoin"):
+            raise RuntimeError("upstream down")
+        return {"quotes": [], "news": self.NEWS.get(self.term, [])}
+
+
+class Registry(ShareClasses):
+    """ETH-USD, UNI-USD and XYZ-USD are coins and KEY an equity; nothing else is registered."""
+
+    async def news_identities(self, symbols):
+        known = {
+            "ETH-USD": ("crypto", "Ethereum"),
+            "UNI-USD": ("crypto", "Uniswap"),
+            "XYZ-USD": ("crypto", "Brokencoin"),
+            "KEY": ("equity", None),
+        }
+        return {s: known[s] for s in symbols if s in known}
+
+
+@pytest.fixture
+def terms_client(client: TestClient):
+    from api.main import app
+    from api.routers.valuation import get_valuation_data
+    from api.upstream import get_upstream
+    from tests.api.conftest import StubGateway
+
+    calls = []
+
+    class Gateway(StubGateway):
+        def _search(self, term):
+            return TermsSearch(term, calls)
+
+    gateway = Gateway()
+    app.dependency_overrides[get_valuation_data] = lambda: Registry()
+    app.dependency_overrides[get_upstream] = lambda: gateway
+    client.calls = calls
+    return client
+
+
+def test_a_coin_is_searched_by_its_pair_base_symbol_and_name(terms_client: TestClient):
+    body = terms_client.get(f"{BASE}/news", params={"symbols": ["ETH-USD"]}).json()
+    assert sorted(terms_client.calls) == ["ETH", "ETH-USD", "Ethereum"]  # in parallel
+    assert sorted(i["title"] for i in body["items"]) == ["Story e1", "Story e3"]
+    # e2 (tagged SOL-USD) dropped, and counted once though both terms found it.
+    assert body["unrelated_dropped"] == {"ETH-USD": 1}
+
+
+def test_a_coin_s_provider_ticker_counts_as_its_own_tag(terms_client: TestClient):
+    body = terms_client.get(f"{BASE}/news", params={"symbols": ["UNI-USD"]}).json()
+    assert [i["title"] for i in body["items"]] == ["Story u1"]
+    assert body["unrelated_dropped"] == {}
+
+
+def test_a_word_ticker_is_searched_by_its_measured_term_too(terms_client: TestClient):
+    body = terms_client.get(f"{BASE}/news", params={"symbols": ["KEY"]}).json()
+    assert sorted(terms_client.calls) == ["KEY", "KEYCORP"]
+    assert [i["title"] for i in body["items"]] == ["Story k3"]
+    assert body["unrelated_dropped"] == {"KEY": 2}
+
+
+def test_an_unregistered_symbol_is_searched_by_itself_only(terms_client: TestClient):
+    terms_client.get(f"{BASE}/news", params={"symbols": ["AAPL"]})
+    assert terms_client.calls == ["AAPL"]
+
+
+def test_a_symbol_fails_only_when_every_term_fails(terms_client: TestClient):
+    """XYZ-USD's name search raises; its pair and base answered (empty): no news, not 503."""
+    response = terms_client.get(f"{BASE}/news", params={"symbols": ["XYZ-USD"]})
+    assert response.status_code == 200
+    assert response.json()["items"] == []
+
+
+def test_a_cached_symbol_beside_a_broken_one_is_not_a_503(terms_client: TestClient):
+    """
+    KEY's terms answered on the first request and are cached; on the second
+    only BROKEN is fetched, and it fails. That is one symbol of two, not all.
+    """
+    terms_client.get(f"{BASE}/news", params={"symbols": ["KEY"]})
+    response = terms_client.get(f"{BASE}/news", params={"symbols": ["KEY", "BROKEN"]})
+    assert response.status_code == 200
+    assert [i["title"] for i in response.json()["items"]] == ["Story k3"]
 
 
 # ---------------------------------------------------------------------------
