@@ -1420,11 +1420,60 @@ NEWS_ARCHIVE_PER_SYMBOL = 50
 #: A search returning at least this many is a full page: older stories
 #: exist that it did not return. Yahoo often returns 49 of 50 (AAPL, NVDA).
 NEWS_ARCHIVE_FULL_PAGE = 45
-#: An empty answer is retried this many times, a pause apart: 42 of 51
-#: empties on 2026-10-22 had stories a minute later.
+#: At 06:00 an empty answer is retried this many times, a pause apart: 42 of
+#: 51 empties on 2026-10-22 had stories a minute later. The hourly pass does
+#: not retry within a run; an empty page is due the next hour (step 2: later
+#: that day 0 of 23 changed within a minute, 5 recovered within the hour).
 NEWS_ARCHIVE_EMPTY_RETRIES = 2
 NEWS_ARCHIVE_RETRY_PAUSE_SECONDS = 60
 NEWS_ARCHIVE_WORKERS = 5
 #: The hourly pass's cadence. A symbol is refetched when its last page would
 #: be outrun before the NEXT pass: NVDA's 50 stories spanned 1.8 hours.
 NEWS_ARCHIVE_HOURLY_INTERVAL_HOURS = 1.0
+#: A page counts as FULL only when at least this share of it is tagged with
+#: the symbol (decision 57 B step 2). A term matching no quote returns
+#: Yahoo's generic feed, ~48 stories of other tickers from the last ~3 hours;
+#: KEY's ticker page had 1 of 50. Refetching such a page hourly stores noise,
+#: and calling it truncated claims a loss that did not happen.
+NEWS_ARCHIVE_OWN_SHARE = 0.5
+#: Equities whose ticker is a word are ALSO searched by a name, each term
+#: MEASURED to return the company's own tagged stories (2026-10-22,
+#: research/news-archive-gaps-2026-10-22.md: ticker page -> this term, tagged
+#: of returned). No automatic rule from the SEC title works: "HASBRO, INC"
+#: lands on the generic feed, and stripping "Corp" turns "POOL CORP" back into
+#: a word. A claim, like CRYPTO_PROVIDER_SYMBOLS: the run prints any listed
+#: term that comes back empty or mostly someone else's.
+NEWS_SEARCH_TERMS = {
+    "ALL": "ALLSTATE CORP",  # 2/50 -> 50/50
+    "AMP": "AMERIPRISE FINANCIAL INC",  # 2/50 -> 50/50
+    "APP": "AppLovin Corp",  # 16/48 -> 50/50
+    "CMS": "CMS ENERGY CORP",  # 21/50 -> 50/50
+    "COST": "COSTCO WHOLESALE CORP",  # 10/49 -> 48/48
+    "DE": "DEERE & CO",  # 0/48 -> 50/50
+    "DOW": "DOW INC",  # 16/50 -> 42/50
+    "EQT": "EQT Corp",  # 23/50 -> 50/50
+    "ESS": "ESSEX PROPERTY",  # empty -> 44/44
+    "FAST": "FASTENAL CO",  # 8/50 -> 50/50
+    "FIX": "COMFORT SYSTEMS USA INC",  # 4/50 -> 50/50
+    "FOX": "Fox Corp",  # 10/49 -> 20/48
+    "GEN": "Gen Digital Inc",  # 0/50 -> 34/42
+    "HAS": "HASBRO",  # 2/50 -> 50/50 ("HASBRO, INC": generic feed)
+    "KEY": "KEYCORP",  # 1/50 -> 50/50
+    "KKR": "KKR & Co. Inc",  # 17/50 -> 50/50
+    "LOW": "LOWES COMPANIES INC",  # 3/50 -> 49/49
+    "NOW": "ServiceNow",  # 5/49 -> 49/49 ("ServiceNow, Inc": generic feed)
+    "POOL": "POOL CORP",  # 13/47 -> 30/30
+    "RMD": "RESMED INC",  # 15/50 -> 50/50
+    "TAP": "MOLSON COORS BEVERAGE CO",  # 15/48 -> 45/50
+    "TEAM": "Atlassian Corp",  # 4/50 -> 50/50
+    "TECH": "BIO-TECHNE Corp",  # 0/48 -> 36/36
+    "WELL": "WELLTOWER",  # 11/48 -> 50/50
+}
+#: Ticker pages mostly about others, reviewed and left without a term; the
+#: run's WORD TICKER? line skips them. ARE, COO and KIM are NOT here: no term
+#: found yet, so they keep being reported.
+NEWS_TICKER_PAGES_REVIEWED = {
+    "GOOGL": "Yahoo tags Alphabet's stories GOOG, archived under GOOG",
+    "NWSA": "Yahoo tags News Corp's stories NWS, archived under NWS",
+    "VYLR": "the name 'Vylor' found the same 5 stories as the ticker",
+}

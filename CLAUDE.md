@@ -101,7 +101,7 @@ scripts/register_new_members.py --dry-run   # index joiners: what would be regis
 scripts/run_paper_strategies.py --dry-run   # attached strategies' next fills + RESTATED check; without the flag it WRITES them (decisions 50-51)
 scripts/check_paper_margin.py               # paper portfolios below maintenance; read-only, exit 1 = flagged (decision 49)
 scripts/load_fundamentals.py --recent       # SEC facts for registry filers of the last 7 days (--all: everyone, ~10 min)
-scripts/archive_news.py [--due]             # headline archive: every symbol (06:00) or only those about to be outrun (hourly job)
+scripts/archive_news.py [--due]             # headline archive: every symbol (06:00) or only pages about to be outrun or empty last time (hourly job)
 scripts/backup.py                           # LAST step: DB dump + option archive to QUANT_BACKUP_DIR, proven by a restore
 tail -f logs/daily_maintenance.log
 ```
@@ -521,10 +521,18 @@ tagged `ETH-USD`); the hourly launchd job `com.dbensik.quant-pipeline.news-hourl
 refetches only symbols whose last full page would be outrun before the next
 pass. Stored UNFILTERED with Yahoo's tags as first served: the relevance rule
 is a read-time rule (nothing reads the archive yet). Every search is a `news_fetches` row, failures included;
-`window_truncated` counts missed stories. An empty answer is retried twice a
-minute apart (42 of 51 were transient); a symbol still empty waits for the
-next 06:00 run, since the hourly pass picks only full pages. Nothing scores
-sentiment yet.
+`window_truncated` counts missed stories. At 06:00 an empty answer is retried
+twice a minute apart; a page still empty is refetched by the next hourly pass,
+which does not retry within the run: answers stick for minutes but often
+clear within the hour (step 2, `research/news-archive-gaps-2026-10-22.md`). Each
+(symbol, term) is its own page: a coin is ALSO searched by its verified name
+(`BTC` returned 0 when `Bitcoin` returned 43), and a word ticker by its
+MEASURED term in `NEWS_SEARCH_TERMS` (KEY 1 of 50 tagged KEY, `KEYCORP` 50 of
+50; SEC titles are not used: "HASBRO, INC" returns Yahoo's generic feed of
+other tickers). A page counts as full only when half of it is tagged with the
+symbol (`own_tagged`), so a generic feed is neither refetched hourly nor
+called truncated. `WORD TICKER?` and `WEAK TERM` lines are for review, never
+flags. Nothing scores sentiment yet.
 
 **SEC facts are refreshed from EDGAR's daily form index** (since
 2026-10-11, step in the 06:00 job). The quarter's `index.json` names the

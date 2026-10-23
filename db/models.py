@@ -559,5 +559,10 @@ class NewsFetchORM(Base):
     empty_attempts = Column(Integer, nullable=False)
     window_truncated = Column(Boolean, nullable=True)
     error = Column(Text, nullable=True)
+    #: Stories tagged with the symbol; NULL before 0013 (unknown, not zero).
+    own_tagged = Column(Integer, nullable=True)
 
-    __table_args__ = (Index("ix_news_fetches_symbol", "symbol", "fetched_at"),)
+    __table_args__ = (
+        Index("ix_news_fetches_symbol", "symbol", "fetched_at"),
+        Index("ix_news_fetches_symbol_term", "symbol", "search_term", "fetched_at"),
+    )

@@ -11,7 +11,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import text
 
-from core.news_archive import Fetch, LastFetch, store_fetch
+from core.news_archive import Fetch, LastFetch, last_fetches, store_fetch
 from db.session import get_session
 
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]
@@ -132,6 +132,55 @@ async def test_a_full_page_newer_than_the_last_fetch_is_logged_truncated(session
     assert stored.window_truncated is True
     assert (
         await session.execute(
-            text("select window_truncated from news_fetches where symbol = 'ZZNEWS1'")
+            text("select window_truncated, own_tagged from news_fetches where symbol = 'ZZNEWS1'")
         )
-    ).scalar() is True
+    ).one() == (True, 50)
+
+
+async def test_a_page_of_other_tickers_is_logged_with_its_own_count_and_not_truncated(session):
+    page = [item(f"zz-g{i}", f"Generic {i}", 0.5 + i / 100, ["SPY"]) for i in range(48)]
+    page[0] = item("zz-g0", "Generic 0", 0.5, ["ZZNEWS1"])
+    previous = LastFetch(T0 - timedelta(hours=2), 48, T0 - timedelta(hours=4), 1)
+    stored = await store_fetch(session, Fetch("ZZNEWS1", "ZZNEWS1", page, fetched_at=T0), previous)
+    assert (stored.own_tagged, stored.window_truncated) == (1, False)
+
+
+async def test_each_term_of_a_symbol_has_its_own_last_fetch(session):
+    await store_fetch(
+        session,
+        Fetch("ZZNEWS1", "ZZNEWS1", [item("zz-a", "A", 1, ["ZZNEWS1"])], fetched_at=T0),
+        None,
+    )
+    await store_fetch(session, Fetch("ZZNEWS1", "Zz News Corp", [], fetched_at=T0), None)
+    await store_fetch(
+        session,
+        Fetch("ZZNEWS1", "Zz News Corp", [], error="boom", fetched_at=T0 + timedelta(hours=1)),
+        None,
+    )
+    last = await last_fetches(session, ["ZZNEWS1"])
+    assert last == {
+        ("ZZNEWS1", "ZZNEWS1"): LastFetch(T0, 1, T0 - timedelta(hours=1), 1),
+        ("ZZNEWS1", "Zz News Corp"): LastFetch(T0, 0, None, 0),  # the failure is skipped
+    }
+
+
+async def test_after_an_empty_answer_truncation_counts_from_the_last_stories(session):
+    # 05:00 stories, 06:00 empty, 07:00 a full page back only to 05:30.
+    t5 = T0 - timedelta(hours=7)
+    await store_fetch(
+        session,
+        Fetch("ZZNEWS1", "ZZNEWS1", [item("zz-e1", "E", 7.5, ["ZZNEWS1"])], fetched_at=t5),
+        None,
+    )
+    await store_fetch(
+        session, Fetch("ZZNEWS1", "ZZNEWS1", [], fetched_at=t5 + timedelta(hours=1)), None
+    )
+    previous = (await last_fetches(session, ["ZZNEWS1"]))[("ZZNEWS1", "ZZNEWS1")]
+    assert (previous.returned, previous.stories_fetched_at) == (0, t5)
+    page = [item(f"zz-f{i}", f"F {i}", 6.5 - i / 100, ["ZZNEWS1"]) for i in range(50)]
+    stored = await store_fetch(
+        session,
+        Fetch("ZZNEWS1", "ZZNEWS1", page, fetched_at=t5 + timedelta(hours=2)),
+        previous,
+    )
+    assert stored.window_truncated is True

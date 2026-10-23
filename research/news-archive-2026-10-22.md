@@ -248,3 +248,6 @@ Both estimates assume no surprises in the migration.
   Yahoo is flaky rather than these symbols having no news. Unbuilt picks: a
   third retry or a longer pause, or an hourly retry of empties that have
   returned stories before.
+- **Closed by step 2 the same day** (`research/news-archive-gaps-2026-10-22.md`):
+  the hourly pass now refetches every empty page, and word tickers and coins
+  are also searched by name.

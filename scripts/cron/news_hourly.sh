@@ -7,9 +7,12 @@
 #
 # The 06:00 job archives every symbol's newest 50 headlines; for the busiest
 # names 50 cover a few hours (NVDA 1.8 h on 2026-10-22), so this pass
-# refetches only the symbols whose last page would be outrun before the next
-# one: about 15-20 symbols, ~10 s (decision 57 B,
-# research/news-archive-2026-10-22.md).
+# refetches only the pages that would be outrun before the next one, and
+# those whose last answer was empty (step 2: Yahoo's empty answers stick for
+# minutes but often clear within the hour): 138 searches in 13 s on step 2's
+# first run, then about 70 an hour, nearly all of them pages that came back
+# empty (decision 57 B,
+# research/news-archive-2026-10-22.md, research/news-archive-gaps-2026-10-22.md).
 #
 # Same shape as option_capture.sh: the venv by absolute path, single instance,
 # and a notification when the run fails outright. A run that overlaps the 06:00
