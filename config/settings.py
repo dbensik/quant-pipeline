@@ -1359,6 +1359,11 @@ OPTION_CAPTURE_DAYS_LOST = {
         "both runs crashed writing the first ticker: Yahoo sent inTheMoney mixing "
         "False and 0.0 (fixed 2026-10-13)"
     ),
+    "2026-10-21": (
+        "both runs failed every ticker at the trading-day check: yfinance's "
+        "history(period='5d') raised TypeError ('NoneType' object is not "
+        "subscriptable); 2026-10-20 and 2026-10-22 captured normally"
+    ),
 }
 
 #: Expiries further out than this many calendar days are not fetched.
