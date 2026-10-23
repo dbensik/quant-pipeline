@@ -297,3 +297,91 @@ def test_a_non_boolean_in_the_money_fails_that_ticker_only(tmp_path):
     assert r.status == cap.FAILED and "not a boolean" in r.detail
     assert not cap.archive_path(tmp_path, "SPY", TODAY).exists()
     assert run(tmp_path, FakeTicker("QQQ", expiries=[exp(1)])).status == cap.WRITTEN
+
+
+# ---------------------------------------------------------------------------
+# History down: the gate falls back to the chain's own market time
+# ---------------------------------------------------------------------------
+
+MARKET_TODAY = int(datetime(2026, 9, 15, 19, 40, tzinfo=UTC).timestamp())  # 15:40 ET
+MARKET_YESTERDAY = int(datetime(2026, 9, 14, 20, 0, tzinfo=UTC).timestamp())  # 16:00 ET
+
+
+class HistoryDown(FakeTicker):
+    """2026-10-21: history() raised TypeError for every ticker in both runs."""
+
+    def __init__(self, symbol, *, market_times=None, **kw):
+        super().__init__(symbol, **kw)
+        self._market_times = market_times or {}
+
+    def history(self, period, interval):
+        raise TypeError("'NoneType' object is not subscriptable")
+
+    def option_chain(self, expiry):
+        chain = super().option_chain(expiry)
+        chain.underlying["regularMarketTime"] = self._market_times.get(expiry, MARKET_TODAY)
+        return chain
+
+
+def test_history_down_and_chain_dated_today_is_written_with_the_fallback_gate(tmp_path):
+    r = run(tmp_path, HistoryDown("SPY", expiries=[exp(1), exp(8)]))
+    assert r.status == cap.WRITTEN
+    assert r.gate == cap.GATE_CHAIN_TIME and r.bar_date == TODAY
+    assert "history: TypeError" in r.detail
+    frame = pd.read_parquet(cap.archive_path(tmp_path, "SPY", TODAY))
+    assert len(frame) == 40
+    assert (frame["trade_date_gate"] == cap.GATE_CHAIN_TIME).all()
+    assert cap.run_exit_code([r]) == 0
+
+
+def test_a_normal_capture_records_the_daily_bar_gate(tmp_path):
+    r = run(tmp_path, FakeTicker("SPY", expiries=[exp(1)]))
+    frame = pd.read_parquet(cap.archive_path(tmp_path, "SPY", TODAY))
+    assert r.gate == cap.GATE_DAILY_BAR
+    assert (frame["trade_date_gate"] == cap.GATE_DAILY_BAR).all()
+
+
+def test_history_down_and_chain_dated_earlier_is_refused_as_a_closed_market(tmp_path):
+    """A holiday with the chart endpoint down: the chain shows the last session, not today."""
+    t = {exp(1): MARKET_YESTERDAY, exp(8): MARKET_YESTERDAY}
+    results = [
+        run(tmp_path, HistoryDown(s, expiries=[exp(1), exp(8)], market_times=t))
+        for s in ("SPY", "QQQ")
+    ]
+    assert all(r.status == cap.REFUSED for r in results)
+    assert results[0].bar_date == TODAY - timedelta(days=1)
+    assert not any(tmp_path.rglob("*.parquet"))
+    assert cap.run_exit_code(results) == 0
+
+
+def test_history_down_and_one_expiry_dated_earlier_refuses_the_ticker(tmp_path):
+    fake = HistoryDown("SPY", expiries=[exp(1), exp(8)], market_times={exp(8): MARKET_YESTERDAY})
+    r = run(tmp_path, fake)
+    assert r.status == cap.REFUSED and "chain market time is 2026-09-14" in r.detail
+    assert not any(tmp_path.rglob("*.parquet"))
+
+
+def test_history_down_and_no_market_time_fails_rather_than_guessing(tmp_path):
+    r = run(tmp_path, HistoryDown("SPY", expiries=[exp(1)], market_times={exp(1): None}))
+    assert r.status == cap.FAILED and "no market time" in r.detail
+    assert not any(tmp_path.rglob("*.parquet"))
+
+
+def test_a_stale_bar_that_was_read_is_refused_before_any_chain_is_fetched(tmp_path):
+    """The fallback is for a FAILED read only; a bar that answers stale still decides."""
+    fake = FakeTicker("SPY", expiries=[exp(1)], bar_date=TODAY - timedelta(days=1))
+    r = run(tmp_path, fake)
+    assert r.status == cap.REFUSED and r.gate == cap.GATE_DAILY_BAR
+    assert fake.calls == []
+
+
+def test_history_down_and_chains_failing_is_still_a_failure(tmp_path):
+    r = run(tmp_path, HistoryDown("SPY", expiries=[exp(1)], fail=[exp(1)]))
+    assert r.status == cap.FAILED and "history: TypeError" in r.detail
+
+
+def test_market_date_reads_the_chain_time_in_new_york():
+    # 2026-09-15 02:00 UTC is still 2026-09-14 in New York.
+    late = int(datetime(2026, 9, 15, 2, 0, tzinfo=UTC).timestamp())
+    assert cap.market_date({"regularMarketTime": late}) == date(2026, 9, 14)
+    assert cap.market_date({}) is None and cap.market_date(None) is None

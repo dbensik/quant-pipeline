@@ -44,6 +44,18 @@ THE TRADE-DATE GATE
     check that cries wolf gets deleted. A MIXED result (some tickers have
     today's bar, some do not) is a real failure and exits 1.
 
+    WHEN THE BAR CANNOT BE READ. The daily bar comes from Yahoo's chart
+    endpoint, which sometimes raises instead of answering (TypeError
+    "'NoneType' object is not subscriptable": both 2026-10-21 runs, every
+    ticker, so that day was lost with no chain ever requested; ingest hit it
+    2026-10-11 and 10-12). Only then, the gate falls back to the chain's own
+    `underlying.regularMarketTime`: every fetched expiry must report a market
+    time dated today (ET), or the ticker is refused (an earlier date) or failed
+    (no time at all). In all 162 files archived to 2026-10-22 that date equalled
+    the trade date. A bar that IS read but is stale is still refused; the
+    fallback never overrides it. `trade_date_gate` records which gate passed
+    (`daily_bar` or `chain_market_time`).
+
     Consequence worth knowing: a Mac asleep through both 15:45 and 17:00 that
     wakes after midnight is refused, and that day is lost. Visible and
     notified, rather than recorded under the wrong date.
@@ -169,6 +181,14 @@ def newest_bar_date(history: pd.DataFrame) -> date | None:
     return ts.tz_convert(ET).date()
 
 
+def market_date(underlying: dict | None) -> date | None:
+    """Session date (ET) of the chain's `regularMarketTime`, or None if absent."""
+    t = (underlying or {}).get("regularMarketTime")
+    if not t:
+        return None
+    return datetime.fromtimestamp(t, UTC).astimezone(ET).date()
+
+
 def write_atomically(frame: pd.DataFrame, path: Path) -> None:
     """Write to a temp name then rename, so a crash never leaves a torn file
     that the next run's skip check would mistake for a finished capture."""
@@ -190,6 +210,10 @@ WRITTEN, SKIPPED, PARTIAL, FAILED, REFUSED = (
     "refused",
 )
 
+# Which check established that `today` traded (the `trade_date_gate` column).
+GATE_DAILY_BAR = "daily_bar"
+GATE_CHAIN_TIME = "chain_market_time"
+
 
 @dataclass
 class TickerResult:
@@ -201,6 +225,7 @@ class TickerResult:
     bar_date: date | None = None
     detail: str = ""
     failed_expiries: list[str] = field(default_factory=list)
+    gate: str = GATE_DAILY_BAR
 
 
 def capture_ticker(ticker: str, make_ticker: Callable[[str], object], **kw) -> TickerResult:
@@ -235,11 +260,18 @@ def _capture_ticker(
 
     t = make_ticker(ticker)
 
+    gate = GATE_DAILY_BAR
+    fallback_note = ""
     try:
         bar_date = newest_bar_date(t.history(period="5d", interval="1d"))
     except Exception as exc:  # noqa: BLE001 — any vendor error is a failed read
-        return TickerResult(ticker, FAILED, detail=f"history: {exc!r}")
-    if bar_date != today:
+        # The chart endpoint is down, not the market: gate on each chain's own
+        # market time instead (module docstring, WHEN THE BAR CANNOT BE READ).
+        gate = GATE_CHAIN_TIME
+        bar_date = None
+        fallback_note = f"history: {exc!r}; trade date from the chain's market time"
+        log.warning("%s: %s", ticker, fallback_note)
+    if gate == GATE_DAILY_BAR and bar_date != today:
         return TickerResult(
             ticker,
             REFUSED,
@@ -250,16 +282,26 @@ def _capture_ticker(
     try:
         planned = plan_expiries(t.options, today, max_dte)
     except Exception as exc:  # noqa: BLE001
-        return TickerResult(ticker, FAILED, bar_date=bar_date, detail=f"expiries: {exc!r}")
+        return TickerResult(
+            ticker,
+            FAILED,
+            bar_date=bar_date,
+            gate=gate,
+            detail=_joined(fallback_note, f"expiries: {exc!r}"),
+        )
     if not planned:
         return TickerResult(
             ticker,
             FAILED,
             bar_date=bar_date,
-            detail=f"no expiries within {max_dte} DTE — an empty list is a failed read",
+            gate=gate,
+            detail=_joined(
+                fallback_note, f"no expiries within {max_dte} DTE — an empty list is a failed read"
+            ),
         )
 
     frames: list[pd.DataFrame] = []
+    market_dates: list[date | None] = []
     failed: list[str] = []
     for expiry in planned:
         chain = None
@@ -287,13 +329,37 @@ def _capture_ticker(
             "market_state": under.get("marketState"),
             "source": SOURCE,
             "vendor_version": vendor_version,
+            "trade_date_gate": gate,
         }
+        market_dates.append(market_date(under))
         frames.append(
             chain_frame(
                 chain.calls, chain.puts, underlying=ticker, expiry=expiry, provenance=provenance
             )
         )
         sleep(PAUSE_SECONDS)
+
+    if gate == GATE_CHAIN_TIME and frames:
+        if None in market_dates:
+            return TickerResult(
+                ticker,
+                FAILED,
+                gate=gate,
+                detail=_joined(
+                    fallback_note,
+                    "a chain carries no market time, so nothing shows today traded",
+                ),
+            )
+        if set(market_dates) != {today}:
+            stale = max(d for d in market_dates if d != today)
+            return TickerResult(
+                ticker,
+                REFUSED,
+                bar_date=stale,
+                gate=gate,
+                detail=_joined(fallback_note, f"chain market time is {stale}, not {today}"),
+            )
+        bar_date = today
 
     rows = sum(len(f) for f in frames)
     result = TickerResult(
@@ -304,12 +370,14 @@ def _capture_ticker(
         expiries_planned=len(planned),
         bar_date=bar_date,
         failed_expiries=failed,
+        gate=gate,
     )
 
     if rows < min_rows:
         result.status = FAILED
-        result.detail = (
-            f"{rows} contracts is below the {min_rows} floor — a failed read, not written"
+        result.detail = _joined(
+            fallback_note,
+            f"{rows} contracts is below the {min_rows} floor — a failed read, not written",
         )
         return result
 
@@ -321,6 +389,7 @@ def _capture_ticker(
     else:
         target = final
 
+    result.detail = _joined(fallback_note, result.detail)
     if dry_run:
         result.detail = (
             result.detail + " " if result.detail else ""
@@ -332,6 +401,10 @@ def _capture_ticker(
         # A complete capture supersedes an earlier partial one.
         partial_path(root, ticker, today).unlink(missing_ok=True)
     return result
+
+
+def _joined(*parts: str) -> str:
+    return "; ".join(p for p in parts if p)
 
 
 # ---------------------------------------------------------------------------
