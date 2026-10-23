@@ -205,8 +205,8 @@ its symbol everywhere; only the fetch and `scripts/audit_crypto_identity.py`
 use the provider ticker, and bars are stored under the asset. An entry is a
 claim, not a verdict: ingest refuses a mapped symbol until the audit has been
 run with `--write` against that exact ticker (`identity_provider_symbol` on
-the row), so editing a mapping blocks the asset until it is re-verified. 32
-assets are mapped and loaded (10 added 2026-10-19, decision 46; POL-USD since 2026-10-14: `suspect` on its
+the row), so editing a mapping blocks the asset until it is re-verified. 33
+assets are mapped and loaded (10 added 2026-10-19, decision 46; PEARL 2026-10-22; POL-USD since 2026-10-14: `suspect` on its
 names across the MATIC rename, settled `match` in `CRYPTO_IDENTITY_OVERRIDES`;
 1,080 bars from 2023-10-30, bounds clean); PEPE, BSC and BUIDL have no
 usable ticker and stay empty — the reasons are beside the mapping.

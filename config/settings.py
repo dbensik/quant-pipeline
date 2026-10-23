@@ -1001,6 +1001,10 @@ CRYPTO_PROVIDER_SYMBOLS = {
     "VVV-USD": "VVV35509-USD",
     "WLFI-USD": "WLFI33251-USD",
     "ZRO-USD": "ZRO26997-USD",
+    # --- Added 2026-10-22 (index joiner flagged 2026-10-21). Bare PEARL-USD
+    # is empty on Yahoo; Pearl (CoinGecko pearl-2) is "Pearl
+    # (pearlresearch.ai)", from 2026-08-20, inside CoinGecko's range.
+    "PEARL-USD": "PRL41876-USD",
 }
 
 #: Registered assets with NO usable price source, and why: the "deliberately
