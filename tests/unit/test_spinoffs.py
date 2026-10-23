@@ -102,13 +102,39 @@ def test_a_valuation_from_a_spin_until_a_period_after_it_is_filed_refuses():
     # The Q2 10-Q is dated 2026-06-30 but its quarter ended before the
     # distribution: within SPINOFF_FILING_MIN_DAYS it does not count.
     out = build_inputs(st, date(2026, 8, 1), 218.31, 0.041, BETA)
-    assert isinstance(out, Refusal) and "spun off a business on 2026-06-29" in out.reason
+    assert isinstance(out, Refusal)
+    assert "spun off a business on 2026-06-29: the price is the company after it" in out.reason
+    # Nor does a cover count dated after the spin: an instant, not a period
+    # (FDX's FY2026 10-K, period to 2026-05-31, dates it 2026-07-16).
+    cover = fact("EntityCommonStockSharesOutstanding", 316.9, date(2026, 7, 17), Q2)
+    out = build_inputs(
+        Statements([*honeywell(), cover], spinoffs=[spin]), date(2026, 8, 1), 218.31, 0.041, BETA
+    )
+    assert isinstance(out, Refusal) and "the price is the company after it" in out.reason
     # Before the spin, the same statements are valued.
     assert not isinstance(build_inputs(st, date(2026, 6, 28), 218.31, 0.041, BETA), Refusal)
     # The Q3 10-Q (period 2026-09-30) ends the spin refusal; HON is then
     # refused for the mixed trailing year instead.
     out = build_inputs(st, date(2026, 10, 23), 218.31, 0.041, BETA)
     assert isinstance(out, Refusal) and "mixes two bases" in out.reason
+
+
+def test_a_trailing_year_straddling_a_spin_refuses_by_date_alone():
+    # Decision 58b. Tagging only the total (CMCSA, FDX), HON's Q3 view gives
+    # discontinued_cash nothing to see: FY2025 with Aerospace + 9M 2026
+    # without - 9M 2025 with = Aerospace's Q4 2025 still counted.
+    spin = date(2026, 6, 29)
+    total_only = [f for f in honeywell() if f.concept != CONT]
+    st = Statements(total_only, spinoffs=[spin])
+    out = build_inputs(st, date(2026, 10, 23), 218.31, 0.041, BETA)
+    assert isinstance(out, Refusal)
+    assert "spun off a business on 2026-06-29, after the fiscal year to 2025-12-31" in out.reason
+    # A 10-K for a year ending after the spin ends it.
+    fy26 = fact(TOTAL, 5100, date(2026, 12, 31), date(2027, 2, 12), date(2026, 1, 1), "10-K")
+    st = Statements([*total_only, fy26], spinoffs=[spin])
+    v = build_inputs(st, date(2027, 2, 13), 218.31, 0.041, BETA)
+    assert not isinstance(v, Refusal)
+    assert v.lines["cfo"] == (pytest.approx(5100e6), "FY to 2026-12-31")
 
 
 def test_a_spin_does_not_multiply_share_counts_but_its_reverse_split_does():

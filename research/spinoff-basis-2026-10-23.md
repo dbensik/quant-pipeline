@@ -191,14 +191,41 @@ fails a test. Python suite: 1,985 passed. `check_line_concepts.py`: 538
 checked, 0 flagged (HON's CONCEPT flag is gone because HON now refuses).
 
 **Not done:**
-- **The hole above.** A filer that tags only total CFO re-presents with no
-  signal. A rule that needs no tagging: while a spin ex-date falls after the
-  TTM's fiscal year and on or before its current YTD, the trailing year
-  straddles the spin, so refuse until a 10-K for a year ending after it. On
-  today's valued names this adds CMCSA (until ~Feb 2027), BDX (~Nov 2026)
-  and FDX (~Jul 2027). About 30 min with tests and a census. Not built,
-  because it was not in C as approved.
+- ~~The hole above~~: built as 58b, below.
 - The guard also runs on the rare four-quarter TTM, where no prior YTD is
   subtracted. Not worth code now.
 - Growth's revenue CAGR still crosses a spin once the next 10-K
 re-presents one year and not the older ones. Not measured.
+
+## Built: 58b, the straddle rule (on "go on 58b", 2026-10-23)
+
+A filer that tags only total CFO gives the basis guard nothing to compare.
+The rule now refuses by date alone: while a spin ex-date falls after the
+fiscal year the cash-flow TTM builds on (the latest annual CFO) and on or
+before `as_of`, until a 10-K for a fiscal year ending after the spin is
+filed. It runs after the basis guard, so HON keeps its more specific reason.
+
+**A decision 58 bug found by its census.** `reports_period_ending` counted
+any fact, so a 10-K's cover-page share count (dated weeks after the period)
+read as a period after the spin. FDX's FY2026 10-K (period to 2026-05-31,
+cover count dated 2026-07-16) ended its 2026-06-01 spin window, and FDX was
+valued the day after. Only durations count now. 21 history points that
+first read as straddles are spin windows again (A 2014, ABT 2013, DHR 2016
+and 2023, GE 2023, HLT 2017, T 2022 and others), with the window's reason.
+
+**Census, as of 2026-10-23:** valued went from 361 to 358. Newly refused:
+CMCSA (until its FY2026 10-K, ~Feb 2027), BDX (FY2026 10-K, ~Nov 2026), FDX
+(FY2027 10-K, ~Jul 2027). Nothing else changed. SPGI's reason is still its
+spin window, but once its 10-Qs arrive the straddle keeps it refused until
+its FY2026 10-K (~Feb 2027): that is the rule, not a stuck refusal.
+
+**History, the same 101 filers since 2012:** 79 of 4,088 valued points
+newly refused (61 straddles, 18 spin windows the cover-date fix restored),
+on 31 filers; none changed value. ROP's `history()` still raises (unrelated).
+
+**Tests:** `tests/unit/test_spinoffs.py`, 22 cases. The new one is HON's
+figures with only total CFO: refused as of 2026-10-23, valued on FY2026 once
+that 10-K is filed. The window test asserts its own reason and adds a cover
+count dated after the spin (FDX's shape), which must not end the window. Each change was undone on a copy:
+each undo fails a test. Python suite: 1,986 passed. `check_line_concepts.py`:
+538 checked, 0 flagged.

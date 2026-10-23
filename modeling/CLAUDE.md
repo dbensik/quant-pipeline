@@ -68,7 +68,10 @@
   after it (price after, statements before), and while the cash-flow TTM
   bridges two bases: the prior YTD carrying more discontinued CFO than the
   fiscal year by `DCF_DISCONTINUED_BREAK_SHARE` of its total
-  (`Statements.discontinued_cash`; HON 9M 2025 $2,594M vs FY $333M).
+  (`Statements.discontinued_cash`; HON 9M 2025 $2,594M vs FY $333M);
+  then by date alone (58b) while the spin falls after the latest annual
+  CFO's year, until a 10-K for a year ending after it. A filed period is
+  a DURATION: a 10-K's cover share count is dated after its period (FDX).
   Growth's start years come from `Statements.annual_before`: by date, and
   on the latest year's concept unless another agrees with it everywhere. Decisions
   in `research/dcf-plan-2026-10-08.md`: weekly 5y Blume beta, 7% WACC floor

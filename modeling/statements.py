@@ -640,9 +640,17 @@ class Statements:
         return max(candidates, key=lambda v: v.period_start or date.min) if candidates else None
 
     def reports_period_ending(self, day: date, as_of: date) -> bool:
-        """Whether a 10-Q or 10-K for a period ending on or after `day` was filed before `as_of`."""
+        """
+        Whether a 10-Q or 10-K for a period ending on or after `day` was filed
+        before `as_of`. Durations only: the cover page's share count is dated
+        weeks after the period (FDX's FY2026 10-K, period to 2026-05-31, dates
+        it 2026-07-16, after its 2026-06-01 spin).
+        """
         return any(
-            f.period_end >= day and f.filed < as_of and f.form.split("/")[0] in ("10-Q", "10-K")
+            f.period_start is not None
+            and f.period_end >= day
+            and f.filed < as_of
+            and f.form.split("/")[0] in ("10-Q", "10-K")
             for facts in self.by_concept.values()
             for f in facts
         )

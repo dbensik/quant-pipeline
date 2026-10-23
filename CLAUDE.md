@@ -564,9 +564,11 @@ named and checked against the cover-page share count across it, and the
 line check flags a new one (`SPLIT?`). A valuation refuses
 from the ex-date until a filing for a period after it, and while a
 business moved into discontinued operations after the 10-K makes the
-trailing year mix two bases (HON's Aerospace, until its FY2026 10-K).
-Measured at 2026-10-23: 365 valued -> 361 (HON, CTVA, SPGI, APTV); 93 of
-4,181 history points on 101 affected filers newly refused, none changed.
+trailing year mix two bases (HON's Aerospace, until its FY2026 10-K),
+and by date alone until a 10-K for a year ending after the spin (58b:
+CMCSA, BDX, FDX tag nothing the basis guard can read). Measured at
+2026-10-23: 365 valued -> 361 (HON, CTVA, SPGI, APTV) -> 358 (58b);
+58b refused 79 more of 4,088 history points, none changed.
 
 **Everything is backed up daily, and each backup is proven by a restore**
 (since 2026-10-12; before that nothing was, not even Time Machine).

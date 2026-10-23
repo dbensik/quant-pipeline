@@ -34,7 +34,9 @@ REFUSED
     Across a spin-off (decision 58): from its ex-date until a filing for a
     period after it (the price is the company after, the statements the
     company before), and while the trailing year bridges two bases (a
-    business moved into discontinued operations after the 10-K).
+    business moved into discontinued operations after the 10-K). Then, by
+    date alone (58b), until a 10-K for a fiscal year ending after the spin:
+    a trailing year built on an earlier one straddles it.
 
 BALANCES AGE TOO
     Debt and cash are used only if their balance date is within
@@ -230,6 +232,18 @@ def build_inputs(
                 f"year to {fy_total.period_end} it is subtracted from {fy_disc / 1e6:,.0f}M; "
                 "a business was moved into discontinued operations after the 10-K, and the "
                 "trailing year without it is not on file until the next one"
+            )
+    # A spin after the fiscal year the cash flows build on: the year carries
+    # the spun business, the quarters since do not, whatever the tagging
+    # (decision 58b: CMCSA, FDX tag no continuing CFO; BDX no pair of terms).
+    annual = st.annual("cfo", as_of)
+    for ex_date in st.spinoffs:
+        if annual and annual[-1].period_end < ex_date <= as_of:
+            return Refusal(
+                f"spun off a business on {ex_date}, after the fiscal year to "
+                f"{annual[-1].period_end} the trailing cash flows build on: that year carries "
+                "the business and the quarters since do not, and a trailing year on one basis "
+                f"is not on file until a 10-K for a year ending after {ex_date}"
             )
     capex, capex_src = _ttm_or_annual(st, "capex", as_of)
     if capex is None:

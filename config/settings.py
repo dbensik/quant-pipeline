@@ -1031,7 +1031,7 @@ SPINOFF_FILING_MIN_DAYS = 7
 #: known separations: BAX 2015 Baxalta, EBAY 2015 PayPal, MRK 2021 Organon,
 #: FIS 2024 Worldpay); HON's Q2 2026 (Solstice's 6M $474M vs FY $333M, 2.2%,
 #: one basis) is below it. A filer that tags only total CFO re-presents
-#: with no signal here (CMCSA, FDX): see the decision's "Not done".
+#: with no signal here (CMCSA, FDX): build_inputs refuses those by date (58b).
 DCF_DISCONTINUED_BREAK_SHARE = 0.05
 
 
