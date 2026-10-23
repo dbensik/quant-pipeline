@@ -184,8 +184,8 @@ built. This costs nothing.
     the best-start test were then tightened.
 
 **Open, not built:**
-1. If you want to read the parameters, the fit could constrain m to the
-   quoted range. That fit was not measured.
+1. MEASURED 2026-10-22, not adopted (below): constraining m to the quoted
+   range. It pins m on the last quoted strike instead of reading it.
 2. Option B (arbitrage-free fits) is still unbuilt.
 3. BUILT 2026-10-22 (below): the quote side of the calendar is tested at executable prices,
    as the butterfly's is, instead of at interpolated mids.
@@ -268,3 +268,37 @@ crossing beside it, renamed so it does not read as an arbitrage.
   - treating ask = bid as a credit;
   - ignoring the right;
   - letting the mid crossing into the verdict.
+
+## m bounded to the quoted range (measured 2026-10-22, open pick 1, NOT adopted)
+
+Every cached surface (150 surfaces, 2,013 fits) fitted twice: as built, and
+with m's bounds narrowed from the quoted range widened by its span plus 1 to
+the quoted range itself. Nothing else changed (same starts, same report).
+
+- **It does not make m readable.** 1,148 fits (57%) put m past the quotes
+  unbounded; bounded, 1,144 put m exactly on the first or last quoted strike
+  (99.7% of those). m then reports the edge of the quotes, not the bottom of
+  the smile.
+- **The fit on the quotes barely moves.** RMSE rises by a median of 0.000
+  vol points over all fits and 0.015 over the past-the-quotes ones (p99 0.22,
+  max 0.55). The share of quotes fitted within the spread falls from 53.2% to
+  52.5%. Over the quoted strikes the two curves differ by a median of 0.07
+  vol points (p99 1.4).
+- **b and rho calm down, and the wings obey Lee.** Day to day on the same
+  expiry, the median move in b falls from 0.25 to 0.026, in rho from 0.16 to
+  0.09, in m from 0.20 to 0.03. Wings steeper than Lee's bound go from 488 to
+  0; b above 2 from 276 to 0; |rho| above 0.9 from 410 to 47. Beyond the
+  quotes the unbounded fits extrapolate wildly (0.1 past the last quote the
+  two differ by a median of 2.0 vol points on past-the-quotes fits, max 970).
+- **It creates butterfly arbitrage in the fit.** Fit-side butterfly flags
+  rise from 211 to 372: 164 new, 3 removed. 163 of the 164 new ones lie only
+  in the 0.1 margin checked beyond the quotes, never on a quoted strike: a
+  bottom pinned at the last quote forces the curve to turn there.
+  Calendar flags on the fit fall slightly, 438 to 408 of 1,863 pairs.
+
+Read: bounding m swaps one artefact past the quotes (wings that break Lee) for
+another (negative density just past the last strike). It buys stable b and
+rho but not a market reading of m, which was the reason to try it. Stable,
+arbitrage-free parameters are what Option B is for; `bottom_quoted` and the
+greyed parameters stay as built. Script: scratch, not committed; the run took
+211 s.
