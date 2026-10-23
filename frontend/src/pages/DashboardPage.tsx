@@ -238,12 +238,17 @@ function PriceCard() {
             // first switch to candlestick view does not flash an empty card
             // while the Plotly chunk downloads.
             <Suspense fallback={<Skeleton className="h-80 w-full" />}>
-              <CandlestickChart bars={data.bars} symbol={data.symbol} />
+              <CandlestickChart
+                bars={data.bars}
+                symbol={data.symbol}
+                assetClass={data.asset_class}
+              />
             </Suspense>
           ) : (
             <PriceChart
               bars={data.bars}
               symbol={data.symbol}
+              assetClass={data.asset_class}
               signals={
                 showSignals && signalsQuery.data
                   ? signalsQuery.data.signals

@@ -12,6 +12,7 @@
  */
 
 import type { OHLCVBar, SignalPoint } from '@/api/client'
+import { volumeDirection, volumeOf } from '@/components/charts/volumeData'
 
 export interface ChartRow {
   date: string
@@ -20,13 +21,30 @@ export interface ChartRow {
   buy?: number
   /** Set only on bars where the signal turns less long — drives sell markers. */
   sell?: number
+  /**
+   * The bar's volume under exactly one of three keys, by its direction
+   * (volumeData.ts). Recharts stacks the three bars on one stackId, so each
+   * row draws a single bar in its own colour without a <Cell> per row; none
+   * is set when the bar has no volume.
+   */
+  volumeUp?: number
+  volumeDown?: number
+  volumeUnknown?: number
 }
 
 export interface ChartRows {
   rows: ChartRow[]
   buyCount: number
   sellCount: number
+  /** Rows (bars with a close) that carry no volume. */
+  volumeMissing: number
 }
+
+const VOLUME_KEY = {
+  up: 'volumeUp',
+  down: 'volumeDown',
+  unknown: 'volumeUnknown',
+} as const
 
 export function buildChartRows(
   bars: OHLCVBar[],
@@ -34,18 +52,22 @@ export function buildChartRows(
 ): ChartRows {
   // Bars with a null close are real: the migration kept partial rows where
   // OHLC was incomplete. Dropping them avoids a line that dives to zero.
+  let volumeMissing = 0
   const rows: ChartRow[] = bars
     .filter((bar) => bar.close != null)
-    .map((bar) => ({
-      date: bar.time.slice(0, 10),
-      close: bar.close as number,
-    }))
+    .map((bar) => {
+      const row: ChartRow = { date: bar.time.slice(0, 10), close: bar.close as number }
+      const volume = volumeOf(bar)
+      if (volume == null) volumeMissing += 1
+      else row[VOLUME_KEY[volumeDirection(bar)]] = volume
+      return row
+    })
 
   let buyCount = 0
   let sellCount = 0
 
   if (!signals || signals.length === 0 || rows.length === 0) {
-    return { rows, buyCount, sellCount }
+    return { rows, buyCount, sellCount, volumeMissing }
   }
 
   const byDate = new Map(rows.map((row) => [row.date, row]))
@@ -78,5 +100,5 @@ export function buildChartRows(
     previous = value
   }
 
-  return { rows, buyCount, sellCount }
+  return { rows, buyCount, sellCount, volumeMissing }
 }

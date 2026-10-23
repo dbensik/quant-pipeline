@@ -26,7 +26,8 @@ describe('buildChartRows — rows', () => {
   it('maps bars to date/close rows', () => {
     const { rows } = buildChartRows(BARS)
     expect(rows).toHaveLength(10)
-    expect(rows[0]).toEqual({ date: '2024-01-01', close: 100 })
+    // open == close, so the bar counts as up (the candle's rule).
+    expect(rows[0]).toEqual({ date: '2024-01-01', close: 100, volumeUp: 1000 })
   })
 
   it('drops bars with a null close', () => {
@@ -41,6 +42,41 @@ describe('buildChartRows — rows', () => {
     expect(buyCount).toBe(0)
     expect(sellCount).toBe(0)
     expect(rows.every((row) => row.buy === undefined && row.sell === undefined)).toBe(true)
+  })
+})
+
+describe('buildChartRows — volume', () => {
+  const at = (day: number, open: number | null, close: number, volume: number | null) => ({
+    ...bar(day, close),
+    open,
+    volume,
+  })
+
+  it('files each volume under its direction, and only that one', () => {
+    const { rows } = buildChartRows([
+      at(1, 100, 101, 500),
+      at(2, 102, 99, 600),
+      at(3, null, 99, 700),
+    ])
+    expect(rows.map((r) => [r.volumeUp, r.volumeDown, r.volumeUnknown])).toEqual([
+      [500, undefined, undefined],
+      [undefined, 600, undefined],
+      [undefined, undefined, 700],
+    ])
+  })
+
+  it('leaves a bar without volume blank and counts it, never zero', () => {
+    const { rows, volumeMissing } = buildChartRows([at(1, 100, 101, null), at(2, 100, 101, 0)])
+    expect(volumeMissing).toBe(1)
+    expect(rows[0]).toEqual({ date: '2024-01-01', close: 101 })
+    // A stored zero is a real zero.
+    expect(rows[1].volumeUp).toBe(0)
+  })
+
+  it('does not count volume on bars the line drops', () => {
+    const { volumeMissing, rows } = buildChartRows([bar(1, null), at(2, 100, 101, null)])
+    expect(rows).toHaveLength(1)
+    expect(volumeMissing).toBe(1)
   })
 })
 
