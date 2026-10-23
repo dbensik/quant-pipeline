@@ -73,6 +73,10 @@
   then by date alone (58b) while the spin falls after the latest annual
   CFO's year, until a 10-K for a year ending after it. A filed period is
   a DURATION: a 10-K's cover share count is dated after its period (FDX).
+  A cover share count filed as 0 is no count (decision 60,
+  `research/zero-share-count-2026-10-23.md`): the diluted average is used
+  and noted, as for a stale one (24 filers' covers say 0; ROP's made
+  `wacc()` raise and the history endpoint 500).
   Growth's start years come from `Statements.annual_before`: by date, and
   on the latest year's concept unless another agrees with it everywhere. Decisions
   in `research/dcf-plan-2026-10-08.md`: weekly 5y Blume beta, 7% WACC floor

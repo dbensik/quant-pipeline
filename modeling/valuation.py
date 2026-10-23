@@ -340,19 +340,32 @@ def build_inputs(
     # share from its 2019 registration (it reports current counts per class),
     # CMCSA's is from 2009, CHTR's from 2016. A count is used only if its
     # period ended within MAX_TTM_AGE_DAYS; the diluted average is the fallback.
+    # A count of 0 is not a count (decision 60): ROP's Q3 2015 10-Q, BALL's
+    # FY2021 10-K and 22 other filers' covers say 0 shares, which made the
+    # market value 0 and wacc() raise.
     shares_v, shares_src = st.instant("shares_outstanding", as_of), "cover-page shares outstanding"
-    if shares_v is None or (as_of - shares_v.period_end).days > MAX_TTM_AGE_DAYS:
+    zero_cover = shares_v is not None and shares_v.value <= 0
+    if zero_cover or shares_v is None or (as_of - shares_v.period_end).days > MAX_TTM_AGE_DAYS:
         stale_cover = shares_v
         # The newest of the quarterly and annual averages: Fox's FY (to
         # 2026-06-30) is newer than its last filed quarter (2026-03-31).
         diluted = sorted(
-            st.quarterly("diluted_shares", as_of) + st.annual("diluted_shares", as_of),
+            (
+                v
+                for v in st.quarterly("diluted_shares", as_of) + st.annual("diluted_shares", as_of)
+                if v.value > 0
+            ),
             key=lambda v: (v.period_end, v.filed),
         )
         if not diluted or (as_of - diluted[-1].period_end).days > MAX_TTM_AGE_DAYS:
             return Refusal(f"no share count on file within {MAX_TTM_AGE_DAYS} days of this date")
         shares_v, shares_src = diluted[-1], "latest diluted weighted average"
-        if stale_cover is not None:
+        if zero_cover:
+            notes.append(
+                f"cover-page share count for {stale_cover.period_end} is filed as "
+                f"{stale_cover.value:g}: diluted average used"
+            )
+        elif stale_cover is not None:
             notes.append(
                 f"cover-page share count is from {stale_cover.period_end} (stale): diluted average used"
             )
