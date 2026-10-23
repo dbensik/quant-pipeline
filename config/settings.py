@@ -814,6 +814,227 @@ LINE_CONCEPTS_REVIEWED = {
 }
 
 
+# --- Spin-offs (decision 58, research/spinoff-basis-2026-10-23.md) ---
+#
+# Yahoo serves a spin-off as a "split" whose ratio is the price adjustment
+# (HON 2025-10-30 1.061 for Solstice). That is right for adjusting returns
+# and wrong for a share count: a spin leaves the count alone, and the DCF had
+# multiplied counts filed before it by the ratio (CTVA on 2026-10-23: 667M
+# shares x 6.665 = 4,447M, $3.07 a share against a $12.86 price).
+#
+# Every equity split row whose ratio is not a multiple of 1/4 either way
+# (`odd_split_ratio`), classified 2026-10-23: (symbol, ex-date) -> (kind,
+# the ratio share counts move by, what it was). "cover shares" is the
+# cover-page count just after over just before, from the stored facts: about
+# 1.0 for a spin, the reverse split's ratio when one came with it. Rows with
+# no count either side are named from the separation alone. Kinds:
+#   spin-off  the share ratio is 1.0, or the reverse split done with it;
+#             the DCF refuses across it (valuation.build_inputs)
+#   split     a real share change with an odd ratio: Yahoo's ratio is kept
+#   payment / other  not a share change: ratio 1.0, no refusal
+# A new odd row not listed here is flagged by scripts/check_line_concepts.py
+# (SPLIT?), and until it is read the DCF treats it as a split, as before.
+SPLIT_ROWS_REVIEWED = {
+    ("VZ", "2010-07-02"): ("spin-off", 1.0, "Frontier (wireline lines); cover shares 1.000x"),
+    ("MSI", "2011-01-04"): (
+        "spin-off",
+        1 / 7,
+        "Motorola Mobility, with a 1-for-7 reverse split; cover shares 0.143x",
+    ),
+    ("NOC", "2011-03-31"): ("spin-off", 1.0, "Huntington Ingalls; cover shares 1.005x"),
+    ("MAR", "2011-11-22"): ("spin-off", 1.0, "Marriott Vacations Worldwide; cover shares 0.996x"),
+    ("WMB", "2012-01-03"): ("spin-off", 1.0, "WPX Energy; cover shares 1.005x"),
+    ("COP", "2012-05-01"): ("spin-off", 1.0, "Phillips 66; cover shares 0.960x"),
+    ("JCI", "2012-10-01"): (
+        "spin-off",
+        1.0,
+        "ADT, and Tyco Flow Control to Pentair (Tyco is JCI's filer); cover shares 1.013x",
+    ),
+    ("ABT", "2013-01-02"): ("spin-off", 1.0, "AbbVie; cover shares 0.994x"),
+    ("VLO", "2013-05-02"): ("spin-off", 1.0, "CST Brands; cover shares 0.994x"),
+    ("LDOS", "2013-09-30"): (
+        "spin-off",
+        0.25,
+        "new SAIC, with a 1-for-4 reverse split; cover shares 0.250x",
+    ),
+    ("OKE", "2014-02-03"): ("spin-off", 1.0, "ONE Gas; cover shares 1.007x"),
+    ("DOV", "2014-03-03"): ("spin-off", 1.0, "Knowles; cover shares 0.979x"),
+    ("SPG", "2014-05-29"): ("spin-off", 1.0, "Washington Prime; no cover count stored either side"),
+    ("IP", "2014-07-02"): ("spin-off", 1.0, "xpedx (Veritiv); no cover count stored either side"),
+    ("IRM", "2014-09-26"): (
+        "split",
+        1.0820,
+        "REIT-conversion distribution paid in stock: cover shares 193.7M -> 210.1M (1.085x)",
+    ),
+    ("ADP", "2014-10-01"): ("spin-off", 1.0, "CDK Global; cover shares 1.002x"),
+    ("A", "2014-11-03"): ("spin-off", 1.0, "Keysight; cover shares 1.005x"),
+    ("KMB", "2014-11-03"): ("spin-off", 1.0, "Halyard Health; cover shares 0.981x"),
+    ("OXY", "2014-12-01"): ("spin-off", 1.0, "California Resources; cover shares 0.994x"),
+    ("GOOG", "2015-04-27"): ("payment", 1.0, "Class C adjustment payment; not a share change"),
+    ("PPL", "2015-06-02"): ("spin-off", 1.0, "Talen Energy; cover shares 1.003x"),
+    ("MAS", "2015-07-01"): ("spin-off", 1.0, "TopBuild; cover shares 0.978x"),
+    ("BAX", "2015-07-01"): ("spin-off", 1.0, "Baxalta; cover shares 1.002x"),
+    ("NI", "2015-07-02"): ("spin-off", 1.0, "Columbia Pipeline; cover shares 1.002x"),
+    ("EBAY", "2015-07-20"): ("spin-off", 1.0, "PayPal; cover shares 0.986x"),
+    ("VTR", "2015-08-18"): ("spin-off", 1.0, "Care Capital Properties; cover shares 1.001x"),
+    ("HPQ", "2015-11-02"): ("spin-off", 1.0, "Hewlett Packard Enterprise; cover shares 0.996x"),
+    ("DRI", "2015-11-10"): ("spin-off", 1.0, "Four Corners Property Trust; cover shares 1.001x"),
+    ("WTW", "2016-01-05"): (
+        "split",
+        0.3775,
+        "Willis 2.649-to-1 share consolidation at the Towers Watson merger (cover shares 0.767x, merger issuance inside)",
+    ),
+    ("DHR", "2016-07-05"): ("spin-off", 1.0, "Fortive; cover shares 1.003x"),
+    ("JCI", "2016-09-06"): (
+        "split",
+        0.9550,
+        "Tyco 0.955-for-1 consolidation at the JCI merger (cover shares 2.198x, merger issuance inside)",
+    ),
+    ("HON", "2016-10-03"): ("spin-off", 1.0, "AdvanSix; cover shares 0.999x"),
+    ("APD", "2016-10-03"): ("spin-off", 1.0, "Versum Materials; cover shares 1.004x"),
+    ("YUM", "2016-11-01"): ("spin-off", 1.0, "Yum China; cover shares 0.000x"),
+    ("DOC", "2016-11-01"): ("spin-off", 1.0, "Quality Care Properties; cover shares 1.000x"),
+    ("CAG", "2016-11-10"): ("spin-off", 1.0, "Lamb Weston; cover shares 0.994x"),
+    ("HLT", "2017-01-04"): (
+        "spin-off",
+        1 / 3,
+        "Park Hotels and Hilton Grand Vacations, with a 1-for-3 reverse split; cover shares 0.333x",
+    ),
+    ("MET", "2017-08-07"): ("spin-off", 1.0, "Brighthouse Financial; cover shares 0.990x"),
+    ("HPE", "2017-09-01"): ("spin-off", 1.0, "Enterprise Services to DXC; cover shares 0.984x"),
+    ("LEN", "2017-11-09"): (
+        "split",
+        1.0170,
+        "Class B stock dividend, 1 per 50 Class A; no cover count stored either side",
+    ),
+    ("APTV", "2017-12-05"): ("spin-off", 1.0, "Delphi Technologies; cover shares 1.000x"),
+    ("PNR", "2018-05-01"): ("spin-off", 1.0, "nVent; cover shares 0.983x"),
+    ("DOV", "2018-05-09"): ("spin-off", 1.0, "Apergy; cover shares 0.955x"),
+    ("HON", "2018-10-01"): ("spin-off", 1.0, "Garrett Motion; cover shares 0.985x"),
+    ("HON", "2018-10-29"): ("spin-off", 1.0, "Resideo; cover shares 0.985x"),
+    ("EQT", "2018-11-13"): ("spin-off", 1.0, "Equitrans Midstream; cover shares 1.001x"),
+    ("DELL", "2018-12-28"): (
+        "other",
+        1.0,
+        "Class V exchange and Class C listing; no cover count stored either side",
+    ),
+    ("HSIC", "2019-02-08"): ("spin-off", 1.0, "Covetrus; cover shares 0.993x"),
+    ("GE", "2019-02-26"): ("spin-off", 1.0, "GE Transportation to Wabtec; cover shares 1.002x"),
+    ("DD", "2019-04-02"): ("spin-off", 1.0, "Dow; cover shares 0.996x"),
+    ("DD", "2019-06-03"): (
+        "spin-off",
+        1 / 3,
+        "Corteva, with a 1-for-3 reverse split; cover shares 0.332x",
+    ),
+    ("ECHO", "2019-09-11"): (
+        "spin-off",
+        1.0,
+        "BSS business to DISH; no cover count stored either side",
+    ),
+    ("TT", "2020-03-02"): (
+        "spin-off",
+        1.0,
+        "Industrial segment to Gardner Denver (Ingersoll Rand); cover shares 1.003x",
+    ),
+    ("RTX", "2020-04-03"): (
+        "spin-off",
+        1.0,
+        "Carrier and Otis (shares then issued in the Raytheon merger); cover shares 1.764x",
+    ),
+    ("FTV", "2020-10-09"): ("spin-off", 1.0, "Vontier; cover shares 1.000x"),
+    ("PFE", "2020-11-17"): ("spin-off", 1.0, "Upjohn to Viatris; cover shares 1.003x"),
+    ("MRK", "2021-06-03"): ("spin-off", 1.0, "Organon; cover shares 1.000x"),
+    ("DTE", "2021-07-01"): ("spin-off", 1.0, "DT Midstream; cover shares 1.000x"),
+    ("IP", "2021-10-01"): ("spin-off", 1.0, "Sylvamo; no cover count stored either side"),
+    ("DELL", "2021-11-02"): ("spin-off", 1.0, "VMware; no cover count stored either side"),
+    ("IBM", "2021-11-04"): ("spin-off", 1.0, "Kyndryl; cover shares 1.003x"),
+    ("O", "2021-11-15"): (
+        "spin-off",
+        1.0,
+        "Orion Office REIT (shares then issued in the VEREIT merger); cover shares 1.463x",
+    ),
+    ("EXC", "2022-02-02"): ("spin-off", 1.0, "Constellation Energy; cover shares 1.000x"),
+    ("ZBH", "2022-03-01"): ("spin-off", 1.0, "ZimVie; cover shares 1.002x"),
+    ("BDX", "2022-04-01"): ("spin-off", 1.0, "Embecta; cover shares 1.000x"),
+    ("T", "2022-04-11"): (
+        "spin-off",
+        1.0,
+        "WarnerMedia to Warner Bros. Discovery; cover shares 1.002x",
+    ),
+    ("GE", "2023-01-04"): ("spin-off", 1.0, "GE HealthCare; cover shares 0.997x"),
+    ("LH", "2023-07-03"): ("spin-off", 1.0, "Fortrea; cover shares 1.000x"),
+    ("DHR", "2023-10-02"): ("spin-off", 1.0, "Veralto; cover shares 1.001x"),
+    ("FLEX", "2024-01-03"): ("spin-off", 1.0, "Nextracker; no cover count stored either side"),
+    ("MMM", "2024-04-01"): ("spin-off", 1.0, "Solventum; cover shares 0.993x"),
+    ("GE", "2024-04-02"): ("spin-off", 1.0, "GE Vernova; cover shares 0.991x"),
+    ("ILMN", "2024-06-25"): ("spin-off", 1.0, "GRAIL; no cover count stored either side"),
+    ("J", "2024-09-30"): ("spin-off", 1.0, "Amentum; cover shares 0.998x"),
+    ("LEN", "2025-01-21"): (
+        "spin-off",
+        1.0,
+        "Millrose Properties; no cover count stored either side",
+    ),
+    ("WDC", "2025-02-24"): ("spin-off", 1.0, "Sandisk; cover shares 1.003x"),
+    ("J", "2025-05-16"): (
+        "other",
+        1.0,
+        "unidentified; cover shares 0.995x across it, so not a share change",
+    ),
+    ("FTV", "2025-06-30"): ("spin-off", 1.0, "Ralliant; cover shares 0.995x"),
+    ("HON", "2025-10-30"): ("spin-off", 1.0, "Solstice Advanced Materials; cover shares 1.001x"),
+    ("DD", "2025-11-03"): ("spin-off", 1.0, "Qnity Electronics; cover shares 1.001x"),
+    ("CMCSA", "2026-01-05"): ("spin-off", 1.0, "Versant Media; no cover count stored either side"),
+    ("BDX", "2026-02-10"): (
+        "spin-off",
+        1.0,
+        "Biosciences and Diagnostics to Waters; cover shares 0.968x",
+    ),
+    ("FDX", "2026-06-01"): ("spin-off", 1.0, "FedEx Freight; cover shares 0.992x"),
+    ("HON", "2026-06-29"): (
+        "spin-off",
+        0.5,
+        "Honeywell Aerospace (HONA), with a 1-for-2 reverse split; cover shares 0.500x",
+    ),
+    ("SPGI", "2026-07-01"): ("spin-off", 1.0, "Mobility; no cover count stored either side"),
+    ("AVB", "2026-08-17"): (
+        "other",
+        1.0,
+        "after AVB's delisting (Form 25-NSE); legacy asset, REIT, never valued; not read",
+    ),
+    ("CTVA", "2026-10-01"): (
+        "spin-off",
+        1.0,
+        "the Corteva separation; no cover count stored either side",
+    ),
+}
+
+
+def odd_split_ratio(ratio: float) -> bool:
+    """Neither the ratio nor its inverse is a multiple of 1/4: not a 2:1, 3:2, 5:4 or 1:10."""
+    return all(abs(r * 4 - round(r * 4)) > 0.01 for r in (ratio, 1 / ratio))
+
+
+#: A spin's ex-date to the first periodic filing whose period ends at least
+#: this many days after it: before then the price is the company after the
+#: spin and every statement the company before it. The days because filers
+#: date quarters nominally: HON's Q2 10-Q is dated 2026-06-30, but the
+#: 2026-06-29 distribution fell in its third quarter (debt $34.0B at 06-30,
+#: $16.6B at 09-30).
+SPINOFF_FILING_MIN_DAYS = 7
+
+#: A trailing year bridges two bases when the prior-year YTD it subtracts
+#: carries more discontinued operating cash than the fiscal year it is
+#: subtracted from, by this share of that year's total CFO: a business moved
+#: into discontinued operations after the 10-K (HON 2026-10-23: 9M 2025
+#: $2,594M against FY2025 $333M, 35%). Measured 2026-10-23 on 501 filers at
+#: each filing since 2012: 98 points above 5% (50 filers; the largest are
+#: known separations: BAX 2015 Baxalta, EBAY 2015 PayPal, MRK 2021 Organon,
+#: FIS 2024 Worldpay); HON's Q2 2026 (Solstice's 6M $474M vs FY $333M, 2.2%,
+#: one basis) is below it. A filer that tags only total CFO re-presents
+#: with no signal here (CMCSA, FDX): see the decision's "Not done".
+DCF_DISCONTINUED_BREAK_SHARE = 0.05
+
+
 def dcf_sector_refusal(symbol: str | None, sector: str | None) -> str | None:
     """Why `symbol`'s sector refuses a DCF, or None (not refused, or allowed by name)."""
     if sector not in DCF_REFUSED_SECTORS:

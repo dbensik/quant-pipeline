@@ -104,7 +104,33 @@ async def filer_statements(
             422, f"no SEC facts stored for {symbol} (CIK {cik}): run scripts/load_fundamentals.py"
         )
     line_concepts = settings.LINE_CONCEPTS_BY_SYMBOL.get(symbol.upper())
-    return Statements(facts, await data.splits(symbol), line_concepts), cik, sector, ciks
+    splits, spinoffs = share_splits(symbol, await data.splits(symbol))
+    return Statements(facts, splits, line_concepts, spinoffs), cik, sector, ciks
+
+
+def share_splits(
+    symbol: str, rows: List[Tuple[date, float]]
+) -> Tuple[List[Tuple[date, float]], List[date]]:
+    """
+    Yahoo's split rows as share-count ratios, and the spin-offs among them
+    (decision 58). A reviewed row moves share counts by its listed ratio: 1.0
+    for a spin or a payment, the reverse split done with a spin (HON 0.5 on
+    2026-06-29). An odd row not yet reviewed stays a split, as before, and is
+    flagged by scripts/check_line_concepts.py.
+    """
+    splits: List[Tuple[date, float]] = []
+    spinoffs: List[date] = []
+    for ex_date, ratio in rows:
+        reviewed = settings.SPLIT_ROWS_REVIEWED.get((symbol.upper(), ex_date.isoformat()))
+        if reviewed is None:
+            splits.append((ex_date, ratio))
+            continue
+        kind, share_ratio, _ = reviewed
+        if kind == "spin-off":
+            spinoffs.append(ex_date)
+        if share_ratio != 1.0:
+            splits.append((ex_date, share_ratio))
+    return splits, spinoffs
 
 
 async def load_statements(

@@ -31,6 +31,10 @@ REFUSED
     test case. A filer with no operating cash flow on file, or no capex in a
     standard concept. And one that reports interest but has no debt balance
     within MAX_TTM_AGE_DAYS: missing debt is not zero debt.
+    Across a spin-off (decision 58): from its ex-date until a filing for a
+    period after it (the price is the company after, the statements the
+    company before), and while the trailing year bridges two bases (a
+    business moved into discontinued operations after the 10-K).
 
 BALANCES AGE TOO
     Debt and cash are used only if their balance date is within
@@ -201,9 +205,32 @@ def build_inputs(
             f"({settings.DCF_ALLOWED_SYMBOLS[symbol.upper()]})"
         )
 
+    for ex_date in st.spinoffs:
+        after = ex_date + timedelta(days=settings.SPINOFF_FILING_MIN_DAYS)
+        if ex_date <= as_of and not st.reports_period_ending(after, as_of):
+            return Refusal(
+                f"spun off a business on {ex_date}: the price is the company after it, and "
+                f"no 10-Q or 10-K for a period ending on or after {after} is on file"
+            )
+
     cfo, cfo_src = _ttm_or_annual(st, "cfo", as_of)
     if cfo is None:
         return Refusal("no operating cash flow on file before this date")
+    shift = st.discontinued_cash(as_of) if cfo_src.startswith("TTM") else None
+    if shift is not None:
+        # The TTM is FY + YTD - prior YTD; a prior YTD re-presented after the
+        # 10-K (HON's Aerospace) carries more discontinued cash than the year.
+        fy_disc, prior_disc, fy_total, prior = shift
+        if (abs(prior_disc) - abs(fy_disc)) / max(
+            abs(fy_total.value), 1.0
+        ) > settings.DCF_DISCONTINUED_BREAK_SHARE:
+            return Refusal(
+                f"the trailing year mixes two bases: the year to date to {prior.period_end} "
+                f"carries {prior_disc / 1e6:,.0f}M of discontinued operating cash, the fiscal "
+                f"year to {fy_total.period_end} it is subtracted from {fy_disc / 1e6:,.0f}M; "
+                "a business was moved into discontinued operations after the 10-K, and the "
+                "trailing year without it is not on file until the next one"
+            )
     capex, capex_src = _ttm_or_annual(st, "capex", as_of)
     if capex is None:
         # Missing capex is NOT zero: treating it as zero made APA's free cash
@@ -229,6 +256,7 @@ def build_inputs(
                 [f for fs in st.by_concept.values() for f in fs],
                 st.splits,
                 {**st.line_concepts, "intangible_capex": tuple(added)},
+                st.spinoffs,
             ),
             "intangible_capex",
             as_of,

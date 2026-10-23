@@ -21,8 +21,9 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from datetime import date
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
+from config import settings
 from modeling.statements import ANNUAL_DAYS, LINE_ITEMS, Statements, Value
 
 #: line item -> the valuation `lines` entry it moves.
@@ -84,7 +85,7 @@ def alternatives(
 def with_line(st: Statements, item: str, concepts: Tuple[str, ...]) -> Statements:
     """The same filer's statements with one line read from `concepts`."""
     facts = [f for fs in st.by_concept.values() for f in fs]
-    return Statements(facts, st.splits, {**st.line_concepts, item: concepts})
+    return Statements(facts, st.splits, {**st.line_concepts, item: concepts}, st.spinoffs)
 
 
 def stale_map(st: Statements, item: str, as_of: date) -> Optional[str]:
@@ -112,7 +113,22 @@ def stale_map(st: Statements, item: str, as_of: date) -> Optional[str]:
 def _unmapped(st: Statements, item: str, as_of: date) -> List[Value]:
     facts = [f for fs in st.by_concept.values() for f in fs]
     rest = {k: v for k, v in st.line_concepts.items() if k != item}
-    return Statements(facts, st.splits, rest).annual(item, as_of)
+    return Statements(facts, st.splits, rest, st.spinoffs).annual(item, as_of)
+
+
+def unreviewed_splits(symbol: str, splits: Sequence[Tuple[date, float]]) -> List[str]:
+    """
+    Split rows with an odd ratio (settings.odd_split_ratio) not yet read into
+    settings.SPLIT_ROWS_REVIEWED: probably a spin-off Yahoo serves as a
+    split, which the DCF multiplies share counts by until it is listed.
+    """
+    return [
+        f"SPLIT? {symbol} {ex_date} ratio {ratio:g}: not in SPLIT_ROWS_REVIEWED; read "
+        "it (a spin-off, or a real share change) and list it"
+        for ex_date, ratio in splits
+        if settings.odd_split_ratio(ratio)
+        and (symbol.upper(), ex_date.isoformat()) not in settings.SPLIT_ROWS_REVIEWED
+    ]
 
 
 def material(base: float, alt: float, min_move: float, min_rel: float) -> bool:

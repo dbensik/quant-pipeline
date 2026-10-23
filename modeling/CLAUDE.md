@@ -57,6 +57,18 @@
   balance-sheet lines less overfunded plans' assets, at an ANNUAL report's
   date only (TAP's 10-Q tags the liability without the surplus), is named
   at 5%.
+  Spin-offs (decision 58, `research/spinoff-basis-2026-10-23.md`): Yahoo
+  serves one as a SPLIT whose ratio is the price factor, and share counts
+  had been multiplied by it (CTVA 667M x 6.665). Every odd-ratio split row
+  is read into `settings.SPLIT_ROWS_REVIEWED` (kind + the ratio counts
+  really move by: 1.0, or HON's 1-for-2 reverse split with Aerospace);
+  `valuation_service.share_splits` applies it, and a new unlisted row is a
+  `SPLIT?` flag in the 06:00 line check. A valuation refuses from a spin's
+  ex-date until a 10-Q/10-K for a period ending `SPINOFF_FILING_MIN_DAYS`
+  after it (price after, statements before), and while the cash-flow TTM
+  bridges two bases: the prior YTD carrying more discontinued CFO than the
+  fiscal year by `DCF_DISCONTINUED_BREAK_SHARE` of its total
+  (`Statements.discontinued_cash`; HON 9M 2025 $2,594M vs FY $333M).
   Growth's start years come from `Statements.annual_before`: by date, and
   on the latest year's concept unless another agrees with it everywhere. Decisions
   in `research/dcf-plan-2026-10-08.md`: weekly 5y Blume beta, 7% WACC floor

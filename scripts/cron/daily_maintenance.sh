@@ -290,7 +290,7 @@ if [ "$MODE" != "--snapshot-only" ]; then
     if [ "$CHECK_EXIT" -eq 0 ]; then
         log "line-concept check OK"
     elif [ "$CHECK_EXIT" -eq 1 ]; then
-        log "line-concept check FLAGGED DCF lines — see CONCEPT or STALE lines above"
+        log "line-concept check FLAGGED DCF lines — see CONCEPT, STALE or SPLIT? lines above"
         flag line-concepts
     else
         log "line-concept check FAILED to run (exit $CHECK_EXIT)"

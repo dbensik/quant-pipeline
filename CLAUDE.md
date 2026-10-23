@@ -555,6 +555,19 @@ stopped using. Flags only, ~45 s, no SEC requests. Clear one by reading the
 statement, then mapping the right concept or adding the reviewed one, with
 what the statement shows, to `LINE_CONCEPTS_REVIEWED`.
 
+**A spin-off is not a split, and the DCF refuses across one** (decision
+58, 2026-10-23, `research/spinoff-basis-2026-10-23.md`). Yahoo serves a
+spin as a split with an odd ratio; read-time price adjustment keeps it (it
+is right for returns), but share counts no longer move by it:
+`SPLIT_ROWS_REVIEWED` in settings lists all 87 such equity rows, each
+named and checked against the cover-page share count across it, and the
+line check flags a new one (`SPLIT?`). A valuation refuses
+from the ex-date until a filing for a period after it, and while a
+business moved into discontinued operations after the 10-K makes the
+trailing year mix two bases (HON's Aerospace, until its FY2026 10-K).
+Measured at 2026-10-23: 365 valued -> 361 (HON, CTVA, SPGI, APTV); 93 of
+4,181 history points on 101 affected filers newly refused, none changed.
+
 **Everything is backed up daily, and each backup is proven by a restore**
 (since 2026-10-12; before that nothing was, not even Time Machine).
 `scripts/backup.py` is the 06:00 job's last step: the container's own

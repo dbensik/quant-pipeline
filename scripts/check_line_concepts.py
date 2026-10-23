@@ -20,6 +20,11 @@ WHAT IT FLAGS
     STALE    a settings.LINE_CONCEPTS_BY_SYMBOL entry names concepts the
              filer stopped using: the mapped line ends before the list's.
              A mapped line is checked for this only; its entry is its review.
+    SPLIT?   a split row with an odd ratio not in
+             settings.SPLIT_ROWS_REVIEWED (decision 58): Yahoo serves a
+             spin-off as a split, and until the row is read the DCF
+             multiplies share counts by it. Checked for every equity, valued
+             or refused.
     Logic and the lines checked: core/line_concept_check.py.
 
 CLEARING A FLAG
@@ -75,14 +80,18 @@ async def value_per_price(session, symbol, as_of, statements):
 
 async def check(symbol: str, as_of: date) -> list[str]:
     async with AsyncSessionLocal() as session:
+        splits = lcc.unreviewed_splits(
+            symbol,
+            [s for s in await TimescaleValuationRepo(session).splits(symbol) if s[0] <= as_of],
+        )
         try:
             # load_statements, not filer_statements: its refusals (HUM's
             # managed care) are what the DCF does, and value() trusts them.
             loaded = await svc.load_statements(TimescaleValuationRepo(session), symbol)
         except svc.ValuationError:
-            return []
+            return splits
         st = loaded[0]
-        found = [
+        found = splits + [
             f"STALE {symbol}: {why}"
             for item in lcc.CHECKED_LINES
             if (why := lcc.stale_map(st, item, as_of))

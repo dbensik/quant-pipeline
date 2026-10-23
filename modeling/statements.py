@@ -268,8 +268,13 @@ class Statements:
         facts: Iterable[Fact],
         splits: Sequence[Tuple[date, float]] = (),
         line_concepts: Optional[Dict[str, Tuple[str, ...]]] = None,
+        spinoffs: Sequence[date] = (),
     ) -> None:
         """
+        splits: (ex-date, share ratio), spin-offs already taken out
+        (core/valuation_service.share_splits): a spin leaves the share count
+        alone. spinoffs: their ex-dates, for the valuation's refusal.
+
         line_concepts: for this filer only, a line read as the SUM of these
         concepts per period instead of the first of LINE_ITEMS' list
         (settings.LINE_CONCEPTS_BY_SYMBOL, each entry checked against the
@@ -281,6 +286,7 @@ class Statements:
             self.by_concept.setdefault(f.concept, []).append(f)
         self.splits = sorted(splits)
         self.line_concepts = dict(line_concepts or {})
+        self.spinoffs = sorted(spinoffs)
 
     # -- primitives -------------------------------------------------------
 
@@ -632,6 +638,73 @@ class Statements:
             if v.period_end == period_end
         ]
         return max(candidates, key=lambda v: v.period_start or date.min) if candidates else None
+
+    def reports_period_ending(self, day: date, as_of: date) -> bool:
+        """Whether a 10-Q or 10-K for a period ending on or after `day` was filed before `as_of`."""
+        return any(
+            f.period_end >= day and f.filed < as_of and f.form.split("/")[0] in ("10-Q", "10-K")
+            for facts in self.by_concept.values()
+            for f in facts
+        )
+
+    def discontinued_cash(self, as_of: date) -> Optional[Tuple[float, float, Value, Value]]:
+        """
+        Discontinued operating cash (total CFO less continuing) in the latest
+        fiscal year and in the prior-year YTD the trailing identity subtracts
+        from it: (fy amount, prior amount, fy total, prior total), or None
+        when either has no total. Each from its own latest filing, so a 10-Q
+        that moves a business into discontinued operations after the 10-K
+        shows as a prior YTD carrying more than the whole year did.
+
+        HON on 2026-10-23 (decision 58): FY2025 $333M (Solstice only, 10-K
+        of 2026-02-17), 9M 2025 $2,594M (Aerospace too, 10-Q of 2026-10-22).
+        FY + YTD - prior YTD then counted Aerospace's 2025 cash as Honeywell's.
+
+        A filer without discontinued operations tags only the total, so a
+        missing continuing figure is an amount of 0. A mapped cfo line has no
+        two concepts to compare: None.
+        """
+        if "cfo" in self.line_concepts:
+            return None
+        cont_c, total_c = LINE_ITEMS["cfo"]
+        annual = self.annual("cfo", as_of)
+        if not annual:
+            return None
+        fy = annual[-1]
+        fy_key = (fy.period_start, fy.period_end)
+        ytd = {c: self._periods("cfo", as_of, (80, 300), (c,)) for c in (cont_c, total_c)}
+        ends = sorted(
+            k[1]
+            for c in ytd
+            for k in ytd[c]
+            if k[0] is not None and (k[0] - fy.period_end).days in (0, 1)
+        )
+        if not ends:
+            return None
+        target = ends[-1].toordinal() - 364
+        prior_keys = [
+            k
+            for k in ytd[total_c]
+            if k[0] == fy.period_start and abs(k[1].toordinal() - target) <= 7
+        ]
+        if not prior_keys:
+            return None
+        prior_key = min(prior_keys, key=lambda k: abs(k[1].toordinal() - target))
+
+        def disc(total: Optional[Value], cont: Optional[Value]) -> Optional[float]:
+            if total is None:
+                return None
+            return total.value - (cont.value if cont is not None else total.value)
+
+        annual_by = {
+            c: self._periods("cfo", as_of, ANNUAL_DAYS, (c,)).get(fy_key) for c in (cont_c, total_c)
+        }
+        fy_disc = disc(annual_by[total_c], annual_by[cont_c])
+        prior = ytd[total_c][prior_key]
+        prior_disc = disc(prior, ytd[cont_c].get(prior_key))
+        if fy_disc is None or prior_disc is None:
+            return None
+        return fy_disc, prior_disc, annual_by[total_c], prior
 
     # -- derived -------------------------------------------------------------
 
