@@ -467,6 +467,8 @@ class FundamentalFactORM(Base):
     accn = Column(String, nullable=False)
     frame = Column(String, nullable=True)
     fetched_at = Column(DateTime(timezone=True), nullable=False)
+    #: 'companyfacts' or 'instance' (a filing companyfacts left out; decision 59).
+    source = Column(String, nullable=False, server_default="companyfacts")
 
 
 class InsiderTransactionORM(Base):

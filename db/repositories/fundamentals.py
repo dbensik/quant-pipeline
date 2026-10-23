@@ -9,9 +9,9 @@ accession number and is its own row).
 
 from __future__ import annotations
 
-from typing import Iterable, List
+from typing import Dict, Iterable, List, Set, Tuple
 
-from sqlalchemy import select
+from sqlalchemy import select, tuple_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,6 +33,7 @@ _COLUMNS = (
     "accn",
     "frame",
     "fetched_at",
+    "source",
 )
 _BATCH = 2000
 
@@ -72,3 +73,24 @@ class TimescaleFactRepo:
             )
         )
         return [Fact(**{c: getattr(r, c) for c in _COLUMNS}) for r in result.scalars()]
+
+    async def instance_values(self, facts: List[Fact]) -> Dict[Tuple, float]:
+        accns = {(f.cik, f.accn) for f in facts}
+        if not accns:
+            return {}
+        wanted = {f.key() for f in facts}
+        F = FundamentalFactORM
+        rows = await self.session.execute(
+            select(F).where(F.source == "instance", tuple_(F.cik, F.accn).in_(list(accns)))
+        )
+        out = {}
+        for r in rows.scalars():
+            key = (r.cik, r.taxonomy, r.concept, r.unit, r.period_start, r.period_end, r.accn)
+            if key in wanted:
+                out[key] = r.value
+        return out
+
+    async def stored_accessions(self, accns: Iterable[str]) -> Set[str]:
+        F = FundamentalFactORM
+        rows = await self.session.execute(select(F.accn).where(F.accn.in_(list(accns))).distinct())
+        return set(rows.scalars())

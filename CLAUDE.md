@@ -544,6 +544,19 @@ or a predecessor) that filed a 10-K, 10-Q, 20-F, 40-F or an amendment in
 choice; never supplied by code — `core/sec.py` refuses to construct without
 it). A block (HTML 403) or a 429 stops the run.
 
+**A filing companyfacts leaves out is read from its own XBRL instance**
+(decision 59, 2026-10-23, `research/sec-companyfacts-gap-2026-10-23.md`,
+`core/xbrl_instance.py`). SEC's companyfacts dropped 63 Jul-Aug 2026 10-Qs
+(ABT, KO, V, DUK...) whose `*_htm.xml` sat in the Archives. The 06:00 step
+reads 30 days of the index and loads any registry filing 3+ days old with no
+row under ANY CIK from its instance (`source = 'instance'`, migration 0014);
+`--instances-since DATE` sweeps. The parse matched companyfacts exactly on 78
+filings with two rules (a zero-length duration is an instant; a fact tagged
+twice keeps the higher `decimals`). When companyfacts later serves that
+filing, a differing value is a DISAGREE (exit 2, a job FLAG) and the instance
+row stays. New index members get their companyfacts at registration. At
+2026-10-23: 358 valued -> 376 (the 27 filers that had no facts) -> 389.
+
 **DCF lines are re-checked against new filings daily** (since 2026-10-13,
 `scripts/check_line_concepts.py`, after the snapshot). The DCF reads each line
 from the first concept of an ordered list, or from

@@ -41,6 +41,12 @@ class FakeFactRepo:
     async def facts(self, cik, concepts):
         return [f for f in self.rows.values() if f.cik == cik and f.concept in set(concepts)]
 
+    async def instance_values(self, facts):
+        return {}
+
+    async def stored_accessions(self, accns):
+        return {f.accn for f in self.rows.values()} & set(accns)
+
 
 def test_parse_keeps_what_was_served(aapl):
     facts = parse_company_facts(aapl, WHEN)

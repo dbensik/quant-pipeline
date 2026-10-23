@@ -1,7 +1,8 @@
 # modeling/ — the DCF (tier 3)
 
 - `core/sec.py` + `core/fundamentals.py` + `modeling/` + `api/routers/valuation.py` —
-  tier 3, the DCF. SEC XBRL company facts are stored RAW and insert-only in
+  tier 3, the DCF. SEC XBRL company facts (or, for a filing companyfacts
+  left out, that filing's own instance: `source`, decision 59) are stored RAW and insert-only in
   `fundamental_facts` (allow-list `FUNDAMENTAL_CONCEPTS`; a new concept needs
   a `load_fundamentals.py --all` reload, insert-only) and standardised at READ
   time by `modeling/statements.py`: a fact is visible only if filed STRICTLY

@@ -22,6 +22,10 @@ A dropped connection mid-download (measured 2026-10-11: "Response ended
 prematurely" on a 3 MB companyfacts body) is retried up to TRANSPORT_RETRIES
 times with backoff. Only transport errors are retried — a block or a 429 is
 an answer and stops the run.
+
+Besides the JSON APIs it reads Archives files: the daily form index (with
+each filing's accession) and a filing's XBRL instance (`filing_instance`,
+decision 59), under the same stop rules.
 """
 
 from __future__ import annotations
@@ -29,7 +33,7 @@ from __future__ import annotations
 import re
 import time
 from datetime import date, timedelta
-from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 from config import settings
 
@@ -151,6 +155,36 @@ class SECGateway:
     def company_tickers(self) -> Dict[str, Any]:
         return self.get_json(settings.URL_SEC_COMPANY_TICKERS)
 
+    def get_bytes(self, url: str) -> bytes:
+        """An Archives file as served (an XML instance declares its own
+        encoding, so it is parsed from bytes). Same stop rules as get_json."""
+        response = self._get(url)
+        ctype = (response.headers.get("Content-Type") or "").lower()
+        if response.status_code == 429:
+            raise SECThrottledError(
+                f"SEC throttled the client (429) at {url}; stop and retry later"
+            )
+        if "html" in ctype:
+            raise SECBlockedError(f"SEC returned HTML ({response.status_code}) at {url}. Stopping.")
+        if response.status_code == 404:
+            raise LookupError(f"SEC has no document at {url}")
+        if response.status_code != 200:
+            raise RuntimeError(f"SEC returned {response.status_code} for {url}")
+        return response.content
+
+    def filing_instance(self, cik: int, accn: str) -> Tuple[str, bytes]:
+        """
+        The XBRL instance of one filing: the `*_htm.xml` EDGAR extracts from
+        an inline-XBRL document (every 10-K/10-Q since 2019-2021). No other
+        file is ever guessed at: a filing without one raises LookupError.
+        """
+        folder = settings.URL_SEC_FILING_FOLDER.format(cik=int(cik), accn=accn.replace("-", ""))
+        items = self.get_json(f"{folder}/index.json")["directory"]["item"]
+        names = [i["name"] for i in items if i["name"].endswith("_htm.xml")]
+        if len(names) != 1:
+            raise LookupError(f"filing {accn} of CIK {cik} has {len(names)} *_htm.xml instances")
+        return names[0], self.get_bytes(f"{folder}/{names[0]}")
+
     def get_text(self, url: str) -> str:
         """A plain-text Archives file. Same stop rules as get_json."""
         response = self._get(url)
@@ -165,13 +199,13 @@ class SECGateway:
             raise RuntimeError(f"SEC returned {response.status_code} for {url}")
         return response.text
 
-    def recent_fact_filers(
+    def recent_fact_filings(
         self, start: date, end: date, forms: Iterable[str] = settings.SEC_FACT_FORMS
-    ) -> Tuple[Set[int], List[date]]:
+    ) -> Tuple[List[Tuple[str, int, date, str]], List[date]]:
         """
-        CIKs that filed one of `forms` on a business day in [start, end], and
-        the days whose index was read. Days come from each quarter's
-        directory listing, never guessed.
+        (form, cik, filed, accession) of every filing of one of `forms` on a
+        business day in [start, end], and the days whose index was read. Days
+        come from each quarter's directory listing, never guessed.
         """
         wanted = set(forms)
         quarters = sorted(
@@ -180,7 +214,7 @@ class SECGateway:
                 for d in (start + timedelta(n) for n in range((end - start).days + 1))
             }
         )
-        ciks: Set[int] = set()
+        filings: List[Tuple[str, int, date, str]] = []
         days: List[date] = []
         for year, quarter in quarters:
             listing = self.get_json(
@@ -197,22 +231,25 @@ class SECGateway:
                             year=year, quarter=quarter, name=item["name"]
                         )
                     )
-                    ciks |= {cik for form, cik, _ in parse_form_index(text) if form in wanted}
+                    filings += [row for row in parse_form_index(text) if row[0] in wanted]
                     days.append(day)
-        return ciks, sorted(days)
+        return filings, sorted(days)
 
 
 _INDEX_ROW = re.compile(
-    r"^(?P<form>\S+(?: \S+)*?)\s{2,}.*\s(?P<cik>\d+)\s+(?P<filed>\d{8})\s+edgar/"
+    r"^(?P<form>\S+(?: \S+)*?)\s{2,}.*\s(?P<cik>\d+)\s+(?P<filed>\d{8})\s+"
+    r"edgar/data/\d+/(?P<accn>\d{10}-\d{2}-\d{6})\.txt"
 )
 
 
-def parse_form_index(text: str) -> List[Tuple[str, int, date]]:
-    """(form, cik, filed) for every row of a daily form index (fixed-width text)."""
+def parse_form_index(text: str) -> List[Tuple[str, int, date, str]]:
+    """(form, cik, filed, accession) for every row of a daily form index (fixed-width text)."""
     out = []
     for line in text.splitlines():
         m = _INDEX_ROW.match(line)
         if m:
             f = m["filed"]
-            out.append((m["form"], int(m["cik"]), date(int(f[:4]), int(f[4:6]), int(f[6:]))))
+            out.append(
+                (m["form"], int(m["cik"]), date(int(f[:4]), int(f[4:6]), int(f[6:])), m["accn"])
+            )
     return out

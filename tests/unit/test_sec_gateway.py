@@ -232,8 +232,8 @@ SC 13G/A         VANGUARD GROUP INC                                            1
 
 def test_the_form_index_parses_multi_word_forms_and_ciks():
     rows = S.parse_form_index(INDEX)
-    assert ("10-Q", 27904, S.date(2026, 10, 9)) in rows
-    assert ("SC 13G/A", 102909, S.date(2026, 10, 9)) in rows
+    assert ("10-Q", 27904, S.date(2026, 10, 9), "0000027904-26-000038") in rows
+    assert ("SC 13G/A", 102909, S.date(2026, 10, 9), "0000102909-26-000001") in rows
     assert len(rows) == 5
 
 
@@ -256,8 +256,12 @@ def test_recent_filers_reads_only_listed_days_and_fact_forms():
         ]
     )
     gw = S.SECGateway(session=session, user_agent=UA, clock=FakeClock(), sleep=lambda s: None)
-    ciks, days = gw.recent_fact_filers(S.date(2026, 10, 3), S.date(2026, 10, 10))
-    assert ciks == {27904, 12345}  # 10-Q and 10-K/A; not the 8-K, 13G or 1-A
+    filings, days = gw.recent_fact_filings(S.date(2026, 10, 3), S.date(2026, 10, 10))
+    # 10-Q and 10-K/A, with their accessions; not the 8-K, 13G or 1-A
+    assert filings == [
+        ("10-Q", 27904, S.date(2026, 10, 9), "0000027904-26-000038"),
+        ("10-K/A", 12345, S.date(2026, 10, 9), "0000012345-26-000001"),
+    ]
     assert days == [S.date(2026, 10, 8), S.date(2026, 10, 9)]  # the weekend is never requested
     assert [u.rsplit("/", 1)[-1] for u, _ in session.calls] == [
         "index.json",
@@ -270,7 +274,7 @@ def test_a_window_across_quarters_lists_both():
     empty = {"directory": {"item": []}}
     session = FakeSession([FakeResponse(body=empty), FakeResponse(body=empty)])
     gw = S.SECGateway(session=session, user_agent=UA, clock=FakeClock(), sleep=lambda s: None)
-    gw.recent_fact_filers(S.date(2026, 9, 28), S.date(2026, 10, 2))
+    gw.recent_fact_filings(S.date(2026, 9, 28), S.date(2026, 10, 2))
     assert [u.split("daily-index/")[1] for u, _ in session.calls] == [
         "2026/QTR3/index.json",
         "2026/QTR4/index.json",
@@ -288,3 +292,44 @@ def test_an_html_index_response_is_a_block():
     gw = S.SECGateway(session=session, user_agent=UA, clock=FakeClock(), sleep=lambda s: None)
     with pytest.raises(S.SECBlockedError):
         gw.get_text("https://www.sec.gov/Archives/x.idx")
+
+
+# --- a filing's XBRL instance (decision 59) ---------------------------------------
+
+
+class BytesResponse(FakeResponse):
+    def __init__(self, content, status=200, ctype="application/xml"):
+        super().__init__(status=status, ctype=ctype)
+        self.content = content
+
+
+def folder(*names):
+    return FakeResponse(body={"directory": {"item": [{"name": n} for n in names]}})
+
+
+def test_the_instance_is_the_one_htm_xml_and_nothing_else_is_guessed():
+    session = FakeSession(
+        [
+            folder("abt-20260630_cal.xml", "FilingSummary.xml", "abt-20260630_htm.xml", "abt.htm"),
+            BytesResponse(b"<xbrl/>"),
+        ]
+    )
+    gw = S.SECGateway(session=session, user_agent=UA, clock=FakeClock(), sleep=lambda s: None)
+    name, xml = gw.filing_instance(1800, "0001628280-26-050134")
+    assert (name, xml) == ("abt-20260630_htm.xml", b"<xbrl/>")
+    assert [u for u, _ in session.calls] == [
+        "https://www.sec.gov/Archives/edgar/data/1800/000162828026050134/index.json",
+        "https://www.sec.gov/Archives/edgar/data/1800/000162828026050134/abt-20260630_htm.xml",
+    ]
+    # A filing without one (pre-inline, or a cover-only amendment) raises.
+    session = FakeSession([folder("x-20180630.xml", "x-20180630_lab.xml", "FilingSummary.xml")])
+    gw = S.SECGateway(session=session, user_agent=UA, clock=FakeClock(), sleep=lambda s: None)
+    with pytest.raises(LookupError, match="0 \\*_htm.xml"):
+        gw.filing_instance(1, "0000000001-18-000001")
+
+
+def test_an_html_instance_response_is_a_block():
+    session = FakeSession([BytesResponse(b"<html/>", status=403, ctype="text/html")])
+    gw = S.SECGateway(session=session, user_agent=UA, clock=FakeClock(), sleep=lambda s: None)
+    with pytest.raises(S.SECBlockedError):
+        gw.get_bytes("https://www.sec.gov/Archives/x_htm.xml")

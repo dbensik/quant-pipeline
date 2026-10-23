@@ -10,10 +10,20 @@ WHAT IS STORED
     Every row of every concept in settings.STORED_CONCEPTS (the DCF's
     FUNDAMENTAL_CONCEPTS and the desk's RESEARCH_CONCEPTS), as the SEC
     served it: value, unit, period (start is NULL for an instant), fiscal
-    labels, form, filed date, accession, frame. Nothing is standardised here
+    labels, form, filed date, accession, frame, and where it came from
+    (`source`). Nothing is standardised here
     — concept priority, Q4 derivation, TTM and split-rescaled shares happen
     at read time (modeling/statements.py), so a better mapping later never
     needs a rewrite of history.
+
+TWO SOURCES (decision 59, research/sec-companyfacts-gap-2026-10-23.md)
+    companyfacts, SEC's per-company document, is the source. It leaves out
+    whole filings (63 10-Qs of Jul-Aug 2026), so a filing it lacks is read
+    from the filing's own XBRL instance (core/xbrl_instance.py) into the same
+    shape, stored with source 'instance'. The key has no value in it, so when
+    companyfacts later serves that filing its rows are not inserted: each one
+    whose value differs from the instance's is returned as a disagreement for
+    the caller to flag, never written over.
 
 IDENTITY CHECK
     The CIK on an asset is a claim (core/cik_resolution.py). Before rows are
@@ -24,9 +34,9 @@ IDENTITY CHECK
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
-from typing import Any, Dict, Iterable, List, Optional, Protocol, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Protocol, Sequence, Set, Tuple
 
 from config.settings import STORED_CONCEPTS
 
@@ -47,6 +57,7 @@ class Fact:
     accn: str
     frame: Optional[str]
     fetched_at: datetime
+    source: str = "companyfacts"
 
     def key(self) -> Tuple:
         return (
@@ -64,6 +75,7 @@ def parse_company_facts(
     doc: Dict[str, Any],
     fetched_at: datetime,
     allow: Sequence[Tuple[str, str]] = STORED_CONCEPTS,
+    source: str = "companyfacts",
 ) -> List[Fact]:
     """The allow-listed facts in one companyfacts document, as served."""
     cik = int(doc["cik"])
@@ -93,6 +105,7 @@ def parse_company_facts(
                             accn=r["accn"],
                             frame=r.get("frame"),
                             fetched_at=fetched_at,
+                            source=source,
                         )
                     )
     return out
@@ -105,6 +118,15 @@ class FactRepository(Protocol):
 
     async def facts(self, cik: int, concepts: Iterable[str]) -> List[Fact]: ...
 
+    async def instance_values(self, facts: List[Fact]) -> Dict[Tuple, float]:
+        """Stored values, by key, of the rows among `facts`' keys that came from an instance."""
+        ...
+
+    async def stored_accessions(self, accns: Iterable[str]) -> Set[str]:
+        """Those of `accns` with a stored row under ANY CIK: a filing a successor
+        and its predecessor both list (XOM's 2026-08-03 10-Q) is stored once."""
+        ...
+
 
 @dataclass
 class FactIngestReport:
@@ -113,6 +135,9 @@ class FactIngestReport:
     served: int
     inserted: int
     concepts: int
+    #: companyfacts rows whose value differs from the instance row stored
+    #: under the same key: (the served fact, the stored value).
+    disagreements: List[Tuple[Fact, float]] = field(default_factory=list)
 
 
 async def ingest_company(
@@ -122,11 +147,38 @@ async def ingest_company(
 ) -> FactIngestReport:
     """Store one companyfacts document's allow-listed facts. Insert-only."""
     facts = parse_company_facts(doc, fetched_at or datetime.now(timezone.utc))
+    stored = await repo.instance_values(facts)
+    # Exact: both are the filing's own decimal text, and matched exactly on 78 filings.
+    disagreements = [(f, stored[f.key()]) for f in facts if stored.get(f.key(), f.value) != f.value]
     inserted = await repo.insert(facts)
     return FactIngestReport(
         cik=int(doc["cik"]),
         entity_name=str(doc.get("entityName", "")),
         served=len(facts),
         inserted=inserted,
+        concepts=len({f.concept for f in facts}),
+        disagreements=disagreements,
+    )
+
+
+async def ingest_instance(
+    repo: FactRepository,
+    xml: bytes,
+    cik: int,
+    accn: str,
+    form: str,
+    filed: date,
+    fetched_at: Optional[datetime] = None,
+) -> FactIngestReport:
+    """Store one filing's allow-listed facts from its XBRL instance. Insert-only."""
+    from core.xbrl_instance import instance_company_facts
+
+    doc = instance_company_facts(xml, cik, accn, form, filed.isoformat())
+    facts = parse_company_facts(doc, fetched_at or datetime.now(timezone.utc), source="instance")
+    return FactIngestReport(
+        cik=int(cik),
+        entity_name=str(doc.get("entityName", "")),
+        served=len(facts),
+        inserted=await repo.insert(facts),
         concepts=len({f.concept for f in facts}),
     )

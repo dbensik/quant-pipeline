@@ -205,6 +205,9 @@ URL_SEC_DAILY_INDEX_DIR = (
 URL_SEC_DAILY_FORM_INDEX = (
     "https://www.sec.gov/Archives/edgar/daily-index/{year}/QTR{quarter}/{name}"
 )
+#: One filing's folder in the Archives (accession without dashes); its
+#: index.json lists the files, among them the XBRL instance.
+URL_SEC_FILING_FOLDER = "https://www.sec.gov/Archives/edgar/data/{cik}/{accn}"
 #: Forms whose filing changes a company's XBRL facts (amendments included).
 SEC_FACT_FORMS = (
     "10-K",
@@ -223,6 +226,14 @@ SEC_FACT_FORMS = (
 #: The daily step looks back this many days, so mornings the Mac slept
 #: through are caught up (the job has gone seven days without running).
 SEC_REFRESH_LOOKBACK_DAYS = 7
+#: Decision 59 (research/sec-companyfacts-gap-2026-10-23.md): companyfacts
+#: leaves out whole filings (63 10-Qs of Jul-Aug 2026, ABT, KO, V, DUK...),
+#: each with its XBRL instance in the Archives. A registry filing of the last
+#: SEC_INSTANCE_LOOKBACK_DAYS with no stored row is read from its instance
+#: once it is SEC_INSTANCE_GRACE_DAYS old: companyfacts usually serves a
+#: filing the same day (OMC, DOW 2026-10-23), so a younger one is left to it.
+SEC_INSTANCE_LOOKBACK_DAYS = 30
+SEC_INSTANCE_GRACE_DAYS = 3
 #: Published limit is 10 per second; stay under it.
 SEC_MAX_REQUESTS_PER_SECOND = 8
 SEC_TIMEOUT_SECONDS = 30

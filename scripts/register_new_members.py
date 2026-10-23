@@ -17,7 +17,8 @@ mapping the screener uses):
   - otherwise registered as an equity with its CIK, backfilled insert-only
     from NEW_MEMBER_BACKFILL_START, and marked `served` when every bar has
     served values. A series that opens on zero-volume bars is flagged with a
-    suggested history_valid_from; nothing is trimmed.
+    suggested history_valid_from; nothing is trimmed. Its SEC company facts
+    are loaded too (decision 59); a filer SEC has none for yet is named.
 Crypto members are never registered: a reviewed one left out on purpose
 (CRYPTO_MEMBERS_NOT_REGISTERED) is counted; any other is FLAGGED as a new coin,
 with its CoinGecko class (crypto, stablecoin, tokenized; decision 46).
@@ -137,6 +138,7 @@ async def run(dry_run: bool) -> int:
         written: dict[str, tuple[int, date | None]] = {}
         placeholders: dict[str, date] = {}
         empty: list[str] = []
+        fact_lines: list[str] = []
         if plan.register:
             for symbol, cik in plan.register:
                 label = settings.NEW_MEMBER_INDEXES[plan.index_of[symbol]][1]
@@ -192,8 +194,27 @@ async def run(dry_run: bool) -> int:
                     )
             await session.commit()
 
+            # SEC facts too (decision 59): ingest fetches only bars, and the
+            # daily SEC step reloads a filer only when it files, so the
+            # 2026-10-19 joiners had no facts at all for days.
+            from core.fundamentals import ingest_company
+            from core.sec import SECGateway
+            from db.repositories.fundamentals import TimescaleFactRepo
+
+            gateway, facts_repo = SECGateway(), TimescaleFactRepo(session)
+            for symbol, cik in plan.register:
+                try:
+                    doc = await asyncio.to_thread(gateway.company_facts, cik)
+                except LookupError:
+                    fact_lines.append(f"{symbol} CIK {cik}: no SEC facts yet (a new filer)")
+                    continue
+                loaded = await ingest_company(facts_repo, doc)
+                fact_lines.append(
+                    f"{symbol} CIK {cik}: {loaded.served} SEC facts, {loaded.inserted} new"
+                )
+
     lines, code = report(plan, written, placeholders, empty, crypto_classes)
-    print("\n".join(lines) or "No new index members.")
+    print("\n".join(fact_lines + lines) or "No new index members.")
     return code
 
 
