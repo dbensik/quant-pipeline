@@ -27,7 +27,13 @@
   `LINE_CONCEPTS_BY_SYMBOL` (verified against each 10-K; summed per period,
   a missing part drops the period). Add a filer only after reading its
   statement: no rule picks the right line (NTAP's `Revenues` is a part, ADM's
-  contract revenue is). CFO is continuing operations first, matching capex.
+  contract revenue is). `LINE_CONCEPTS_FIRST_BY_SYMBOL` is an ORDER, not a
+  sum (decision 64, `research/capex-concept-order-2026-10-23.md`): concepts
+  read ahead of the list, the list after them, for filers whose PAST years
+  the list reads from a smaller line (ETR's capex was $0 for FY2009; ETR,
+  URI, ED, XEL, DVN, MCHP, EXE, APA). The 06:00 check reads only the newest
+  year; old years were found by a census of every year.
+  CFO is continuing operations first, matching capex.
   Capex includes `intangible_capex`: capitalised software by rule (its own
   line on every filer that tags it), PaymentsToAcquireIntangibleAssets only
   by name (CMCSA, ADP, SLB; it is also spectrum, acquisitions, allowances).

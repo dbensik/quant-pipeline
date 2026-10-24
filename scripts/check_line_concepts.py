@@ -20,6 +20,8 @@ WHAT IT FLAGS
     STALE    a settings.LINE_CONCEPTS_BY_SYMBOL entry names concepts the
              filer stopped using: the mapped line ends before the list's.
              A mapped line is checked for this only; its entry is its review.
+             So is a LINE_CONCEPTS_FIRST_BY_SYMBOL order (decision 64), which
+             falls back to the list and so is never stale.
     SPLIT?   a split row with an odd ratio not in
              settings.SPLIT_ROWS_REVIEWED (decision 58): Yahoo serves a
              spin-off as a split, and until the row is read the DCF

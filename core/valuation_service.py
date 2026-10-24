@@ -22,7 +22,7 @@ from config import settings
 from core.fundamentals import Fact
 from core.rates import RateRepository, risk_free_rate
 from modeling.dcf import Beta, DCFInputs, blume, reverse_dcf, run, sensitivity
-from modeling.statements import LINE_ITEMS, Statements, map_part
+from modeling.statements import LINE_ITEMS, FirstOf, Statements, map_part
 from modeling.valuation import Refusal, beta_from_bars, build_inputs, price_as_traded
 
 #: Every concept a line can read: the lists, and the per-filer maps (a mapped
@@ -31,7 +31,8 @@ ALL_CONCEPTS = sorted(
     {c for cs in LINE_ITEMS.values() for c in cs}
     | {
         map_part(c)[0]
-        for lines in settings.LINE_CONCEPTS_BY_SYMBOL.values()
+        for maps in (settings.LINE_CONCEPTS_BY_SYMBOL, settings.LINE_CONCEPTS_FIRST_BY_SYMBOL)
+        for lines in maps.values()
         for cs in lines.values()
         for c in cs
     }
@@ -103,9 +104,21 @@ async def filer_statements(
         raise ValuationError(
             422, f"no SEC facts stored for {symbol} (CIK {cik}): run scripts/load_fundamentals.py"
         )
-    line_concepts = settings.LINE_CONCEPTS_BY_SYMBOL.get(symbol.upper())
+    line_concepts = filer_line_concepts(symbol)
     splits, spinoffs = share_splits(symbol, await data.splits(symbol))
     return Statements(facts, splits, line_concepts, spinoffs), cik, sector, ciks
+
+
+def filer_line_concepts(symbol: str) -> Dict[str, Tuple[str, ...]]:
+    """A filer's per-line reading: its sums, then its orders (a line has one or the other)."""
+    sym = symbol.upper()
+    return {
+        **{
+            item: FirstOf(cs)
+            for item, cs in settings.LINE_CONCEPTS_FIRST_BY_SYMBOL.get(sym, {}).items()
+        },
+        **settings.LINE_CONCEPTS_BY_SYMBOL.get(sym, {}),
+    }
 
 
 def successor_facts(symbol: str, ciks: List[int], facts: List[Fact]) -> List[Fact]:

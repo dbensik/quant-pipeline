@@ -794,6 +794,65 @@ LINE_CONCEPTS_BY_SYMBOL = {
     },
 }
 
+#: Per filer and line: these concepts are read AHEAD of the item's list, the
+#: rest of the list after them (modeling.statements.FirstOf, decision 64,
+#: research/capex-concept-order-2026-10-23.md). An order, not a sum: each
+#: filer changed concepts over the years, and a sum drops every period a part
+#: is missing from. Found by checking EVERY fiscal year, not just the newest
+#: (the 06:00 line check reads only the newest): where the list's choice was
+#: under half another capex concept, each read off the cash-flow statement.
+LINE_CONCEPTS_FIRST_BY_SYMBOL = {
+    # "Construction/capital expenditures" $1,931M (FY2009) to $6,087M (FY2021).
+    # The list read PaymentsToAcquireOtherPropertyPlantAndEquipment first:
+    # "Payment for purchase of plant" ($646M FY2011), $0 in most years. From
+    # FY2022 capex is PaymentsToAcquirePropertyPlantAndEquipment, after it here.
+    "ETR": {"capex": ("PaymentsForCapitalImprovements",)},
+    # "Utility capital/construction expenditures" $2,206M (FY2011). The list's
+    # first concept is $0 for FY2008-2012 ($732M in FY2010, not a line).
+    "XEL": {"capex": ("PaymentsToAcquireProductiveAssets",)},
+    # "Capital expenditures" $6,988M (FY2014); PaymentsToAcquirePropertyPlant-
+    # AndEquipment is "Acquisitions of property, equipment and businesses"
+    # ($6,462M FY2014, $44M FY2017) from FY2013 to FY2019.
+    "DVN": {"capex": ("PaymentsToAcquireProductiveAssets",)},
+    # "Capital expenditures" $149M (FY2015); PaymentsToAcquireProductiveAssets
+    # is "Investments in other assets" ($7M), read first FY2008-2017.
+    "MCHP": {"capex": ("PaymentsToAcquireOtherPropertyPlantAndEquipment",)},
+    # "Purchases of rental equipment" $1,701M + "non-rental" $120M = the
+    # $1,821M PaymentsToAcquireProductiveAssets (FY2014); the list read the
+    # non-rental $120M alone FY2009-2020. FY2009-10 tag no total: rental
+    # purchases are read, without non-rental ($51M, $28M).
+    "URI": {
+        "capex": (
+            "PaymentsToAcquireProductiveAssets",
+            "PaymentsToAcquireOtherPropertyPlantAndEquipment",
+        )
+    },
+    # "Utility construction expenditures" $2,339M (FY2013) beside
+    # "Non-utility" $199M, the concept the list read first FY2009-2015. FY2016-
+    # 2022 that concept ($5,235M FY2016) is no statement line (utility $2,835M
+    # + non-utility $845M = $3,680M); FY2023 on it is gone and non-utility is
+    # ED's own extension. Utility construction alone is read: 77-95% of capex.
+    "ED": {"capex": ("PaymentsForConstructionInProcess",)},
+    # "Drilling and completion costs" $1,958M (FY2018 as filed) for FY2017-19,
+    # where the list read PaymentsToAcquireOilAndGasPropertyAndEquipment ($88-
+    # 128M). FY2008-2016's PaymentsToAcquireProductiveAssets stays first.
+    "EXE": {
+        "capex": (
+            "PaymentsToAcquireProductiveAssets",
+            "PaymentsToExploreAndDevelopOilAndGasProperties",
+        )
+    },
+    # Apache's FY2008-09 (predecessor CIK 6769): "Additions to oil and gas
+    # property" $3,326M (FY2009); PaymentsToAcquirePropertyPlantAndEquipment is
+    # "Acquisition of Anadarko properties", $0 in both years.
+    "APA": {
+        "capex": (
+            "PaymentsToExploreAndDevelopOilAndGasProperties",
+            "PaymentsToAcquireOilAndGasProperty",
+        )
+    },
+}
+
 
 #: scripts/check_line_concepts.py (06:00 job): another concept for a line's
 #: newest fiscal year is flagged when valuing on it moves value/price by at

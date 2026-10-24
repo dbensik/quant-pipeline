@@ -271,6 +271,18 @@ def map_label(parts: Tuple[str, ...]) -> str:
     return out
 
 
+class FirstOf(tuple):
+    """
+    A per-filer ORDER for a line, not a sum (settings.LINE_CONCEPTS_FIRST_BY_SYMBOL,
+    decision 64): these concepts are read ahead of the item's list, the rest
+    of the list after them, per period as for any filer. ETR tags its
+    "Construction/capital expenditures" as PaymentsForCapitalImprovements and
+    a smaller line ("Payment for purchase of plant") under a concept the list
+    ranks first; from FY2022 it tags capex under the list's first concept. A
+    sum would drop those years, and the list alone read $0 for FY2009.
+    """
+
+
 def _far(a: float, b: float) -> bool:
     return a >= b * SCALE_OFF or a * SCALE_OFF <= b
 
@@ -338,7 +350,8 @@ class Statements:
         concepts per period instead of the first of LINE_ITEMS' list
         (settings.LINE_CONCEPTS_BY_SYMBOL, each entry checked against the
         filer's statement). A period missing any part is dropped:
-        a missing part is not zero.
+        a missing part is not zero. A FirstOf entry is an order instead
+        (settings.LINE_CONCEPTS_FIRST_BY_SYMBOL).
         """
         self.by_concept: Dict[str, List[Fact]] = {}
         # A period cannot end after the filing that reports it (decision 61):
@@ -439,7 +452,7 @@ class Statements:
         span: Optional[Tuple[int, int]],
         concepts: Optional[Tuple[str, ...]] = None,
     ) -> Dict[Tuple, Value]:
-        if concepts is None and item in self.line_concepts:
+        if concepts is None and self._is_sum(item):
             return self._summed(item, as_of, span, self.line_concepts[item])
         """
         {(start, end): Value} — per period, first concept with a visible row,
@@ -454,7 +467,7 @@ class Statements:
         depending on which valuations had run before it in the process.
         """
         out: Dict[Tuple, Value] = {}
-        for concept in concepts if concepts is not None else LINE_ITEMS[item]:
+        for concept in concepts if concepts is not None else self._order(item):
             higher_ends = {k[1] for k in out}
             best: Dict[Tuple, Fact] = {}
             for f in self.by_concept.get(concept, []):
@@ -508,10 +521,20 @@ class Statements:
         self, item: str, as_of: date, span: Tuple[int, int]
     ) -> Dict[str, List[Value]]:
         """{concept: its own periods}: one entry, the summed line, for a mapped filer."""
-        if item in self.line_concepts:
+        if self._is_sum(item):
             values = list(self._periods(item, as_of, span).values())
             return {map_label(self.line_concepts[item]): values}
-        return {c: list(self._periods(item, as_of, span, (c,)).values()) for c in LINE_ITEMS[item]}
+        return {c: list(self._periods(item, as_of, span, (c,)).values()) for c in self._order(item)}
+
+    def _is_sum(self, item: str) -> bool:
+        return item in self.line_concepts and not isinstance(self.line_concepts[item], FirstOf)
+
+    def _order(self, item: str) -> Tuple[str, ...]:
+        """The item's list, or for a FirstOf entry its concepts and then the rest of the list."""
+        first = self.line_concepts.get(item)
+        if not isinstance(first, FirstOf):
+            return LINE_ITEMS[item]
+        return (*first, *(c for c in LINE_ITEMS[item] if c not in first))
 
     # -- public ------------------------------------------------------------
 
