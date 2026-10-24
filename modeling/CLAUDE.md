@@ -106,6 +106,13 @@
   10-Q/10-K (`successor_facts`; Apache kept filing as APA's subsidiary),
   or through `CIK_PREDECESSOR_READ_THROUGH` (WBA: its first 10-Q was the
   pre-merger shell's).
+  A concept a filing used for ANOTHER line is set aside by (concept,
+  accession) in `FACTS_SET_ASIDE_BY_SYMBOL` (decision 66,
+  `research/eqt-capex-meaning-2026-10-24.md`: EQT's 2015 and 2016 10-Ks
+  tag acquisitions as PaymentsToAcquirePropertyPlantAndEquipment, every
+  other EQT filing tags capex), for a meaning that flips and flips back,
+  where no order serves every filing. The line reads the next concept and
+  the valuation names the filing until a later one reports the period.
   Growth's start years come from `Statements.annual_before`: by date, and
   on the latest year's concept unless another agrees with it everywhere. Decisions
   in `research/dcf-plan-2026-10-08.md`: weekly 5y Blume beta, 7% WACC floor

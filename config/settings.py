@@ -885,6 +885,32 @@ LINE_CONCEPTS_FIRST_BY_SYMBOL = {
     "EXC": {"revenue": ("Revenues",)},
 }
 
+#: Facts a filing tagged with a concept it used for ANOTHER line, by filer:
+#: (concept, accession) -> what that filing's statement shows (decision 66,
+#: research/eqt-capex-meaning-2026-10-24.md). Not read; a valuation that
+#: would have read one says so. For a concept whose meaning changes and
+#: changes back, where no per-filer order serves every filing. Add one only
+#: after reading the filing's statement.
+FACTS_SET_ASIDE_BY_SYMBOL = {
+    # Capex is eqt_PaymentsToAcquirePropertyPlantAndEquipmentContinuingOperations
+    # in these three; every other EQT filing tags it with this concept (the
+    # 10-K filed 2017-02-09: FY2014 $2,277M, FY2015 $2,434M, as here).
+    "EQT": {
+        ("PaymentsToAcquirePropertyPlantAndEquipment", "0000033213-14-000004"): (
+            "Q3 2014 10-Q tags $163M beside 'Capital expenditures from continuing "
+            "operations' ($1,606M): acquisitions, not capex"
+        ),
+        ("PaymentsToAcquirePropertyPlantAndEquipment", "0000033213-15-000004"): (
+            "FY2014 10-K's 'Capital expenditures for acquisitions' ($174M); capex is "
+            "$2,277M on an EQT concept"
+        ),
+        ("PaymentsToAcquirePropertyPlantAndEquipment", "0000033213-16-000018"): (
+            "FY2015 10-K's 'Capital expenditures for acquisitions' ($0); capex is "
+            "$2,434M on an EQT concept"
+        ),
+    },
+}
+
 
 #: scripts/check_line_concepts.py (06:00 job): another concept for a line's
 #: newest fiscal year is flagged when valuing on it moves value/price by at

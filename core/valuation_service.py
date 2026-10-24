@@ -106,7 +106,8 @@ async def filer_statements(
         )
     line_concepts = filer_line_concepts(symbol)
     splits, spinoffs = share_splits(symbol, await data.splits(symbol))
-    return Statements(facts, splits, line_concepts, spinoffs), cik, sector, ciks
+    aside = settings.FACTS_SET_ASIDE_BY_SYMBOL.get(symbol.upper(), {})
+    return Statements(facts, splits, line_concepts, spinoffs, aside), cik, sector, ciks
 
 
 def filer_line_concepts(symbol: str) -> Dict[str, Tuple[str, ...]]:

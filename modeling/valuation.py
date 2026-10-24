@@ -207,6 +207,15 @@ def build_inputs(
         notes.append(
             f"{f.concept} filed {f.filed} is dated {f.period_end}, after its own filing: set aside"
         )
+    noted = set()
+    for f in st.reviewed_aside_unreplaced(as_of):
+        if (as_of - f.period_end).days > MAX_ANNUAL_AGE_DAYS or (f.concept, f.accn) in noted:
+            continue
+        noted.add((f.concept, f.accn))
+        notes.append(
+            f"{f.concept} in {f.accn} (filed {f.filed}) set aside: "
+            f"{st.reviewed_aside_reasons[(f.concept, f.accn)]}"
+        )
     if sector in settings.DCF_REFUSED_SECTORS:
         notes.append(
             f"{sector} is refused as a sector; {symbol} is valued by name "

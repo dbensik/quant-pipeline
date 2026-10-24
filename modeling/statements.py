@@ -340,11 +340,17 @@ class Statements:
         splits: Sequence[Tuple[date, float]] = (),
         line_concepts: Optional[Dict[str, Tuple[str, ...]]] = None,
         spinoffs: Sequence[date] = (),
+        reviewed_aside: Optional[Dict[Tuple[str, str], str]] = None,
     ) -> None:
         """
         splits: (ex-date, share ratio), spin-offs already taken out
         (core/valuation_service.share_splits): a spin leaves the share count
         alone. spinoffs: their ex-dates, for the valuation's refusal.
+
+        reviewed_aside: (concept, accession) -> what the filing's statement
+        shows, for this filer only (settings.FACTS_SET_ASIDE_BY_SYMBOL,
+        decision 66): a concept the filing used for another line. Its facts
+        from that filing are not read.
 
         line_concepts: for this filer only, a line read as the SUM of these
         concepts per period instead of the first of LINE_ITEMS' list
@@ -363,7 +369,16 @@ class Statements:
         # put 1-19 days past the filing (NEM's 10-K filed 2011-02-24 says
         # 2011-02-28): a real count, kept. ADBE's 144 and CL's 309 days are not.
         self.dated_after_filing: List[Fact] = []
+        # EQT's 10-Ks filed 2015 and 2016 tag "Capital expenditures for
+        # acquisitions" ($174M FY2014) as PaymentsToAcquirePropertyPlantAnd-
+        # Equipment, which every other EQT filing uses for capex ($2,277M
+        # FY2014 in the 10-K filed 2017). No concept order serves both.
+        self.reviewed_aside_reasons = dict(reviewed_aside or {})
+        self.reviewed_aside: List[Fact] = []
         for f in facts:
+            if (f.concept, f.accn) in self.reviewed_aside_reasons:
+                self.reviewed_aside.append(f)
+                continue
             grace = COVER_DATE_GRACE_DAYS if f.concept == COVER_CONCEPT else 0
             if (f.period_end - f.filed).days > grace:
                 self.dated_after_filing.append(f)
@@ -802,6 +817,27 @@ class Statements:
         read |= {map_part(c)[0] for cs in self.line_concepts.values() for c in cs}
         return self._would_be_newest(
             [f for f in self.dated_after_filing if f.concept in read], as_of
+        )
+
+    def reviewed_aside_unreplaced(self, as_of: date) -> List[Fact]:
+        """
+        Facts set aside by review (decision 66), filed before `as_of`, whose
+        period no kept fact of the same concept reports yet: the ones a
+        reader would otherwise have had.
+        """
+        kept = {
+            (g.concept, g.period_start, g.period_end)
+            for fs in self.by_concept.values()
+            for g in fs
+            if g.filed < as_of
+        }
+        return sorted(
+            (
+                f
+                for f in self.reviewed_aside
+                if f.filed < as_of and (f.concept, f.period_start, f.period_end) not in kept
+            ),
+            key=lambda f: (f.concept, f.period_end, f.filed),
         )
 
     def off_scale_newest(self, as_of: date) -> List[Fact]:
