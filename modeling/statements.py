@@ -127,6 +127,9 @@ LINE_ITEMS: Dict[str, Tuple[str, ...]] = {
     # VST, so it is read only by name (settings.LINE_CONCEPTS_BY_SYMBOL).
     "intangible_capex": ("PaymentsToDevelopSoftware", "PaymentsForSoftware"),
     "diluted_shares": ("WeightedAverageNumberOfDilutedSharesOutstanding",),
+    # Read only as witnesses to a share count's scale (decision 62).
+    "basic_shares": ("WeightedAverageNumberOfSharesOutstandingBasic",),
+    "diluted_eps": ("EarningsPerShareDiluted",),
     # instants
     "cash": (
         "CashAndCashEquivalentsAtCarryingValue",
@@ -228,7 +231,9 @@ INSTANTS = {
     "pension_assets",
     "shares_outstanding",
 }
-SHARE_ITEMS = {"diluted_shares", "shares_outstanding"}
+SHARE_ITEMS = {"diluted_shares", "basic_shares", "shares_outstanding"}
+#: Lines read only as witnesses to a share count's unit (decision 62).
+WITNESS_ITEMS = {"basic_shares", "diluted_eps"}
 #: Annual reports: pension balances are read only at a date one of these
 #: states (see Statements.pension_deficit).
 ANNUAL_FORMS = {"10-K", "10-K/A", "10-KT", "10-KT/A", "20-F", "20-F/A", "40-F", "40-F/A"}
@@ -238,6 +243,16 @@ QUARTER_DAYS = (80, 100)
 #: (decision 61; see Statements.__init__).
 COVER_CONCEPT = "EntityCommonStockSharesOutstanding"
 COVER_DATE_GRACE_DAYS = 31
+#: A share count this many times (or this fraction of) both of its filing's
+#: other witnesses, which agree within SCALE_AGREE of each other, is in the
+#: wrong unit and set aside (decision 62; see Statements.__init__).
+SCALE_OFF = 200.0
+SCALE_AGREE = 5.0
+DILUTED_CONCEPT = "WeightedAverageNumberOfDilutedSharesOutstanding"
+SHARE_WITNESS_DAYS = 400
+MIN_WITNESS_SHARES = 1e6
+#: Diluted EPS this small is too rounded to imply a share count.
+MIN_WITNESS_EPS = 0.05
 
 
 def map_part(part: str) -> Tuple[str, float]:
@@ -254,6 +269,46 @@ def map_label(parts: Tuple[str, ...]) -> str:
     for c, sign in map(map_part, parts):
         out += (c if not out else f" + {c}") if sign > 0 else (f"-{c}" if not out else f" - {c}")
     return out
+
+
+def _far(a: float, b: float) -> bool:
+    return a >= b * SCALE_OFF or a * SCALE_OFF <= b
+
+
+def _median(xs: List[float]) -> float:
+    xs = sorted(xs)
+    n = len(xs)
+    return xs[n // 2] if n % 2 else (xs[n // 2 - 1] + xs[n // 2]) / 2
+
+
+def _share_witnesses(by_concept: Dict[str, List[Fact]]) -> Dict[str, Dict[str, float]]:
+    """
+    Per filing (accession): the median positive cover count, the median
+    positive weighted average (basic and diluted together), and the median
+    net income / diluted EPS over the periods it reports both.
+    """
+    pools: Dict[str, Dict[str, List[float]]] = {}
+
+    def add(accn: str, kind: str, v: float) -> None:
+        pools.setdefault(accn, {}).setdefault(kind, []).append(v)
+
+    for f in by_concept.get(COVER_CONCEPT, []):
+        if f.value > 0:
+            add(f.accn, "cover", f.value)
+    for c in (DILUTED_CONCEPT, "WeightedAverageNumberOfSharesOutstandingBasic"):
+        for f in by_concept.get(c, []):
+            if f.value > 0:
+                add(f.accn, "averages", f.value)
+    eps = {
+        (f.accn, f.period_start, f.period_end): f.value
+        for f in by_concept.get("EarningsPerShareDiluted", [])
+        if abs(f.value) >= MIN_WITNESS_EPS
+    }
+    for f in by_concept.get("NetIncomeLoss", []):
+        e = eps.get((f.accn, f.period_start, f.period_end))
+        if e is not None and f.value / e > 0:
+            add(f.accn, "earnings", f.value / e)
+    return {a: {k: _median(vs) for k, vs in kinds.items()} for a, kinds in pools.items()}
 
 
 @dataclass(frozen=True)
@@ -302,6 +357,58 @@ class Statements:
                 continue
             self.by_concept.setdefault(f.concept, []).append(f)
         self.splits = sorted(splits)
+        # A share count in the wrong unit (decision 62): ON's covers for 2012
+        # say 455 trillion shares, CRM's 2011 cover 134 (millions), COP's
+        # diluted averages are in thousands for a decade, MCD's in millions.
+        # A count is checked against witnesses in its own split basis: those
+        # filed WITH it (the cover page; the weighted averages, basic and
+        # diluted together, as they share a table and its unit; net income
+        # over diluted EPS) and the newest count of its kind kept from an
+        # earlier filing within SHARE_WITNESS_DAYS. Off all of them by
+        # SCALE_OFF while they agree, at least two, it is set aside, never
+        # rescaled; otherwise kept (it cannot be told). A witness under
+        # MIN_WITNESS_SHARES condemns nothing: the averages and EPS share a
+        # table, so when BOTH are in millions or thousands they agree against
+        # a right cover (ATO's 2011 10-K: 90.6M on the cover, 91 thousand in
+        # the averages and from earnings; LUV, COHR, SW), and a shell's count
+        # is real but not the company's (Linde plc's 25,000 before its 551M,
+        # SW's 100 before its 519M). ECHO files no cover and tags earnings
+        # rarely: its 10-Qs' averages in thousands (271,519) have one
+        # witness, the 10-K before, and are kept.
+        self.off_scale: List[Fact] = []
+        witnesses = _share_witnesses(self.by_concept)
+        for concept, item, own in (
+            (DILUTED_CONCEPT, "diluted_shares", "averages"),
+            (COVER_CONCEPT, "shares_outstanding", "cover"),
+        ):
+            kept: List[Fact] = []
+            # Some filers tag an average as an instant (CZR, GEV, MTCH).
+            in_filing_order = sorted(
+                self.by_concept.get(concept, []),
+                key=lambda f: (f.filed, f.accn, f.period_end, f.period_start or date.min),
+            )
+            for f in in_filing_order:
+                earlier = [
+                    g
+                    for g in kept
+                    if g.value > 0 and 0 < (f.filed - g.filed).days <= SHARE_WITNESS_DAYS
+                ]
+                prior = max(earlier, key=lambda g: (g.filed, g.period_end), default=None)
+                others = [v for k, v in witnesses.get(f.accn, {}).items() if k != own]
+                if prior is not None:
+                    others.append(self._scale(item, prior, f.filed))
+                others = [v for v in others if v >= MIN_WITNESS_SHARES]
+                if (
+                    f.value > 0
+                    and len(others) >= 2
+                    and max(others) / min(others) <= SCALE_AGREE
+                    and all(_far(f.value, v) for v in others)
+                ):
+                    self.off_scale.append(f)
+                else:
+                    kept.append(f)
+            if concept in self.by_concept:
+                self.by_concept[concept] = kept
         self.line_concepts = dict(line_concepts or {})
         self.spinoffs = sorted(spinoffs)
 
@@ -651,11 +758,20 @@ class Statements:
         of a concept some line reads, that would have been that concept's
         newest of their shape: the ones whose absence a reader can notice.
         """
-        read = {c for cs in LINE_ITEMS.values() for c in cs}
+        read = {c for item, cs in LINE_ITEMS.items() if item not in WITNESS_ITEMS for c in cs}
         read |= {map_part(c)[0] for cs in self.line_concepts.values() for c in cs}
+        return self._would_be_newest(
+            [f for f in self.dated_after_filing if f.concept in read], as_of
+        )
+
+    def off_scale_newest(self, as_of: date) -> List[Fact]:
+        """Share counts set aside as in the wrong unit (decision 62), the same way."""
+        return self._would_be_newest(self.off_scale, as_of)
+
+    def _would_be_newest(self, facts: List[Fact], as_of: date) -> List[Fact]:
         out = []
-        for f in self.dated_after_filing:
-            if f.concept not in read or not f.filed < as_of:
+        for f in facts:
+            if not f.filed < as_of:
                 continue
             kept = [
                 g.period_end

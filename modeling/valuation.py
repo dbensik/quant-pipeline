@@ -54,7 +54,7 @@ import numpy as np
 
 from config import settings
 from modeling.dcf import WACC, Beta, DCFInputs, regress_beta, wacc
-from modeling.statements import Statements
+from modeling.statements import COVER_CONCEPT, DILUTED_CONCEPT, Statements
 
 FALLBACK_TAX_RATE = 0.21
 GROWTH_CLAMP = (-0.10, settings.DCF_DEFAULT_GROWTH_CAP)
@@ -349,6 +349,21 @@ def build_inputs(
     # A count of 0 is not a count (decision 60): ROP's Q3 2015 10-Q, BALL's
     # FY2021 10-K and 22 other filers' covers say 0 shares, which made the
     # market value 0 and wacc() raise.
+    # A count in the wrong unit is set aside (decision 62) and named here
+    # when it would have been the one read.
+    off_scale = [
+        f for f in st.off_scale_newest(as_of) if (as_of - f.period_end).days <= MAX_TTM_AGE_DAYS
+    ]
+
+    def note_off_scale(concept: str) -> None:
+        for f in off_scale:
+            if f.concept == concept:
+                notes.append(
+                    f"{f.concept} filed {f.filed} is {f.value:,.0f}, in another unit than "
+                    "its filing's other share counts: set aside"
+                )
+
+    note_off_scale(COVER_CONCEPT)
     shares_v, shares_src = st.instant("shares_outstanding", as_of), "cover-page shares outstanding"
     zero_cover = shares_v is not None and shares_v.value <= 0
     if zero_cover or shares_v is None or (as_of - shares_v.period_end).days > MAX_TTM_AGE_DAYS:
@@ -365,6 +380,7 @@ def build_inputs(
         )
         if not diluted or (as_of - diluted[-1].period_end).days > MAX_TTM_AGE_DAYS:
             return Refusal(f"no share count on file within {MAX_TTM_AGE_DAYS} days of this date")
+        note_off_scale(DILUTED_CONCEPT)
         shares_v, shares_src = diluted[-1], "latest diluted weighted average"
         if zero_cover:
             notes.append(

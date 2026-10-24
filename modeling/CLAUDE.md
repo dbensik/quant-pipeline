@@ -81,6 +81,12 @@
   `research/dated-after-filing-2026-10-23.md`: ROP's 2014 cash tagged
   "2015-12-31", ECHO's notes tagged at their maturities); a cover count
   may be dated `COVER_DATE_GRACE_DAYS` past its filing (a real count).
+  A share count in the wrong unit is set aside, never rescaled (decision
+  62, `research/share-count-scale-2026-10-23.md`: ON's 455 trillion, CRM's
+  134): `SCALE_OFF` from every witness while they agree, at least two (its
+  filing's cover, weighted averages, net income / diluted EPS; the last
+  kept count of its kind); a witness under `MIN_WITNESS_SHARES` (a shell,
+  a table in thousands) condemns nothing.
   Growth's start years come from `Statements.annual_before`: by date, and
   on the latest year's concept unless another agrees with it everywhere. Decisions
   in `research/dcf-plan-2026-10-08.md`: weekly 5y Blume beta, 7% WACC floor
