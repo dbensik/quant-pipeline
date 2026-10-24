@@ -18,7 +18,12 @@
   shapes at it (ON tags a $1.6M lease figure beside $4.5B of debt). A TTM
   never mixes two concepts that each report the fiscal year (DAL's aircraft
   and ground-equipment capex are parts, not names); a concept used only in
-  the 10-Qs mixes with the 10-K's. A quarter and its year-to-date are both
+  the 10-Qs mixes with the 10-K's. Both TTM paths apply it; the
+  four-quarter one did not until decision 68
+  (`research/ttm-quarter-mix-2026-10-24.md`: FIS's Q2 and Q3 10-Qs tag
+  property plus software where its 10-K tags property, and its derived Q4
+  went negative), and it still cannot judge a quarter of the year in
+  progress, which has no fiscal year to compare. A quarter and its year-to-date are both
   kept, and facts are read in a TOTAL order: DAL was valued 1.28 or 2.28
   depending on which valuations ran first in the process (2026-10-12).
   Debt concept scope is read from the filers' series, not the labels:

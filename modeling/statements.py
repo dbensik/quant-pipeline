@@ -712,13 +712,42 @@ class Statements:
         return sorted(out, key=lambda v: v.period_end)
 
     def _ttm_quarters(self, item: str, as_of: date) -> Optional[Tuple[float, List[Value]]]:
+        """
+        The last four contiguous quarters, or None when one of them comes from
+        a separate line: a concept that also reports that quarter's fiscal
+        year, at a different value. `_ttm_ytd`'s rule (decision 68,
+        `research/ttm-quarter-mix-2026-10-24.md`). FIS tags property alone in
+        its 10-K and Q1 10-Q (FY2022 $268M) and property plus software in its
+        Q2 and Q3 10-Qs ($1,453M), so its derived Q4 went below zero and the
+        year in progress read the larger line.
+        """
         qs = self.quarterly(item, as_of)[-4:]
         if len(qs) < 4:
             return None
         for a, b in zip(qs, qs[1:], strict=False):
             if (b.period_start - a.period_end).days > 7:
                 return None
+        annual = self.annual(item, as_of)
+        if any(self._separate_line(item, q, annual, as_of) for q in qs):
+            return None
         return sum(q.value for q in qs), qs
+
+    def _separate_line(self, item: str, q: Value, annual: List[Value], as_of: date) -> bool:
+        """Whether quarter `q`'s concept states its fiscal year 0.5% or more off the year's own."""
+        fy = next(
+            (
+                a
+                for a in annual
+                if a.period_start <= q.period_start and q.period_end <= a.period_end
+            ),
+            None,
+        )
+        if fy is None or q.concept == fy.concept:
+            return False
+        own = self._periods(item, as_of, ANNUAL_DAYS, (q.concept,)).get(
+            (fy.period_start, fy.period_end)
+        )
+        return own is not None and not math.isclose(own.value, fy.value, rel_tol=0.005)
 
     def _ttm_ytd(self, item: str, as_of: date) -> Optional[Tuple[float, List[Value]]]:
         """

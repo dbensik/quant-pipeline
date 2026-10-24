@@ -109,9 +109,12 @@ against $4.98).
 
 - **FIS (59 points, 2010-2025).** Its derived Q4 is negative every year
   (FY2023: -$309M). The 10-K and the 10-Qs read different concepts, so the
-  TTM mixes them. Every TTM stays positive, but each is off its fiscal year by
-  up to about 40%. This is beside its `PaymentsToDevelopSoftware` ($835M), which is
-  correct. Per-filer order, as for decision 64. Reading the statements would take about 1 h.
+  TTM mixes them. Every TTM stays positive. (This said each was "off its
+  fiscal year by up to about 40%"; that compared a TTM with a fiscal year,
+  not with a correct TTM. Measured in decision 68,
+  `research/ttm-quarter-mix-2026-10-24.md`: 11 points move, all by 2.2% or
+  less but one, +8.1%. Fixed there for every filer.) This is beside its
+  `PaymentsToDevelopSoftware` ($835M), which is correct.
 - **COP (7 points, 2022-2024).** `PaymentsForProceedsFromProductiveAssets`, a
   net concept, enters a TTM beside the 10-K's gross capex (Q1 2022 -$2,332M:
   asset sales). TTM $2,975M against FY2021 $5,324M.
