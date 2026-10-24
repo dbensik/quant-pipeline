@@ -821,11 +821,14 @@ LINE_CONCEPTS_FIRST_BY_SYMBOL = {
     # $1,821M PaymentsToAcquireProductiveAssets (FY2014); the list read the
     # non-rental $120M alone FY2009-2020. FY2009-10 tag no total: rental
     # purchases are read, without non-rental ($51M, $28M).
+    # Revenue (decision 65): "Total revenues" $16,099M (FY2025) is Revenues;
+    # contract revenue is the non-rental part ($3,695M), read FY2019-2025.
     "URI": {
         "capex": (
             "PaymentsToAcquireProductiveAssets",
             "PaymentsToAcquireOtherPropertyPlantAndEquipment",
-        )
+        ),
+        "revenue": ("Revenues",),
     },
     # "Utility construction expenditures" $2,339M (FY2013) beside
     # "Non-utility" $199M, the concept the list read first FY2009-2015. FY2016-
@@ -851,6 +854,35 @@ LINE_CONCEPTS_FIRST_BY_SYMBOL = {
             "PaymentsToAcquireOilAndGasProperty",
         )
     },
+    # Decision 65 (research/revenue-cfo-concept-order-2026-10-23.md): the same
+    # census at each history date, revenue and CFO added. "Capital
+    # expenditures" $1,978M (FY2019, PaymentsForProceedsFromProductiveAssets;
+    # PaymentsForCapitalImprovements from the FY2020 10-K on); the list read
+    # "Purchase of equipment for related party" ($9M) for FY2019.
+    "GLW": {
+        "capex": (
+            "PaymentsForCapitalImprovements",
+            "PaymentsForProceedsFromProductiveAssets",
+        )
+    },
+    # Revenues read ahead of SalesRevenueNet, the statement's line until 2018,
+    # where Revenues was a note's figure: ETN's "major customer amount" ($0;
+    # "Net sales" $22,046M FY2013), HAS's US and Canada segment ($1,972M of
+    # "Net revenues" $4,448M FY2015), HSY's sales to McLane ($1.8B of "Net
+    # Sales" $7,146M FY2013), LHX's business segments ($420M of "Total
+    # Revenue" $5,112M FY2013), PG's US net sales ($29.4B of $74,401M FY2014),
+    # TDY's sales to international customers ($1,020M of "Net Sales" $2,298M
+    # FY2015). Later years tag contract revenue, after it here.
+    "ETN": {"revenue": ("SalesRevenueNet",)},
+    "HAS": {"revenue": ("SalesRevenueNet",)},
+    "HSY": {"revenue": ("SalesRevenueNet",)},
+    "LHX": {"revenue": ("SalesRevenueNet",)},
+    "PG": {"revenue": ("SalesRevenueNet",)},
+    "TDY": {"revenue": ("SalesRevenueNet",)},
+    # "Total operating revenues" $35,985M (FY2018) is Revenues in every year;
+    # contract revenue including tax is "Revenues from alternative revenue
+    # programs" (-$62M FY2018), the list's choice for FY2016-18.
+    "EXC": {"revenue": ("Revenues",)},
 }
 
 

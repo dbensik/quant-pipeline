@@ -552,15 +552,23 @@ class Statements:
         report, which is a rename: ADM's FY2020 Revenues ($64.4B, the total)
         set against its FY2025 contract revenue ($25.0B, a part) read as a
         17% yearly decline.
+
+        A FirstOf order (decision 65) is read per period instead, as annual()
+        reads it: it was set where one concept means different lines in
+        different years. HAS tags its total as Revenues from FY2016 and its
+        US and Canada segment as Revenues for FY2013-15, so latest's own
+        concept set $1,972M against $4,580M.
         """
         target = latest.period_end.toordinal() - round(365.25 * years)
-        series = self._concept_series(item, as_of, ANNUAL_DAYS)
-        own = {(v.period_start, v.period_end): v.value for v in series.get(latest.concept, [])}
 
         def near(values: List[Value]) -> Optional[Value]:
             hits = [v for v in values if abs(v.period_end.toordinal() - target) <= 30]
             return min(hits, key=lambda v: abs(v.period_end.toordinal() - target), default=None)
 
+        if isinstance(self.line_concepts.get(item), FirstOf):
+            return near(self.annual(item, as_of))
+        series = self._concept_series(item, as_of, ANNUAL_DAYS)
+        own = {(v.period_start, v.period_end): v.value for v in series.get(latest.concept, [])}
         hit = near(series.get(latest.concept, []))
         if hit is not None:
             return hit

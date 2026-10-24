@@ -32,7 +32,13 @@
   read ahead of the list, the list after them, for filers whose PAST years
   the list reads from a smaller line (ETR's capex was $0 for FY2009; ETR,
   URI, ED, XEL, DVN, MCHP, EXE, APA). The 06:00 check reads only the newest
-  year; old years were found by a census of every year.
+  year; old years were found by a census of every year. Decision 65
+  (`research/revenue-cfo-concept-order-2026-10-23.md`) adds revenue orders
+  (ETN HAS HSY LHX PG TDY EXC URI: Revenues was a segment or a customer's
+  figure in their past years) and GLW's capex, found by the census at each
+  HISTORY DATE (today's census flags recasts no point read); with an order,
+  growth's start years are read by the order per period, not on the latest
+  year's concept.
   CFO is continuing operations first, matching capex.
   Capex includes `intangible_capex`: capitalised software by rule (its own
   line on every filer that tags it), PaymentsToAcquireIntangibleAssets only
