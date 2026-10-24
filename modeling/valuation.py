@@ -201,6 +201,12 @@ def build_inputs(
     if sector_refusal:
         return Refusal(f"{sector}: {sector_refusal}")
     notes: List[str] = []
+    for f in st.set_aside(as_of):
+        if (as_of - f.period_end).days > MAX_ANNUAL_AGE_DAYS:
+            continue  # too old to have been read anyway (LLY's of 2014, today)
+        notes.append(
+            f"{f.concept} filed {f.filed} is dated {f.period_end}, after its own filing: set aside"
+        )
     if sector in settings.DCF_REFUSED_SECTORS:
         notes.append(
             f"{sector} is refused as a sector; {symbol} is valued by name "

@@ -234,6 +234,10 @@ SHARE_ITEMS = {"diluted_shares", "shares_outstanding"}
 ANNUAL_FORMS = {"10-K", "10-K/A", "10-KT", "10-KT/A", "20-F", "20-F/A", "40-F", "40-F/A"}
 ANNUAL_DAYS = (350, 380)
 QUARTER_DAYS = (80, 100)
+#: The cover-page count, and how far past its filing its date may fall
+#: (decision 61; see Statements.__init__).
+COVER_CONCEPT = "EntityCommonStockSharesOutstanding"
+COVER_DATE_GRACE_DAYS = 31
 
 
 def map_part(part: str) -> Tuple[str, float]:
@@ -282,7 +286,20 @@ class Statements:
         a missing part is not zero.
         """
         self.by_concept: Dict[str, List[Fact]] = {}
+        # A period cannot end after the filing that reports it (decision 61):
+        # ROP's Q1 and Q2 2015 10-Qs date their 2014-12-31 cash "2015-12-31",
+        # which then read as the newest balance. Such a fact is set aside,
+        # never moved to another date; dividends declared ahead are the only
+        # real case, and no line here reads them. A cover count is dated by
+        # the filer's "latest practicable date", which 22 of the 24 such rows
+        # put 1-19 days past the filing (NEM's 10-K filed 2011-02-24 says
+        # 2011-02-28): a real count, kept. ADBE's 144 and CL's 309 days are not.
+        self.dated_after_filing: List[Fact] = []
         for f in facts:
+            grace = COVER_DATE_GRACE_DAYS if f.concept == COVER_CONCEPT else 0
+            if (f.period_end - f.filed).days > grace:
+                self.dated_after_filing.append(f)
+                continue
             self.by_concept.setdefault(f.concept, []).append(f)
         self.splits = sorted(splits)
         self.line_concepts = dict(line_concepts or {})
@@ -627,6 +644,27 @@ class Statements:
         if not values:
             return None
         return max(values.values(), key=lambda v: (v.period_end, v.filed))
+
+    def set_aside(self, as_of: date) -> List[Fact]:
+        """
+        Facts dated after their own filing (decision 61), visible at `as_of`,
+        of a concept some line reads, that would have been that concept's
+        newest of their shape: the ones whose absence a reader can notice.
+        """
+        read = {c for cs in LINE_ITEMS.values() for c in cs}
+        read |= {map_part(c)[0] for cs in self.line_concepts.values() for c in cs}
+        out = []
+        for f in self.dated_after_filing:
+            if f.concept not in read or not f.filed < as_of:
+                continue
+            kept = [
+                g.period_end
+                for g in self.by_concept.get(f.concept, [])
+                if g.filed < as_of and (g.period_start is None) == (f.period_start is None)
+            ]
+            if not kept or f.period_end > max(kept):
+                out.append(f)
+        return sorted(out, key=lambda f: (f.concept, f.period_end, f.filed))
 
     def at_period(self, item: str, period_end: date, as_of: date) -> Optional[Value]:
         """One period's value as known at `as_of` (an instant, or an annual or quarterly duration)."""

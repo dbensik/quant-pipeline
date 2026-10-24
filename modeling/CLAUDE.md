@@ -76,7 +76,11 @@
   A cover share count filed as 0 is no count (decision 60,
   `research/zero-share-count-2026-10-23.md`): the diluted average is used
   and noted, as for a stale one (24 filers' covers say 0; ROP's made
-  `wacc()` raise and the history endpoint 500).
+  `wacc()` raise and the history endpoint 500). A fact whose period ends
+  after its own filing is set aside, never re-dated (decision 61,
+  `research/dated-after-filing-2026-10-23.md`: ROP's 2014 cash tagged
+  "2015-12-31", ECHO's notes tagged at their maturities); a cover count
+  may be dated `COVER_DATE_GRACE_DAYS` past its filing (a real count).
   Growth's start years come from `Statements.annual_before`: by date, and
   on the latest year's concept unless another agrees with it everywhere. Decisions
   in `research/dcf-plan-2026-10-08.md`: weekly 5y Blume beta, 7% WACC floor
