@@ -54,7 +54,7 @@ import numpy as np
 
 from config import settings
 from modeling.dcf import WACC, Beta, DCFInputs, regress_beta, wacc
-from modeling.statements import COVER_CONCEPT, DILUTED_CONCEPT, Statements
+from modeling.statements import COVER_CONCEPT, DILUTED_CONCEPT, MIN_WITNESS_SHARES, Statements
 
 FALLBACK_TAX_RATE = 0.21
 GROWTH_CLAMP = (-0.10, settings.DCF_DEFAULT_GROWTH_CAP)
@@ -351,8 +351,13 @@ def build_inputs(
     # market value 0 and wacc() raise.
     # A count in the wrong unit is set aside (decision 62) and named here
     # when it would have been the one read.
+    # So is a count under MIN_WITNESS_SHARES (decision 63): a shell's, a
+    # subsidiary's or a table in thousands.
     off_scale = [
         f for f in st.off_scale_newest(as_of) if (as_of - f.period_end).days <= MAX_TTM_AGE_DAYS
+    ]
+    too_small = [
+        f for f in st.too_small_newest(as_of) if (as_of - f.period_end).days <= MAX_TTM_AGE_DAYS
     ]
 
     def note_off_scale(concept: str) -> None:
@@ -361,6 +366,13 @@ def build_inputs(
                 notes.append(
                     f"{f.concept} filed {f.filed} is {f.value:,.0f}, in another unit than "
                     "its filing's other share counts: set aside"
+                )
+        for f in too_small:
+            if f.concept == concept:
+                notes.append(
+                    f"{f.concept} filed {f.filed} is {f.value:,.0f}, under "
+                    f"{MIN_WITNESS_SHARES:,.0f} shares (a shell's, a subsidiary's or a "
+                    "table in thousands): set aside"
                 )
 
     note_off_scale(COVER_CONCEPT)

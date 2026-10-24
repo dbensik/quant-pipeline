@@ -375,7 +375,13 @@ class Statements:
         # SW's 100 before its 519M). ECHO files no cover and tags earnings
         # rarely: its 10-Qs' averages in thousands (271,519) have one
         # witness, the 10-K before, and are kept.
+        # A count under MIN_WITNESS_SHARES is itself set aside (decision 63):
+        # no registry filer has so few shares (NVR, the fewest, ~3M), so it is
+        # a shell's (Fox's 1 share from its 2019 registration, Linde plc's
+        # 25,000), a subsidiary's (Apache's 1,000, owned by APA) or a table in
+        # thousands (ECHO's 271,519; ATO's 2011 averages).
         self.off_scale: List[Fact] = []
+        self.too_small: List[Fact] = []
         witnesses = _share_witnesses(self.by_concept)
         for concept, item, own in (
             (DILUTED_CONCEPT, "diluted_shares", "averages"),
@@ -388,6 +394,9 @@ class Statements:
                 key=lambda f: (f.filed, f.accn, f.period_end, f.period_start or date.min),
             )
             for f in in_filing_order:
+                if 0 < f.value < MIN_WITNESS_SHARES:
+                    self.too_small.append(f)
+                    continue
                 earlier = [
                     g
                     for g in kept
@@ -767,6 +776,10 @@ class Statements:
     def off_scale_newest(self, as_of: date) -> List[Fact]:
         """Share counts set aside as in the wrong unit (decision 62), the same way."""
         return self._would_be_newest(self.off_scale, as_of)
+
+    def too_small_newest(self, as_of: date) -> List[Fact]:
+        """Share counts set aside as under MIN_WITNESS_SHARES (decision 63), the same way."""
+        return self._would_be_newest(self.too_small, as_of)
 
     def _would_be_newest(self, facts: List[Fact], as_of: date) -> List[Fact]:
         out = []

@@ -86,7 +86,14 @@
   134): `SCALE_OFF` from every witness while they agree, at least two (its
   filing's cover, weighted averages, net income / diluted EPS; the last
   kept count of its kind); a witness under `MIN_WITNESS_SHARES` (a shell,
-  a table in thousands) condemns nothing.
+  a table in thousands) condemns nothing. Such a count is itself set
+  aside (decision 63, `research/predecessor-filings-2026-10-23.md`:
+  Fox's 1-share registration cover, Apache's 1,000, ECHO's averages in
+  thousands; CRM's 134 and LH's 97 now fall here first): no registry filer has under 1M shares (NVR ~3M). A
+  predecessor CIK is read only from filings before its successor's first
+  10-Q/10-K (`successor_facts`; Apache kept filing as APA's subsidiary),
+  or through `CIK_PREDECESSOR_READ_THROUGH` (WBA: its first 10-Q was the
+  pre-merger shell's).
   Growth's start years come from `Statements.annual_before`: by date, and
   on the latest year's concept unless another agrees with it everywhere. Decisions
   in `research/dcf-plan-2026-10-08.md`: weekly 5y Blume beta, 7% WACC floor

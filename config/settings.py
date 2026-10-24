@@ -323,6 +323,18 @@ CIK_PREDECESSORS = {
     "TPL": (97517,),  # TEXAS PACIFIC LAND TRUST -> Texas Pacific Land Corp, 15-12B 2021-01-25
     "BG": (1144519,),  # BUNGE LTD -> Bunge Global SA, 8-K12G3 2023-11-01
 }
+#: A predecessor that keeps filing after its successor's first 10-Q/10-K is a
+#: SUBSIDIARY from then on (decision 63, research/predecessor-filings-2026-10-23.md):
+#: Apache's 10-Qs say 1,000 shares (owned by APA) beside its own cash and CFO,
+#: old Apollo's the same. Its filings from that day are not read. Where the
+#: successor's first filing is a pre-merger shell's and the predecessor's
+#: filing the same day is the business, the predecessor is read through the
+#: date given here.
+CIK_PREDECESSOR_READ_THROUGH = {
+    # WBA's first 10-Q (2014-12-30) is the holdco before the Boots merger:
+    # 100 shares, revenue 0. Walgreen Co's 10-Q that day is the business.
+    "WBA": "2014-12-30",
+}
 
 #: History gaps the check found and a person accepted, with why. A merger of
 #: equals has no single predecessor whose statements continue the company's.

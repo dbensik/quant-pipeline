@@ -211,7 +211,8 @@ async def test_weekly_beta_uses_the_last_close_of_each_week():
 
 
 def test_a_stale_cover_page_count_falls_back_to_diluted_shares():
-    # Fox's real case: the only untagged cover-page count is 1.0 share (2019).
+    # CMCSA's cover count is from 2009. (Fox's 1 share from 2019 was this
+    # test's case until decision 63 set counts under 1M aside.)
     from core.fundamentals import Fact
 
     def f(concept, v, start, end, filed, tax="us-gaap"):
@@ -236,7 +237,7 @@ def test_a_stale_cover_page_count_falls_back_to_diluted_shares():
         [
             f(
                 "EntityCommonStockSharesOutstanding",
-                1.0,
+                2.9e9,
                 None,
                 date(2019, 3, 18),
                 date(2019, 3, 18),

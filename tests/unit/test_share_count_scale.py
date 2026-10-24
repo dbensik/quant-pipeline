@@ -90,16 +90,17 @@ def test_a_shell_count_before_a_real_one_condemns_nothing():
     assert value([*flows(), *shell, *q3]).lines["shares"][0] == pytest.approx(317.359e6)
 
 
-def test_a_diluted_average_in_thousands_is_set_aside_and_not_read():
-    # COP's: the averages in thousands beside the cover and earnings. With
+def test_a_diluted_average_off_scale_is_set_aside_and_not_read():
+    # The averages a thousand times their cover and earnings (one in
+    # thousands, under 1M shares, is set aside by decision 63 alone). With
     # the cover filed as 0 (decision 60) the reader falls back to the
     # averages, and takes the last one in the right unit.
-    q3 = filing("q3", Q3, date(2026, 9, 30), 0.0, 0.3185, 4.71)
+    q3 = filing("q3", Q3, date(2026, 9, 30), 0.0, 318_500.0, 4.71)
     st = Statements([*flows(), *Q2_FILING, *q3])
     assert {(f.concept, f.accn) for f in st.off_scale} == {(DILUTED, "q3")}
     v = value([*flows(), *Q2_FILING, *q3])
     assert v.lines["shares"][0] == pytest.approx(318.0e6)
-    assert any(n.startswith(f"{DILUTED} filed 2026-10-22 is 318,500") for n in v.notes)
+    assert any(n.startswith(f"{DILUTED} filed 2026-10-22 is 318,500,000,000,") for n in v.notes)
 
 
 def test_one_witness_is_not_enough():

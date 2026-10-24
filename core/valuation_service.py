@@ -98,7 +98,7 @@ async def filer_statements(
         raise ValuationError(
             422, f"{symbol} has no CIK: run scripts/resolve_ciks.py, or the ticker is reassigned"
         )
-    facts = await data.facts(ciks, ALL_CONCEPTS)
+    facts = successor_facts(symbol, ciks, await data.facts(ciks, ALL_CONCEPTS))
     if not facts:
         raise ValuationError(
             422, f"no SEC facts stored for {symbol} (CIK {cik}): run scripts/load_fundamentals.py"
@@ -106,6 +106,33 @@ async def filer_statements(
     line_concepts = settings.LINE_CONCEPTS_BY_SYMBOL.get(symbol.upper())
     splits, spinoffs = share_splits(symbol, await data.splits(symbol))
     return Statements(facts, splits, line_concepts, spinoffs), cik, sector, ciks
+
+
+def successor_facts(symbol: str, ciks: List[int], facts: List[Fact]) -> List[Fact]:
+    """
+    The facts of `ciks` (own CIK first) as one filer: a predecessor's only
+    from filings before the successor's first periodic one, or through
+    settings.CIK_PREDECESSOR_READ_THROUGH (decision 63). APA's Apache kept
+    filing as its subsidiary, 1,000 shares on the cover, and on each shared
+    filing day its rows stood beside APA's own.
+    """
+    own = ciks[0] if ciks else None
+    first = min(
+        (f.filed for f in facts if f.cik == own and f.form in settings.SEC_FACT_FORMS),
+        default=None,
+    )
+    through = settings.CIK_PREDECESSOR_READ_THROUGH.get(symbol.upper())
+    if first is None and through is None:
+        return facts
+
+    def read(f: Fact) -> bool:
+        if f.cik == own:
+            return True
+        if through is not None:
+            return f.filed <= date.fromisoformat(through)
+        return f.filed < first
+
+    return [f for f in facts if read(f)]
 
 
 def share_splits(
