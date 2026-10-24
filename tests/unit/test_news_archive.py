@@ -316,6 +316,31 @@ def test_an_empty_last_answer_is_due_next_hour():
     assert due(LastFetch(T0 - timedelta(minutes=5), 0, None, 0), T0, HOUR) is True
 
 
+def never_answered(first_ago):
+    """A page whose every fetch was empty, last asked 5 minutes ago."""
+    return LastFetch(T0 - timedelta(minutes=5), 0, None, 0, None, T0 - first_ago)
+
+
+def test_a_new_page_that_never_answered_is_still_due_hourly():
+    # 22 new pages started empty and answered, all within 14 h (ICP's name: 14 empties).
+    assert due(never_answered(timedelta(hours=23)), T0, HOUR) is True
+
+
+def test_an_old_page_that_never_answered_is_left_to_the_06_00_run():
+    # 51 crypto pages empty for 48 h made 2,376 of 2,431 hourly searches (decision 69).
+    assert due(never_answered(timedelta(hours=25)), T0, HOUR) is False
+    assert due(never_answered(timedelta(hours=24)), T0, HOUR) is False
+
+
+def test_a_page_that_answered_once_is_due_hourly_whatever_its_age():
+    once = LastFetch(T0 - timedelta(minutes=5), 0, None, 0, T0 - 30 * HOUR, T0 - 40 * HOUR)
+    assert due(once, T0, HOUR) is True
+
+
+def test_a_page_without_a_first_fetch_is_due_when_empty():
+    assert due(LastFetch(T0 - timedelta(minutes=5), 0, None, 0), T0, HOUR) is True
+
+
 def test_a_page_mostly_about_other_tickers_is_never_due():
     # DE's ticker page: 1 of 47 tagged DE over 3.4 h. Refetching stores noise.
     last = LastFetch(T0 - 3 * HOUR, 47, T0 - 3 * HOUR - timedelta(hours=3.4), 1)

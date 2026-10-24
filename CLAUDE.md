@@ -524,7 +524,11 @@ is a read-time rule (nothing reads the archive yet). Every search is a `news_fet
 `window_truncated` counts missed stories. At 06:00 an empty answer is retried
 twice a minute apart; a page still empty is refetched by the next hourly pass,
 which does not retry within the run: answers stick for minutes but often
-clear within the hour (step 2, `research/news-archive-gaps-2026-10-22.md`). Each
+clear within the hour (step 2, `research/news-archive-gaps-2026-10-22.md`).
+A page that has NEVER answered is dropped from the hourly pass 24 h after its
+first fetch and left to 06:00 (decision 69,
+`research/news-never-answering-2026-10-24.md`): 51 crypto pages had made 98%
+of the hourly searches, all empty. Each
 (symbol, term) is its own page: a coin is ALSO searched by its verified name
 (`BTC` returned 0 when `Bitcoin` returned 43), and a word ticker by its
 MEASURED term in `NEWS_SEARCH_TERMS` (KEY 1 of 50 tagged KEY, `KEYCORP` 50 of

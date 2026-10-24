@@ -11,7 +11,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import text
 
-from core.news_archive import Fetch, LastFetch, last_fetches, store_fetch
+from core.news_archive import Fetch, LastFetch, due, last_fetches, store_fetch
 from db.session import get_session
 
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]
@@ -159,9 +159,27 @@ async def test_each_term_of_a_symbol_has_its_own_last_fetch(session):
     )
     last = await last_fetches(session, ["ZZNEWS1"])
     assert last == {
-        ("ZZNEWS1", "ZZNEWS1"): LastFetch(T0, 1, T0 - timedelta(hours=1), 1),
-        ("ZZNEWS1", "Zz News Corp"): LastFetch(T0, 0, None, 0),  # the failure is skipped
+        ("ZZNEWS1", "ZZNEWS1"): LastFetch(T0, 1, T0 - timedelta(hours=1), 1, None, T0),
+        # the failure is skipped
+        ("ZZNEWS1", "Zz News Corp"): LastFetch(T0, 0, None, 0, None, T0),
     }
+
+
+async def test_a_page_that_never_answered_carries_its_first_fetch(session):
+    # Decision 69: the hourly pass drops such a page once its first fetch is 24 h old.
+    for hours in (30, 20, 1):
+        await store_fetch(
+            session,
+            Fetch("ZZNEWS1", "ZZNEWS1", [], fetched_at=T0 - timedelta(hours=hours)),
+            None,
+        )
+    last = (await last_fetches(session, ["ZZNEWS1"]))[("ZZNEWS1", "ZZNEWS1")]
+    assert last.never_answered
+    assert (last.fetched_at, last.first_fetched_at) == (
+        T0 - timedelta(hours=1),
+        T0 - timedelta(hours=30),
+    )
+    assert due(last, T0, timedelta(hours=1)) is False
 
 
 async def test_after_an_empty_answer_truncation_counts_from_the_last_stories(session):

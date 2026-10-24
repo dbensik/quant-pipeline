@@ -1800,6 +1800,13 @@ NEWS_ARCHIVE_WORKERS = 5
 #: The hourly pass's cadence. A symbol is refetched when its last page would
 #: be outrun before the NEXT pass: NVDA's 50 stories spanned 1.8 hours.
 NEWS_ARCHIVE_HOURLY_INTERVAL_HOURS = 1.0
+#: A page that has NEVER returned a story and was first fetched at least this
+#: long ago is no longer due hourly; the 06:00 run still searches it (decision
+#: 69, research/news-never-answering-2026-10-24.md). Over 48 h, 51 pages (all
+#: crypto) never answered and made 2,376 of the hourly pass's 2,431 searches
+#: empty; the 22 new pages that started empty and later answered all did
+#: within 14 h of their first fetch.
+NEWS_ARCHIVE_NEVER_ANSWERED_HOURS = 24.0
 #: A page counts as FULL only when at least this share of it is tagged with
 #: the symbol (decision 57 B step 2). A term matching no quote returns
 #: Yahoo's generic feed, ~48 stories of other tickers from the last ~3 hours;

@@ -5,7 +5,7 @@ Store Yahoo search headlines for registry symbols, insert-only (decision 57 B,
 research/news-archive-2026-10-22.md, core/news_archive.py).
 
     python scripts/archive_news.py                  # every equity, ETF and coin (06:00 job, ~70 s)
-    python scripts/archive_news.py --due            # only pages about to be outrun, or empty last time (hourly job)
+    python scripts/archive_news.py --due            # only pages about to be outrun, or empty last time unless they never answered in 24 h (hourly job)
     python scripts/archive_news.py --symbols NVDA ETH-USD
 
 A symbol is searched by every term in core.news_archive.search_terms (a coin

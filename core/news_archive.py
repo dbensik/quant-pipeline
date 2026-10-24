@@ -38,6 +38,7 @@ from config.settings import (
     CRYPTO_PROVIDER_SYMBOLS,
     NEWS_ARCHIVE_EMPTY_RETRIES,
     NEWS_ARCHIVE_FULL_PAGE,
+    NEWS_ARCHIVE_NEVER_ANSWERED_HOURS,
     NEWS_ARCHIVE_OWN_SHARE,
     NEWS_ARCHIVE_RETRY_PAUSE_SECONDS,
     NEWS_ARCHIVE_WORKERS,
@@ -203,6 +204,14 @@ class LastFetch:
     #: (this one was empty). Truncation is measured from it: after
     #: real 05:00, empty 06:00, the 07:00 page must reach back to 05:00.
     stories_fetched_at: Optional[datetime] = None
+    #: The (symbol, term)'s first successful fetch: how long a page that never
+    #: answered has been asked (decision 69).
+    first_fetched_at: Optional[datetime] = None
+
+    @property
+    def never_answered(self) -> bool:
+        """No fetch of this page has ever returned a story."""
+        return self.returned == 0 and self.stories_fetched_at is None
 
     @property
     def stories_baseline(self) -> Optional[datetime]:
@@ -228,7 +237,12 @@ def window_truncated(
     return is_full(returned, own) and oldest > previous.stories_baseline
 
 
-def due(last: Optional[LastFetch], now: datetime, interval: timedelta) -> bool:
+def due(
+    last: Optional[LastFetch],
+    now: datetime,
+    interval: timedelta,
+    never_answered_after: timedelta = timedelta(hours=NEWS_ARCHIVE_NEVER_ANSWERED_HOURS),
+) -> bool:
     """
     The hourly pass refetches a symbol whose last full page would be outrun
     before the NEXT pass: elapsed + interval reaches the page's span. NVDA's
@@ -237,9 +251,20 @@ def due(last: Optional[LastFetch], now: datetime, interval: timedelta) -> bool:
     is one whose last answer was EMPTY: Yahoo's answer sticks for minutes, so
     the 06:00 retries a minute apart can all miss, but 5 of 23 empties had
     stories an hour later (COP, O, OMC, SBAC, NWSA).
+
+    Except a page that has NEVER answered and was first fetched
+    `never_answered_after` ago (decision 69): 51 such pages were 98% of the
+    hourly searches. The 06:00 run still searches it, so one that comes alive
+    is found the next morning.
     """
-    if last is None or last.returned == 0:
+    if last is None:
         return True
+    if last.returned == 0:
+        return not (
+            last.never_answered
+            and last.first_fetched_at is not None
+            and now - last.first_fetched_at >= never_answered_after
+        )
     if not is_full(last.returned, last.own_tagged) or last.oldest_published_at is None:
         return False
     span = last.fetched_at - last.oldest_published_at
@@ -258,9 +283,10 @@ def now_utc() -> datetime:
 async def last_fetches(session: Any, symbols: List[str]) -> Dict[Tuple[str, str], LastFetch]:
     """
     Each (symbol, term)'s newest fetch that did not fail, carrying when it
-    last returned stories if that was earlier (an empty answer in between).
+    last returned stories if that was earlier (an empty answer in between)
+    and when it was first fetched.
     """
-    from sqlalchemy import select
+    from sqlalchemy import func, select
 
     from db.models import NewsFetchORM
 
@@ -279,9 +305,22 @@ async def last_fetches(session: Any, symbols: List[str]) -> Dict[Tuple[str, str]
         .distinct(f.symbol, f.search_term)
         .order_by(f.symbol, f.search_term, f.fetched_at.desc())
     )
+    first = await session.execute(
+        select(f.symbol, f.search_term, func.min(f.fetched_at))
+        .where(f.symbol.in_(symbols), f.error.is_(None))
+        .group_by(f.symbol, f.search_term)
+    )
     stories_at = {(s, term): at for s, term, at in with_stories.all()}
+    first_at = {(s, term): at for s, term, at in first.all()}
     return {
-        (s, term): LastFetch(at, n, oldest, own, None if n else stories_at.get((s, term)))
+        (s, term): LastFetch(
+            at,
+            n,
+            oldest,
+            own,
+            None if n else stories_at.get((s, term)),
+            first_at.get((s, term)),
+        )
         for s, term, at, n, oldest, own in newest.all()
     }
 
