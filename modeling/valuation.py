@@ -216,6 +216,14 @@ def build_inputs(
             f"{f.concept} in {f.accn} (filed {f.filed}) set aside: "
             f"{st.reviewed_aside_reasons[(f.concept, f.accn)]}"
         )
+    for f in st.filed_negative_unreplaced(as_of):
+        if (as_of - f.period_end).days > MAX_ANNUAL_AGE_DAYS or (f.concept, f.accn) in noted:
+            continue
+        noted.add((f.concept, f.accn))
+        notes.append(
+            f"{f.concept} in {f.accn} (filed {f.filed}) set aside: filed negative "
+            f"(${f.value / 1e6:,.0f}M), and a payment is an outflow"
+        )
     if sector in settings.DCF_REFUSED_SECTORS:
         notes.append(
             f"{sector} is refused as a sector; {symbol} is valued by name "

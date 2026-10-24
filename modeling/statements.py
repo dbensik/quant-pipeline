@@ -243,6 +243,10 @@ QUARTER_DAYS = (80, 100)
 #: (decision 61; see Statements.__init__).
 COVER_CONCEPT = "EntityCommonStockSharesOutstanding"
 COVER_DATE_GRACE_DAYS = 31
+#: Capex concepts that name a payment, an outflow: one filed below zero is
+#: in the wrong sign and set aside (decision 67; see Statements.__init__).
+#: PaymentsForProceedsFromProductiveAssets is a net of sale proceeds.
+GROSS_CAPEX_CONCEPTS = frozenset(LINE_ITEMS["capex"]) - {"PaymentsForProceedsFromProductiveAssets"}
 #: A share count this many times (or this fraction of) both of its filing's
 #: other witnesses, which agree within SCALE_AGREE of each other, is in the
 #: wrong unit and set aside (decision 62; see Statements.__init__).
@@ -375,9 +379,19 @@ class Statements:
         # FY2014 in the 10-K filed 2017). No concept order serves both.
         self.reviewed_aside_reasons = dict(reviewed_aside or {})
         self.reviewed_aside: List[Fact] = []
+        # A payment filed below zero (decision 67): CSX's 10-K filed 2010
+        # tags FY2009 capex -1,447 ($M), which the next two 10-Ks file as
+        # 1,426-1,427; so do GWW, HON, OMC, LUV, WBA, EMR, PCG, WMB and CNP
+        # in 2009-2011. Read, it ADDED to free cash flow. Set aside, never
+        # flipped: at the time nothing on file says the sign was the error
+        # (CVX files one capex concept negative in three 10-Ks running).
+        self.filed_negative: List[Fact] = []
         for f in facts:
             if (f.concept, f.accn) in self.reviewed_aside_reasons:
                 self.reviewed_aside.append(f)
+                continue
+            if f.concept in GROSS_CAPEX_CONCEPTS and f.period_start is not None and f.value < 0:
+                self.filed_negative.append(f)
                 continue
             grace = COVER_DATE_GRACE_DAYS if f.concept == COVER_CONCEPT else 0
             if (f.period_end - f.filed).days > grace:
@@ -825,6 +839,13 @@ class Statements:
         period no kept fact of the same concept reports yet: the ones a
         reader would otherwise have had.
         """
+        return self._unreplaced(self.reviewed_aside, as_of)
+
+    def filed_negative_unreplaced(self, as_of: date) -> List[Fact]:
+        """Payments filed below zero (decision 67), the same way."""
+        return self._unreplaced(self.filed_negative, as_of)
+
+    def _unreplaced(self, aside: List[Fact], as_of: date) -> List[Fact]:
         kept = {
             (g.concept, g.period_start, g.period_end)
             for fs in self.by_concept.values()
@@ -834,7 +855,7 @@ class Statements:
         return sorted(
             (
                 f
-                for f in self.reviewed_aside
+                for f in aside
                 if f.filed < as_of and (f.concept, f.period_start, f.period_end) not in kept
             ),
             key=lambda f: (f.concept, f.period_end, f.filed),

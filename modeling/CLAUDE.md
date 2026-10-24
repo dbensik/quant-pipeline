@@ -113,6 +113,13 @@
   other EQT filing tags capex), for a meaning that flips and flips back,
   where no order serves every filing. The line reads the next concept and
   the valuation names the filing until a later one reports the period.
+  A capex PAYMENT filed below zero is set aside the same way, by rule
+  (decision 67, `research/negative-capex-2026-10-24.md`,
+  `GROSS_CAPEX_CONCEPTS`: every capex concept but the net
+  PaymentsForProceedsFromProductiveAssets): ten filers' 2009-2011 10-Ks
+  file capex negative (CSX FY2009 -1,447, then 1,426), which FCF = CFO -
+  capex ADDED (CSX 2010-02-20 $207 against a $47 price). Never flipped; a
+  derived quarter may still be negative.
   Growth's start years come from `Statements.annual_before`: by date, and
   on the latest year's concept unless another agrees with it everywhere. Decisions
   in `research/dcf-plan-2026-10-08.md`: weekly 5y Blume beta, 7% WACC floor
