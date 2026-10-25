@@ -506,7 +506,8 @@ def test_every_mapped_concept_is_fetched_and_stored():
     stored = {c for _, c in settings.FUNDAMENTAL_CONCEPTS}
     # A filer's own concepts, stored from its instances (decision 70 B).
     stored |= {c for pairs in settings.EXTENSION_CONCEPTS_BY_CIK.values() for _, c in pairs}
-    for symbol, lines in settings.LINE_CONCEPTS_BY_SYMBOL.items():
+    maps = (settings.LINE_CONCEPTS_BY_SYMBOL, settings.LINE_CONCEPTS_SUM_WHERE_FILED_BY_SYMBOL)
+    for symbol, lines in (pair for m in maps for pair in m.items()):
         for item, concepts in lines.items():
             assert item in LINE_ITEMS, (symbol, item)
             names = {map_part(c)[0] for c in concepts}

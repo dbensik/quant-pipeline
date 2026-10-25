@@ -560,8 +560,8 @@ twice keeps the higher `decimals`). When companyfacts later serves that
 filing, a differing value is a DISAGREE (exit 2, a job FLAG) and the instance
 row stays. New index members get their companyfacts at registration. At
 2026-10-23: 358 valued -> 376 (the 27 filers that had no facts) -> 389.
-A filer's OWN concept named in `EXTENSION_CONCEPTS_BY_CIK` (today only COP's
-capex line, decision 70 B) is in no companyfacts document, so each of its
+A filer's OWN concept named in `EXTENSION_CONCEPTS_BY_CIK` (COP's capex line,
+decision 70 B; CSGP's ordinary capex line, decision 71) is in no companyfacts document, so each of its
 filings in the window is read from its instance for that concept alone
 (`OWN` lines), stored under taxonomy = the filer's prefix.
 

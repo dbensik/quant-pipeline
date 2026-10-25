@@ -592,6 +592,11 @@ EXTENSION_CONCEPTS_BY_CIK = {
     # Not SegmentReportingInformationCapitalExpendituresAndInvestments: the
     # same figures, plus three-month periods from 2025.
     1163165: (("cop", "PaymentToAcquireProductiveAssetsAndInvestments"),),
+    # CSGP (decision 71, research/csgp-capex-2026-10-24.md): "Purchases of
+    # property and equipment and other assets", its ordinary capex line from
+    # the FY2021 10-K on (FY2024 $58.9M); us-gaap PaymentsToAcquireProductiveAssets
+    # before it, at the same figures.
+    1057352: (("csgp", "PaymentsToAcquirePropertyAndEquipmentAndOtherAssets"),),
 }
 
 # --- DCF (modeling/dcf.py, modeling/valuation.py; tier 3 phase 3) ---
@@ -931,6 +936,28 @@ LINE_CONCEPTS_FIRST_BY_SYMBOL = {
     "COP": {
         "capex": ("PaymentToAcquireProductiveAssetsAndInvestments",),
         "revenue": ("Revenues",),
+    },
+}
+
+#: Per filer and line: the SUM of these concepts for every period all of them
+#: report, the item's list for the others (modeling.statements.SumWhereFiled,
+#: decision 71, research/csgp-capex-2026-10-24.md). For a line the statement
+#: splits in two from some filing on, where a LINE_CONCEPTS_BY_SYMBOL sum
+#: would drop every earlier year and an order reads one of the two.
+LINE_CONCEPTS_SUM_WHERE_FILED_BY_SYMBOL = {
+    # From the FY2021 10-K, two purchase lines: "Purchase of Richmond assets"
+    # (2021-22), then "Purchases of property, equipment, and other assets for
+    # new campuses" (FY2024 $579.0M), on PaymentsToAcquirePropertyPlantAndEquipment;
+    # and "Purchases of property and equipment and other assets" ($58.9M), on
+    # CSGP's own concept. The list read the first alone: Q1 2022 TTM $0.5M
+    # against $67.5M. Earlier years are the list's PaymentsToAcquireProductiveAssets
+    # (the ordinary line); the 2021 10-Qs' Richmond purchase, on
+    # PaymentsToAcquireAssetsInvestingActivities, is not read.
+    "CSGP": {
+        "capex": (
+            "PaymentsToAcquirePropertyPlantAndEquipment",
+            "PaymentsToAcquirePropertyAndEquipmentAndOtherAssets",
+        )
     },
 }
 

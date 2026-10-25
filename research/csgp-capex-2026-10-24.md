@@ -1,7 +1,7 @@
 # CSGP's capex is two lines, and the DCF reads one (decision 71)
 
 Date: 2026-10-24
-Status: measured. Nothing built. One recommendation (A), awaiting a decision.
+Status: A picked 2026-10-25 and built; its 43 rows are stored.
 
 ## The question
 
@@ -80,3 +80,47 @@ where the missing line matters most, relative to what is read.
 **C. Nothing.**
 - CSGP is valued on the campus line alone from 2022: $0.5M for Q1 2022, and the
   ordinary $25-82M a year missing throughout.
+
+## Built (A, 2026-10-25)
+
+- **Stored.** CSGP's own concept is in `EXTENSION_CONCEPTS_BY_CIK` (CIK 1057352).
+  `load_fundamentals.py --instances-since 2022-01-01 --symbols CSGP` read 19
+  filings (OWN) and inserted 43 rows under taxonomy `csgp`, the FY2021 10-K to
+  the Q2 2026 10-Q. Undo: `DELETE FROM fundamental_facts WHERE cik = 1057352 AND
+  taxonomy = 'csgp'`.
+- **The rule.** `SumWhereFiled` (`modeling/statements.py`), from
+  `settings.LINE_CONCEPTS_SUM_WHERE_FILED_BY_SYMBOL`: the sum is ranked ahead of
+  the item's list as if it were one concept, under its label, so it fills every
+  period both parts report and the list fills the rest by the usual rules. The
+  TTM mix check sees one concept on both sides. `_periods` was split into
+  `_one` (one concept's periods) and `_first_per_period` (the ranking), with no
+  change to what either does.
+- **What is read now** (TTM, else the latest year):
+
+  | as_of | before | now |
+  |---|---|---|
+  | 2021-05-01 | 51.8 | 51.8 (list, unchanged) |
+  | 2022-04-29 | 0.5 | 67.5 |
+  | 2023-02-24 | FY2022 35.2 | FY2022 93.7 |
+  | 2025-02-22 | FY2024 579.0 | FY2024 637.9 |
+  | 2026-07-31 | 217.0 | 270.0 |
+
+  The FY2021 10-K re-tags FY2019 and FY2020 under both concepts (campus $0), so
+  those years read the sum at the same figure as before.
+- **History, every equity** (26,291 points, before and after on the same
+  database): only CSGP moves, 19 points from 2022-02-24 on; none is newly
+  refused or valued.
+
+  | as_of | before | after |
+  |---|---|---|
+  | 2022-04-29 | 39.41 | 34.84 |
+  | 2023-02-23 | 27.37 | 24.75 |
+  | 2024-07-26 | 1.48 | -0.13 |
+  | 2026-07-30 (today's) | 5.99 | 2.97 |
+
+- The line check flags 0 for CSGP and COP.
+
+Tests: `tests/unit/test_sum_where_filed.py`: the Q1 2022 TTM reads both lines
+(0.5 without the entry); years before the second line read the list; a plain
+sum would drop them; CSGP's entry and stored concept. Each fails on a copy with
+the rule switched off or the entry removed.

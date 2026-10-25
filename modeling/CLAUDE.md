@@ -128,7 +128,12 @@
   capex line since 2022 is its own concept, stored from each filing's
   instance (`settings.EXTENSION_CONCEPTS_BY_CIK`, taxonomy `cop`; 70 B) and
   read first through `LINE_CONCEPTS_FIRST_BY_SYMBOL`: companyfacts serves
-  only us-gaap and dei.
+  only us-gaap and dei. CSGP's capex is two lines from its FY2021 10-K
+  (campus purchases on us-gaap PPE, ordinary ones on its own concept):
+  `LINE_CONCEPTS_SUM_WHERE_FILED_BY_SYMBOL` (`SumWhereFiled`, decision 71,
+  `research/csgp-capex-2026-10-24.md`) reads their SUM for every period
+  both report and the list for the others, where a plain sum would drop
+  every earlier year.
   A capex PAYMENT filed below zero is set aside the same way, by rule
   (decision 67, `research/negative-capex-2026-10-24.md`,
   `GROSS_CAPEX_CONCEPTS`: every capex concept but the net

@@ -287,6 +287,17 @@ class FirstOf(tuple):
     """
 
 
+class SumWhereFiled(tuple):
+    """
+    A per-filer SUM read for every period all its parts report, and the
+    item's list for the others (settings.LINE_CONCEPTS_SUM_WHERE_FILED_BY_SYMBOL,
+    decision 71). CSGP's statement has two purchase lines from its FY2021
+    10-K: the campus purchases (PaymentsToAcquirePropertyPlantAndEquipment)
+    and the ordinary ones (its own concept). A plain sum drops every year
+    before that 10-K; an order reads one line of the two.
+    """
+
+
 def _far(a: float, b: float) -> bool:
     return a >= b * SCALE_OFF or a * SCALE_OFF <= b
 
@@ -361,7 +372,8 @@ class Statements:
         (settings.LINE_CONCEPTS_BY_SYMBOL, each entry checked against the
         filer's statement). A period missing any part is dropped:
         a missing part is not zero. A FirstOf entry is an order instead
-        (settings.LINE_CONCEPTS_FIRST_BY_SYMBOL).
+        (settings.LINE_CONCEPTS_FIRST_BY_SYMBOL); a SumWhereFiled entry is
+        the sum where every part reports, else the list.
         """
         self.by_concept: Dict[str, List[Fact]] = {}
         # A period cannot end after the filing that reports it (decision 61):
@@ -495,38 +507,66 @@ class Statements:
         database returned them in, and DAL's TTM capex was $4.475B or $1.534B
         depending on which valuations had run before it in the process.
         """
+        mapped = self.line_concepts.get(item)
+        # A SumWhereFiled sum is read under its label, ranked as a concept.
+        label = map_label(mapped) if isinstance(mapped, SumWhereFiled) else None
+        order = concepts if concepts is not None else self._order(item)
+        return self._first_per_period(
+            [
+                self._summed(item, as_of, span, mapped)
+                if c == label
+                else self._one(item, as_of, span, c)
+                for c in order
+            ],
+            span,
+        )
+
+    @staticmethod
+    def _first_per_period(
+        ranked: List[Dict[Tuple, Value]], span: Optional[Tuple[int, int]]
+    ) -> Dict[Tuple, Value]:
+        """Per period, the first series in `ranked` that has it."""
         out: Dict[Tuple, Value] = {}
-        for concept in concepts if concepts is not None else self._order(item):
+        for series in ranked:
             higher_ends = {k[1] for k in out}
-            best: Dict[Tuple, Fact] = {}
-            for f in self.by_concept.get(concept, []):
-                if not f.filed < as_of:
-                    continue
-                if span is None:
-                    if f.period_start is not None:
-                        continue
-                else:
-                    if f.period_start is None:
-                        continue
-                    days = (f.period_end - f.period_start).days
-                    if not span[0] <= days <= span[1]:
-                        continue
-                key = (f.period_start, f.period_end)
-                if (
-                    key not in best
-                    or f.filed > best[key].filed
-                    or (f.filed == best[key].filed and f.accn > best[key].accn)
-                ):
-                    best[key] = f
-            for key, f in best.items():
+            for key, v in series.items():
                 if key in out:
                     continue  # a higher-priority concept already covers this period
                 if span is not None and key[1] in higher_ends:
                     continue  # same period end from a higher-priority concept, slightly different start
-                out[key] = Value(
-                    f.period_start, f.period_end, self._scale(item, f, as_of), f.concept, f.filed
-                )
+                out[key] = v
         return out
+
+    def _one(
+        self, item: str, as_of: date, span: Optional[Tuple[int, int]], concept: str
+    ) -> Dict[Tuple, Value]:
+        """{(start, end): Value} of one concept: per period, the latest filed."""
+        best: Dict[Tuple, Fact] = {}
+        for f in self.by_concept.get(concept, []):
+            if not f.filed < as_of:
+                continue
+            if span is None:
+                if f.period_start is not None:
+                    continue
+            else:
+                if f.period_start is None:
+                    continue
+                days = (f.period_end - f.period_start).days
+                if not span[0] <= days <= span[1]:
+                    continue
+            key = (f.period_start, f.period_end)
+            if (
+                key not in best
+                or f.filed > best[key].filed
+                or (f.filed == best[key].filed and f.accn > best[key].accn)
+            ):
+                best[key] = f
+        return {
+            key: Value(
+                f.period_start, f.period_end, self._scale(item, f, as_of), f.concept, f.filed
+            )
+            for key, f in best.items()
+        }
 
     def _summed(
         self, item: str, as_of: date, span: Optional[Tuple[int, int]], parts: Tuple[str, ...]
@@ -556,11 +596,15 @@ class Statements:
         return {c: list(self._periods(item, as_of, span, (c,)).values()) for c in self._order(item)}
 
     def _is_sum(self, item: str) -> bool:
-        return item in self.line_concepts and not isinstance(self.line_concepts[item], FirstOf)
+        return item in self.line_concepts and not isinstance(
+            self.line_concepts[item], (FirstOf, SumWhereFiled)
+        )
 
     def _order(self, item: str) -> Tuple[str, ...]:
-        """The item's list, or for a FirstOf entry its concepts and then the rest of the list."""
+        """The item's list: for a FirstOf entry after its concepts, for a SumWhereFiled after its sum."""
         first = self.line_concepts.get(item)
+        if isinstance(first, SumWhereFiled):
+            return (map_label(first), *LINE_ITEMS[item])
         if not isinstance(first, FirstOf):
             return LINE_ITEMS[item]
         return (*first, *(c for c in LINE_ITEMS[item] if c not in first))
@@ -569,8 +613,11 @@ class Statements:
 
     def concepts_read(self, item: str) -> Set[str]:
         """Every concept the item can be read from: its sum's parts, or its order."""
+        mapped = self.line_concepts.get(item, ())
         if self._is_sum(item):
-            return {map_part(c)[0] for c in self.line_concepts[item]}
+            return {map_part(c)[0] for c in mapped}
+        if isinstance(mapped, SumWhereFiled):
+            return {map_part(c)[0] for c in mapped} | set(LINE_ITEMS[item])
         return set(self._order(item))
 
     def annual(self, item: str, as_of: date) -> List[Value]:
