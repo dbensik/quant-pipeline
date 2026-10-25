@@ -72,6 +72,8 @@ orders, so these filers' past revenue rows change there too.
 
 ## Not done
 
+KDP and JCI: built as decision 74 (`research/reverse-mergers-2026-10-25.md`).
+
 - **KDP and JCI.** Both are reverse mergers: the legal registrant's past (DPS,
   Tyco) is not the accounting predecessor's.
   - An order cannot fix it, because the right figures are under another CIK, or not

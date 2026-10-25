@@ -356,11 +356,16 @@ class Statements:
         line_concepts: Optional[Dict[str, Tuple[str, ...]]] = None,
         spinoffs: Sequence[date] = (),
         reviewed_aside: Optional[Dict[Tuple[str, str], str]] = None,
+        reverse_merger: Optional[date] = None,
     ) -> None:
         """
         splits: (ex-date, share ratio), spin-offs already taken out
         (core/valuation_service.share_splits): a spin leaves the share count
         alone. spinoffs: their ex-dates, for the valuation's refusal.
+
+        reverse_merger: the close of a merger in which this filer was acquired
+        for accounting (settings.REVERSE_MERGERS, decision 74): what it filed
+        before then is another company's past.
 
         reviewed_aside: (concept, accession) -> what the filing's statement
         shows, for this filer only (settings.FACTS_SET_ASIDE_BY_SYMBOL,
@@ -474,6 +479,7 @@ class Statements:
                 self.by_concept[concept] = kept
         self.line_concepts = dict(line_concepts or {})
         self.spinoffs = sorted(spinoffs)
+        self.reverse_merger = reverse_merger
 
     # -- primitives -------------------------------------------------------
 
@@ -643,8 +649,19 @@ class Statements:
         """
         target = latest.period_end.toordinal() - round(365.25 * years)
 
+        # After a reverse merger, a year filed before its close is the legal
+        # registrant's own (decision 74): KDP's FY2019 had set against DPS's
+        # FY2016, a company it had not been since 2018.
+        merger = self.reverse_merger
+        crossed = merger is not None and latest.filed >= merger
+
         def near(values: List[Value]) -> Optional[Value]:
-            hits = [v for v in values if abs(v.period_end.toordinal() - target) <= 30]
+            hits = [
+                v
+                for v in values
+                if abs(v.period_end.toordinal() - target) <= 30
+                and not (crossed and v.filed < merger)
+            ]
             return min(hits, key=lambda v: abs(v.period_end.toordinal() - target), default=None)
 
         if isinstance(self.line_concepts.get(item), FirstOf):

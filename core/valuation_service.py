@@ -111,7 +111,16 @@ async def filer_statements(
     line_concepts = filer_line_concepts(symbol)
     splits, spinoffs = share_splits(symbol, await data.splits(symbol))
     aside = settings.FACTS_SET_ASIDE_BY_SYMBOL.get(symbol.upper(), {})
-    return Statements(facts, splits, line_concepts, spinoffs, aside), cik, sector, ciks
+    merger = settings.REVERSE_MERGERS.get(symbol.upper())
+    st = Statements(
+        facts,
+        splits,
+        line_concepts,
+        spinoffs,
+        aside,
+        reverse_merger=date.fromisoformat(merger[0]) if merger else None,
+    )
+    return st, cik, sector, ciks
 
 
 def filer_line_concepts(symbol: str) -> Dict[str, Tuple[str, ...]]:

@@ -85,7 +85,13 @@ def alternatives(
 def with_line(st: Statements, item: str, concepts: Tuple[str, ...]) -> Statements:
     """The same filer's statements with one line read from `concepts`."""
     facts = [f for fs in st.by_concept.values() for f in fs]
-    return Statements(facts, st.splits, {**st.line_concepts, item: concepts}, st.spinoffs)
+    return Statements(
+        facts,
+        st.splits,
+        {**st.line_concepts, item: concepts},
+        st.spinoffs,
+        reverse_merger=st.reverse_merger,
+    )
 
 
 def stale_map(st: Statements, item: str, as_of: date) -> Optional[str]:

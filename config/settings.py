@@ -1263,6 +1263,26 @@ def odd_split_ratio(ratio: float) -> bool:
 #: $16.6B at 09-30).
 SPINOFF_FILING_MIN_DAYS = 7
 
+#: Reverse mergers (decision 74, research/reverse-mergers-2026-10-25.md): the
+#: legal registrant, whose CIK and ticker carry on, was acquired for
+#: accounting by the other company. Its filings before the close are its own
+#: past (DPS, Tyco); its filings after present the accounting acquirer's
+#: (Keurig, Johnson Controls Inc.). Symbol -> (close date, what was read).
+REVERSE_MERGERS = {
+    "KDP": (
+        "2018-07-09",
+        "Maple Parent (Keurig) acquired Dr Pepper Snapple for accounting; the FY2018 "
+        "10-K's comparatives are Keurig's (FY to 2017-09-30 $4,269M), DPS's FY2017 "
+        "was $6,690M",
+    ),
+    "JCI": (
+        "2016-09-02",
+        "Johnson Controls, Inc. acquired Tyco (CIK 833444, the filer) for accounting; "
+        "the FY2016 10-K reports Johnson Controls Inc.'s years ($37,674M), Tyco's "
+        "own 10-Ks Tyco's",
+    ),
+}
+
 #: A trailing year bridges two bases when the prior-year YTD it subtracts
 #: carries more discontinued operating cash than the fiscal year it is
 #: subtracted from, by this share of that year's total CFO: a business moved

@@ -298,6 +298,17 @@ def build_inputs(
                 "the business and the quarters since do not, and a trailing year on one basis "
                 f"is not on file until a 10-K for a year ending after {ex_date}"
             )
+    # A reverse merger (decision 74) likewise: until a 10-K for a year ending
+    # after the close, the trailing year is the legal registrant's (KDP
+    # 2018-08: DPS's cash flows against Keurig Dr Pepper's shares and price).
+    merger = st.reverse_merger
+    if merger is not None and annual and annual[-1].period_end < merger <= as_of:
+        return Refusal(
+            f"a reverse merger closed on {merger}: the filer was acquired for accounting, "
+            f"and the fiscal year to {annual[-1].period_end} the trailing cash flows build on "
+            "is the legal registrant's own; a year on the combined company's basis is not "
+            f"on file until a 10-K for a year ending after {merger}"
+        )
     capex, capex_src = _ttm_or_annual(st, "capex", as_of)
     if capex is None:
         # Missing capex is NOT zero: treating it as zero made APA's free cash
@@ -325,6 +336,7 @@ def build_inputs(
                 st.splits,
                 {**st.line_concepts, "intangible_capex": tuple(added)},
                 st.spinoffs,
+                reverse_merger=st.reverse_merger,
             ),
             "intangible_capex",
             as_of,
