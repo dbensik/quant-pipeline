@@ -8,6 +8,7 @@ a later filing reports the period on that concept. The flows are
 Honeywell's (as in test_dated_after_filing), with its capex filing set aside.
 """
 
+from dataclasses import replace
 from datetime import date
 
 import pytest
@@ -83,3 +84,41 @@ def test_eqt_entries_name_three_filings_of_one_concept():
         "0000033213-16-000018",
     ]
     assert {c for c, _ in entries} == {PPE}
+
+
+NET = "PaymentsForProceedsFromProductiveAssets"
+COP_Q1 = "0001163165-22-000006"
+
+
+def cop_like():
+    """
+    Decision 70: COP's FY2021 10-K files gross capex; its 10-Qs from 2022 file
+    asset-sale proceeds (negative) on the net concept, and capex only on its
+    own concept. As filed (millions): FY2021 5,324; Q1 2021 17; Q1 2022 -2,332.
+    """
+    y21, y22 = date(2021, 1, 1), date(2022, 1, 1)
+    q1_filed = date(2022, 5, 5)
+    return [
+        fact(PRODUCTIVE, 5_324, date(2021, 12, 31), date(2022, 2, 17), y21, "10-K"),
+        replace(fact(NET, 17, date(2021, 3, 31), q1_filed, y21), accn=COP_Q1),
+        replace(fact(NET, -2_332, date(2022, 3, 31), q1_filed, y22), accn=COP_Q1),
+    ]
+
+
+def test_asset_sale_proceeds_set_aside_leave_the_fiscal_year():
+    as_of = date(2022, 5, 6)
+    value, parts = Statements(cop_like()).ttm("capex", as_of)
+    assert value == pytest.approx(2_975e6)
+    assert NET in {p.concept for p in parts}
+    reviewed = settings.FACTS_SET_ASIDE_BY_SYMBOL["COP"]
+    st = Statements(cop_like(), reviewed_aside=reviewed)
+    assert st.ttm("capex", as_of) is None
+    read = st.annual("capex", as_of)[-1]
+    assert (read.concept, read.value) == (PRODUCTIVE, pytest.approx(5_324e6))
+
+
+def test_cop_entries_name_nine_10qs_of_one_concept():
+    entries = settings.FACTS_SET_ASIDE_BY_SYMBOL["COP"]
+    assert len(entries) == 9
+    assert {c for c, _ in entries} == {NET}
+    assert COP_Q1 in {a for _, a in entries}

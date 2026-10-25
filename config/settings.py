@@ -909,6 +909,31 @@ FACTS_SET_ASIDE_BY_SYMBOL = {
             "$2,434M on an EQT concept"
         ),
     },
+    # Decision 70 (research/cop-asset-proceeds-2026-10-24.md): every COP 10-Q
+    # from Q1 2022 to Q3 2024 tags "Proceeds from asset dispositions" as
+    # PaymentsForProceedsFromProductiveAssets, filed negative (an inflow);
+    # capex is "Capital expenditures and investments" on
+    # cop_PaymentToAcquireProductiveAssetsAndInvestments, which is not stored.
+    # Read, the proceeds stood in for the YTD capex beside the 10-K's gross
+    # PaymentsToAcquireProductiveAssets (TTM to 2023-03-31: $12,303M against
+    # FY2022 $10,159M). Amounts are the current-year YTD on each statement.
+    "COP": {
+        ("PaymentsForProceedsFromProductiveAssets", accn): (
+            f"{period} 10-Q's 'Proceeds from asset dispositions' (${proceeds}M); capex is "
+            f"'Capital expenditures and investments' (${capex}M) on a COP concept"
+        )
+        for accn, period, proceeds, capex in (
+            ("0001163165-22-000006", "Q1 2022", "2,332", "3,161"),
+            ("0001163165-22-000013", "H1 2022", "2,951", "5,129"),
+            ("0001163165-22-000017", "9M 2022", "3,354", "7,626"),
+            ("0001163165-23-000011", "Q1 2023", "188", "2,897"),
+            ("0001163165-23-000023", "H1 2023", "426", "5,820"),
+            ("0001163165-23-000031", "9M 2023", "613", "8,365"),
+            ("0001163165-24-000023", "Q1 2024", "173", "2,916"),
+            ("0001163165-24-000037", "H1 2024", "178", "5,885"),
+            ("0001163165-24-000052", "9M 2024", "217", "8,801"),
+        )
+    },
 }
 
 

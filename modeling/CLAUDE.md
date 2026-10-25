@@ -118,6 +118,9 @@
   other EQT filing tags capex), for a meaning that flips and flips back,
   where no order serves every filing. The line reads the next concept and
   the valuation names the filing until a later one reports the period.
+  COP's nine 2022-2024 10-Qs are there too (decision 70,
+  `research/cop-asset-proceeds-2026-10-24.md`): asset-sale proceeds on
+  PaymentsForProceedsFromProductiveAssets had entered its YTD TTM.
   A capex PAYMENT filed below zero is set aside the same way, by rule
   (decision 67, `research/negative-capex-2026-10-24.md`,
   `GROSS_CAPEX_CONCEPTS`: every capex concept but the net
