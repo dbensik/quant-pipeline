@@ -42,6 +42,7 @@ def instance(contexts, facts):
 <xbrl xmlns="http://www.xbrl.org/2003/instance"
       xmlns:us-gaap="http://fasb.org/us-gaap/2025"
       xmlns:dei="http://xbrl.sec.gov/dei/2025"
+      xmlns:cop="http://www.conocophillips.com/20220331"
       xmlns:xbrldi="http://xbrl.org/2006/xbrldi"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <unit id="usd"><measure>iso4217:USD</measure></unit>
@@ -137,8 +138,12 @@ class FakeFactRepo:
             if f.key() in self.rows and self.rows[f.key()].source == "instance"
         }
 
-    async def stored_accessions(self, accns):
-        return {f.accn for f in self.rows.values()} & set(accns)
+    async def stored_accessions(self, accns, taxonomies=None):
+        return {
+            f.accn
+            for f in self.rows.values()
+            if taxonomies is None or f.taxonomy in set(taxonomies)
+        } & set(accns)
 
 
 @pytest.mark.asyncio
@@ -168,6 +173,41 @@ async def test_companyfacts_serving_a_different_value_later_is_a_disagreement_no
         stored,
     )
     assert repo.rows[fact.key()].value == stored and repo.rows[fact.key()].source == "instance"
+
+
+OWN = ("cop", "PaymentToAcquireProductiveAssetsAndInvestments")
+COP_XML = instance(
+    ctx("y", "2026-01-01", "2026-06-30", cik=1163165),
+    '<cop:PaymentToAcquireProductiveAssetsAndInvestments contextRef="y" unitRef="usd" '
+    'decimals="-6">5972000000</cop:PaymentToAcquireProductiveAssetsAndInvestments>'
+    '<us-gaap:Depreciation contextRef="y" unitRef="usd" decimals="-6">4000000000</us-gaap:Depreciation>',
+)
+
+
+def test_a_filers_own_concept_is_kept_only_when_named():
+    # Decision 70 B: COP's capex line is on its own concept, which companyfacts never serves.
+    named = instance_company_facts(COP_XML, 1163165, "a-1", "10-Q", "2026-08-06", [OWN])
+    (fact,) = parse_company_facts(named, WHEN, [OWN], source="instance")
+    assert (fact.taxonomy, fact.concept, fact.value) == ("cop", OWN[1], 5972e6)
+    plain = instance_company_facts(COP_XML, 1163165, "a-1", "10-Q", "2026-08-06")
+    assert "cop" not in plain["facts"]
+
+
+@pytest.mark.asyncio
+async def test_an_own_concepts_read_stores_only_them():
+    # settings.EXTENSION_CONCEPTS_BY_CIK names COP's (CIK 1163165).
+    repo = FakeFactRepo()
+    report = await ingest_instance(
+        repo, COP_XML, 1163165, "a-1", "10-Q", date(2026, 8, 6), WHEN, extensions_only=True
+    )
+    assert report.inserted == 1
+    assert {(f.taxonomy, f.concept) for f in repo.rows.values()} == {OWN}
+    await ingest_instance(repo, COP_XML, 1163165, "a-1", "10-Q", date(2026, 8, 6), WHEN)
+    assert {(f.taxonomy, f.concept) for f in repo.rows.values()} == {
+        OWN,
+        ("us-gaap", "Depreciation"),
+    }
+    assert await repo.stored_accessions(["a-1"], ["cop"]) == {"a-1"}
 
 
 def test_a_fact_defaults_to_companyfacts():

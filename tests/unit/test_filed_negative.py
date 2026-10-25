@@ -68,3 +68,20 @@ def test_a_net_of_sale_proceeds_may_be_negative():
     st = Statements([*flows(), net])
     assert st.filed_negative == []
     assert st._periods("capex", AS_OF, (350, 380), (NET,))[FY].value == pytest.approx(-50e6)
+
+
+def test_a_refusal_names_the_filing_it_set_aside():
+    # Decision 73: a refusal carries no notes, so CSX 2010-02-20 read only
+    # "not reported", not which filing was set aside and why.
+    v = value(negative())
+    assert v.reason.endswith(
+        f"; {PPE} in {ppe_accn()} (filed {TEN_K}) set aside: filed negative ($-1,100M), "
+        "and a payment is an outflow"
+    )
+
+
+def test_a_refusal_of_another_line_does_not_name_it():
+    cfo = "NetCashProvidedByUsedInOperatingActivities"
+    v = value([f for f in negative() if f.concept != cfo])
+    assert isinstance(v, Refusal)
+    assert v.reason == "no operating cash flow on file before this date"

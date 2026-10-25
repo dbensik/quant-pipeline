@@ -60,3 +60,46 @@ def test_the_filers_read_off_their_statements_have_revenue_orders():
     uri = filer_line_concepts("URI")
     assert uri["revenue"] == FirstOf((REVENUES,))
     assert uri["capex"] == FirstOf(settings.LINE_CONCEPTS_FIRST_BY_SYMBOL["URI"]["capex"])
+
+
+CONTRACT = "RevenueFromContractWithCustomerExcludingAssessedTax"
+
+
+def ebay():
+    """Decision 72: FY2014 as first filed with PayPal, as recast without it, and FY2019."""
+    return [
+        _fact(REVENUES, 17.902e9, D(2014, 12, 31), D(2015, 2, 6), D(2014, 1, 1), "fy14"),
+        _fact(SALES, 17.902e9, D(2014, 12, 31), D(2015, 2, 6), D(2014, 1, 1), "fy14"),
+        _fact(SALES, 8.790e9, D(2014, 12, 31), D(2016, 2, 1), D(2014, 1, 1), "fy15"),
+        _fact(CONTRACT, 10.800e9, D(2019, 12, 31), D(2020, 1, 31), D(2019, 1, 1), "fy19"),
+    ]
+
+
+def test_ebays_start_year_is_the_recast_net_revenues():
+    as_of = D(2020, 2, 1)
+    for lines, want in (({}, 17.902e9), (filer_line_concepts("EBAY"), 8.790e9)):
+        st = Statements(ebay(), line_concepts=lines)
+        latest = st.annual("revenue", as_of)[-1]
+        assert st.annual_before("revenue", latest, 5, as_of).value == want
+
+
+def test_cags_part_is_never_a_start_year():
+    # "Net sales" $11,643M (FY2016) is on a concept not stored; Revenues is a part.
+    facts = [
+        _fact(REVENUES, 1.5e9, D(2016, 5, 29), D(2016, 7, 15), D(2015, 6, 1), "fy16"),
+        _fact(CONTRACT, 9.538e9, D(2019, 5, 26), D(2019, 7, 19), D(2018, 5, 28), "fy19"),
+    ]
+    as_of = D(2019, 7, 20)
+    for lines, want in (({}, 1.5e9), (filer_line_concepts("CAG"), None)):
+        st = Statements(facts, line_concepts=lines)
+        latest = st.annual("revenue", as_of)[-1]
+        start = st.annual_before("revenue", latest, 3, as_of)
+        assert (start and start.value) == want
+
+
+def test_decision_72s_filers_have_their_revenue_lines():
+    assert filer_line_concepts("EBAY")["revenue"] == FirstOf((CONTRACT, SALES))
+    assert filer_line_concepts("GEN")["revenue"][-1] == SALES
+    assert filer_line_concepts("FE")["revenue"] == FirstOf((REVENUES,))
+    assert filer_line_concepts("MA")["revenue"] == FirstOf((REVENUES,))
+    assert filer_line_concepts("CAG")["revenue"] == (CONTRACT,)

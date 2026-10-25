@@ -581,6 +581,19 @@ RESEARCH_CONCEPTS = (
 #: Everything core/fundamentals.py stores.
 STORED_CONCEPTS = FUNDAMENTAL_CONCEPTS + RESEARCH_CONCEPTS
 
+#: A filer's own (extension) concepts stored beside STORED_CONCEPTS, by CIK:
+#: (prefix, concept) pairs. companyfacts serves only us-gaap and dei, so these
+#: are read from each filing's XBRL instance (core/xbrl_instance.py), stored
+#: with taxonomy = the prefix. Add one only after reading the statement line.
+EXTENSION_CONCEPTS_BY_CIK = {
+    # COP (decision 70 B, research/cop-asset-proceeds-2026-10-24.md): "Capital
+    # expenditures and investments", the cash flow statement's capex line in
+    # every 10-Q from Q1 2022 and every 10-K from FY2023 (FY2023 $11,248M).
+    # Not SegmentReportingInformationCapitalExpendituresAndInvestments: the
+    # same figures, plus three-month periods from 2025.
+    1163165: (("cop", "PaymentToAcquireProductiveAssetsAndInvestments"),),
+}
+
 # --- DCF (modeling/dcf.py, modeling/valuation.py; tier 3 phase 3) ---
 # Decisions 4 and 5 of research/dcf-plan-2026-10-08.md, approved 2026-10-09.
 DCF_PROJECTION_YEARS = 5
@@ -771,6 +784,11 @@ LINE_CONCEPTS_BY_SYMBOL = {
     # "Revenues" $11,950M, net of commodity derivative losses; the contract
     # figure ($14,899M) is larger than the total.
     "WMB": {"revenue": _TOTAL_REVENUES},
+    # Decision 72: "Net sales" $11,643M (FY2016) is a concept not stored;
+    # Revenues ($1,500M) is a part, read as the start of every growth rate to
+    # FY2019 and as the latest year before FY2017 (10%, clamped, from a part).
+    # Contract revenue alone is the total, from FY2017.
+    "CAG": {"revenue": ("RevenueFromContractWithCustomerExcludingAssessedTax",)},
     # Intangible capex (2026-10-13), PaymentsToAcquireIntangibleAssets where
     # the statement shows it is recurring capital spending: CMCSA "Cash paid
     # for intangible assets" $2,658M (mostly software) beside $11,750M of
@@ -883,6 +901,37 @@ LINE_CONCEPTS_FIRST_BY_SYMBOL = {
     # contract revenue including tax is "Revenues from alternative revenue
     # programs" (-$62M FY2018), the list's choice for FY2016-18.
     "EXC": {"revenue": ("Revenues",)},
+    # Decision 72 (research/revenue-start-years-2026-10-24.md): start years
+    # read from a concept that shares no period with the latest year's. EBAY:
+    # "Net revenues" $8,790M (FY2014, as recast in the FY2015 10-K without
+    # PayPal) is SalesRevenueNet; Revenues is the FY2014 10-K's $17,902M with
+    # PayPal, read first by the list. GEN: "Net revenues" $4,183M (FY2014, the
+    # FY2016 10-K without Veritas) against Revenues $6,676M with it.
+    "EBAY": {"revenue": ("RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet")},
+    "GEN": {
+        "revenue": (
+            "RevenueFromContractWithCustomerExcludingAssessedTax",
+            "RevenueFromContractWithCustomerIncludingAssessedTax",
+            "SalesRevenueNet",
+        )
+    },
+    # FE: "Total revenues" $10,700M (FY2016, the FY2018 10-K without FES) is
+    # Revenues, tagged in every year; SalesRevenueNet keeps the $14,562M with
+    # FES, and contract revenue ($10,944M FY2018) is a part of the total.
+    "FE": {"revenue": ("Revenues",)},
+    # MA: "Net revenue" $14,950M (FY2018) is Revenues; contract revenue
+    # ($21,831M) is before rebates and incentives, tagged FY2018-2021 only.
+    "MA": {"revenue": ("Revenues",)},
+    # Decision 70 B: "Capital expenditures and investments" from Q1 2022 on a
+    # COP concept (EXTENSION_CONCEPTS_BY_CIK); earlier years are
+    # PaymentsToAcquireProductiveAssets at the same figures (FY2021 $5,324M).
+    # Revenue: "Sales and other operating revenues" $58,944M (FY2025) is
+    # Revenues; contract revenue ($51,824M) is a part. Seen once COP was
+    # valued again (the 06:00 line check had skipped it while refused).
+    "COP": {
+        "capex": ("PaymentToAcquireProductiveAssetsAndInvestments",),
+        "revenue": ("Revenues",),
+    },
 }
 
 #: Facts a filing tagged with a concept it used for ANOTHER line, by filer:

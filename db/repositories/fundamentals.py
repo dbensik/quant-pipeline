@@ -9,7 +9,7 @@ accession number and is its own row).
 
 from __future__ import annotations
 
-from typing import Dict, Iterable, List, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 from sqlalchemy import select, tuple_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -90,7 +90,12 @@ class TimescaleFactRepo:
                 out[key] = r.value
         return out
 
-    async def stored_accessions(self, accns: Iterable[str]) -> Set[str]:
+    async def stored_accessions(
+        self, accns: Iterable[str], taxonomies: Optional[Iterable[str]] = None
+    ) -> Set[str]:
         F = FundamentalFactORM
-        rows = await self.session.execute(select(F.accn).where(F.accn.in_(list(accns))).distinct())
+        query = select(F.accn).where(F.accn.in_(list(accns)))
+        if taxonomies is not None:
+            query = query.where(F.taxonomy.in_(list(taxonomies)))
+        rows = await self.session.execute(query.distinct())
         return set(rows.scalars())

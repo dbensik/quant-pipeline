@@ -43,7 +43,11 @@
   figure in their past years) and GLW's capex, found by the census at each
   HISTORY DATE (today's census flags recasts no point read); with an order,
   growth's start years are read by the order per period, not on the latest
-  year's concept.
+  year's concept. A start year from a concept sharing NO period with the
+  latest's passes the rename check vacuously (606 reads, 43 filers); decision
+  72 (`research/revenue-start-years-2026-10-24.md`) read the 19 where it
+  moves a value and ordered EBAY, GEN, FE, MA and mapped CAG; KDP and JCI
+  (reverse mergers) are open.
   CFO is continuing operations first, matching capex.
   Capex includes `intangible_capex`: capitalised software by rule (its own
   line on every filer that tags it), PaymentsToAcquireIntangibleAssets only
@@ -120,14 +124,21 @@
   the valuation names the filing until a later one reports the period.
   COP's nine 2022-2024 10-Qs are there too (decision 70,
   `research/cop-asset-proceeds-2026-10-24.md`): asset-sale proceeds on
-  PaymentsForProceedsFromProductiveAssets had entered its YTD TTM.
+  PaymentsForProceedsFromProductiveAssets had entered its YTD TTM. Its
+  capex line since 2022 is its own concept, stored from each filing's
+  instance (`settings.EXTENSION_CONCEPTS_BY_CIK`, taxonomy `cop`; 70 B) and
+  read first through `LINE_CONCEPTS_FIRST_BY_SYMBOL`: companyfacts serves
+  only us-gaap and dei.
   A capex PAYMENT filed below zero is set aside the same way, by rule
   (decision 67, `research/negative-capex-2026-10-24.md`,
   `GROSS_CAPEX_CONCEPTS`: every capex concept but the net
   PaymentsForProceedsFromProductiveAssets): ten filers' 2009-2011 10-Ks
   file capex negative (CSX FY2009 -1,447, then 1,426), which FCF = CFO -
   capex ADDED (CSX 2010-02-20 $207 against a $47 price). Never flipped; a
-  derived quarter may still be negative.
+  derived quarter may still be negative. A refusal of a missing line (CFO,
+  capex, debt, shares) appends the set-aside notes of that line's own
+  concepts, since a refusal has no notes (decision 73,
+  `research/refusal-names-set-aside-2026-10-24.md`).
   Growth's start years come from `Statements.annual_before`: by date, and
   on the latest year's concept unless another agrees with it everywhere. Decisions
   in `research/dcf-plan-2026-10-08.md`: weekly 5y Blume beta, 7% WACC floor

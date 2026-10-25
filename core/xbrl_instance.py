@@ -26,11 +26,18 @@ WHAT COMPANYFACTS KEEPS, AND SO WHAT THIS KEEPS
     DocumentFiscalPeriodFocus, as companyfacts labels them; `frame` is SEC's
     own calendar alignment and is absent here. Nothing reads any of the three
     (checked 2026-10-23: modeling/, core/, api/).
+
+A FILER'S OWN CONCEPTS (decision 70 B)
+    `extensions` names (prefix, concept) pairs of the filer's extension
+    taxonomy to keep as well, under taxonomy = the prefix. The prefix is
+    resolved to a namespace from the instance's own declarations, since the
+    namespace changes with every filing (COP's is dated by period). An
+    instance that does not declare the prefix contributes none.
 """
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Iterable, Optional, Tuple
 
 from lxml import etree
 
@@ -85,10 +92,20 @@ def _precision(el) -> float:
 
 
 def instance_company_facts(
-    xml: bytes, cik: int, accn: str, form: str, filed: str
+    xml: bytes,
+    cik: int,
+    accn: str,
+    form: str,
+    filed: str,
+    extensions: Iterable[Tuple[str, str]] = (),
 ) -> Dict[str, Any]:
     """A companyfacts-shaped document of one filing's facts, as companyfacts would serve them."""
     root = etree.fromstring(xml, _PARSER)
+    own = {
+        (root.nsmap[prefix], concept): prefix
+        for prefix, concept in extensions
+        if prefix in root.nsmap
+    }
     contexts = _contexts(root, cik)
     units = {u.get("id"): _unit(u) for u in root.iter(f"{XBRLI}unit")}
     dei: Dict[str, str] = {}
@@ -98,6 +115,7 @@ def instance_company_facts(
             continue
         namespace, _, concept = el.tag[1:].partition("}")
         taxonomy = next((t for t, ns in TAXONOMIES.items() if namespace.startswith(ns)), None)
+        taxonomy = own.get((namespace, concept), taxonomy)
         if taxonomy is None:
             continue
         if el.get("unitRef") is None:

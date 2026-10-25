@@ -44,8 +44,12 @@ class FakeFactRepo:
     async def instance_values(self, facts):
         return {}
 
-    async def stored_accessions(self, accns):
-        return {f.accn for f in self.rows.values()} & set(accns)
+    async def stored_accessions(self, accns, taxonomies=None):
+        return {
+            f.accn
+            for f in self.rows.values()
+            if taxonomies is None or f.taxonomy in set(taxonomies)
+        } & set(accns)
 
 
 def test_parse_keeps_what_was_served(aapl):

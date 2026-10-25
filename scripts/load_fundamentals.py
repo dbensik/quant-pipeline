@@ -29,7 +29,10 @@ SEC_INSTANCE_LOOKBACK_DAYS (30) of the index: a registry filing at least
 SEC_INSTANCE_GRACE_DAYS (3) old with no stored row is read from its own XBRL
 instance (`INSTANCE` lines; source 'instance'). `--instances-since DATE`
 does the same for every filing since DATE from each filer's submissions list
-(the one-time sweep). A companyfacts row that later differs from the
+(the one-time sweep). A filer in settings.EXTENSION_CONCEPTS_BY_CIK has its
+own concepts in no companyfacts document: each of its filings in either
+window with none of them stored is read from its instance for those concepts
+only (`OWN` lines; decision 70 B). A companyfacts row that later differs from the
 instance row under its key is printed as DISAGREE; the instance row stays.
 
 `--fetched-at` sets the provenance timestamp for an offline file (default:
@@ -187,28 +190,51 @@ async def run(args: argparse.Namespace) -> int:
             {f for f in candidates if f[2] <= due and f[3] not in stored},
             key=lambda f: (f[2], f[1], f[3]),
         )
+        # A filer's own concepts (settings.EXTENSION_CONCEPTS_BY_CIK) are in no
+        # companyfacts document: each of its filings with no row of them yet
+        # is read from its instance for those concepts alone (decision 70 B).
+        # A filing that never tags one is read again while in the window.
+        own = [
+            f
+            for f in candidates
+            if f[1] in settings.EXTENSION_CONCEPTS_BY_CIK and f not in set(missing)
+        ]
+        prefixes = {p for pairs in settings.EXTENSION_CONCEPTS_BY_CIK.values() for p, _ in pairs}
+        has_own = await repo.stored_accessions({f[3] for f in own}, prefixes) if own else set()
+        own_due = sorted({f for f in own if f[3] not in has_own}, key=lambda f: (f[2], f[1], f[3]))
         if args.recent or args.instances_since:
             print(
                 f"{len(missing)} filing(s) at least {settings.SEC_INSTANCE_GRACE_DAYS} days old "
                 "with no stored row: read from their XBRL instance"
             )
-        for form, cik, filed, accn in missing:
+            if own_due:
+                print(
+                    f"{len(own_due)} filing(s) of filers with their own concepts and none "
+                    "stored: read from their XBRL instance for those concepts (OWN)"
+                )
+        jobs = [(f, False) for f in missing] + [(f, True) for f in own_due]
+        for (form, cik, filed, accn), extensions_only in jobs:
+            tag = "OWN" if extensions_only else "INSTANCE"
             try:
                 name, xml = await asyncio.to_thread(gateway.filing_instance, cik, accn)
-                report = await ingest_instance(repo, xml, cik, accn, form, filed)
+                report = await ingest_instance(
+                    repo, xml, cik, accn, form, filed, extensions_only=extensions_only
+                )
             except (SECBlockedError, SECThrottledError) as exc:
                 print(f"STOPPED at {label[cik]} {accn}: {exc}")
                 return 1
             except Exception as exc:  # noqa: BLE001 — one filing must not stop the rest
                 failed += 1
-                print(f"INSTANCE {label[cik]} {form} {filed} {accn}: FAILED {exc}")
+                print(f"{tag} {label[cik]} {form} {filed} {accn}: FAILED {exc}")
                 continue
             print(
-                f"INSTANCE {label[cik]} {form} {filed} {accn} {name}: {report.served} facts, "
+                f"{tag} {label[cik]} {form} {filed} {accn} {name}: {report.served} facts, "
                 f"{report.inserted} new"
                 + (
                     ""
                     if report.served
+                    else " (none of the filer's own concepts)"
+                    if extensions_only
                     else " (no allow-listed facts: a cover-only amendment, or IFRS)"
                 )
             )

@@ -41,7 +41,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from datetime import date
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 from core.fundamentals import Fact
 
@@ -566,6 +566,12 @@ class Statements:
         return (*first, *(c for c in LINE_ITEMS[item] if c not in first))
 
     # -- public ------------------------------------------------------------
+
+    def concepts_read(self, item: str) -> Set[str]:
+        """Every concept the item can be read from: its sum's parts, or its order."""
+        if self._is_sum(item):
+            return {map_part(c)[0] for c in self.line_concepts[item]}
+        return set(self._order(item))
 
     def annual(self, item: str, as_of: date) -> List[Value]:
         return sorted(self._periods(item, as_of, ANNUAL_DAYS).values(), key=lambda v: v.period_end)

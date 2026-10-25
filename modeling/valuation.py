@@ -80,6 +80,16 @@ class ValuationInputs:
 #: 2026 debt mixed two different years silently.
 MAX_TTM_AGE_DAYS = 200
 MAX_ANNUAL_AGE_DAYS = 460
+#: The lines Statements.debt() reads, for a refusal naming what was set aside.
+DEBT_ITEMS = (
+    "long_term_debt",
+    "long_term_debt_noncurrent",
+    "long_term_debt_current",
+    "debt_combined",
+    "debt_current",
+    "short_term_borrowings",
+    "commercial_paper",
+)
 
 
 def _ttm_or_annual(st: Statements, item: str, as_of: date) -> Tuple[Optional[float], str]:
@@ -201,28 +211,48 @@ def build_inputs(
     if sector_refusal:
         return Refusal(f"{sector}: {sector_refusal}")
     notes: List[str] = []
+    #: Each set-aside note by its concept, for the refusals below (decision 73).
+    aside: List[Tuple[str, str]] = []
+
+    def set_aside(concept: str, note: str) -> None:
+        notes.append(note)
+        aside.append((concept, note))
+
+    def refuse(reason: str, *items: str) -> Refusal:
+        """
+        A refusal for `items`, naming each fact of theirs set aside (decision
+        73): the setting aside is often why the line is not reported, and a
+        refusal carries no notes.
+        """
+        read = set().union(*(st.concepts_read(i) for i in items))
+        named = [note for concept, note in aside if concept in read]
+        return Refusal(reason + "".join(f"; {note}" for note in named))
+
     for f in st.set_aside(as_of):
         if (as_of - f.period_end).days > MAX_ANNUAL_AGE_DAYS:
             continue  # too old to have been read anyway (LLY's of 2014, today)
-        notes.append(
-            f"{f.concept} filed {f.filed} is dated {f.period_end}, after its own filing: set aside"
+        set_aside(
+            f.concept,
+            f"{f.concept} filed {f.filed} is dated {f.period_end}, after its own filing: set aside",
         )
     noted = set()
     for f in st.reviewed_aside_unreplaced(as_of):
         if (as_of - f.period_end).days > MAX_ANNUAL_AGE_DAYS or (f.concept, f.accn) in noted:
             continue
         noted.add((f.concept, f.accn))
-        notes.append(
+        set_aside(
+            f.concept,
             f"{f.concept} in {f.accn} (filed {f.filed}) set aside: "
-            f"{st.reviewed_aside_reasons[(f.concept, f.accn)]}"
+            f"{st.reviewed_aside_reasons[(f.concept, f.accn)]}",
         )
     for f in st.filed_negative_unreplaced(as_of):
         if (as_of - f.period_end).days > MAX_ANNUAL_AGE_DAYS or (f.concept, f.accn) in noted:
             continue
         noted.add((f.concept, f.accn))
-        notes.append(
+        set_aside(
+            f.concept,
             f"{f.concept} in {f.accn} (filed {f.filed}) set aside: filed negative "
-            f"(${f.value / 1e6:,.0f}M), and a payment is an outflow"
+            f"(${f.value / 1e6:,.0f}M), and a payment is an outflow",
         )
     if sector in settings.DCF_REFUSED_SECTORS:
         notes.append(
@@ -240,7 +270,7 @@ def build_inputs(
 
     cfo, cfo_src = _ttm_or_annual(st, "cfo", as_of)
     if cfo is None:
-        return Refusal("no operating cash flow on file before this date")
+        return refuse("no operating cash flow on file before this date", "cfo")
     shift = st.discontinued_cash(as_of) if cfo_src.startswith("TTM") else None
     if shift is not None:
         # The TTM is FY + YTD - prior YTD; a prior YTD re-presented after the
@@ -273,9 +303,10 @@ def build_inputs(
         # Missing capex is NOT zero: treating it as zero made APA's free cash
         # flow its whole operating cash flow (DCF $323 against a $45 price).
         # APA's current filer has tagged no standard capex concept since 2022.
-        return Refusal(
+        return refuse(
             f"capital expenditure not reported in a standard concept ({capex_src}); "
-            "free cash flow cannot be formed"
+            "free cash flow cannot be formed",
+            "capex",
         )
     # Capitalised software and other intangibles, where filed: cash spent on
     # long-lived assets outside PP&E (FIS $835M of software beside $154M of
@@ -341,9 +372,10 @@ def build_inputs(
             notes.append(f"latest debt balance is from {debt_v.period_end} (fiscal year end)")
     elif interest is not None and interest > 0:
         last = f"; latest on file is {debt_v.period_end}" if debt_v else ""
-        return Refusal(
+        return refuse(
             f"interest is reported ({interest_src}) but no debt balance within "
-            f"{MAX_ANNUAL_AGE_DAYS} days in a standard concept{last}; net debt cannot be formed"
+            f"{MAX_ANNUAL_AGE_DAYS} days in a standard concept{last}; net debt cannot be formed",
+            *DEBT_ITEMS,
         )
     else:
         debt, debt_src = 0.0, "none on file and no interest reported: treated as debt-free"
@@ -408,7 +440,11 @@ def build_inputs(
             key=lambda v: (v.period_end, v.filed),
         )
         if not diluted or (as_of - diluted[-1].period_end).days > MAX_TTM_AGE_DAYS:
-            return Refusal(f"no share count on file within {MAX_TTM_AGE_DAYS} days of this date")
+            return refuse(
+                f"no share count on file within {MAX_TTM_AGE_DAYS} days of this date",
+                "diluted_shares",
+                "shares_outstanding",
+            )
         note_off_scale(DILUTED_CONCEPT)
         shares_v, shares_src = diluted[-1], "latest diluted weighted average"
         if zero_cover:

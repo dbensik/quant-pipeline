@@ -38,7 +38,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Protocol, Sequence, Set, Tuple
 
-from config.settings import STORED_CONCEPTS
+from config.settings import EXTENSION_CONCEPTS_BY_CIK, STORED_CONCEPTS
 
 
 @dataclass(frozen=True)
@@ -122,9 +122,12 @@ class FactRepository(Protocol):
         """Stored values, by key, of the rows among `facts`' keys that came from an instance."""
         ...
 
-    async def stored_accessions(self, accns: Iterable[str]) -> Set[str]:
+    async def stored_accessions(
+        self, accns: Iterable[str], taxonomies: Optional[Iterable[str]] = None
+    ) -> Set[str]:
         """Those of `accns` with a stored row under ANY CIK: a filing a successor
-        and its predecessor both list (XOM's 2026-08-03 10-Q) is stored once."""
+        and its predecessor both list (XOM's 2026-08-03 10-Q) is stored once.
+        With `taxonomies`, only rows of those taxonomies count."""
         ...
 
 
@@ -169,12 +172,22 @@ async def ingest_instance(
     form: str,
     filed: date,
     fetched_at: Optional[datetime] = None,
+    extensions_only: bool = False,
 ) -> FactIngestReport:
-    """Store one filing's allow-listed facts from its XBRL instance. Insert-only."""
+    """
+    Store one filing's allow-listed facts and its filer's extension concepts
+    from its XBRL instance. Insert-only. `extensions_only` stores only the
+    extension concepts: for a filing companyfacts serves, whose us-gaap rows
+    are companyfacts' to store.
+    """
     from core.xbrl_instance import instance_company_facts
 
-    doc = instance_company_facts(xml, cik, accn, form, filed.isoformat())
-    facts = parse_company_facts(doc, fetched_at or datetime.now(timezone.utc), source="instance")
+    own = EXTENSION_CONCEPTS_BY_CIK.get(int(cik), ())
+    doc = instance_company_facts(xml, cik, accn, form, filed.isoformat(), own)
+    allow = tuple(own) if extensions_only else STORED_CONCEPTS + tuple(own)
+    facts = parse_company_facts(
+        doc, fetched_at or datetime.now(timezone.utc), allow, source="instance"
+    )
     return FactIngestReport(
         cik=int(cik),
         entity_name=str(doc.get("entityName", "")),

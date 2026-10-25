@@ -14,6 +14,7 @@ from datetime import date
 import pytest
 
 from config import settings
+from core.valuation_service import filer_line_concepts
 from modeling.statements import Statements
 from modeling.valuation import Refusal, build_inputs
 from tests.unit.test_dated_after_filing import AS_OF, flows
@@ -122,3 +123,23 @@ def test_cop_entries_name_nine_10qs_of_one_concept():
     assert len(entries) == 9
     assert {c for c, _ in entries} == {NET}
     assert COP_Q1 in {a for _, a in entries}
+
+
+COP_OWN = "PaymentToAcquireProductiveAssetsAndInvestments"
+
+
+def test_cops_own_capex_concept_is_read_ahead_of_the_list():
+    # Decision 70 B: "Capital expenditures and investments" on COP's own
+    # concept, Q1 2022 3,161 and Q1 2021 1,200 in the Q1 2022 10-Q.
+    own = [
+        replace(fact(COP_OWN, v, date(y, 3, 31), date(2022, 5, 5), date(y, 1, 1)), taxonomy="cop")
+        for y, v in ((2021, 1_200), (2022, 3_161))
+    ]
+    st = Statements(
+        cop_like() + own,
+        line_concepts=filer_line_concepts("COP"),
+        reviewed_aside=settings.FACTS_SET_ASIDE_BY_SYMBOL["COP"],
+    )
+    value, parts = st.ttm("capex", date(2022, 5, 6))
+    assert value == pytest.approx(5_324e6 + 3_161e6 - 1_200e6)
+    assert [p.concept for p in parts] == [COP_OWN, PRODUCTIVE, COP_OWN]
