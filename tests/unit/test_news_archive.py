@@ -358,8 +358,8 @@ def stored(symbol, term, returned, own, error=None):
 def test_an_unlisted_word_ticker_is_reported_for_review():
     from scripts.archive_news import review_lines
 
-    lines = review_lines([stored("ARE", "ARE", 49, 0)])
-    assert len(lines) == 1 and lines[0].startswith("WORD TICKER? ARE")
+    lines = review_lines([stored("IT", "IT", 49, 0)])
+    assert len(lines) == 1 and lines[0].startswith("WORD TICKER? IT")
 
 
 def test_a_ticker_page_is_not_reported_when_listed_reviewed_or_mostly_its_own():

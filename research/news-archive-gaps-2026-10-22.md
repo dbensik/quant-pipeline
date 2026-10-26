@@ -116,6 +116,9 @@ DE, ARE, NOW, KEY and HAS are full of other companies' news, so refetching them 
    - The list starts with the ~25 names above, each term the best one from this measurement.
    - A listed symbol is searched by its ticker AND its term, so nothing found today is lost.
    - ARE, COO and KIM stay off the list until a term is found.
+     2026-10-25: found. 'Alexandria Real Estate' 50/50, 'Cooper Companies'
+     50/50, 'Kimco Realty' 45/50. FOX's 'Fox Corp' stays: 32 of its 48 stories
+     are tagged FOXA, the same company, so its WEAK TERM line is expected.
 3. **A page mostly about others is not full.** Store the number of stories tagged with the symbol (`own_tagged`) on each `news_fetches` row; this is the only schema change, a new nullable column.
    - `due()` and `window_truncated` count a page as full only when at least half of it is the symbol's own stories.
    - This stops the hourly refetches of DE, ARE, NOW, KEY and HAS, and the false truncation records on them.

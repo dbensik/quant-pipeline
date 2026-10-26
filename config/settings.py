@@ -1539,6 +1539,7 @@ CRYPTO_MEMBERS_NOT_REGISTERED = {
             "EURSAFO-USD",
             "EUTBL-USD",
             "FIGR_HELOC-USD",
+            "JAAA-USD",
             "PAXG-USD",
             "USDY-USD",
             "USTB-USD",
@@ -1944,8 +1945,10 @@ NEWS_ARCHIVE_OWN_SHARE = 0.5
 NEWS_SEARCH_TERMS = {
     "ALL": "ALLSTATE CORP",  # 2/50 -> 50/50
     "AMP": "AMERIPRISE FINANCIAL INC",  # 2/50 -> 50/50
+    "ARE": "Alexandria Real Estate",  # 0/50 -> 50/50 (2026-10-25)
     "APP": "AppLovin Corp",  # 16/48 -> 50/50
     "CMS": "CMS ENERGY CORP",  # 21/50 -> 50/50
+    "COO": "Cooper Companies",  # 9/46 -> 50/50 (2026-10-25; "COOPER COMPANIES, INC." 1/48)
     "COST": "COSTCO WHOLESALE CORP",  # 10/49 -> 48/48
     "DE": "DEERE & CO",  # 0/48 -> 50/50
     "DOW": "DOW INC",  # 16/50 -> 42/50
@@ -1953,10 +1956,13 @@ NEWS_SEARCH_TERMS = {
     "ESS": "ESSEX PROPERTY",  # empty -> 44/44
     "FAST": "FASTENAL CO",  # 8/50 -> 50/50
     "FIX": "COMFORT SYSTEMS USA INC",  # 4/50 -> 50/50
+    # FOX: 20/48, but 32 of the 48 are tagged FOXA (the same company), so its
+    # WEAK TERM line is the other share class, not a wrong feed (2026-10-25).
     "FOX": "Fox Corp",  # 10/49 -> 20/48
     "GEN": "Gen Digital Inc",  # 0/50 -> 34/42
     "HAS": "HASBRO",  # 2/50 -> 50/50 ("HASBRO, INC": generic feed)
     "KEY": "KEYCORP",  # 1/50 -> 50/50
+    "KIM": "Kimco Realty",  # 23/50 -> 45/50 (2026-10-25; "KIMCO REALTY CORP" empty)
     "KKR": "KKR & Co. Inc",  # 17/50 -> 50/50
     "LOW": "LOWES COMPANIES INC",  # 3/50 -> 49/49
     "NOW": "ServiceNow",  # 5/49 -> 49/49 ("ServiceNow, Inc": generic feed)
@@ -1968,8 +1974,8 @@ NEWS_SEARCH_TERMS = {
     "WELL": "WELLTOWER",  # 11/48 -> 50/50
 }
 #: Ticker pages mostly about others, reviewed and left without a term; the
-#: run's WORD TICKER? line skips them. ARE, COO and KIM are NOT here: no term
-#: found yet, so they keep being reported.
+#: run's WORD TICKER? line skips them. ARE, COO and KIM have terms since
+#: 2026-10-25 (on 2026-10-22 every candidate came back empty or generic).
 NEWS_TICKER_PAGES_REVIEWED = {
     "GOOGL": "Yahoo tags Alphabet's stories GOOG, archived under GOOG",
     "NWSA": "Yahoo tags News Corp's stories NWS, archived under NWS",
