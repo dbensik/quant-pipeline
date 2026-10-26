@@ -46,7 +46,9 @@ import argparse
 import asyncio
 import gzip
 import json
+import re
 import sys
+import unicodedata
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import List, Tuple
@@ -57,6 +59,33 @@ from config import settings  # noqa: E402
 from core.fundamentals import ingest_company, ingest_instance  # noqa: E402
 from db.repositories.fundamentals import TimescaleFactRepo  # noqa: E402
 from db.session import AsyncSessionLocal  # noqa: E402
+
+#: Words that name a legal form, not a company. "de" stays for a bare
+#: "US BANCORP DE"; a slashed state tag ("/DE/", "/MO/", "INC/") goes by
+#: the pattern below.
+_LEGAL_FORM_WORDS = frozenset(
+    "the inc incorporated corp corporation co company ltd limited plc llc de".split()
+)
+
+
+def same_filer_name(title: str, entity_name: str) -> bool:
+    """Whether EDGAR's ticker-file title and companyfacts' entityName name one filer.
+
+    They are written differently for the same company: "CSX CORP" / "CSX
+    CORPORATION", "HORTON D R INC /DE/" / "D.R. Horton, Inc.", "MOODYS CORP
+    /DE/" / "Moody’s Corporation", non-breaking spaces. Compared as the set
+    of words left once case, punctuation, state tags and legal-form words
+    are gone. A 12-character prefix compare flagged 90 of 504 filers on
+    2026-10-26, 87 of them only for spelling; this flags the other 3.
+    """
+
+    def words(name: str) -> frozenset:
+        s = unicodedata.normalize("NFKC", name).casefold()
+        s = re.sub(r"[/\\][a-z]*[/\\]?", " ", s.replace("’", "'").replace("'", ""))
+        s = re.sub(r"[^0-9a-z]+", " ", s.replace("&", " and "))
+        return frozenset(w for w in s.split() if w not in _LEGAL_FORM_WORDS)
+
+    return words(title) == words(entity_name)
 
 
 def read_doc(path: Path) -> dict:
@@ -168,11 +197,7 @@ async def run(args: argparse.Namespace) -> int:
                 print(f"{symbol} CIK {cik}: FAILED {exc}")
                 continue
             report = await ingest_company(repo, doc)
-            flag = (
-                ""
-                if not title or title.lower()[:12] == report.entity_name.lower()[:12]
-                else "  MISMATCH?"
-            )
+            flag = "" if not title or same_filer_name(title, report.entity_name) else "  MISMATCH?"
             print(
                 f"{symbol} CIK {cik} {report.entity_name!r}: {report.served} facts, {report.inserted} new{flag}"
             )
