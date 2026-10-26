@@ -369,7 +369,7 @@ def test_a_ticker_page_is_not_reported_when_listed_reviewed_or_mostly_its_own():
         review_lines(
             [
                 stored("KEY", "KEY", 50, 1),  # listed: its term is searched
-                stored("GOOGL", "GOOGL", 49, 3),  # reviewed: tagged GOOG
+                stored("VYLR", "VYLR", 50, 0),  # reviewed
                 stored("NVDA", "NVDA", 49, 49),
                 stored("EWA", "EWA", 4, 0),  # a short page is all there is
                 stored("ETH-USD", "ETH", 50, 0),  # a coin is not a word ticker
@@ -377,6 +377,34 @@ def test_a_ticker_page_is_not_reported_when_listed_reviewed_or_mostly_its_own():
         )
         == []
     )
+
+
+def test_a_story_tagged_with_another_share_class_counts_as_the_symbols_own():
+    # 2026-10-26: 'Fox Corp' returned 48 stories, 20 tagged FOX and the other
+    # 28 FOXA; Alphabet's GOOGL page is tagged GOOG. Neither is someone else's.
+    from core.news_archive import Fetch
+    from scripts.archive_news import class_tagged, review_lines
+
+    def page(symbol, term, tags):
+        return Fetch(symbol, term, [{"relatedTickers": t} for t in tags])
+
+    fox = page("FOX", "Fox Corp", [["FOX"]] * 20 + [["FOXA", "DIS"]] * 28)
+    googl = page("GOOGL", "GOOGL", [["GOOG"]] * 47 + [["GOOGL"]] * 2 + [["MSFT"]])
+    assert class_tagged(fox, ["FOXA"]) == 48
+    assert class_tagged(googl, ["GOOG"]) == 49
+    assert class_tagged(fox, []) == 20
+    assert class_tagged(Fetch("FOX", "FOX", error="boom"), ["FOXA"]) is None
+
+    rows = [stored("FOX", "Fox Corp", 48, 20), stored("GOOGL", "GOOGL", 50, 2)]
+    tagged = {("FOX", "Fox Corp"): 48, ("GOOGL", "GOOGL"): 49}
+    assert review_lines(rows, tagged) == []
+    # Without the share classes both are reported, as they were every morning.
+    assert [x.split(":")[0] for x in review_lines(rows)] == [
+        "WEAK TERM FOX 'Fox Corp'",
+        "WORD TICKER? GOOGL",
+    ]
+    # A page of a different company is still someone else's.
+    assert len(review_lines(rows, {("FOX", "Fox Corp"): 10, ("GOOGL", "GOOGL"): 49})) == 1
 
 
 def test_a_listed_term_that_comes_back_empty_or_others_is_weak():

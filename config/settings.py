@@ -2029,8 +2029,8 @@ NEWS_NAME_WORDS = frozenset(
 #: Ticker pages mostly about others, reviewed and left without a term; the
 #: run's WORD TICKER? line skips them. ARE, COO and KIM have terms since
 #: 2026-10-25 (on 2026-10-22 every candidate came back empty or generic).
+#: GOOGL and NWSA left 2026-10-26: Yahoo tags their stories GOOG and NWS, and
+#: the line now counts another share class as the symbol's own.
 NEWS_TICKER_PAGES_REVIEWED = {
-    "GOOGL": "Yahoo tags Alphabet's stories GOOG, archived under GOOG",
-    "NWSA": "Yahoo tags News Corp's stories NWS, archived under NWS",
     "VYLR": "the name 'Vylor' found the same 5 stories as the ticker",
 }
