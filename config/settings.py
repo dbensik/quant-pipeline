@@ -2001,6 +2001,28 @@ NEWS_SEARCH_TERMS = {
     "TECH": "BIO-TECHNE Corp",  # 0/48 -> 36/36
     "WELL": "WELLTOWER",  # 11/48 -> 50/50
 }
+#: Single-word company names that are also English words, or their plural
+#: (decision 77, research/headline-tagging-2026-10-26.md). The Research page
+#: keeps a story Yahoo left untagged when its title names the searched company
+#: (core.news_archive.is_distinctive), but never by one of these: "Target" in
+#: a headline is a price target, "Stacks" is "how yours stacks up". Derived
+#: 2026-10-26 from every registry name form against /usr/share/dict/words
+#: (a form, or the form less a trailing "s"). A claim, like
+#: NEWS_SEARCH_TERMS: a joiner with a one-word name is not in it, and is
+#: matched until added.
+NEWS_NAME_WORDS = frozenset(
+    """
+    adobe aes align alphabet american apa apple arm assurant avalanche ball baxter
+    biogen block bonk booking canton carnival caterpillar chevron cincinnati cisco
+    citizens coherent constellation cooper copart corning costar cummins dash dell
+    dover dow ferguson flare flex fox gate gram hedera intuit jupiter just lighter
+    mantle match micron midnight mohawk moodys morpho mosaic news northern optimism
+    oracle pearl pol pool principal progressive prudential quant regions render
+    roper sky sonic southern stacks starbucks stellar steris strategy sui synchrony
+    synopsys tapestry target travelers tron tyler visa waters williams workday xylem
+    zebra
+    """.split()
+)
 #: Ticker pages mostly about others, reviewed and left without a term; the
 #: run's WORD TICKER? line skips them. ARE, COO and KIM have terms since
 #: 2026-10-25 (on 2026-10-22 every candidate came back empty or generic).

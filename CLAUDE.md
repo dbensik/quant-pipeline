@@ -754,7 +754,11 @@ For the TimescaleDB layer, copy `.env.example` → `.env`; without it, `db/sessi
   `research/news-fallbacks-2026-10-22.md`): a coin by base symbol and
   verified name (its pair answered for 1 of 20), a word ticker by its
   `NEWS_SEARCH_TERMS` entry. A title match was measured and NOT adopted
-  (2 wrong stories for each right one).
+  (2 wrong stories for each right one), except for a story Yahoo tagged with
+  NOTHING whose title names the company by a distinctive name (decision 77,
+  `research/headline-tagging-2026-10-26.md`: 70 of 86 about it): kept and
+  counted in `name_rescued`. One-word names that are English words
+  (`NEWS_NAME_WORDS`: Target, Stacks) never rescue.
 - `api/routers/portfolio_backtest.py` + `frontend/src/pages/AllocationPage.tsx`
   — multi-asset allocation rules over a basket, beside the same basket
   equal-weighted (decision 32, 2026-10-15). With no `weights`, each strategy's

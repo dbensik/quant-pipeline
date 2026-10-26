@@ -29,6 +29,8 @@ Pure helpers first (tested without a network or database), then the writes.
 from __future__ import annotations
 
 import logging
+import re
+import unicodedata
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -43,6 +45,7 @@ from config.settings import (
     NEWS_ARCHIVE_RETRY_PAUSE_SECONDS,
     NEWS_ARCHIVE_SPAN_LOOKBACK_DAYS,
     NEWS_ARCHIVE_WORKERS,
+    NEWS_NAME_WORDS,
     NEWS_SEARCH_TERMS,
 )
 from core.news import normalise_news_item
@@ -99,6 +102,79 @@ def own_tagged(symbol: str, items: Iterable[Any]) -> int:
         for raw in items
         if isinstance(raw, dict) and not own.isdisjoint(raw.get("relatedTickers") or [])
     )
+
+
+_LEGAL_FORM = r"(?:inc|incorporated|corp|corporation|co|company|ltd|limited|plc|llc|lp|l\.p|n\.v|nv|s\.a|sa|ag|se)"
+_GENERIC_TAIL = frozenset(
+    "group holdings holding companies international technologies technology industries "
+    "enterprises bancorp financial brands systems trust".split()
+)
+
+
+def name_forms(name: str) -> Set[str]:
+    """
+    The forms a company is named by in a headline: the name without legal
+    form, state tag, parentheses or a leading "The" ("ULTA BEAUTY, INC." ->
+    "ULTA BEAUTY"), and that again without generic trailing words ("PDD
+    Holdings Inc." -> "PDD Holdings", "PDD").
+    """
+    s = unicodedata.normalize("NFKC", name).replace("’", "'").strip()
+    s = re.sub(r"\s*[/\\][A-Za-z]*[/\\]?\s*", " ", s)
+    s = re.sub(r"\([^)]*\)", " ", s)
+    s = re.sub(r"^the\s+", "", s, flags=re.I)
+    for _ in range(3):
+        s = re.sub(rf"[\s,]+(?:&|and)?\s*{_LEGAL_FORM}\.?\s*$", "", s, flags=re.I).strip(" ,.")
+    full = re.sub(r"\s+", " ", s)
+    words = full.split()
+    while len(words) > 1 and words[-1].lower() in _GENERIC_TAIL:
+        words = words[:-1]
+    return {f for f in (full, " ".join(words)) if len(f) >= 2}
+
+
+def is_distinctive(form: str) -> bool:
+    """
+    A form that names one company in a headline: several words, or one word
+    that is neither an acronym nor in NEWS_NAME_WORDS. Measured 2026-10-26
+    (decision 77): on stories Yahoo had not tagged, a distinctive name was
+    about its company 14% of the time, a dictionary word 2% ("price target"),
+    a short acronym ("US", "Dow") little better.
+    """
+    if len(form) <= 3 or (form.isupper() and len(form.replace(" ", "")) <= 4):
+        return False
+    return len(form.split()) > 1 or form.casefold() not in NEWS_NAME_WORDS
+
+
+def company_names(
+    symbol: str,
+    asset_class: str,
+    sec_title: Optional[str] = None,
+    verified_name: Optional[str] = None,
+    crypto_class: Optional[str] = None,
+) -> List[str]:
+    """
+    What a headline calls the symbol's company: an equity's EDGAR title and
+    NEWS_SEARCH_TERMS entry, a coin's verified name (not a stablecoin's or a
+    tokenized asset's: "Tether Gold" names Tether). An ETF has none.
+    """
+    if asset_class == "equity":
+        names = [sec_title, NEWS_SEARCH_TERMS.get(symbol)]
+    elif asset_class == "crypto" and crypto_class == "crypto":
+        names = [verified_name]
+    else:
+        names = []
+    return [n for n in names if n and n.strip()]
+
+
+def name_patterns(names: Iterable[str]) -> List[re.Pattern]:
+    """Each distinctive form of `names`, matched whole-word, any case, with a trailing 's."""
+    forms = sorted({f for n in names for f in name_forms(n) if is_distinctive(f)})
+    bodies = [re.escape(f).replace(r"\ ", r"\s+") for f in forms]
+    return [re.compile(rf"(?<![\w$]){b}(?:'s)?(?!\w)", re.I) for b in bodies]
+
+
+def names_company(title: str, patterns: Iterable[re.Pattern]) -> bool:
+    title = unicodedata.normalize("NFKC", title or "").replace("’", "'")
+    return any(p.search(title) for p in patterns)
 
 
 def is_full(returned: int, own: Optional[int]) -> bool:

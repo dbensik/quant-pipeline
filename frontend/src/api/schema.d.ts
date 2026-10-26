@@ -952,6 +952,9 @@ export interface paths {
          *     had Fox Factory and Terry Fox), 4 named the ticker but were untagged. A
          *     title match would recover those at about two wrong stories for each
          *     right one, so it is not used (research/news-fallbacks-2026-10-22.md).
+         *     The exception (decision 77, research/headline-tagging-2026-10-26.md): a
+         *     story Yahoo tagged with NOTHING is kept when its title names the
+         *     company by a distinctive name, and counted in `name_rescued`.
          *
          *     A registered symbol is searched by itself AND the archive's terms
          *     (core.news_archive.search_terms): a coin by its base symbol and verified
@@ -2105,6 +2108,13 @@ export interface components {
              * @description Per ticker, stories its searches returned that Yahoo does not tag with that ticker, another share class of it or a coin's provider ticker, left out. Reported, not silently trimmed: a story that names a ticker untagged is lost too.
              */
             unrelated_dropped?: {
+                [key: string]: number;
+            };
+            /**
+             * Name Rescued
+             * @description Per ticker, stories kept although Yahoo tagged them with nothing: the ticker's own search found them and the title names its company (decision 77). Measured: 70 of 86 such stories were about the company, 10 named it in passing, 6 were another entity (Cronos the cannabis company for the coin).
+             */
+            name_rescued?: {
                 [key: string]: number;
             };
         };

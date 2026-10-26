@@ -252,6 +252,19 @@ describe('ResearchPage — news', () => {
     renderPage(<ResearchPage />)
     expect(await screen.findByText('Markets rally on rate hopes')).toBeInTheDocument()
     expect(screen.queryByText(/Left out as not tagged/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Kept untagged/)).not.toBeInTheDocument()
+  })
+
+  it('counts the untagged stories kept because the title names the company', async () => {
+    vi.spyOn(api, 'getNews').mockResolvedValue({
+      ...NEWS,
+      name_rescued: { PDD: 3 },
+    } as never)
+    renderPage(<ResearchPage />)
+
+    expect(
+      await screen.findByText(/Kept untagged because the title names the company: PDD 3/),
+    ).toBeInTheDocument()
   })
 
   it('says so when there are no stories rather than rendering blank', async () => {

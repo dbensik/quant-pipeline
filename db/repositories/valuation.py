@@ -16,6 +16,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.fundamentals import Fact
+from core.news_archive import company_names
 from db.models import AssetORM, CorporateActionORM, FundamentalFactORM
 from db.repositories.fundamentals import TimescaleFactRepo
 
@@ -96,6 +97,36 @@ class TimescaleValuationRepo:
             )
         ).all()
         return {symbol: (asset_class, name) for symbol, asset_class, name in rows}
+
+    async def news_names(self, symbols: Iterable[str]) -> Dict[str, List[str]]:
+        """
+        Each of `symbols` registered as an equity or coin -> what a headline
+        calls its company (core.news_archive.company_names): the EDGAR title
+        and NEWS_SEARCH_TERMS entry, or a coin's verified name. Decision 77.
+        """
+        wanted = sorted({s.upper() for s in symbols})
+        if not wanted:
+            return {}
+        rows = (
+            await self.session.execute(
+                select(
+                    AssetORM.symbol,
+                    AssetORM.asset_class,
+                    AssetORM.metadata_["cik_sec_title"].astext,
+                    AssetORM.metadata_["verified_name"].astext,
+                    AssetORM.metadata_["crypto_class"].astext,
+                ).where(
+                    AssetORM.symbol.in_(wanted),
+                    AssetORM.asset_class.in_(["equity", "crypto"]),
+                )
+            )
+        ).all()
+        out = {}
+        for symbol, asset_class, sec_title, verified, crypto_class in rows:
+            names = company_names(symbol, asset_class, sec_title, verified, crypto_class)
+            if names:
+                out[symbol] = names
+        return out
 
     async def facts(self, ciks: Iterable[int], concepts: Iterable[str]) -> List[Fact]:
         concepts = list(concepts)

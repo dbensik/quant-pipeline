@@ -229,6 +229,9 @@ class ShareClasses:
     async def news_identities(self, symbols):
         return {}
 
+    async def news_names(self, symbols):
+        return {}
+
 
 @pytest.fixture
 def classes_client(client: TestClient):
@@ -318,6 +321,13 @@ class TermsSearch:
         "KEYCORP": [story("k3", ["KEY"])],
         "XYZ-USD": [],
         "XYZ": [],
+        # Decision 77: Yahoo tagged PDD's own earnings story with nothing.
+        "PDD": [
+            story("p1", [], "PDD Holdings Q2 2026 earnings: profit falls 12%, beats estimates"),
+            story("p2", ["BABA"], "Alibaba takes on PDD Holdings in a price war"),
+            story("p3", [], "Temu's ad push reaches Europe"),
+            story("p4", ["PDD"], "Story p4"),
+        ],
     }
 
     def __init__(self, term, calls):
@@ -341,6 +351,10 @@ class Registry(ShareClasses):
             "XYZ-USD": ("crypto", "Brokencoin"),
             "KEY": ("equity", None),
         }
+        return {s: known[s] for s in symbols if s in known}
+
+    async def news_names(self, symbols):
+        known = {"PDD": ["PDD Holdings Inc."], "ETH-USD": ["Ethereum"]}
         return {s: known[s] for s in symbols if s in known}
 
 
@@ -406,6 +420,28 @@ def test_a_cached_symbol_beside_a_broken_one_is_not_a_503(terms_client: TestClie
     response = terms_client.get(f"{BASE}/news", params={"symbols": ["KEY", "BROKEN"]})
     assert response.status_code == 200
     assert [i["title"] for i in response.json()["items"]] == ["Story k3"]
+
+
+def test_an_untagged_story_naming_the_company_is_kept_and_counted(terms_client: TestClient):
+    """
+    Decision 77 (research/headline-tagging-2026-10-26.md). p1 names PDD
+    Holdings and carries no tag: kept, in `name_rescued`. p2 names it too but
+    Yahoo tagged it BABA, so it is someone else's story; p3 names nothing.
+    """
+    body = terms_client.get(f"{BASE}/news", params={"symbols": ["PDD"]}).json()
+    assert sorted(i["title"] for i in body["items"]) == [
+        "PDD Holdings Q2 2026 earnings: profit falls 12%, beats estimates",
+        "Story p4",
+    ]
+    rescued = next(i for i in body["items"] if i["title"].startswith("PDD Holdings"))
+    assert rescued["related_tickers"] == []
+    assert body["name_rescued"] == {"PDD": 1}
+    assert body["unrelated_dropped"] == {"PDD": 2}
+
+
+def test_a_symbol_without_a_name_rescues_nothing(terms_client: TestClient):
+    body = terms_client.get(f"{BASE}/news", params={"symbols": ["KEY"]}).json()
+    assert body["name_rescued"] == {}
 
 
 # ---------------------------------------------------------------------------

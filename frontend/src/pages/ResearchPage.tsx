@@ -441,6 +441,17 @@ export function ResearchPage() {
                       .join(', ')}
                   </p>
                 ) : null}
+                {/* Decision 77: an untagged story the ticker's own search found
+                    is kept when its title names the company. About 1 in 5 is
+                    not about it, so the count is shown. */}
+                {Object.keys(news.data.name_rescued ?? {}).length > 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Kept untagged because the title names the company:{' '}
+                    {Object.entries(news.data.name_rescued ?? {})
+                      .map(([symbol, n]) => `${symbol} ${n}`)
+                      .join(', ')}
+                  </p>
+                ) : null}
                 <NewsList items={news.data.items} />
               </>
             ) : null}

@@ -40,9 +40,11 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+from re import Pattern
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from core.news import normalise_news_item
+from core.news_archive import names_company
 
 logger = logging.getLogger(__name__)
 
@@ -256,10 +258,12 @@ class YFinanceGateway:
         symbols: List[str],
         aliases: Optional[Dict[str, List[str]]] = None,
         terms: Optional[Dict[str, List[str]]] = None,
-    ) -> Tuple[List[Dict[str, Any]], Dict[str, int]]:
+        names: Optional[Dict[str, List[Pattern]]] = None,
+    ) -> Tuple[List[Dict[str, Any]], Dict[str, int], Dict[str, int]]:
         """
-        News for several tickers, newest first, de-duplicated, and how many
-        stories each ticker lost to the relevance rule.
+        News for several tickers, newest first, de-duplicated, how many
+        stories each ticker lost to the relevance rule and how many it kept
+        by name alone.
 
         TERMS (2026-10-22, research/news-fallbacks-2026-10-22.md). With
         `terms` (symbol -> what to search), a symbol's stories are every
@@ -279,6 +283,14 @@ class YFinanceGateway:
         symbol's terms found is judged, and counted, once. The cache stays
         unfiltered.
 
+        NAMES (decision 77, research/headline-tagging-2026-10-26.md). With
+        `names` (symbol -> core.news_archive.name_patterns), a story Yahoo
+        left with NO tags at all is kept, and counted in the third dict,
+        when its title names the symbol's company. Found by the symbol's own
+        search and untagged, such stories were about the company 70 times in
+        86 (PDD's earnings, Trane's acquisition); a story tagged with
+        anyone else is never rescued. It keeps its empty tags.
+
         A ticker that fails contributes nothing rather than failing the batch:
         one delisted symbol in a watchlist should not blank the whole feed. A
         symbol fails only when EVERY one of its terms failed, and
@@ -292,7 +304,7 @@ class YFinanceGateway:
         """
         wanted = [s.upper() for s in symbols if s and s.strip()]
         if not wanted:
-            return [], {}
+            return [], {}, {}
         searched = {s: list(dict.fromkeys((terms or {}).get(s) or [s])) for s in wanted}
 
         pending = list(
@@ -325,8 +337,10 @@ class YFinanceGateway:
 
         merged: Dict[str, Dict[str, Any]] = {}
         dropped: Dict[str, int] = {}
+        rescued: Dict[str, int] = {}
         for symbol in wanted:
-            names = None if aliases is None or symbol not in aliases else {symbol, *aliases[symbol]}
+            own = None if aliases is None or symbol not in aliases else {symbol, *aliases[symbol]}
+            patterns = (names or {}).get(symbol) or []
             seen: set = set()
             for term in searched[symbol]:
                 for item in self.news_cache.get(term) or []:
@@ -337,9 +351,12 @@ class YFinanceGateway:
                     if key in seen:
                         continue
                     seen.add(key)
-                    if names is not None and names.isdisjoint(item.get("related_tickers") or []):
-                        dropped[symbol] = dropped.get(symbol, 0) + 1
-                        continue
+                    tags = item.get("related_tickers") or []
+                    if own is not None and own.isdisjoint(tags):
+                        if tags or not names_company(item.get("title") or "", patterns):
+                            dropped[symbol] = dropped.get(symbol, 0) + 1
+                            continue
+                        rescued[symbol] = rescued.get(symbol, 0) + 1
                     if key and key not in merged:
                         merged[key] = {**item, "symbol": symbol}
 
@@ -348,7 +365,7 @@ class YFinanceGateway:
             key=lambda i: i.get("published_at") or datetime.min.replace(tzinfo=timezone.utc),
             reverse=True,
         )
-        return items, dropped
+        return items, dropped, rescued
 
 
 _gateway = YFinanceGateway()

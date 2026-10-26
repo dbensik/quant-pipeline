@@ -34,7 +34,7 @@ from api.routers.valuation import get_valuation_data
 from api.upstream import UpstreamError, YFinanceGateway, get_upstream
 from core import research_financials
 from core import valuation_service as svc
-from core.news_archive import own_tickers, search_terms
+from core.news_archive import name_patterns, own_tickers, search_terms
 from core.portfolio import derive_state
 from db.repositories.portfolios import TimescalePortfolioRepo
 from db.repositories.watchlists import TimescaleWatchlistRepo
@@ -131,6 +131,16 @@ class NewsFeed(BaseModel):
             "that ticker, another share class of it or a coin's provider ticker, "
             "left out. Reported, not silently trimmed: a story that names a ticker "
             "untagged is lost too."
+        ),
+    )
+    name_rescued: Dict[str, int] = Field(
+        default_factory=dict,
+        description=(
+            "Per ticker, stories kept although Yahoo tagged them with nothing: "
+            "the ticker's own search found them and the title names its company "
+            "(decision 77). Measured: 70 of 86 such stories were about the "
+            "company, 10 named it in passing, 6 were another entity (Cronos the "
+            "cannabis company for the coin)."
         ),
     )
 
@@ -258,6 +268,9 @@ async def get_news(
     had Fox Factory and Terry Fox), 4 named the ticker but were untagged. A
     title match would recover those at about two wrong stories for each
     right one, so it is not used (research/news-fallbacks-2026-10-22.md).
+    The exception (decision 77, research/headline-tagging-2026-10-26.md): a
+    story Yahoo tagged with NOTHING is kept when its title names the
+    company by a distinctive name, and counted in `name_rescued`.
 
     A registered symbol is searched by itself AND the archive's terms
     (core.news_archive.search_terms): a coin by its base symbol and verified
@@ -278,6 +291,7 @@ async def get_news(
 
     classes = await data.share_classes(covered)
     identities = await data.news_identities(covered)
+    company = await data.news_names(covered)
     aliases, terms = {}, {}
     for symbol in (s.upper() for s in covered):
         aliases[symbol] = sorted(set(classes.get(symbol, [])) | (own_tickers(symbol) - {symbol}))
@@ -285,9 +299,10 @@ async def get_news(
         if symbol in identities:
             asset_class, name = identities[symbol]
             terms[symbol] += [t for t in search_terms(symbol, asset_class, name) if t != symbol]
+    names = {s: name_patterns(n) for s, n in company.items()}
     try:
-        items, dropped = await run_in_threadpool(
-            upstream.fetch_related_news, covered, aliases, terms
+        items, dropped, rescued = await run_in_threadpool(
+            upstream.fetch_related_news, covered, aliases, terms, names
         )
     except UpstreamError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from None
@@ -298,4 +313,5 @@ async def get_news(
         items=[NewsItem(**item) for item in items[:limit]],
         truncated_symbols=truncated,
         unrelated_dropped=dropped,
+        name_rescued=rescued,
     )
