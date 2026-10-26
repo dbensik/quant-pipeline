@@ -1,8 +1,8 @@
-# Decision 78: one headline under several story ids (2026-10-26, measured only)
+# Decision 78: one headline under several story ids (2026-10-26)
 
 The decision 77 note (`research/headline-tagging-2026-10-26.md`) found titles stored
 under more than one `story_id` and left them uninvestigated. This note measures them.
-Nothing is built.
+Danny picked B; it is built as described under "Built" below.
 
 ## Verdict
 
@@ -76,6 +76,25 @@ titles, and 40,244 story-symbol links. All counts are on exact title equality.
 - **Not offered: de-duplicating in the archive.** That would rewrite or skip what
   Yahoo served. It goes against the archive's insert-only, as-served rule, and a
   wrong rule could never be undone.
+
+## Built (B, 2026-10-26)
+
+Danny picked B as well, on 2026-10-26.
+
+- **Where:** `collapse_copies` in `api/upstream.py`, run on the merged feed after the
+  relevance rule. A row is a copy when its title (exact, trimmed) equals a row
+  already shown and it was published within `NEWS_COPY_WINDOW_HOURS` (2.0, in
+  `config/settings.py`) of it. The earliest is shown, with its own publisher and
+  tags. A row with no publish time is never collapsed.
+- **Counted, never silent:** `NewsFeed.copies_collapsed`, per ticker the dropped copy
+  was found under. The Research page prints "Copies of a headline shown once".
+- **Tests:** a Rockwell fixture in `tests/api/conftest.py` with two wires at 16:00, a
+  repost at 16:20 and the same title at 19:00: 2 rows, 2 counted. The test fails
+  with the window disabled. The frontend test checks that the line appears.
+- **Live check, 2026-10-26** (10 symbols through the gateway against Yahoo, no
+  restart): 82 rows became 75. All 7 removed rows were the same release on CNW Group
+  and PR Newswire at the same minute: ROK 2, ICE 2, GDDY 2, CCL 1.
+- **Not changed:** the archive. Every copy is still stored.
 
 ## Reproduce
 

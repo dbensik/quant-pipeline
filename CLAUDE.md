@@ -537,7 +537,7 @@ and NVDA lost ~60 stories waiting 12 h on it. Each
 MEASURED term in `NEWS_SEARCH_TERMS` (KEY 1 of 50 tagged KEY, `KEYCORP` 50 of
 50; SEC titles are not used: "HASBRO, INC" returns Yahoo's generic feed of
 other tickers). A page counts as full only when half of it is tagged with the
-symbol (`own_tagged`), so a generic feed is neither refetched hourly nor
+symbol or another of its share classes (`own_tagged`; classes since 2026-10-26), so a generic feed is neither refetched hourly nor
 called truncated. `WORD TICKER?` and `WEAK TERM` lines are for review, never
 flags. Nothing scores sentiment yet.
 
@@ -758,7 +758,10 @@ For the TimescaleDB layer, copy `.env.example` → `.env`; without it, `db/sessi
   NOTHING whose title names the company by a distinctive name (decision 77,
   `research/headline-tagging-2026-10-26.md`: 70 of 86 about it): kept and
   counted in `name_rescued`. One-word names that are English words
-  (`NEWS_NAME_WORDS`: Target, Stacks) never rescue.
+  (`NEWS_NAME_WORDS`: Target, Stacks) never rescue. A headline published again
+  within `NEWS_COPY_WINDOW_HOURS` (2) under another id, one release on several
+  wires, is shown once and counted in `copies_collapsed` (decision 78 B,
+  `research/news-duplicate-stories-2026-10-26.md`); the archive keeps every copy.
 - `api/routers/portfolio_backtest.py` + `frontend/src/pages/AllocationPage.tsx`
   — multi-asset allocation rules over a basket, beside the same basket
   equal-weighted (decision 32, 2026-10-15). With no `weights`, each strategy's

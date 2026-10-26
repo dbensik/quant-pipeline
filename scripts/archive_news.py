@@ -22,8 +22,8 @@ fetch; that is recorded in news_fetches, not a flag. WORD TICKER? names an
 equity or ETF whose full ticker page is mostly other tickers' stories and that
 has no NEWS_SEARCH_TERMS entry; WEAK TERM a listed term that came back empty
 or mostly someone else's. A story tagged with another share class of the
-company (same own CIK: FOXA for FOX) counts as the symbol's own for both.
-Both are printed for review, never a flag.
+company (same own CIK: FOXA for FOX) counts as the symbol's own, in the stored
+own_tagged and so in both lines. Both are printed for review, never a flag.
 """
 
 from __future__ import annotations
@@ -49,13 +49,11 @@ from config.settings import (  # noqa: E402
     NEWS_TICKER_PAGES_REVIEWED,
 )
 from core.news_archive import (  # noqa: E402
-    Fetch,
     Stored,
     due,
     fetch_all,
     last_fetches,
     now_utc,
-    own_tickers,
     search_terms,
     store_fetch,
 )
@@ -86,37 +84,18 @@ async def registry(symbols: list[str] | None) -> list[tuple[str, str]]:
     return [(sym, term) for sym, cls, name in rows for term in search_terms(sym, cls, name)]
 
 
-def class_tagged(fetch: Fetch, classes: list[str]) -> int | None:
+def review_lines(stored: list[Stored]) -> list[str]:
     """
-    How many of a page's stories carry the symbol's own tickers or another of
-    its share classes. Yahoo tags Alphabet GOOG and Fox Corp mostly FOXA:
+    WORD TICKER? and WEAK TERM lines: for review, never a flag. Read from the
+    stored own_tagged, which counts another share class as the symbol's own:
     measured 2026-10-26, 'Fox Corp' returned 20 of 48 tagged FOX and 48 of 48
-    with FOXA, so WEAK TERM FOX printed every morning about a good term.
+    with FOXA, so WEAK TERM FOX had printed every morning about a good term.
     """
-    if fetch.error:
-        return None
-    family = own_tickers(fetch.symbol) | set(classes)
-    return sum(
-        1
-        for raw in fetch.items
-        if isinstance(raw, dict) and not family.isdisjoint(raw.get("relatedTickers") or [])
-    )
-
-
-def review_lines(
-    stored: list[Stored], tagged: dict[tuple[str, str], int] | None = None
-) -> list[str]:
-    """
-    WORD TICKER? and WEAK TERM lines: for review, never a flag. `tagged` is
-    each (symbol, term)'s class_tagged count; without one, the stored
-    own_tagged is read (the symbol's own tickers only).
-    """
-    tagged = tagged or {}
     lines = []
     for r in stored:
         if r.error:
             continue
-        own = tagged.get((r.symbol, r.term), r.own_tagged)
+        own = r.own_tagged
         others = own is not None and own < NEWS_ARCHIVE_OWN_SHARE * r.returned
         listed = NEWS_SEARCH_TERMS.get(r.symbol)
         if r.term == listed and (r.returned == 0 or others):
@@ -158,10 +137,19 @@ async def run(args: argparse.Namespace) -> int:
     retries = 0 if args.due else NEWS_ARCHIVE_EMPTY_RETRIES
     fetches = await asyncio.to_thread(fetch_all, targets, yahoo_search, time.sleep, retries=retries)
 
+    async with AsyncSessionLocal() as s:
+        classes = await TimescaleValuationRepo(s).share_classes({f.symbol for f in fetches})
     stored = []
     for fetch in fetches:
         async with AsyncSessionLocal() as s:
-            stored.append(await store_fetch(s, fetch, previous.get((fetch.symbol, fetch.term))))
+            stored.append(
+                await store_fetch(
+                    s,
+                    fetch,
+                    previous.get((fetch.symbol, fetch.term)),
+                    classes.get(fetch.symbol, []),
+                )
+            )
 
     failed = [r for r in stored if r.error]
     empty = [label(r) for r in stored if not r.error and r.returned == 0]
@@ -175,14 +163,7 @@ async def run(args: argparse.Namespace) -> int:
         )
     if empty:
         print(f"NO NEWS ({len(empty)}): {' '.join(empty)}")
-    async with AsyncSessionLocal() as s:
-        classes = await TimescaleValuationRepo(s).share_classes({f.symbol for f in fetches})
-    tagged = {
-        (f.symbol, f.term): n
-        for f in fetches
-        if (n := class_tagged(f, classes.get(f.symbol, []))) is not None
-    }
-    for line in review_lines(stored, tagged):
+    for line in review_lines(stored):
         print(line)
     print(
         f"Done: {len(stored)} searches in {time.monotonic() - started:.0f} s, "

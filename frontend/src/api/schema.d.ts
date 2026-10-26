@@ -954,7 +954,9 @@ export interface paths {
          *     right one, so it is not used (research/news-fallbacks-2026-10-22.md).
          *     The exception (decision 77, research/headline-tagging-2026-10-26.md): a
          *     story Yahoo tagged with NOTHING is kept when its title names the
-         *     company by a distinctive name, and counted in `name_rescued`.
+         *     company by a distinctive name, and counted in `name_rescued`. A headline
+         *     published again within NEWS_COPY_WINDOW_HOURS under another id is shown
+         *     once and counted in `copies_collapsed` (decision 78 B).
          *
          *     A registered symbol is searched by itself AND the archive's terms
          *     (core.news_archive.search_terms): a coin by its base symbol and verified
@@ -2115,6 +2117,13 @@ export interface components {
              * @description Per ticker, stories kept although Yahoo tagged them with nothing: the ticker's own search found them and the title names its company (decision 77). Measured: 70 of 86 such stories were about the company, 10 named it in passing, 6 were another entity (Cronos the cannabis company for the coin).
              */
             name_rescued?: {
+                [key: string]: number;
+            };
+            /**
+             * Copies Collapsed
+             * @description Per ticker, copies left out because the same headline was published again within NEWS_COPY_WINDOW_HOURS under another story id: one release on several wires, or reposted (decision 78 B). The earliest copy is shown. A title recurring a day apart is a new story.
+             */
+            copies_collapsed?: {
                 [key: string]: number;
             };
         };

@@ -486,6 +486,51 @@ class StubSearch:
                 "relatedTickers": ["ORCL"],
             },
         ],
+        # Decision 78 B: one release on two wires at 16:00 and reposted at
+        # 16:20 (copies), the same title again at 19:00 (past the window: a
+        # new story), and an unrelated story.
+        "ROK": [
+            {
+                "uuid": "rok-cnw",
+                "title": "Rockwell Automation Reports Fourth Quarter Results",
+                "providerPublishTime": 1786291200,  # 2026-08-09T16:00:00Z
+                "publisher": "CNW Group",
+                "link": "https://example.com/rok-cnw",
+                "relatedTickers": ["ROK"],
+            },
+            {
+                "uuid": "rok-prn",
+                "title": "Rockwell Automation Reports Fourth Quarter Results",
+                "providerPublishTime": 1786291200,
+                "publisher": "PR Newswire",
+                "link": "https://example.com/rok-prn",
+                "relatedTickers": ["ROK"],
+            },
+            {
+                "uuid": "rok-prn-2",
+                "title": "Rockwell Automation Reports Fourth Quarter Results",
+                "providerPublishTime": 1786292400,  # +20 min
+                "publisher": "PR Newswire",
+                "link": "https://example.com/rok-prn-2",
+                "relatedTickers": ["ROK"],
+            },
+            {
+                "uuid": "rok-later",
+                "title": "Rockwell Automation Reports Fourth Quarter Results",
+                "providerPublishTime": 1786302000,  # +3 h
+                "publisher": "PR Newswire",
+                "link": "https://example.com/rok-later",
+                "relatedTickers": ["ROK"],
+            },
+            {
+                "uuid": "rok-other",
+                "title": "Rockwell names a new CFO",
+                "providerPublishTime": 1786291200,
+                "publisher": "Reuters",
+                "link": "https://example.com/rok-other",
+                "relatedTickers": ["ROK"],
+            },
+        ],
         "MSFT": [
             {
                 "uuid": "shared",

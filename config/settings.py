@@ -1963,6 +1963,13 @@ NEWS_ARCHIVE_SPAN_LOOKBACK_DAYS = 7
 #: KEY's ticker page had 1 of 50. Refetching such a page hourly stores noise,
 #: and calling it truncated claims a loss that did not happen.
 NEWS_ARCHIVE_OWN_SHARE = 0.5
+#: The Research page shows one row for a headline published again within this
+#: many hours under another story id (decision 78 B,
+#: research/news-duplicate-stories-2026-10-26.md): a release on several wires
+#: at once, or reposted minutes later. Measured: 191 titles, 0.7% of links.
+#: A title that recurs a day or more apart ("Sector Update: Healthcare") is a
+#: new story each time. Read time only; the archive keeps every copy.
+NEWS_COPY_WINDOW_HOURS = 2.0
 #: Equities (and an ETF) whose ticker is a word are ALSO searched by a name, each term
 #: MEASURED to return the company's own tagged stories (2026-10-22,
 #: research/news-archive-gaps-2026-10-22.md: ticker page -> this term, tagged

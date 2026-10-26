@@ -253,6 +253,7 @@ describe('ResearchPage — news', () => {
     expect(await screen.findByText('Markets rally on rate hopes')).toBeInTheDocument()
     expect(screen.queryByText(/Left out as not tagged/)).not.toBeInTheDocument()
     expect(screen.queryByText(/Kept untagged/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Copies of a headline/)).not.toBeInTheDocument()
   })
 
   it('counts the untagged stories kept because the title names the company', async () => {
@@ -265,6 +266,16 @@ describe('ResearchPage — news', () => {
     expect(
       await screen.findByText(/Kept untagged because the title names the company: PDD 3/),
     ).toBeInTheDocument()
+  })
+
+  it('counts the copies of a headline shown once', async () => {
+    vi.spyOn(api, 'getNews').mockResolvedValue({
+      ...NEWS,
+      copies_collapsed: { ROK: 2 },
+    } as never)
+    renderPage(<ResearchPage />)
+
+    expect(await screen.findByText(/Copies of a headline shown once: ROK 2/)).toBeInTheDocument()
   })
 
   it('says so when there are no stories rather than rendering blank', async () => {

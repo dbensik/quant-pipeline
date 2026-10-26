@@ -382,29 +382,31 @@ def test_a_ticker_page_is_not_reported_when_listed_reviewed_or_mostly_its_own():
 def test_a_story_tagged_with_another_share_class_counts_as_the_symbols_own():
     # 2026-10-26: 'Fox Corp' returned 48 stories, 20 tagged FOX and the other
     # 28 FOXA; Alphabet's GOOGL page is tagged GOOG. Neither is someone else's.
-    from core.news_archive import Fetch
-    from scripts.archive_news import class_tagged, review_lines
+    fox = [item(str(i), tags=("FOX",)) for i in range(20)]
+    fox += [item(f"a{i}", tags=("FOXA", "DIS")) for i in range(28)]
+    googl = [item(str(i), tags=("GOOG",)) for i in range(47)]
+    googl += [item("g1", tags=("GOOGL",)), item("g2", tags=("GOOGL",)), item("m", tags=("MSFT",))]
+    assert own_tagged("FOX", fox, ["FOXA"]) == 48
+    assert own_tagged("GOOGL", googl, ["GOOG"]) == 49
+    assert own_tagged("FOX", fox) == 20
 
-    def page(symbol, term, tags):
-        return Fetch(symbol, term, [{"relatedTickers": t} for t in tags])
+    # The stored count decides fullness: GOOGL's page is now refetched hourly.
+    assert is_full(50, own_tagged("GOOGL", googl, ["GOOG"])) is True
+    assert is_full(50, own_tagged("GOOGL", googl)) is False
+    last = LastFetch(T0 - HOUR, 50, T0 - 2 * HOUR, own_tagged("GOOGL", googl, ["GOOG"]))
+    assert due(last, T0, HOUR) is True
 
-    fox = page("FOX", "Fox Corp", [["FOX"]] * 20 + [["FOXA", "DIS"]] * 28)
-    googl = page("GOOGL", "GOOGL", [["GOOG"]] * 47 + [["GOOGL"]] * 2 + [["MSFT"]])
-    assert class_tagged(fox, ["FOXA"]) == 48
-    assert class_tagged(googl, ["GOOG"]) == 49
-    assert class_tagged(fox, []) == 20
-    assert class_tagged(Fetch("FOX", "FOX", error="boom"), ["FOXA"]) is None
 
-    rows = [stored("FOX", "Fox Corp", 48, 20), stored("GOOGL", "GOOGL", 50, 2)]
-    tagged = {("FOX", "Fox Corp"): 48, ("GOOGL", "GOOGL"): 49}
-    assert review_lines(rows, tagged) == []
-    # Without the share classes both are reported, as they were every morning.
-    assert [x.split(":")[0] for x in review_lines(rows)] == [
-        "WEAK TERM FOX 'Fox Corp'",
-        "WORD TICKER? GOOGL",
-    ]
-    # A page of a different company is still someone else's.
-    assert len(review_lines(rows, {("FOX", "Fox Corp"): 10, ("GOOGL", "GOOGL"): 49})) == 1
+def test_review_lines_read_the_stored_count_with_share_classes():
+    from scripts.archive_news import review_lines
+
+    # As stored since 2026-10-26: no line about a good term.
+    assert review_lines([stored("FOX", "Fox Corp", 48, 48), stored("GOOGL", "GOOGL", 50, 49)]) == []
+    # As stored before (the symbol alone), both were reported every morning.
+    assert [
+        x.split(":")[0]
+        for x in review_lines([stored("FOX", "Fox Corp", 48, 20), stored("GOOGL", "GOOGL", 50, 2)])
+    ] == ["WEAK TERM FOX 'Fox Corp'", "WORD TICKER? GOOGL"]
 
 
 def test_a_listed_term_that_comes_back_empty_or_others_is_weak():

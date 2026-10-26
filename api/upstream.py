@@ -39,10 +39,11 @@ import logging
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from re import Pattern
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from config.settings import NEWS_COPY_WINDOW_HOURS
 from core.news import normalise_news_item
 from core.news_archive import names_company
 
@@ -52,6 +53,39 @@ NEWS_TTL_SECONDS = 600
 NEWS_PER_SYMBOL = 10
 PROFILE_TTL_SECONDS = 3600
 MAX_PARALLEL_FETCHES = 5
+
+
+def collapse_copies(
+    items: List[Dict[str, Any]], window_hours: float = NEWS_COPY_WINDOW_HOURS
+) -> Tuple[List[Dict[str, Any]], Dict[str, int]]:
+    """
+    One row per headline published again within `window_hours`, and how many
+    copies each symbol lost (decision 78 B,
+    research/news-duplicate-stories-2026-10-26.md).
+
+    Yahoo serves one release on several wires under several story ids and
+    URLs (Rockwell's report on CNW Group and twice on PR Newswire), so the
+    URL key above never sees them as one. A copy is the same title published
+    within the window of the earliest kept row with that title; the earliest
+    is kept, with its own tags and publisher. A title recurring a day apart
+    is a new story. A row without a publish time is never collapsed. Counted
+    under the symbol the dropped copy was found under, never silently.
+    """
+    epoch = datetime.min.replace(tzinfo=timezone.utc)
+    window = timedelta(hours=window_hours)
+    kept: List[Dict[str, Any]] = []
+    shown: Dict[str, List[datetime]] = {}
+    collapsed: Dict[str, int] = {}
+    for item in sorted(items, key=lambda i: i.get("published_at") or epoch):
+        title, published = (item.get("title") or "").strip(), item.get("published_at")
+        if title and published is not None:
+            if any(published - t <= window for t in shown.get(title, [])):
+                symbol = item.get("symbol") or ""
+                collapsed[symbol] = collapsed.get(symbol, 0) + 1
+                continue
+            shown.setdefault(title, []).append(published)
+        kept.append(item)
+    return kept, collapsed
 
 
 class UpstreamError(RuntimeError):
@@ -259,11 +293,11 @@ class YFinanceGateway:
         aliases: Optional[Dict[str, List[str]]] = None,
         terms: Optional[Dict[str, List[str]]] = None,
         names: Optional[Dict[str, List[Pattern]]] = None,
-    ) -> Tuple[List[Dict[str, Any]], Dict[str, int], Dict[str, int]]:
+    ) -> Tuple[List[Dict[str, Any]], Dict[str, int], Dict[str, int], Dict[str, int]]:
         """
         News for several tickers, newest first, de-duplicated, how many
-        stories each ticker lost to the relevance rule and how many it kept
-        by name alone.
+        stories each ticker lost to the relevance rule, how many it kept
+        by name alone and how many copies of one headline it lost.
 
         TERMS (2026-10-22, research/news-fallbacks-2026-10-22.md). With
         `terms` (symbol -> what to search), a symbol's stories are every
@@ -291,6 +325,10 @@ class YFinanceGateway:
         86 (PDD's earnings, Trane's acquisition); a story tagged with
         anyone else is never rescued. It keeps its empty tags.
 
+        COPIES (decision 78 B). After relevance, a headline published again
+        within NEWS_COPY_WINDOW_HOURS under another id and URL is shown once
+        (`collapse_copies`), counted in the fourth dict.
+
         A ticker that fails contributes nothing rather than failing the batch:
         one delisted symbol in a watchlist should not blank the whole feed. A
         symbol fails only when EVERY one of its terms failed, and
@@ -304,7 +342,7 @@ class YFinanceGateway:
         """
         wanted = [s.upper() for s in symbols if s and s.strip()]
         if not wanted:
-            return [], {}, {}
+            return [], {}, {}, {}
         searched = {s: list(dict.fromkeys((terms or {}).get(s) or [s])) for s in wanted}
 
         pending = list(
@@ -360,12 +398,13 @@ class YFinanceGateway:
                     if key and key not in merged:
                         merged[key] = {**item, "symbol": symbol}
 
+        shown, collapsed = collapse_copies(list(merged.values()))
         items = sorted(
-            merged.values(),
+            shown,
             key=lambda i: i.get("published_at") or datetime.min.replace(tzinfo=timezone.utc),
             reverse=True,
         )
-        return items, dropped, rescued
+        return items, dropped, rescued, collapsed
 
 
 _gateway = YFinanceGateway()

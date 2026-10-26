@@ -89,14 +89,19 @@ def own_tickers(symbol: str) -> Set[str]:
     return {symbol, provider} if provider else {symbol}
 
 
-def own_tagged(symbol: str, items: Iterable[Any]) -> int:
+def own_tagged(symbol: str, items: Iterable[Any], classes: Iterable[str] = ()) -> int:
     """
-    How many stories Yahoo tagged with the symbol's own tickers (own_tickers).
-    Counting the symbol alone had judged Hyperliquid's page (49 stories, 34 of
-    the 40 stored tagged HYPE32196-USD) mostly someone else's, so the hourly
-    pass never refetched it and its losses were never recorded.
+    How many stories Yahoo tagged with the symbol's own tickers (own_tickers)
+    or another of its share classes (same own CIK, `classes`). Counting the
+    symbol alone had judged Hyperliquid's page (49 stories, 34 of the 40
+    stored tagged HYPE32196-USD) mostly someone else's, so the hourly pass
+    never refetched it and its losses were never recorded. Share classes
+    since 2026-10-26: Yahoo tags Alphabet GOOG and Fox Corp mostly FOXA
+    ('Fox Corp' 20 of 48 tagged FOX, 48 of 48 with FOXA; GOOGL's page 3 of
+    173 tagged GOOGL, 173 with GOOG), so those pages read as someone else's.
+    Rows stored before then counted the symbol's own tickers only.
     """
-    own = own_tickers(symbol)
+    own = own_tickers(symbol) | set(classes)
     return sum(
         1
         for raw in items
@@ -438,10 +443,13 @@ class Stored:
     own_tagged: Optional[int] = None
 
 
-async def store_fetch(session: Any, fetch: Fetch, previous: Optional[LastFetch]) -> Stored:
+async def store_fetch(
+    session: Any, fetch: Fetch, previous: Optional[LastFetch], classes: Iterable[str] = ()
+) -> Stored:
     """
     One symbol's fetch in one transaction: its stories (a story already stored
     keeps its first sighting), the symbol's sightings, and its log row.
+    `classes` are the symbol's other share classes, counted in own_tagged.
     """
     from sqlalchemy.dialects.postgresql import insert
 
@@ -479,7 +487,7 @@ async def store_fetch(session: Any, fetch: Fetch, previous: Optional[LastFetch])
     oldest = min(dated) if dated else None
     newest = max(dated) if dated else None
     returned = len(fetch.items)
-    own = None if fetch.error else own_tagged(fetch.symbol, fetch.items)
+    own = None if fetch.error else own_tagged(fetch.symbol, fetch.items, classes)
     truncated = None if fetch.error else window_truncated(previous, returned, oldest, own)
     session.add(
         NewsFetchORM(

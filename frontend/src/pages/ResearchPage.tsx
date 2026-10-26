@@ -452,6 +452,17 @@ export function ResearchPage() {
                       .join(', ')}
                   </p>
                 ) : null}
+                {/* Decision 78 B: one release on several wires, or reposted
+                    within the window, is shown once. Counted, so the cut is
+                    visible. */}
+                {Object.keys(news.data.copies_collapsed ?? {}).length > 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Copies of a headline shown once:{' '}
+                    {Object.entries(news.data.copies_collapsed ?? {})
+                      .map(([symbol, n]) => `${symbol} ${n}`)
+                      .join(', ')}
+                  </p>
+                ) : null}
                 <NewsList items={news.data.items} />
               </>
             ) : null}

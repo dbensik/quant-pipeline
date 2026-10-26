@@ -439,6 +439,25 @@ def test_an_untagged_story_naming_the_company_is_kept_and_counted(terms_client: 
     assert body["unrelated_dropped"] == {"PDD": 2}
 
 
+def test_a_headline_published_again_within_the_window_is_shown_once(client: TestClient):
+    """
+    Decision 78 B (research/news-duplicate-stories-2026-10-26.md). Rockwell's
+    release on CNW Group and PR Newswire at 16:00 and reposted at 16:20 has
+    three ids and three URLs: one row, the earliest, two counted. The same
+    title at 19:00 is past the 2 h window, so it is a story of its own.
+    """
+    body = client.get(f"{BASE}/news", params={"symbols": ["ROK"]}).json()
+    results = [i for i in body["items"] if i["title"].startswith("Rockwell Automation Reports")]
+    assert sorted(i["id"] for i in results) == ["rok-cnw", "rok-later"]
+    assert "Rockwell names a new CFO" in [i["title"] for i in body["items"]]
+    assert body["copies_collapsed"] == {"ROK": 2}
+
+
+def test_without_copies_nothing_is_collapsed(client: TestClient):
+    body = client.get(f"{BASE}/news", params={"symbols": ["AAPL", "MSFT"]}).json()
+    assert body["copies_collapsed"] == {}
+
+
 def test_a_symbol_without_a_name_rescues_nothing(terms_client: TestClient):
     body = terms_client.get(f"{BASE}/news", params={"symbols": ["KEY"]}).json()
     assert body["name_rescued"] == {}

@@ -143,6 +143,15 @@ class NewsFeed(BaseModel):
             "cannabis company for the coin)."
         ),
     )
+    copies_collapsed: Dict[str, int] = Field(
+        default_factory=dict,
+        description=(
+            "Per ticker, copies left out because the same headline was published "
+            "again within NEWS_COPY_WINDOW_HOURS under another story id: one "
+            "release on several wires, or reposted (decision 78 B). The earliest "
+            "copy is shown. A title recurring a day apart is a new story."
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -270,7 +279,9 @@ async def get_news(
     right one, so it is not used (research/news-fallbacks-2026-10-22.md).
     The exception (decision 77, research/headline-tagging-2026-10-26.md): a
     story Yahoo tagged with NOTHING is kept when its title names the
-    company by a distinctive name, and counted in `name_rescued`.
+    company by a distinctive name, and counted in `name_rescued`. A headline
+    published again within NEWS_COPY_WINDOW_HOURS under another id is shown
+    once and counted in `copies_collapsed` (decision 78 B).
 
     A registered symbol is searched by itself AND the archive's terms
     (core.news_archive.search_terms): a coin by its base symbol and verified
@@ -301,7 +312,7 @@ async def get_news(
             terms[symbol] += [t for t in search_terms(symbol, asset_class, name) if t != symbol]
     names = {s: name_patterns(n) for s, n in company.items()}
     try:
-        items, dropped, rescued = await run_in_threadpool(
+        items, dropped, rescued, collapsed = await run_in_threadpool(
             upstream.fetch_related_news, covered, aliases, terms, names
         )
     except UpstreamError as exc:
@@ -314,4 +325,5 @@ async def get_news(
         truncated_symbols=truncated,
         unrelated_dropped=dropped,
         name_rescued=rescued,
+        copies_collapsed=collapsed,
     )
