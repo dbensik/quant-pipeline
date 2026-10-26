@@ -1963,7 +1963,7 @@ NEWS_ARCHIVE_SPAN_LOOKBACK_DAYS = 7
 #: KEY's ticker page had 1 of 50. Refetching such a page hourly stores noise,
 #: and calling it truncated claims a loss that did not happen.
 NEWS_ARCHIVE_OWN_SHARE = 0.5
-#: Equities whose ticker is a word are ALSO searched by a name, each term
+#: Equities (and an ETF) whose ticker is a word are ALSO searched by a name, each term
 #: MEASURED to return the company's own tagged stories (2026-10-22,
 #: research/news-archive-gaps-2026-10-22.md: ticker page -> this term, tagged
 #: of returned). No automatic rule from the SEC title works: "HASBRO, INC"
@@ -1999,6 +1999,9 @@ NEWS_SEARCH_TERMS = {
     "TAP": "MOLSON COORS BEVERAGE CO",  # 15/48 -> 45/50
     "TEAM": "Atlassian Corp",  # 4/50 -> 50/50
     "TECH": "BIO-TECHNE Corp",  # 0/48 -> 36/36
+    # TIP is an ETF: Yahoo tags only ~5 stories TIP, the same 5 on both pages,
+    # but the ticker page is 40 others and came back empty while this answered.
+    "TIP": "iShares TIPS",  # 5/45 -> 5/5 (2026-10-26; "TIPS" 1/50, "TIPS ETF" 0/3)
     "WELL": "WELLTOWER",  # 11/48 -> 50/50
 }
 #: Single-word company names that are also English words, or their plural
