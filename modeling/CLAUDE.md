@@ -48,7 +48,9 @@
   72 (`research/revenue-start-years-2026-10-24.md`) read the 19 where it
   moves a value and ordered EBAY, GEN, FE, MA and mapped CAG. KDP and JCI
   are reverse mergers (decision 74, `research/reverse-mergers-2026-10-25.md`,
-  `settings.REVERSE_MERGERS`): the registrant's filings before the close
+  `settings.REVERSE_MERGERS`; TMUS, MRK, VRT and ECHO found by a census of
+  total assets re-reported unlike their first filing, decision 76,
+  `research/reverse-merger-census-2026-10-25.md`): the registrant's filings before the close
   are its own past (DPS, Tyco), so a start year filed before it is not read
   against a year filed after, and a trailing year on the registrant's own
   last fiscal year refuses until a 10-K for a year ending after the close.

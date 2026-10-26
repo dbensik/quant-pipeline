@@ -528,7 +528,10 @@ clear within the hour (step 2, `research/news-archive-gaps-2026-10-22.md`).
 A page that has NEVER answered is dropped from the hourly pass 24 h after its
 first fetch and left to 06:00 (decision 69,
 `research/news-never-answering-2026-10-24.md`): 51 crypto pages had made 98%
-of the hourly searches, all empty. Each
+of the hourly searches, all empty. A page's span is the shorter of its last
+and its shortest full one in 7 days (decision 75,
+`research/news-truncation-2026-10-25.md`): the 06:00 page spans the night,
+and NVDA lost ~60 stories waiting 12 h on it. Each
 (symbol, term) is its own page: a coin is ALSO searched by its verified name
 (`BTC` returned 0 when `Bitcoin` returned 43), and a word ticker by its
 MEASURED term in `NEWS_SEARCH_TERMS` (KEY 1 of 50 tagged KEY, `KEYCORP` 50 of

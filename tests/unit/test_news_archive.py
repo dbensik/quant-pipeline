@@ -389,3 +389,17 @@ def test_a_listed_term_that_comes_back_empty_or_others_is_weak():
     assert len(review_lines([stored("HAS", term, 0, 0)])) == 1
     assert review_lines([stored("HAS", term, 50, 50)]) == []
     assert review_lines([stored("HAS", term, 0, None, error="boom")]) == []
+
+
+def test_a_page_whose_news_got_denser_is_due_by_its_shortest_span():
+    # Decision 75: NVDA's 06:00 page spanned the night (12.2 h); its shortest
+    # full span that week was 3.2 h. On the night's span it waited ~11 h and
+    # lost ~60 stories; on the shortest it is due 2.2 h later.
+    night = timedelta(hours=12.2)
+    at = T0 - timedelta(hours=2.2)
+    assert due(LastFetch(at, 50, at - night), T0, HOUR) is False
+    last = LastFetch(at, 50, at - night, 50, shortest_span=timedelta(hours=3.2))
+    assert due(last, T0, HOUR) is True
+    # A shortest span LONGER than the last page's changes nothing.
+    calm = LastFetch(at, 50, at - timedelta(hours=1.8), 50, shortest_span=night)
+    assert due(calm, T0, HOUR) is True

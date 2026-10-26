@@ -1,7 +1,7 @@
 # Truncated hourly news pages (decision 75)
 
 Date: 2026-10-25
-Status: measured, nothing built. Follows `research/news-never-answering-2026-10-24.md`.
+Status: built (A), 2026-10-25. Follows `research/news-never-answering-2026-10-24.md`.
 
 ## The gap
 
@@ -51,5 +51,24 @@ and by then the page no longer reaches back to 06:00.
 
 Not measured: whether any story lost was ever served under another term. These are
 ticker pages only.
+
+## Built
+
+Option A. `LastFetch.shortest_span` is the shortest span of the page's full fetches
+(the `is_full` rule) in the last `NEWS_ARCHIVE_SPAN_LOOKBACK_DAYS` (7). `last_fetches`
+reads it, and `due()` uses the shorter of it and the last page's span.
+
+Counted from the archive at build time:
+- 21 pages have a shortest span under 24 h. NVDA's is 1.9 h, from 2026-10-22, before
+  `own_tagged` was counted (`is_full` takes such a row by size).
+- If every hour were as dense as each page's densest, they would cost at most about
+  101 searches a day. In practice the night pages are longer, so it is fewer. The
+  estimate of 30 above counted only pages whose `own_tagged` was known.
+
+Tests:
+- `tests/unit/test_news_archive.py::test_a_page_whose_news_got_denser_is_due_by_its_shortest_span`
+  fails on a copy without the `min`.
+- `tests/test_news_archive_integration.py::test_last_fetches_carries_the_shortest_full_span_of_the_week`
+  checks a 10-day-old denser page is left out.
 
 Queries: session scratchpad `terms/` and `rm/`; all against `news_fetches`.

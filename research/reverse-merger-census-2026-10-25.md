@@ -1,7 +1,7 @@
 # Other reverse mergers (decision 76)
 
 Date: 2026-10-25
-Status: measured, nothing built. Follows `research/reverse-mergers-2026-10-25.md`
+Status: built (A), 2026-10-25. Follows `research/reverse-mergers-2026-10-25.md`
 (decision 74: KDP, JCI).
 
 ## The census
@@ -60,5 +60,12 @@ Today's values do not change.
 - **C. Turn signal A + B into a 06:00 line-check flag** (`RECAST?`), so a new reverse
   merger is caught when its first 10-K lands (1-1.5 h). It would need a reviewed list
   for the filers above that are not mergers.
+
+## Built
+
+Option A. TMUS, MRK, VRT and ECHO are listed in `settings.REVERSE_MERGERS`, each with
+what its 10-K re-reports. A re-run of the four histories moves exactly the measured
+points: TMUS 6, ECHO 2, VRT 3 (reason only), MRK 0. The line check flags 0 for them,
+KDP and JCI. Test: `tests/unit/test_reverse_mergers.py::test_the_census_finds_are_listed`.
 
 Queries: session scratchpad `rm/assets_recast.sql`, `rm/new_dates.sql`, `rm/impact.py`.

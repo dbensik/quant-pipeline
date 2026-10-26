@@ -92,3 +92,14 @@ def test_a_trailing_year_on_the_registrants_own_year_refuses():
 def test_kdp_and_jci_are_listed():
     assert settings.REVERSE_MERGERS["KDP"][0] == "2018-07-09"
     assert settings.REVERSE_MERGERS["JCI"][0] == "2016-09-02"
+
+
+def test_the_census_finds_are_listed():
+    # Decision 76 (research/reverse-merger-census-2026-10-25.md).
+    closes = {s: settings.REVERSE_MERGERS[s][0] for s in ("TMUS", "MRK", "VRT", "ECHO")}
+    assert closes == {
+        "TMUS": "2013-04-30",
+        "MRK": "2009-11-03",
+        "VRT": "2020-02-07",
+        "ECHO": "2023-12-31",
+    }

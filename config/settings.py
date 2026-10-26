@@ -1281,6 +1281,28 @@ REVERSE_MERGERS = {
         "the FY2016 10-K reports Johnson Controls Inc.'s years ($37,674M), Tyco's "
         "own 10-Ks Tyco's",
     ),
+    # Decision 76 (research/reverse-merger-census-2026-10-25.md): found by a
+    # census of total assets re-reported unlike their first filing.
+    "TMUS": (
+        "2013-04-30",
+        "T-Mobile USA acquired MetroPCS (the filer) for accounting; the FY2013 10-K "
+        "re-reports 2012-12-31 assets as $33.62B, MetroPCS filed $10.19B",
+    ),
+    "MRK": (
+        "2009-11-03",
+        "Merck acquired Schering-Plough (CIK 310158, the filer) for accounting; the "
+        "FY2009 10-K re-reports 2008-12-31 assets as $47.2B, Schering-Plough filed $28.1B",
+    ),
+    "VRT": (
+        "2020-02-07",
+        "Vertiv acquired GS Acquisition Holdings (a SPAC, the filer) for accounting; "
+        "2019-12-31 assets re-reported as $4.66B, the SPAC filed $0.71B",
+    ),
+    "ECHO": (
+        "2023-12-31",
+        "EchoStar and DISH combined under common control; the FY2023 10-K recasts "
+        "every prior year as combined (2022-12-31 assets $58.75B, EchoStar filed $6.20B)",
+    ),
 }
 
 #: A trailing year bridges two bases when the prior-year YTD it subtracts
@@ -1929,6 +1951,12 @@ NEWS_ARCHIVE_HOURLY_INTERVAL_HOURS = 1.0
 #: empty; the 22 new pages that started empty and later answered all did
 #: within 14 h of their first fetch.
 NEWS_ARCHIVE_NEVER_ANSWERED_HOURS = 24.0
+#: The hourly pass judges a page's span by the SHORTEST full span the page had
+#: in this many days, not the last one alone (decision 75,
+#: research/news-truncation-2026-10-25.md): the 06:00 page spans the night
+#: (NVDA 12-14 h), the day's news is denser (3-5 h), and waiting on the night's
+#: span lost ~138 stories in three days, 97 of them NVDA's.
+NEWS_ARCHIVE_SPAN_LOOKBACK_DAYS = 7
 #: A page counts as FULL only when at least this share of it is tagged with
 #: the symbol (decision 57 B step 2). A term matching no quote returns
 #: Yahoo's generic feed, ~48 stories of other tickers from the last ~3 hours;

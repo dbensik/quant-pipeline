@@ -41,6 +41,7 @@ from config.settings import (
     NEWS_ARCHIVE_NEVER_ANSWERED_HOURS,
     NEWS_ARCHIVE_OWN_SHARE,
     NEWS_ARCHIVE_RETRY_PAUSE_SECONDS,
+    NEWS_ARCHIVE_SPAN_LOOKBACK_DAYS,
     NEWS_ARCHIVE_WORKERS,
     NEWS_SEARCH_TERMS,
 )
@@ -207,6 +208,9 @@ class LastFetch:
     #: The (symbol, term)'s first successful fetch: how long a page that never
     #: answered has been asked (decision 69).
     first_fetched_at: Optional[datetime] = None
+    #: The shortest span of the page's FULL fetches in the last
+    #: NEWS_ARCHIVE_SPAN_LOOKBACK_DAYS (decision 75): how dense its news gets.
+    shortest_span: Optional[timedelta] = None
 
     @property
     def never_answered(self) -> bool:
@@ -256,6 +260,10 @@ def due(
     `never_answered_after` ago (decision 69): 51 such pages were 98% of the
     hourly searches. The 06:00 run still searches it, so one that comes alive
     is found the next morning.
+
+    The span is the shorter of the last page's and the page's shortest full
+    span in the last week (decision 75): the 06:00 page spans the quiet night,
+    and NVDA waited 12 h on it while the day's 50 stories covered 3-5 h.
     """
     if last is None:
         return True
@@ -268,6 +276,8 @@ def due(
     if not is_full(last.returned, last.own_tagged) or last.oldest_published_at is None:
         return False
     span = last.fetched_at - last.oldest_published_at
+    if last.shortest_span is not None:
+        span = min(span, last.shortest_span)
     return (now - last.fetched_at) + interval >= span
 
 
@@ -310,8 +320,22 @@ async def last_fetches(session: Any, symbols: List[str]) -> Dict[Tuple[str, str]
         .where(f.symbol.in_(symbols), f.error.is_(None))
         .group_by(f.symbol, f.search_term)
     )
+    full_since = now_utc() - timedelta(days=NEWS_ARCHIVE_SPAN_LOOKBACK_DAYS)
+    shortest = await session.execute(
+        select(f.symbol, f.search_term, func.min(f.fetched_at - f.oldest_published_at))
+        .where(
+            f.symbol.in_(symbols),
+            f.error.is_(None),
+            f.fetched_at >= full_since,
+            f.oldest_published_at.is_not(None),
+            f.returned >= NEWS_ARCHIVE_FULL_PAGE,
+            (f.own_tagged.is_(None)) | (f.own_tagged >= NEWS_ARCHIVE_OWN_SHARE * f.returned),
+        )
+        .group_by(f.symbol, f.search_term)
+    )
     stories_at = {(s, term): at for s, term, at in with_stories.all()}
     first_at = {(s, term): at for s, term, at in first.all()}
+    shortest_span = {(s, term): span for s, term, span in shortest.all()}
     return {
         (s, term): LastFetch(
             at,
@@ -320,6 +344,7 @@ async def last_fetches(session: Any, symbols: List[str]) -> Dict[Tuple[str, str]
             own,
             None if n else stories_at.get((s, term)),
             first_at.get((s, term)),
+            shortest_span.get((s, term)),
         )
         for s, term, at, n, oldest, own in newest.all()
     }

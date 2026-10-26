@@ -202,3 +202,29 @@ async def test_after_an_empty_answer_truncation_counts_from_the_last_stories(ses
         previous,
     )
     assert stored.window_truncated is True
+
+
+async def test_last_fetches_carries_the_shortest_full_span_of_the_week(session):
+    # Decision 75. Relative to now: the look-back is measured from the clock.
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+
+    def page(tag, at, span_hours):
+        return [
+            {
+                **item(f"zz-{tag}{i}", f"{tag} {i}", 0, ["ZZNEWS1"]),
+                "providerPublishTime": (at - timedelta(hours=span_hours * i / 49)).timestamp(),
+            }
+            for i in range(50)
+        ]
+
+    for tag, at, span in (
+        ("old", now - timedelta(days=10), 1.0),  # denser, but outside the week
+        ("day", now - timedelta(days=2), 3.0),
+        ("night", now - timedelta(hours=1), 12.0),
+    ):
+        await store_fetch(
+            session, Fetch("ZZNEWS1", "ZZNEWS1", page(tag, at, span), fetched_at=at), None
+        )
+    last = (await last_fetches(session, ["ZZNEWS1"]))[("ZZNEWS1", "ZZNEWS1")]
+    assert last.shortest_span == timedelta(hours=3)
+    assert due(last, now + timedelta(hours=1), timedelta(hours=1)) is True
