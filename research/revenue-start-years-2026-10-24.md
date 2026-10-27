@@ -93,3 +93,23 @@ Tests: `tests/unit/test_revenue_concept_order.py`:
 - the five entries.
 
 Each test fails on a copy with the entries removed.
+
+## Re-measured 2026-10-26 (closed)
+
+The same census and impact scripts, re-run after decisions 72 and 74:
+
+| | 2026-10-24 | 2026-10-26 |
+|---|---|---|
+| reads from a concept sharing no period | 606 on 43 filers | 451 on 36 |
+| points whose growth changes without them | 247 on 30 | 180 on 23 |
+| points moving value/price by 0.05 and 5% | 109 on 19 | 61 on 12 |
+
+- The seven gone are the five orders above (CAG, EBAY, GEN, FE, MA) and the two
+  reverse mergers (KDP, JCI).
+- The twelve left are exactly the "right as read" row of the triage: CLX, CTSH,
+  CVX, FCX, FIX, IP, MGM, MPC, SNA, TGT, WTW, XYL.
+- At every point both runs share, growth is identical, and no new point appears.
+
+Nothing further is built. The rule stays as it is: "require one shared period"
+would push the real acquisitions (WTW, MPC) to terminal growth, and the wrong
+reads it would catch are already fixed by per-filer orders.
