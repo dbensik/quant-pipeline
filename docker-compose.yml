@@ -30,7 +30,12 @@ services:
       # project's Postgres holds 5432, so a connection string here silently
       # reaches the wrong database. Different credentials are the only thing
       # that made that fail loudly rather than quietly.
-      - "15432:5432"
+      #
+      # Loopback only (2026-11-17): a bare "15432:5432" published the database,
+      # with its quant/quant password, to the whole home network. Both families,
+      # because host clients reach `localhost` as ::1 first.
+      - "127.0.0.1:15432:5432"
+      - "[::1]:15432:5432"
     volumes:
       - timescaledb_data:/var/lib/postgresql/data
     healthcheck:

@@ -74,6 +74,14 @@ Only the DB's **host** port moved. Inside the compose network services still
 address `timescaledb:5432`, so container-to-container config is unchanged —
 but anything connecting from the host needs `localhost:15432`.
 
+**The DB port is loopback only (2026-11-17).** `docker-compose.yml` publishes
+`127.0.0.1:15432` and `[::1]:15432`, not a bare `15432`, which had exposed the
+database (password `quant`) to every device on the home network. Both are needed:
+host clients reach `localhost` as `::1` first. Nothing off this Mac can connect;
+if another machine ever needs it, tunnel (`ssh -L`) rather than re-opening it.
+Changing ports recreates the container: `docker compose up -d timescaledb`
+(data is in the named volume; the app's pool reconnects).
+
 Ingestion goes through `core/ingest.py`, reached by both `POST /api/v1/ingest`
 and `cli.run_pipeline`. The SQLite `PipelineOrchestrator` was deleted on
 2026-08-09 — it wrote a database nothing read while reporting success.
