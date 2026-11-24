@@ -45,6 +45,15 @@ served the 09-30 bar as $77.65 on 4.03M shares — the pre-split price — so
 "already applied" multiplied it to $517.54 as traded, and the fresh-return
 check flagged +564.9pp / -91.7pp on 09-30 / 10-01 every morning from 10-08.
 It is now False. That bar was the only one stored that this rule reaches.
+
+Yahoo does not answer the question one way (decision 80, 2026-11-24,
+research/split-ex-date-fetch-2026-11-24.md). SNDK's 8:1 split, ex-date
+2026-11-20: the 06:03 ET fetch that morning served the 11-19 bar ALREADY
+divided by 8 ($94.39, raw $755.16), and False read it as $11.80. Nothing
+stored tells the two cases apart; only the price does. So False stays the
+rule, and an event a fetch on its ex-date had already applied is named in
+`config.settings.SPLITS_APPLIED_ON_EX_DATE`, after reading the bar
+(`Action.applied_on_ex_date`). The fresh-return check is what finds one.
 """
 
 from __future__ import annotations
@@ -81,6 +90,10 @@ class Action:
     kind: str  # SPLIT | DIVIDEND | MANUAL
     value: float  # ratio, dividend per share AS SERVED, or price factor
     fetched_at: datetime
+    #: A fetch made ON this event's ex-date already reflected it (decision 80):
+    #: the reviewed exception to APPLIED_ON_EX_DATE, set from
+    #: settings.SPLITS_APPLIED_ON_EX_DATE. Read for splits and manual factors.
+    applied_on_ex_date: bool = False
 
 
 @dataclass(frozen=True)
@@ -163,6 +176,34 @@ def _volume_events(actions: Sequence[Action]) -> _Cumulative:
     return _Cumulative([(a.ex_date, a.value) for a in actions if a.kind == SPLIT])
 
 
+def _early(actions: Sequence[Action], volume: bool = False) -> List[Tuple[date, float]]:
+    """The events named as applied by a fetch on their own ex-date, with the
+    multiplier `_price_events` (or `_volume_events`) gives each."""
+    out = []
+    for a in actions:
+        if not a.applied_on_ex_date:
+            continue
+        if a.kind == SPLIT:
+            out.append((a.ex_date, a.value if volume else 1.0 / a.value))
+        elif a.kind == MANUAL and not volume:
+            out.append((a.ex_date, a.value))
+    return out
+
+
+def _applied(
+    events: _Cumulative, early: Sequence[Tuple[date, float]], after: date, fetched_at: datetime
+) -> float:
+    """Product over the events a fetch at `fetched_at` had applied, of those
+    with an ex-date after `after`: every one up to the day before the fetch,
+    and a listed one on the fetch's own date."""
+    through = _last_applied(fetched_at)
+    m = events.between(after, through)
+    for ex_date, multiplier in early:
+        if ex_date == through + _ONE_DAY and ex_date > after:
+            m *= multiplier
+    return m
+
+
 def _mul(value: Optional[float], factor: float) -> Optional[float]:
     return None if value is None else value * factor
 
@@ -176,11 +217,11 @@ def to_raw(bars: Sequence[ServedBar], actions: Sequence[Action]) -> List[Bar]:
     the served value is divided by that product to get back to raw.
     """
     price, volume = _price_events(actions), _volume_events(actions)
+    early_price, early_volume = _early(actions), _early(actions, volume=True)
     out = []
     for b in bars:
-        through = _last_applied(b.fetched_at)
-        p = price.between(b.day, through)
-        v = volume.between(b.day, through)
+        p = _applied(price, early_price, b.day, b.fetched_at)
+        v = _applied(volume, early_volume, b.day, b.fetched_at)
         out.append(
             Bar(
                 day=b.day,
@@ -206,9 +247,9 @@ def raw_dividends(actions: Sequence[Action]) -> List[Tuple[date, float]]:
     the day out read TMUS's 2013-05-01 as +6.2% against Yahoo's -15.8%, EXPE
     2011-12-21 +37 pp and DHR 2016-07-05 -19 pp off.
     """
-    price = _price_events(actions)
+    price, early = _price_events(actions), _early(actions)
     return sorted(
-        (a.ex_date, a.value / price.between(a.ex_date - _ONE_DAY, _last_applied(a.fetched_at)))
+        (a.ex_date, a.value / _applied(price, early, a.ex_date - _ONE_DAY, a.fetched_at))
         for a in actions
         if a.kind == DIVIDEND
     )

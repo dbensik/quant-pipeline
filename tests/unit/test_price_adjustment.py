@@ -76,6 +76,43 @@ def test_a_bar_fetched_on_the_ex_date_morning_is_not_yet_split():
     assert closes(to_raw([bar], [ctva_split])) == [pytest.approx(77.65)]
 
 
+SNDK_SPLIT = Action(date(2026, 11, 20), "split", 8.0, LATER)
+# Fetched 06:03 ET on the ex-date, already divided by 8 (decision 80).
+SNDK_BARS = [
+    served(date(2026, 11, 18), 776.22, at(date(2026, 11, 19), hour=11), volume=100_822_664 / 8),
+    served(date(2026, 11, 19), 94.395, at(date(2026, 11, 20), hour=11), volume=119_852_712),
+]
+
+
+def test_an_unlisted_split_on_the_ex_date_morning_reads_as_not_applied():
+    """What every reader got for SNDK from 2026-11-20: $11.80, an 88% day."""
+    assert closes(adjust(SNDK_BARS, [SNDK_SPLIT], "split")) == [97.0275, pytest.approx(11.7994)]
+
+
+def test_a_listed_split_was_applied_by_the_fetch_on_its_ex_date():
+    listed = Action(SNDK_SPLIT.ex_date, "split", 8.0, LATER, applied_on_ex_date=True)
+    assert closes(to_raw(SNDK_BARS, [listed])) == [776.22, pytest.approx(755.16)]
+    split = adjust(SNDK_BARS, [listed], "split")
+    # Yahoo's own split-basis closes, 2026-11-24.
+    assert closes(split) == [97.0275, pytest.approx(94.395)]
+    assert split[1].volume == pytest.approx(119_852_712)
+    assert split[0].volume == pytest.approx(100_822_664)
+
+
+def test_a_listed_split_changes_no_bar_fetched_on_another_day():
+    listed = Action(SNDK_SPLIT.ex_date, "split", 8.0, LATER, applied_on_ex_date=True)
+    before = served(date(2026, 11, 18), 776.22, at(date(2026, 11, 19), hour=11))
+    after = served(date(2026, 11, 18), 97.0275, at(date(2026, 11, 21), hour=11))
+    assert closes(to_raw([before, after], [listed])) == [776.22, pytest.approx(776.22)]
+
+
+def test_listing_one_split_leaves_ctva_as_it_was():
+    ctva_split = Action(date(2026, 10, 1), "split", 6.665, LATER)
+    sndk = Action(SNDK_SPLIT.ex_date, "split", 8.0, LATER, applied_on_ex_date=True)
+    bar = served(date(2026, 9, 30), 77.65, at(date(2026, 10, 1), hour=10))
+    assert closes(to_raw([bar], [ctva_split, sndk])) == [pytest.approx(77.65)]
+
+
 def test_the_rule_is_the_only_switch(monkeypatch):
     # The refuted rule, switched back on, multiplies the same bar: 120.888 x 10.
     bar = served(date(2024, 6, 7), 120.888, at(date(2024, 6, 10), hour=10))
@@ -238,3 +275,19 @@ def test_an_evening_fetch_is_dated_in_new_york_not_utc():
     evening = datetime(2024, 6, 10, 1, tzinfo=timezone.utc)
     bar = served(date(2024, 6, 7), 1208.88, evening)
     assert closes(to_raw([bar], [NVDA_SPLIT])) == [1208.88]
+
+
+def test_the_repository_marks_only_the_listed_event():
+    from types import SimpleNamespace
+
+    from db.repositories.market_data import _action
+
+    row = SimpleNamespace(ex_date=date(2026, 11, 20), kind="split", value=8.0, fetched_at=LATER)
+    assert _action("SNDK", row).applied_on_ex_date is True
+    assert _action("AAPL", row).applied_on_ex_date is False
+    assert (
+        _action(
+            "SNDK", SimpleNamespace(**{**vars(row), "ex_date": date(2026, 11, 19)})
+        ).applied_on_ex_date
+        is False
+    )

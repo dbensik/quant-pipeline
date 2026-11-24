@@ -196,7 +196,11 @@ are still written, because legacy, crypto and several scripts read them.
 `scripts/check_fresh_returns.py` (06:00 job) compares 30 sessions against a
 fresh Yahoo fetch — it went from 250 mismatched days on stored prices to 0 at
 cutover, and it is what catches an unlisted spinoff (HWM-type), a dividend
-Yahoo later corrects, or a wrong morning-split rule.
+Yahoo later corrects, or a wrong morning-split rule. That rule (`APPLIED_ON_EX_DATE`: a fetch on
+an ex-date does not yet reflect it) holds for CTVA 2026-10-01 and not for
+SNDK 2026-11-20, whose ex-date-morning bar was already split; Yahoo answers
+both ways, so an exception is listed in `SPLITS_APPLIED_ON_EX_DATE` after
+reading the bar (decision 80, `research/split-ex-date-fetch-2026-11-24.md`).
 
 **`top_100_crypto` needs a CoinGecko key** (since 2026-09-29). Keyless
 requests to `/coins/markets` get a 403 from this machine, and the snapshot then

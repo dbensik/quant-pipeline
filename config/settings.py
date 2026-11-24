@@ -1057,6 +1057,19 @@ LINE_CONCEPTS_REVIEWED = {
 
 # --- Spin-offs (decision 58, research/spinoff-basis-2026-10-23.md) ---
 #
+# Splits a fetch made ON their ex-date had already applied (decision 80,
+# research/split-ex-date-fetch-2026-11-24.md): (symbol, ex-date) -> what the
+# bar showed. core.price_adjustment.APPLIED_ON_EX_DATE (False, from CTVA
+# 2026-10-01) holds for every other event; Yahoo answers both ways, and only
+# the price shows which. Add one only after reading the bar fetched that
+# morning against the one before; the fresh-return check (MISMATCH) finds them.
+SPLITS_APPLIED_ON_EX_DATE = {
+    ("SNDK", "2026-11-20"): (
+        "8:1; fetched 2026-11-20 06:03 ET, the 11-19 bar served at $94.39 against "
+        "11-18's $776.22: already divided by 8 (raw $755.16)"
+    ),
+}
+
 # Yahoo serves a spin-off as a "split" whose ratio is the price adjustment
 # (HON 2025-10-30 1.061 for Solstice). That is right for adjusting returns
 # and wrong for a share count: a spin leaves the count alone, and the DCF had

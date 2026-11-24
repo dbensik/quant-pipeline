@@ -65,6 +65,18 @@ def _served_columns(record: MarketDataRecord) -> dict:
     }
 
 
+def _action(symbol: str, row: CorporateActionORM) -> Action:
+    """A stored action as price adjustment reads it, with decision 80's
+    reviewed exception: an event a fetch on its ex-date already reflected."""
+    return Action(
+        row.ex_date,
+        row.kind,
+        row.value,
+        row.fetched_at,
+        applied_on_ex_date=(symbol, row.ex_date.isoformat()) in settings.SPLITS_APPLIED_ON_EX_DATE,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Protocol — the interface every storage backend must satisfy
 # ---------------------------------------------------------------------------
@@ -461,7 +473,7 @@ class TimescaleMarketDataRepo:
             return None
 
         actions = [
-            Action(a.ex_date, a.kind, a.value, a.fetched_at)
+            _action(asset.symbol, a)
             for a in (
                 await self.session.execute(
                     select(CorporateActionORM).where(CorporateActionORM.asset_id == asset.id)
@@ -520,10 +532,7 @@ class TimescaleMarketDataRepo:
             .where(AssetORM.symbol == symbol)
             .order_by(CorporateActionORM.ex_date)
         )
-        return [
-            Action(a.ex_date, a.kind, a.value, a.fetched_at)
-            for a in (await self.session.execute(stmt)).scalars()
-        ]
+        return [_action(symbol, a) for a in (await self.session.execute(stmt)).scalars()]
 
     async def find_asset(self, symbol: str, asset_class: Optional[str] = None) -> Optional[Asset]:
         """
