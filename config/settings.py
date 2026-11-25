@@ -1556,11 +1556,14 @@ CRYPTO_MEMBERS_NOT_REGISTERED = {
         s: "stablecoin"
         for s in (
             "BFUSD-USD",
+            "EURC-USD",
             "GHO-USD",
             "OUSD-USD",
             "PYUSD-USD",
             "RLUSD-USD",
+            "TUSD-USD",
             "U-USD",
+            "USD0-USD",
             "USDD-USD",
             "USDF-USD",
             "USDG-USD",
@@ -1587,6 +1590,10 @@ CRYPTO_MEMBERS_NOT_REGISTERED = {
     "PRL-USD": "unpriceable: no Yahoo ticker found (bare PRL-USD is The Parallel)",
     "RAIN-USD": "unpriceable: no Yahoo ticker found",
     "STABLE-USD": "unpriceable: no Yahoo ticker found",
+    "币安人生-USD": (
+        "unpriceable: no Yahoo ticker found (CoinGecko bianrensheng, BinanceLife;"
+        " searched 2026-11-24)"
+    ),
 }
 
 CRYPTO_ID_OVERRIDES = {
